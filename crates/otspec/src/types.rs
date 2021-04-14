@@ -1,6 +1,4 @@
-use chrono::NaiveDateTime;
-use serde::Deserialize;
-use serde::Deserializer;
+#![allow(unused_must_use, non_snake_case, non_camel_case_types)]
 use std::convert::TryInto;
 use std::fmt;
 
@@ -11,22 +9,29 @@ pub type uint16 = u16;
 pub type uint32 = u32;
 pub type int16 = i16;
 
-pub type LONGDATETIME = NaiveDateTime;
-
-#[derive(Debug, PartialEq)]
-pub struct Fixed(pub f32);
-
 fn ot_round(value: f32) -> i32 {
     (value + 0.5).floor() as i32
 }
 
-impl Serialize for Fixed {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+pub mod Fixed {
+    use crate::types::ot_round;
+    use crate::types::I32Visitor;
+    use serde::{Deserializer, Serializer};
+
+    pub fn serialize<S>(v: &f32, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let fixed = ot_round(self.0 * 65536.0);
+        let fixed = ot_round(v * 65536.0);
         serializer.serialize_i32(fixed)
+    }
+
+    fn deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let orig = deserializer.deserialize_i32(I32Visitor)?;
+        Ok((orig as f32) / 65536.0)
     }
 }
 
@@ -58,23 +63,12 @@ impl<'de> Visitor<'de> for I32Visitor {
     }
 }
 
-impl<'de> Deserialize<'de> for Fixed {
-    fn deserialize<D>(deserializer: D) -> Result<Fixed, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let orig = deserializer.deserialize_i32(I32Visitor)?;
-        Ok(Fixed((orig as f32) / 65536.0))
-    }
-}
-
-pub mod LONGDATETIMEshim {
-    use crate::types::LONGDATETIME;
+pub mod LONGDATETIME {
     use chrono::Duration;
     use chrono::NaiveDate;
     use serde::{Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S>(v: &LONGDATETIME, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(v: &chrono::NaiveDateTime, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -83,7 +77,7 @@ pub mod LONGDATETIMEshim {
         serializer.serialize_i64(now - epoch)
     }
 
-    pub fn deserialize<'de, D>(d: D) -> Result<LONGDATETIME, D::Error>
+    pub fn deserialize<'de, D>(d: D) -> Result<chrono::NaiveDateTime, D::Error>
     where
         D: Deserializer<'de>,
     {

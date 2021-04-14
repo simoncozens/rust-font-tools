@@ -1,6 +1,6 @@
 #![allow(non_camel_case_types, non_snake_case)]
 
-use crate::types::{uint16, Counted, F2DOT14};
+use otspec::types::*;
 use serde::Serialize;
 
 // #[derive(Serialize, Debug, PartialEq)]
@@ -27,8 +27,8 @@ pub struct avar {
 #[cfg(test)]
 mod tests {
     use crate::avar;
-    use crate::ser;
-    use crate::types::F2DOT14;
+    use otspec::ser;
+    use otspec::types::F2DOT14;
 
     #[test]
     fn avar_ser() {

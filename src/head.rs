@@ -1,44 +1,44 @@
 #![allow(non_camel_case_types, non_snake_case)]
 
-use crate::types::{int16, uint16, uint32, Fixed, LONGDATETIMEshim, LONGDATETIME};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct head {
-    pub majorVersion: uint16,
-    pub minorVersion: uint16,
-    pub fontRevision: Fixed,
-    pub checksumAdjustment: uint32,
-    pub magicNumber: uint32,
-    pub flags: uint16,
-    pub unitsPerEm: uint16,
-    #[serde(with = "LONGDATETIMEshim")]
-    pub created: LONGDATETIME,
-    #[serde(with = "LONGDATETIMEshim")]
-    pub modified: LONGDATETIME,
-    pub xMin: int16,
-    pub yMin: int16,
-    pub xMax: int16,
-    pub yMax: int16,
-    pub macStyle: uint16,
-    pub lowestRecPPEM: uint16,
-    pub fontDirectionHint: int16,
-    pub indexToLocFormat: int16,
-    pub glyphDataFormat: int16,
-}
+extern crate otspec;
+
+use otspec::types::*;
+use otspec_macros::table;
+
+table!(head {
+    uint16 majorVersion
+    uint16 minorVersion
+    Fixed fontRevision
+    uint32 checksumAdjustment
+    uint32 magicNumber
+    uint16 flags
+    uint16 unitsPerEm
+    LONGDATETIME created
+    LONGDATETIME modified
+    int16 xMin
+    int16 yMin
+    int16 xMax
+    int16 yMax
+    uint16 macStyle
+    uint16 lowestRecPPEM
+    int16 fontDirectionHint
+    int16 indexToLocFormat
+    int16 glyphDataFormat
+});
 
 #[cfg(test)]
 mod tests {
     use crate::head::head;
-    use crate::ser;
-    use crate::types::{Fixed, F2DOT14};
+    use otspec::ser;
 
     #[test]
     fn head_ser() {
         let fhead = head {
             majorVersion: 1,
             minorVersion: 0,
-            fontRevision: Fixed(1.0),
+            fontRevision: 1.0,
             checksumAdjustment: 0xaf8fe61,
             magicNumber: 0x5F0F3CF5,
             flags: 0b0000000000000011,
