@@ -47,7 +47,7 @@ fn expect_ident(item: Option<TokenTree>) -> String {
 fn special_type(t: &str) -> Option<String> {
     match t {
         "Fixed" => Some("f32".to_string()),
-        "F2DOT16" => Some("f32".to_string()),
+        "F2DOT14" => Some("f32".to_string()),
         "LONGDATETIME" => Some("chrono::NaiveDateTime".to_string()),
         _ => None,
     }
@@ -60,7 +60,6 @@ pub fn table(item: TokenStream) -> TokenStream {
 
     // First parse table name
     let table_name = expect_ident(iter.next());
-    assert!(table_name.len() == 4);
     let mut out_s = format!(
         "#[derive(Serialize, Debug, PartialEq)]\npub struct {} {{",
         table_name
@@ -75,11 +74,11 @@ pub fn table(item: TokenStream) -> TokenStream {
         }
         let t = expect_ident(maybe_t);
         if t == "Counted" {
-            let subtype = expect_ident(
-                expect_group(table_def.next(), Delimiter::Parenthesis)
-                    .into_iter()
-                    .next(),
-            );
+            let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
+                .into_iter()
+                .next()
+                .unwrap()
+                .to_string();
             out_s.push_str("#[serde(with = \"Counted\")]\n");
             let name = expect_ident(table_def.next());
             out_s.push_str(&format!("pub {} : Vec<{}>,\n", name, subtype))

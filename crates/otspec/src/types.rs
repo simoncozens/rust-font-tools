@@ -35,18 +35,20 @@ pub mod Fixed {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct F2DOT14(pub f32);
+pub mod F2DOT14 {
+    use crate::types::ot_round;
+    use serde::Serializer;
+    use std::convert::TryInto;
 
-impl Serialize for F2DOT14 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(v: &f32, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let fixed = ot_round(self.0 * 16384.0);
+        let fixed = ot_round(v * 16384.0);
         serializer.serialize_i16(fixed.try_into().unwrap())
     }
 }
+
 struct I32Visitor;
 
 impl<'de> Visitor<'de> for I32Visitor {

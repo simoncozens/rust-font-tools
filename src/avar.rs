@@ -4,16 +4,28 @@ use otspec::types::*;
 use otspec_macros::table;
 use serde::Serialize;
 
-// #[derive(Serialize, Debug, PartialEq)]
-// pub struct AxisValueMap {
-//     pub fromCoordinate: F2DOT14,
-//     pub toCoordinate: F2DOT14,
-// }
+table!(AxisValueMap {
+    F2DOT14 fromCoordinate
+    F2DOT14 toCoordinate
+});
 
-#[derive(Serialize, Debug, PartialEq)]
-pub struct SegmentMap {
-    #[serde(with = "Counted")]
-    pub axisValueMaps: Vec<(F2DOT14, F2DOT14)>,
+table!(SegmentMap {
+    Counted(AxisValueMap) axisValueMaps
+});
+
+impl SegmentMap {
+    fn new(items: Vec<(f32, f32)>) -> Self {
+        let maps = items
+            .iter()
+            .map(|i| AxisValueMap {
+                fromCoordinate: i.0,
+                toCoordinate: i.1,
+            })
+            .collect();
+        SegmentMap {
+            axisValueMaps: maps,
+        }
+    }
 }
 
 table!(avar {
@@ -27,7 +39,6 @@ table!(avar {
 mod tests {
     use crate::avar;
     use otspec::ser;
-    use otspec::types::F2DOT14;
 
     #[test]
     fn avar_ser() {
@@ -36,26 +47,18 @@ mod tests {
             minorVersion: 0,
             reserved: 0,
             axisSegmentMaps: vec![
-                avar::SegmentMap {
-                    axisValueMaps: vec![
-                        (F2DOT14(-1.0), F2DOT14(-1.0)),
-                        (F2DOT14(0.0), F2DOT14(0.0)),
-                        (F2DOT14(0.125), F2DOT14(0.11444)),
-                        (F2DOT14(0.25), F2DOT14(0.2349)),
-                        (F2DOT14(0.5), F2DOT14(0.3554)),
-                        (F2DOT14(0.625), F2DOT14(0.5)),
-                        (F2DOT14(0.75), F2DOT14(0.6566)),
-                        (F2DOT14(0.875), F2DOT14(0.8193)),
-                        (F2DOT14(1.0), F2DOT14(1.0)),
-                    ],
-                },
-                avar::SegmentMap {
-                    axisValueMaps: vec![
-                        (F2DOT14(-1.0), F2DOT14(-1.0)),
-                        (F2DOT14(0.0), F2DOT14(0.0)),
-                        (F2DOT14(1.0), F2DOT14(1.0)),
-                    ],
-                },
+                avar::SegmentMap::new(vec![
+                    (-1.0, -1.0),
+                    (0.0, 0.0),
+                    (0.125, 0.11444),
+                    (0.25, 0.2349),
+                    (0.5, 0.3554),
+                    (0.625, 0.5),
+                    (0.75, 0.6566),
+                    (0.875, 0.8193),
+                    (1.0, 1.0),
+                ]),
+                avar::SegmentMap::new(vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)]),
             ],
         };
         let binary_avar = vec![
