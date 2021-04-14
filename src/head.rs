@@ -1,6 +1,4 @@
-#![allow(non_camel_case_types, non_snake_case)]
-
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 extern crate otspec;
 
