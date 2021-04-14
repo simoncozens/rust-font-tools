@@ -54,44 +54,52 @@ fn special_type(t: &str) -> Option<String> {
 }
 
 #[proc_macro]
-pub fn table(item: TokenStream) -> TokenStream {
+pub fn tables(item: TokenStream) -> TokenStream {
     let mut output = TokenStream::new();
     let mut iter = item.into_iter();
-
-    // First parse table name
-    let table_name = expect_ident(iter.next());
-    let mut out_s = format!(
-        "#[derive(Serialize, Debug, PartialEq)]\npub struct {} {{",
-        table_name
-    );
-
-    let mut table_def = expect_group(iter.next(), Delimiter::Brace).into_iter();
+    let mut out_s = String::new();
 
     loop {
-        let maybe_t = table_def.next();
-        if maybe_t.is_none() {
+        // First parse table name
+        let maybe_table_name = iter.next();
+        if maybe_table_name.is_none() {
             break;
         }
-        let t = expect_ident(maybe_t);
-        if t == "Counted" {
-            let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
-                .into_iter()
-                .next()
-                .unwrap()
-                .to_string();
-            out_s.push_str("#[serde(with = \"Counted\")]\n");
-            let name = expect_ident(table_def.next());
-            out_s.push_str(&format!("pub {} : Vec<{}>,\n", name, subtype))
-        } else if let Some(nonspecial_type) = special_type(&t) {
-            out_s.push_str(&format!("#[serde(with = \"{}\")]\n", t));
-            let name = expect_ident(table_def.next());
-            out_s.push_str(&format!("pub {} : {},\n", name, nonspecial_type))
-        } else {
-            let name = expect_ident(table_def.next());
-            out_s.push_str(&format!("pub {} : {},\n", name, t))
+
+        let table_name = expect_ident(maybe_table_name);
+        out_s.push_str(&format!(
+            "#[derive(Serialize, Debug, PartialEq)]\npub struct {} {{",
+            table_name
+        ));
+
+        let mut table_def = expect_group(iter.next(), Delimiter::Brace).into_iter();
+
+        loop {
+            let maybe_t = table_def.next();
+            if maybe_t.is_none() {
+                break;
+            }
+            let t = expect_ident(maybe_t);
+            if t == "Counted" {
+                let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .to_string();
+                out_s.push_str("#[serde(with = \"Counted\")]\n");
+                let name = expect_ident(table_def.next());
+                out_s.push_str(&format!("pub {} : Vec<{}>,\n", name, subtype))
+            } else if let Some(nonspecial_type) = special_type(&t) {
+                out_s.push_str(&format!("#[serde(with = \"{}\")]\n", t));
+                let name = expect_ident(table_def.next());
+                out_s.push_str(&format!("pub {} : {},\n", name, nonspecial_type))
+            } else {
+                let name = expect_ident(table_def.next());
+                out_s.push_str(&format!("pub {} : {},\n", name, t))
+            }
         }
+        out_s.push('}');
     }
-    out_s.push('}');
     let ts1: TokenStream = out_s.parse().unwrap();
     output.extend(ts1);
     output

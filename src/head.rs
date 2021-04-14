@@ -3,9 +3,9 @@ use serde::Serialize;
 extern crate otspec;
 
 use otspec::types::*;
-use otspec_macros::table;
+use otspec_macros::tables;
 
-table!(head {
+tables!(head {
     uint16 majorVersion
     uint16 minorVersion
     Fixed fontRevision

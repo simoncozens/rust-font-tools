@@ -1,24 +1,26 @@
 #![allow(non_camel_case_types, non_snake_case)]
 
 use otspec::types::*;
-use otspec_macros::table;
+use otspec_macros::tables;
 use serde::Serialize;
 
-table!(AxisValueMap {
-    F2DOT14 fromCoordinate
-    F2DOT14 toCoordinate
-});
+tables!(
+    AxisValueMap {
+        F2DOT14 fromCoordinate
+        F2DOT14 toCoordinate
+    }
 
-table!(SegmentMap {
-    Counted(AxisValueMap) axisValueMaps
-});
+    SegmentMap {
+        Counted(AxisValueMap) axisValueMaps
+    }
 
-table!(avar {
-    uint16 majorVersion
-    uint16 minorVersion
-    uint16 reserved
-    Counted(SegmentMap) axisSegmentMaps
-});
+    avar {
+        uint16 majorVersion
+        uint16 minorVersion
+        uint16 reserved
+        Counted(SegmentMap) axisSegmentMaps
+    }
+);
 
 impl SegmentMap {
     fn new(items: Vec<(f32, f32)>) -> Self {
