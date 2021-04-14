@@ -15,6 +15,15 @@ where
     Ok(serializer.output)
 }
 
+macro_rules! serialize_number_type {
+    ($func:ident, $type:ty) => {
+        fn $func(self, v: $type) -> Result<()> {
+            self.output.extend_from_slice(&v.to_be_bytes());
+            Ok(())
+        }
+    };
+}
+
 impl<'a> ser::Serializer for &'a mut Serializer {
     type Ok = ();
     type Error = Error;
@@ -31,54 +40,16 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     type SerializeStruct = Self;
     type SerializeStructVariant = Self;
 
-    fn serialize_i8(self, v: i8) -> Result<()> {
-        self.output.extend_from_slice(&v.to_be_bytes());
-        Ok(())
-    }
-
-    fn serialize_i16(self, v: i16) -> Result<()> {
-        self.output.extend_from_slice(&v.to_be_bytes());
-        Ok(())
-    }
-
-    fn serialize_i32(self, v: i32) -> Result<()> {
-        self.output.extend_from_slice(&v.to_be_bytes());
-        Ok(())
-    }
-
-    fn serialize_i64(self, v: i64) -> Result<()> {
-        self.output.extend_from_slice(&v.to_be_bytes());
-        Ok(())
-    }
-
-    fn serialize_u8(self, v: u8) -> Result<()> {
-        self.serialize_u64(u64::from(v))
-    }
-
-    fn serialize_u16(self, v: u16) -> Result<()> {
-        self.output.extend_from_slice(&v.to_be_bytes());
-        Ok(())
-    }
-
-    fn serialize_u32(self, v: u32) -> Result<()> {
-        self.output.extend_from_slice(&v.to_be_bytes());
-        Ok(())
-    }
-
-    fn serialize_u64(self, v: u64) -> Result<()> {
-        self.output.extend_from_slice(&v.to_be_bytes());
-        Ok(())
-    }
-
-    fn serialize_f32(self, v: f32) -> Result<()> {
-        self.output.extend_from_slice(&v.to_be_bytes());
-        Ok(())
-    }
-
-    fn serialize_f64(self, v: f64) -> Result<()> {
-        self.output.extend_from_slice(&v.to_be_bytes());
-        Ok(())
-    }
+    serialize_number_type!(serialize_i8, i8);
+    serialize_number_type!(serialize_i16, i16);
+    serialize_number_type!(serialize_i32, i32);
+    serialize_number_type!(serialize_i64, i64);
+    serialize_number_type!(serialize_u8, u8);
+    serialize_number_type!(serialize_u16, u16);
+    serialize_number_type!(serialize_u32, u32);
+    serialize_number_type!(serialize_u64, u64);
+    serialize_number_type!(serialize_f32, f32);
+    serialize_number_type!(serialize_f64, f64);
 
     // Serialize a char as a single-character string. Other formats may
     // represent this differently.
