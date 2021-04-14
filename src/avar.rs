@@ -1,6 +1,7 @@
 #![allow(non_camel_case_types, non_snake_case)]
 
 use otspec::types::*;
+use otspec_macros::table;
 use serde::Serialize;
 
 // #[derive(Serialize, Debug, PartialEq)]
@@ -15,14 +16,12 @@ pub struct SegmentMap {
     pub axisValueMaps: Vec<(F2DOT14, F2DOT14)>,
 }
 
-#[derive(Serialize, Debug, PartialEq)]
-pub struct avar {
-    pub majorVersion: uint16,
-    pub minorVersion: uint16,
-    pub reserved: uint16,
-    #[serde(with = "Counted")]
-    pub axisSegmentMaps: Vec<SegmentMap>,
-}
+table!(avar {
+    uint16 majorVersion
+    uint16 minorVersion
+    uint16 reserved
+    Counted(SegmentMap) axisSegmentMaps
+});
 
 #[cfg(test)]
 mod tests {

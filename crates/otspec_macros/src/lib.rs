@@ -74,11 +74,21 @@ pub fn table(item: TokenStream) -> TokenStream {
             break;
         }
         let t = expect_ident(maybe_t);
-        let name = expect_ident(table_def.next());
-        if let Some(nonspecial_type) = special_type(&t) {
+        if t == "Counted" {
+            let subtype = expect_ident(
+                expect_group(table_def.next(), Delimiter::Parenthesis)
+                    .into_iter()
+                    .next(),
+            );
+            out_s.push_str("#[serde(with = \"Counted\")]\n");
+            let name = expect_ident(table_def.next());
+            out_s.push_str(&format!("pub {} : Vec<{}>,\n", name, subtype))
+        } else if let Some(nonspecial_type) = special_type(&t) {
             out_s.push_str(&format!("#[serde(with = \"{}\")]\n", t));
+            let name = expect_ident(table_def.next());
             out_s.push_str(&format!("pub {} : {},\n", name, nonspecial_type))
         } else {
+            let name = expect_ident(table_def.next());
             out_s.push_str(&format!("pub {} : {},\n", name, t))
         }
     }
