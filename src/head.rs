@@ -1,9 +1,9 @@
 #![allow(non_camel_case_types, non_snake_case)]
 
 use crate::types::{int16, uint16, uint32, Fixed, LONGDATETIMEshim, LONGDATETIME};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct head {
     pub majorVersion: uint16,
     pub minorVersion: uint16,
