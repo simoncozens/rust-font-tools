@@ -1,6 +1,6 @@
-use serde::{ser, Serialize};
-
 use crate::error::{Error, Result};
+use serde::{ser, Serialize};
+use std::convert::TryInto;
 
 pub struct Serializer {
     output: Vec<u8>,
@@ -122,16 +122,15 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     {
         value.serialize(self)
     }
-    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
+    fn serialize_seq(self, maybelen: Option<usize>) -> Result<Self::SerializeSeq> {
+        if let Some(len) = maybelen {
+            self.serialize_u16(len.try_into().unwrap());
+        }
         Ok(self)
     }
 
-    // Tuples look just like sequences in JSON. Some formats may be able to
-    // represent tuples more efficiently by omitting the length, since tuple
-    // means that the corresponding `Deserialize implementation will know the
-    // length without needing to look at the serialized data.
     fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
-        self.serialize_seq(Some(len))
+        self.serialize_seq(None)
     }
 
     // Tuple structs look just like sequences in JSON.

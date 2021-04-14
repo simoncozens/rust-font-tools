@@ -1,17 +1,20 @@
 use chrono::NaiveDateTime;
 use serde::Deserialize;
 use serde::Deserializer;
+use std::convert::TryInto;
 use std::fmt;
 
 use serde::de::{self, Visitor};
 use serde::{Serialize, Serializer};
 
 pub type uint16 = u16;
+pub type uint32 = u32;
+pub type int16 = i16;
+
+pub type LONGDATETIME = NaiveDateTime;
+
 #[derive(Debug, PartialEq)]
 pub struct Fixed(pub f32);
-pub type uint32 = u32;
-pub type LONGDATETIME = NaiveDateTime;
-pub type int16 = i16;
 
 fn ot_round(value: f32) -> i32 {
     (value + 0.5).floor() as i32
@@ -27,6 +30,18 @@ impl Serialize for Fixed {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub struct F2DOT14(pub f32);
+
+impl Serialize for F2DOT14 {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let fixed = ot_round(self.0 * 16384.0);
+        serializer.serialize_i16(fixed.try_into().unwrap())
+    }
+}
 struct I32Visitor;
 
 impl<'de> Visitor<'de> for I32Visitor {
@@ -76,5 +91,23 @@ pub mod LONGDATETIMEshim {
         let epoch = NaiveDate::from_ymd(1904, 1, 1).and_hms(0, 0, 0);
         let res = epoch + Duration::seconds(diff);
         Ok(res)
+    }
+}
+
+pub mod Counted {
+    use serde::ser::SerializeSeq;
+    use serde::Serialize;
+    use serde::Serializer;
+
+    pub fn serialize<S, T>(v: &[T], serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+        T: Serialize,
+    {
+        let mut my_seq = serializer.serialize_seq(Some(v.len()))?;
+        for k in v {
+            my_seq.serialize_element(&k)?;
+        }
+        my_seq.end()
     }
 }
