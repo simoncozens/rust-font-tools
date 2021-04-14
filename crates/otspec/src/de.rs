@@ -25,11 +25,11 @@ where
 {
     let mut deserializer = Deserializer::from_bytes(s);
     let t = T::deserialize(&mut deserializer)?;
-    if deserializer.input.is_empty() {
-        Ok(t)
-    } else {
-        Err(Error::TrailingCharacters)
-    }
+    // if deserializer.input.is_empty() {
+    Ok(t)
+    // } else {
+    // Err(Error::TrailingCharacters)
+    // }
 }
 
 impl<'de> Deserializer<'de> {
@@ -66,6 +66,16 @@ macro_rules! deserialize_number_type {
             visitor.$visitor(i)
         }
     };
+}
+
+impl<'de, 'a> SeqAccess<'de> for Deserializer<'de> {
+    type Error = Error;
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        seed.deserialize(self).map(Some)
+    }
 }
 
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
@@ -182,7 +192,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        unimplemented!()
+        visitor.visit_seq(self)
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>

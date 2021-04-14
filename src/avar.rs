@@ -2,7 +2,7 @@
 
 use otspec::types::*;
 use otspec_macros::tables;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 tables!(
     AxisValueMap {

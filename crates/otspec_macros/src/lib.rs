@@ -68,7 +68,7 @@ pub fn tables(item: TokenStream) -> TokenStream {
 
         let table_name = expect_ident(maybe_table_name);
         out_s.push_str(&format!(
-            "#[derive(Serialize, Debug, PartialEq)]\npub struct {} {{",
+            "#[derive(Serialize, Deserialize, Debug, PartialEq)]\npub struct {} {{",
             table_name
         ));
 

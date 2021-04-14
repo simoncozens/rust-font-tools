@@ -26,7 +26,7 @@ pub mod Fixed {
         serializer.serialize_i32(fixed)
     }
 
-    fn deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -37,7 +37,8 @@ pub mod Fixed {
 
 pub mod F2DOT14 {
     use crate::types::ot_round;
-    use serde::Serializer;
+    use crate::types::I32Visitor;
+    use serde::{Deserializer, Serializer};
     use std::convert::TryInto;
 
     pub fn serialize<S>(v: &f32, serializer: S) -> Result<S::Ok, S::Error>
@@ -46,6 +47,13 @@ pub mod F2DOT14 {
     {
         let fixed = ot_round(v * 16384.0);
         serializer.serialize_i16(fixed.try_into().unwrap())
+    }
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let orig = deserializer.deserialize_i32(I32Visitor)?;
+        Ok((orig as f32) / 16384.0)
     }
 }
 
@@ -92,6 +100,7 @@ pub mod LONGDATETIME {
 
 pub mod Counted {
     use serde::ser::SerializeSeq;
+    use serde::Deserializer;
     use serde::Serialize;
     use serde::Serializer;
 
@@ -105,5 +114,11 @@ pub mod Counted {
             my_seq.serialize_element(&k)?;
         }
         my_seq.end()
+    }
+    pub fn deserialize<'de, D, T>(d: D) -> Result<T, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        unimplemented!()
     }
 }
