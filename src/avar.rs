@@ -13,6 +13,13 @@ table!(SegmentMap {
     Counted(AxisValueMap) axisValueMaps
 });
 
+table!(avar {
+    uint16 majorVersion
+    uint16 minorVersion
+    uint16 reserved
+    Counted(SegmentMap) axisSegmentMaps
+});
+
 impl SegmentMap {
     fn new(items: Vec<(f32, f32)>) -> Self {
         let maps = items
@@ -27,13 +34,6 @@ impl SegmentMap {
         }
     }
 }
-
-table!(avar {
-    uint16 majorVersion
-    uint16 minorVersion
-    uint16 reserved
-    Counted(SegmentMap) axisSegmentMaps
-});
 
 #[cfg(test)]
 mod tests {
