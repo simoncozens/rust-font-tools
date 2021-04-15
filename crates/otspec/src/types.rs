@@ -8,6 +8,7 @@ use serde::{Serialize, Serializer};
 pub type uint16 = u16;
 pub type uint32 = u32;
 pub type int16 = i16;
+pub type Tag = [u8; 4];
 
 fn ot_round(value: f32) -> i32 {
     (value + 0.5).floor() as i32

@@ -23,7 +23,7 @@ tables!(
 );
 
 impl SegmentMap {
-    fn new(items: Vec<(f32, f32)>) -> Self {
+    pub fn new(items: Vec<(f32, f32)>) -> Self {
         let maps = items
             .iter()
             .map(|i| AxisValueMap {
