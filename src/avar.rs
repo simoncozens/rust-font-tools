@@ -71,5 +71,8 @@ mod tests {
             0x40, 0x00, 0x40, 0x00,
         ];
         assert_eq!(ser::to_bytes(&favar).unwrap(), binary_avar);
+
+        let deserialized: avar::avar = otspec::de::from_bytes(&binary_avar).unwrap();
+        assert_eq!(deserialized, favar);
     }
 }
