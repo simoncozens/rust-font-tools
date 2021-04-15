@@ -101,9 +101,8 @@ pub mod LONGDATETIME {
 
 pub mod Counted {
     use serde::ser::SerializeSeq;
-    use serde::Deserializer;
     use serde::Serialize;
-    use serde::Serializer;
+    use serde::{Deserialize, Deserializer, Serializer};
 
     pub fn serialize<S, T>(v: &[T], serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -116,10 +115,40 @@ pub mod Counted {
         }
         my_seq.end()
     }
-    pub fn deserialize<'de, D, T>(d: D) -> Result<T, D::Error>
+    pub fn deserialize<'de, D, T: serde::Deserialize<'de>>(d: D) -> Result<Vec<T>, D::Error>
     where
         D: Deserializer<'de>,
     {
         unimplemented!()
+    }
+}
+
+pub mod Offset16 {
+    use crate::error::Result;
+    use crate::ser::SerializeOffsetStruct;
+    use serde::Serialize;
+    use serde::Serializer;
+
+    pub fn serialize<S, T>(v: &T, mut serializer: S) -> Result<()>
+    where
+        S: Serializer + SerializeOffsetStruct,
+        T: Serialize + Sized,
+    {
+        serializer.serialize_off16_struct(v)
+    }
+}
+
+pub mod Offset32 {
+    use crate::error::Result;
+    use crate::ser::SerializeOffsetStruct;
+    use serde::Serialize;
+    use serde::Serializer;
+
+    pub fn serialize<S, T>(v: &T, mut serializer: S) -> Result<()>
+    where
+        S: Serializer + SerializeOffsetStruct,
+        T: Serialize + Sized,
+    {
+        serializer.serialize_off32_struct(v)
     }
 }

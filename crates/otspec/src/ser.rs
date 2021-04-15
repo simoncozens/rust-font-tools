@@ -4,13 +4,23 @@ use std::convert::TryInto;
 
 pub struct Serializer {
     output: Vec<u8>,
+    add_later: Vec<OffsetEntry>,
+}
+
+struct OffsetEntry {
+    where_to_insert_offset: usize,
+    offset_base: usize,
+    child: Option<Serializer>,
 }
 
 pub fn to_bytes<T>(value: &T) -> Result<Vec<u8>>
 where
     T: Serialize,
 {
-    let mut serializer = Serializer { output: vec![] };
+    let mut serializer = Serializer {
+        output: vec![],
+        add_later: vec![],
+    };
     value.serialize(&mut serializer)?;
     Ok(serializer.output)
 }
@@ -22,6 +32,12 @@ macro_rules! serialize_number_type {
             Ok(())
         }
     };
+}
+
+pub trait SerializeOffsetStruct {
+    // add code here
+    fn serialize_off16_struct<T>(&mut self, value: &T) -> Result<()>;
+    fn serialize_off32_struct<T>(&mut self, value: &T) -> Result<()>;
 }
 
 impl<'a> ser::Serializer for &'a mut Serializer {
@@ -51,23 +67,15 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     serialize_number_type!(serialize_f32, f32);
     serialize_number_type!(serialize_f64, f64);
 
-    // Serialize a char as a single-character string. Other formats may
-    // represent this differently.
     fn serialize_char(self, v: char) -> Result<()> {
         self.serialize_str(&v.to_string())
     }
 
-    // This only works for strings that don't require escape sequences but you
-    // get the idea. For example it would emit invalid JSON if the input string
-    // contains a '"' character.
     fn serialize_str(self, v: &str) -> Result<()> {
         self.output.extend_from_slice(v.as_bytes());
         Ok(())
     }
 
-    // Serialize a byte array as an array of bytes. Could also use a base64
-    // string here. Binary formats will typically represent byte arrays more
-    // compactly.
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
         use serde::ser::SerializeSeq;
         let mut seq = self.serialize_seq(Some(v.len()))?;
@@ -77,34 +85,31 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         seq.end()
     }
 
-    // An absent optional is represented as the JSON `null`.
     fn serialize_none(self) -> Result<()> {
         self.serialize_unit()
     }
 
-    // A present optional is represented as just the contained value. Note that
-    // this is a lossy representation. For example the values `Some(())` and
-    // `None` both serialize as just `null`. Unfortunately this is typically
-    // what people expect when working with JSON. Other formats are encouraged
-    // to behave more intelligently if possible.
     fn serialize_some<T>(self, value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
     {
         value.serialize(self)
     }
+
+    // Arrays in OTSpec are usually counted
     fn serialize_seq(self, maybelen: Option<usize>) -> Result<Self::SerializeSeq> {
         if let Some(len) = maybelen {
-            self.serialize_u16(len.try_into().unwrap());
+            let u16len: u16 = len.try_into().unwrap();
+            self.serialize_u16(u16len).expect("Couldn't write length");
         }
         Ok(self)
     }
 
-    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
+    // But we will adopt the convention that a *tuple* is not counted.
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
         self.serialize_seq(None)
     }
 
-    // Tuple structs look just like sequences in JSON.
     fn serialize_tuple_struct(
         self,
         _name: &'static str,
@@ -113,8 +118,6 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         self.serialize_seq(Some(len))
     }
 
-    // Tuple variants are represented in JSON as `{ NAME: [DATA...] }`. Again
-    // this method is only responsible for the externally tagged representation.
     fn serialize_tuple_variant(
         self,
         _name: &'static str,
@@ -130,17 +133,16 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         Ok(self)
     }
 
-    fn serialize_struct(self, _name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+    fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+        println!("Serializing struct {}", name);
         self.serialize_map(Some(len))
     }
 
-    // Struct variants are represented in JSON as `{ NAME: { K: V, ... } }`.
-    // This is the externally tagged representation.
     fn serialize_struct_variant(
         self,
         _name: &'static str,
         _variant_index: u32,
-        variant: &'static str,
+        _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
         Ok(self)
@@ -261,7 +263,7 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
     // This can be done by using a different Serializer to serialize the key
     // (instead of `&mut **self`) and having that other serializer only
     // implement `serialize_str` and return an error on any other data type.
-    fn serialize_key<T>(&mut self, key: &T) -> Result<()>
+    fn serialize_key<T>(&mut self, _key: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
     {
@@ -297,6 +299,9 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     }
 
     fn end(self) -> Result<()> {
+        for todo in &self.add_later {
+            println!("Fixing offset for entry at {}", todo.where_to_insert_offset);
+        }
         Ok(())
     }
 }
@@ -315,6 +320,32 @@ impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
     }
 
     fn end(self) -> Result<()> {
+        Ok(())
+    }
+}
+
+impl<'a> SerializeOffsetStruct for &'a mut Serializer {
+    fn serialize_off16_struct<T>(&mut self, _value: &T) -> Result<()> {
+        let pos = self.output.len();
+        // Two-byte placeholder offset
+        self.output.extend(vec![0, 0]);
+        self.add_later.push(OffsetEntry {
+            where_to_insert_offset: pos,
+            offset_base: 0,
+            child: None, // XXX
+        });
+        Ok(())
+    }
+
+    fn serialize_off32_struct<T>(&mut self, _value: &T) -> Result<()> {
+        let pos = self.output.len();
+        // Four-byte placeholder offset
+        self.output.extend(vec![0, 0, 0, 0]);
+        self.add_later.push(OffsetEntry {
+            where_to_insert_offset: pos,
+            offset_base: 0,
+            child: None, // XXX
+        });
         Ok(())
     }
 }
