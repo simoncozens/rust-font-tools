@@ -61,12 +61,21 @@ fn log_2(x: u16) -> u16 {
     (16 - x.leading_zeros() - 1).try_into().unwrap()
 }
 
-fn checksum(x: &[u8]) -> Wrapping<u32> {
+fn checksum(x: &[u8]) -> u32 {
     let mut sum = Wrapping(0u32);
-    for b in x {
-        sum += Wrapping(*b as u32);
+    for slice in x.chunks(4) {
+        if slice.len() == 4 {
+            let maybe_array: [u8; 4] = slice.try_into().unwrap();
+            sum += Wrapping(u32::from_be_bytes(maybe_array));
+        } else {
+            let mut final_bit = [0u8; 4];
+            for (&x, p) in slice.iter().zip(final_bit.iter_mut()) {
+                *p = x;
+            }
+            sum += Wrapping(u32::from_be_bytes(final_bit));
+        }
     }
-    sum
+    sum.0
 }
 
 use serde::ser::SerializeSeq;
@@ -102,12 +111,13 @@ impl Serialize for Font {
                 bytes.push(0);
             }
             seq.serialize_element(&tag)?;
-            seq.serialize_element(&(orig_checksum.0 as u32))?;
+            seq.serialize_element(&(orig_checksum as u32))?;
             seq.serialize_element(&(pos as u32))?;
             seq.serialize_element(&(orig_len as u32))?;
             pos += bytes.len();
             output.extend(bytes);
         }
+        // Compute full checksum and update head here.
         seq.serialize_element(&output)?;
         seq.end()
     }
