@@ -1,5 +1,8 @@
+use serde::de::SeqAccess;
+use serde::de::Visitor;
+use serde::{Deserialize, Deserializer};
 use serde::{Serialize, Serializer};
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use std::num::Wrapping;
 extern crate otspec;
 use crate::avar::avar;
@@ -155,15 +158,84 @@ impl Serialize for Font {
     }
 }
 
+struct FontVisitor {
+    _phantom: std::marker::PhantomData<Font>,
+}
+
+impl FontVisitor {
+    fn new() -> Self {
+        FontVisitor {
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<'de> Visitor<'de> for FontVisitor {
+    type Value = Font;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "A sequence of values")
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(mut self, mut seq: A) -> Result<Self::Value, A::Error> {
+        let header = seq
+            .next_element::<TableHeader>()?
+            .ok_or_else(|| serde::de::Error::custom("Expecting a table header"))?;
+        let version = TryInto::<SfntVersion>::try_into(header.sfntVersion)
+            .map_err(|_| serde::de::Error::custom("Font must begin with a valid version"))?;
+
+        let mut result = Font::new(version);
+        let mut table_records = Vec::with_capacity(header.numTables as usize);
+        for i in 0..(header.numTables as usize) {
+            let next = seq
+                .next_element::<TableRecord>()?
+                .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
+            table_records.push(next)
+        }
+        /* This is not strictly correct. */
+        for tr in table_records {
+            let table =
+                match &tr.tag {
+                    b"hhea" => Table::Hhea(seq.next_element::<hhea>()?.ok_or_else(|| {
+                        serde::de::Error::custom("Could not deserialize hhea table")
+                    })?),
+                    b"head" => Table::Head(seq.next_element::<head>()?.ok_or_else(|| {
+                        serde::de::Error::custom("Could not deserialize head table")
+                    })?),
+                    b"maxp" => Table::Maxp(seq.next_element::<maxp>()?.ok_or_else(|| {
+                        serde::de::Error::custom("Could not deserialize maxp table")
+                    })?),
+                    _ => Table::Unknown(seq.next_element::<Vec<u8>>()?.ok_or_else(|| {
+                        serde::de::Error::custom(format!(
+                            "Could not deserialize {:?} table",
+                            tr.tag
+                        ))
+                    })?),
+                };
+            result.tables.insert(tr.tag, table);
+        }
+        Ok(result)
+    }
+}
+
+impl<'de> Deserialize<'de> for Font {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        d.deserialize_seq(FontVisitor::new())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::avar;
+
     use crate::font;
     use crate::head::head;
     use crate::hhea::hhea;
     use crate::maxp::maxp;
-    use std::fs::File;
-    use std::io::Write;
+    // use std::fs::File;
+    // use std::io::Write;
 
     use otspec::ser;
 
@@ -183,7 +255,7 @@ mod tests {
             majorVersion: 1,
             minorVersion: 0,
             fontRevision: 1.0,
-            checksumAdjustment: 0xaf8fe61,
+            checksumAdjustment: 0x2da80ff7,
             magicNumber: 0x5F0F3CF5,
             flags: 0b0000000000000011,
             unitsPerEm: 1000,
@@ -261,5 +333,7 @@ mod tests {
         // let mut buffer = File::create("test.ttf").unwrap();
         // buffer.write_all(&serialized).unwrap();
         assert_eq!(serialized, binary_font);
+        let deserialized: font::Font = otspec::de::from_bytes(&binary_font).unwrap();
+        assert_eq!(deserialized, font);
     }
 }
