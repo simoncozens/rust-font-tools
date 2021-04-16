@@ -38,6 +38,7 @@ pub mod Fixed {
 
 pub mod F2DOT14 {
     use crate::types::ot_round;
+    use crate::types::I16Visitor;
     use crate::types::I32Visitor;
     use serde::{Deserializer, Serializer};
     use std::convert::TryInto;
@@ -53,7 +54,7 @@ pub mod F2DOT14 {
     where
         D: Deserializer<'de>,
     {
-        let orig = deserializer.deserialize_i32(I32Visitor)?;
+        let orig = deserializer.deserialize_i16(I16Visitor)?;
         Ok((orig as f32) / 16384.0)
     }
 }
@@ -67,6 +68,22 @@ impl<'de> Visitor<'de> for I32Visitor {
         formatter.write_str("an integer between -2^31 and 2^31")
     }
     fn visit_i32<E>(self, value: i32) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        Ok(value)
+    }
+}
+
+struct I16Visitor;
+
+impl<'de> Visitor<'de> for I16Visitor {
+    type Value = i16;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("an integer between -2^15 and 2^15")
+    }
+    fn visit_i16<E>(self, value: i16) -> Result<Self::Value, E>
     where
         E: de::Error,
     {
