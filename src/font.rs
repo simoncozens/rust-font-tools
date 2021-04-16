@@ -9,7 +9,7 @@ use crate::maxp::maxp;
 use indexmap::IndexMap;
 use otspec::types::*;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, PartialEq)]
 #[serde(untagged)]
 enum Table {
     Unknown(Vec<u8>),
@@ -19,29 +19,41 @@ enum Table {
     Maxp(maxp),
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
 enum SfntVersion {
     TrueType = 0x00010000,
     OpenType = 0x4F54544F,
 }
 
-#[derive(Serialize)]
+impl TryFrom<u32> for SfntVersion {
+    type Error = ();
+
+    fn try_from(v: u32) -> Result<Self, Self::Error> {
+        match v {
+            x if x == SfntVersion::TrueType as u32 => Ok(SfntVersion::TrueType),
+            x if x == SfntVersion::OpenType as u32 => Ok(SfntVersion::OpenType),
+            _ => Err(()),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct TableRecord {
     tag: Tag,
     checksum: uint32,
     offset: uint32,
     length: uint32,
 }
-#[derive(Serialize)]
+#[derive(Deserialize)]
 struct TableHeader {
     sfntVersion: u32,
     numTables: u16,
     searchRange: u16,
     entrySelector: u16,
     rangeShift: u16,
-    tableRecords: Vec<TableRecord>,
 }
 
+#[derive(Debug)]
 struct Font {
     sfntVersion: SfntVersion,
     tables: IndexMap<Tag, Table>,
@@ -53,6 +65,20 @@ impl Font {
             sfntVersion,
             tables: IndexMap::new(),
         }
+    }
+}
+
+impl PartialEq for Font {
+    fn eq(&self, other: &Self) -> bool {
+        if self.sfntVersion != other.sfntVersion || self.tables.len() != other.tables.len() {
+            return false;
+        }
+        for ((k1, v1), (k2, v2)) in self.tables.iter().zip(other.tables.iter()) {
+            if k1 != k2 || v1 != v2 {
+                return false;
+            }
+        }
+        true
     }
 }
 
@@ -73,7 +99,6 @@ fn checksum(x: &[u8]) -> u32 {
     sum.0
 }
 
-use serde::ser::SerializeSeq;
 impl Serialize for Font {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
