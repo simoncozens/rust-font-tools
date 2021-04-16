@@ -38,6 +38,8 @@ pub mod Fixed {
     }
 }
 
+pub use Fixed as Version16Dot16;
+
 pub mod F2DOT14 {
     use crate::types::ot_round;
     use crate::types::I16Visitor;

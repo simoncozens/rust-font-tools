@@ -47,6 +47,7 @@ fn expect_ident(item: Option<TokenTree>) -> String {
 fn special_type(t: &str) -> Option<String> {
     match t {
         "Fixed" => Some("f32".to_string()),
+        "Version16Dot16" => Some("f32".to_string()),
         "F2DOT14" => Some("f32".to_string()),
         "LONGDATETIME" => Some("chrono::NaiveDateTime".to_string()),
         _ => None,

@@ -4,6 +4,8 @@ use std::num::Wrapping;
 extern crate otspec;
 use crate::avar::avar;
 use crate::head::head;
+use crate::hhea::hhea;
+use crate::maxp::maxp;
 use indexmap::IndexMap;
 use otspec::types::*;
 
@@ -13,6 +15,8 @@ enum Table {
     Unknown(Vec<u8>),
     Avar(avar),
     Head(head),
+    Hhea(hhea),
+    Maxp(maxp),
 }
 
 #[derive(Copy, Clone)]
