@@ -144,23 +144,6 @@ pub mod Counted {
         d.deserialize_seq(SeqVisitor::new())
     }
 
-    struct CountVisitor;
-
-    impl<'de> Visitor<'de> for CountVisitor {
-        type Value = u16;
-
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(formatter, "a u16")
-        }
-
-        fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
-        where
-            E: serde::de::Error,
-        {
-            Ok(v)
-        }
-    }
-
     struct SeqVisitor<T> {
         len: usize,
         _phantom: std::marker::PhantomData<T>,
