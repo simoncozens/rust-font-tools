@@ -96,12 +96,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         value.serialize(self)
     }
 
-    // Arrays in OTSpec are usually counted
-    fn serialize_seq(self, maybelen: Option<usize>) -> Result<Self::SerializeSeq> {
-        if let Some(len) = maybelen {
-            let u16len: u16 = len.try_into().unwrap();
-            self.serialize_u16(u16len).expect("Couldn't write length");
-        }
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
         Ok(self)
     }
 

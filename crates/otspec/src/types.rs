@@ -98,8 +98,8 @@ pub mod LONGDATETIME {
         Ok(res)
     }
 }
-
 pub mod Counted {
+    use serde::de::{SeqAccess, Visitor};
     use serde::ser::SerializeSeq;
     use serde::Serialize;
     use serde::{Deserialize, Deserializer, Serializer};
@@ -110,6 +110,7 @@ pub mod Counted {
         T: Serialize,
     {
         let mut my_seq = serializer.serialize_seq(Some(v.len()))?;
+        my_seq.serialize_element(&(v.len() as u16));
         for k in v {
             my_seq.serialize_element(&k)?;
         }
@@ -119,10 +120,67 @@ pub mod Counted {
     where
         D: Deserializer<'de>,
     {
-        unimplemented!()
+        d.deserialize_seq(SeqVisitor::new())
+    }
+
+    struct CountVisitor;
+
+    impl<'de> Visitor<'de> for CountVisitor {
+        type Value = u16;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(formatter, "a u16")
+        }
+
+        fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(v)
+        }
+    }
+
+    struct SeqVisitor<T> {
+        len: usize,
+        _phantom: std::marker::PhantomData<T>,
+    }
+
+    impl<T> SeqVisitor<T> {
+        fn new() -> Self {
+            SeqVisitor {
+                len: 0,
+                _phantom: std::marker::PhantomData,
+            }
+        }
+    }
+
+    impl<'de, T> Visitor<'de> for SeqVisitor<T>
+    where
+        T: serde::Deserialize<'de>,
+    {
+        type Value = Vec<T>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(formatter, "A sequence of {} values", self.len)
+        }
+
+        fn visit_seq<A: SeqAccess<'de>>(mut self, mut seq: A) -> Result<Self::Value, A::Error> {
+            self.len = seq
+                .next_element::<u16>()?
+                .ok_or_else(|| serde::de::Error::custom("Count type must begin with length"))?
+                as usize;
+
+            let mut result = Vec::with_capacity(self.len);
+            for i in 0..self.len {
+                let next = seq
+                    .next_element::<T>()?
+                    .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
+                result.push(next)
+            }
+            Ok(result)
+        }
     }
 }
-
 pub mod Offset16 {
     use crate::error::Result;
     use crate::ser::SerializeOffsetStruct;
@@ -150,5 +208,36 @@ pub mod Offset32 {
         T: Serialize + Sized,
     {
         serializer.serialize_off32_struct(v)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::types::Counted;
+    use crate::{de, ser};
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct TestCounted {
+        #[serde(with = "Counted")]
+        t: Vec<u16>,
+    }
+
+    #[test]
+    fn counted_ser() {
+        let c = TestCounted {
+            t: vec![0x10, 0x20],
+        };
+        let binary_c = vec![0x00, 0x02, 0x00, 0x10, 0x00, 0x20];
+        assert_eq!(ser::to_bytes(&c).unwrap(), binary_c);
+    }
+
+    #[test]
+    fn counted_de() {
+        let c = TestCounted {
+            t: vec![0x10, 0x20],
+        };
+        let binary_c = vec![0x00, 0x02, 0x00, 0x10, 0x00, 0x20];
+        assert_eq!(de::from_bytes::<TestCounted>(&binary_c).unwrap(), c);
     }
 }
