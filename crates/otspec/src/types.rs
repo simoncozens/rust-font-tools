@@ -223,6 +223,16 @@ mod tests {
         t: Vec<u16>,
     }
 
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct TestCounted2 {
+        t0: u32,
+        #[serde(with = "Counted")]
+        t1: Vec<u16>,
+        t2: u16,
+        #[serde(with = "Counted")]
+        t3: Vec<TestCounted>,
+    }
+
     #[test]
     fn counted_ser() {
         let c = TestCounted {
@@ -239,5 +249,34 @@ mod tests {
         };
         let binary_c = vec![0x00, 0x02, 0x00, 0x10, 0x00, 0x20];
         assert_eq!(de::from_bytes::<TestCounted>(&binary_c).unwrap(), c);
+    }
+
+    #[test]
+    fn counted2_serde() {
+        let c1a = TestCounted {
+            t: vec![0xaa, 0xbb, 0xcc],
+        };
+        let c1b = TestCounted {
+            t: vec![0xdd, 0xee],
+        };
+        let c2 = TestCounted2 {
+            t0: 0x01020304,
+            t1: vec![0x10, 0x20],
+            t2: 0x1,
+            t3: vec![c1a, c1b],
+        };
+        let binary_c2 = vec![
+            0x01, 0x02, 0x03, 0x04, /* t0 */
+            0x00, 0x02, /* count */
+            0x00, 0x10, 0x00, 0x20, /* t1 */
+            0x00, 0x01, /* t2 */
+            0x00, 0x02, /* count */
+            0x00, 0x03, /* c1a count */
+            0x00, 0xaa, 0x00, 0xbb, 0x00, 0xcc, /* c1a */
+            0x00, 0x02, /* c1b count */
+            0x00, 0xdd, 0x00, 0x0ee, /* c1b*/
+        ];
+        assert_eq!(ser::to_bytes(&c2).unwrap(), binary_c2);
+        assert_eq!(de::from_bytes::<TestCounted2>(&binary_c2).unwrap(), c2);
     }
 }
