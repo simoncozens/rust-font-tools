@@ -3,3 +3,4 @@
 mod avar;
 mod font;
 mod head;
+mod hhea;
