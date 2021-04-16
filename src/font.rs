@@ -56,11 +56,6 @@ impl Font {
     }
 }
 
-fn log_2(x: u16) -> u16 {
-    assert!(x > 0);
-    (16 - x.leading_zeros() - 1).try_into().unwrap()
-}
-
 fn checksum(x: &[u8]) -> u32 {
     let mut sum = Wrapping(0u32);
     for slice in x.chunks(4) {
@@ -85,32 +80,53 @@ impl Serialize for Font {
         S: Serializer,
     {
         let lenu16: u16 = self.tables.len().try_into().unwrap();
-        let searchRange: u16 = 16 * log_2(lenu16).pow(2);
-        let mut seq = serializer.serialize_seq(None)?;
-        seq.serialize_element(&(self.sfntVersion as u32))?;
-        seq.serialize_element(&lenu16)?;
-        seq.serialize_element(&searchRange)?;
-        seq.serialize_element(&log_2(lenu16))?;
-        seq.serialize_element(&(lenu16 * 16 - searchRange))?;
+        let mut max_pow2: u16 = 0;
+        while 1u16 << (max_pow2 + 1) <= lenu16 {
+            max_pow2 += 1;
+        }
+        let searchRange: u16 = (1u16 << max_pow2) << 4;
+        // let mut seq = serializer.serialize_seq(None)?;
         let mut output: Vec<u8> = vec![];
+        let mut output_tables: Vec<u8> = vec![];
+        output.extend(&(self.sfntVersion as u32).to_be_bytes());
+        output.extend(&lenu16.to_be_bytes());
+        output.extend(&searchRange.to_be_bytes());
+        output.extend(&max_pow2.to_be_bytes());
+        output.extend(&(lenu16 * 16 - searchRange).to_be_bytes());
         let mut pos = 16 * self.tables.len() + 12;
-        for (tag, value) in &self.tables {
+        let mut head_pos: Option<usize> = None;
+        for (tag, value) in self.tables.iter() {
             let mut bytes = otspec::ser::to_bytes(&value).unwrap();
+            if tag == b"head" {
+                head_pos = Some(pos);
+                bytes[8] = 0;
+                bytes[9] = 0;
+                bytes[10] = 0;
+                bytes[11] = 0;
+            }
             let orig_len = bytes.len();
             let orig_checksum = checksum(&bytes);
             while (bytes.len() % 4) != 0 {
                 bytes.push(0);
             }
-            seq.serialize_element(&tag)?;
-            seq.serialize_element(&(orig_checksum as u32))?;
-            seq.serialize_element(&(pos as u32))?;
-            seq.serialize_element(&(orig_len as u32))?;
+            output.extend(tag);
+            output.extend(&(orig_checksum as u32).to_be_bytes());
+            output.extend(&(pos as u32).to_be_bytes());
+            output.extend(&(orig_len as u32).to_be_bytes());
             pos += bytes.len();
-            output.extend(bytes);
+            output_tables.extend(bytes);
         }
+        output.extend(output_tables);
         // Compute full checksum and update head here.
-        seq.serialize_element(&output)?;
-        seq.end()
+        let full_checksum = 0xB1B0AFBA - checksum(&output);
+        let checksum_be = full_checksum.to_be_bytes();
+        if let Some(head_pos) = head_pos {
+            output[head_pos + 8] = checksum_be[0];
+            output[head_pos + 9] = checksum_be[1];
+            output[head_pos + 10] = checksum_be[2];
+            output[head_pos + 11] = checksum_be[3];
+        }
+        serializer.serialize_bytes(&output)
     }
 }
 
@@ -201,12 +217,12 @@ mod tests {
         font.tables.insert(*b"maxp", font::Table::Maxp(fmaxp));
 
         let binary_font = vec![
-            0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x10, 0x00, 0x01, 0x00, 0x20, 0x68, 0x65,
-            0x61, 0x64, 0x23, 0x5b, 0x26, 0x00, 0x00, 0x00, 0x00, 0x3c, 0x00, 0x00, 0x00, 0x36,
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x20, 0x00, 0x01, 0x00, 0x10, 0x68, 0x65,
+            0x61, 0x64, 0x18, 0x62, 0x27, 0x9f, 0x00, 0x00, 0x00, 0x3c, 0x00, 0x00, 0x00, 0x36,
             0x68, 0x68, 0x65, 0x61, 0x06, 0x23, 0x07, 0x4b, 0x00, 0x00, 0x00, 0x74, 0x00, 0x00,
             0x00, 0x24, 0x6d, 0x61, 0x78, 0x70, 0x04, 0x65, 0x00, 0x64, 0x00, 0x00, 0x00, 0x98,
-            0x00, 0x00, 0x00, 0x20, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x0a, 0xf8,
-            0xfe, 0x61, 0x5f, 0x0f, 0x3c, 0xf5, 0x00, 0x03, 0x03, 0xe8, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x20, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x2d, 0xa8,
+            0x0f, 0xf7, 0x5f, 0x0f, 0x3c, 0xf5, 0x00, 0x03, 0x03, 0xe8, 0x00, 0x00, 0x00, 0x00,
             0xda, 0x56, 0x58, 0xaa, 0x00, 0x00, 0x00, 0x00, 0xdc, 0x9c, 0x8a, 0x29, 0x00, 0x09,
             0x00, 0x00, 0x02, 0x50, 0x03, 0xe8, 0x00, 0x00, 0x00, 0x06, 0x00, 0x02, 0x00, 0x01,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x02, 0xc1, 0xff, 0x4c, 0x00, 0x00,
