@@ -218,6 +218,7 @@ pub mod Offset32 {
 #[cfg(test)]
 mod tests {
     use crate::types::Counted;
+    use crate::types::Offset16;
     use crate::{de, ser};
     use serde::{Deserialize, Serialize};
 
@@ -236,6 +237,14 @@ mod tests {
         #[serde(with = "Counted")]
         t3: Vec<TestCounted>,
     }
+
+    // #[derive(Serialize, Debug, PartialEq)]
+    // struct TestOffset {
+    //     t0: u32,
+    //     #[serde(with = "Offset16")]
+    //     t1: Vec<u16>,
+    //     t2: u16,
+    // }
 
     #[test]
     fn counted_ser() {
@@ -283,4 +292,15 @@ mod tests {
         assert_eq!(ser::to_bytes(&c2).unwrap(), binary_c2);
         assert_eq!(de::from_bytes::<TestCounted2>(&binary_c2).unwrap(), c2);
     }
+
+    // #[test]
+    // fn offset_ser() {
+    //     let c = TestOffset {
+    //         t0: 0x01020304,
+    //         t1: vec![0xaabb, 0xccdd],
+    //         t2: 0xeeff,
+    //     };
+    //     let binary_c = vec![0x00, 0x02, 0x00, 0x10, 0x00, 0x20];
+    //     assert_eq!(ser::to_bytes(&c).unwrap(), binary_c);
+    // }
 }
