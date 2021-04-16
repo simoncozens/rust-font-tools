@@ -223,12 +223,11 @@ impl<'de> Visitor<'de> for FontVisitor {
                     b"maxp" => Table::Maxp(seq.next_element::<maxp>()?.ok_or_else(|| {
                         serde::de::Error::custom("Could not deserialize maxp table")
                     })?),
-                    _ => Table::Unknown(seq.next_element::<Vec<u8>>()?.ok_or_else(|| {
-                        serde::de::Error::custom(format!(
-                            "Could not deserialize {:?} table",
-                            tr.tag
-                        ))
-                    })?),
+                    _ => Table::Unknown(
+                        (0..tr.length)
+                            .filter_map(|_| seq.next_element::<u8>().unwrap())
+                            .collect(),
+                    ),
                 };
             result.tables.insert(tr.tag, table);
         }
