@@ -11,6 +11,8 @@ use crate::hhea::hhea;
 use crate::maxp::maxp;
 use indexmap::IndexMap;
 use otspec::types::*;
+use std::fs::File;
+use std::io::Write;
 
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(untagged)]
@@ -23,7 +25,7 @@ enum Table {
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
-enum SfntVersion {
+pub enum SfntVersion {
     TrueType = 0x00010000,
     OpenType = 0x4F54544F,
 }
@@ -57,10 +59,12 @@ struct TableHeader {
 }
 
 #[derive(Debug)]
-struct Font {
+pub struct Font {
     sfntVersion: SfntVersion,
     tables: IndexMap<Tag, Table>,
 }
+
+use otspec::ser;
 
 impl Font {
     pub fn new(sfntVersion: SfntVersion) -> Self {
@@ -69,6 +73,20 @@ impl Font {
             tables: IndexMap::new(),
         }
     }
+
+    pub fn save(&self, filename: &str) {
+        let serialized = ser::to_bytes(&self).unwrap();
+        let mut buffer = File::create(filename).unwrap();
+        buffer.write_all(&serialized).unwrap();
+    }
+}
+
+use std::error::Error;
+use std::fs;
+
+pub fn load(filename: &str) -> Result<Font, Box<dyn Error>> {
+    let buffer = fs::read(&filename)?;
+    otspec::de::from_bytes(&buffer).map_err(|e| e.into())
 }
 
 impl PartialEq for Font {
@@ -234,8 +252,6 @@ mod tests {
     use crate::head::head;
     use crate::hhea::hhea;
     use crate::maxp::maxp;
-    // use std::fs::File;
-    // use std::io::Write;
 
     use otspec::ser;
 
@@ -330,10 +346,15 @@ mod tests {
             0x00, 0x00,
         ];
         let serialized = ser::to_bytes(&font).unwrap();
-        // let mut buffer = File::create("test.ttf").unwrap();
-        // buffer.write_all(&serialized).unwrap();
         assert_eq!(serialized, binary_font);
         let deserialized: font::Font = otspec::de::from_bytes(&binary_font).unwrap();
         assert_eq!(deserialized, font);
+    }
+
+    #[test]
+    fn test_load() {
+        let f = font::load("data/test1.ttf").unwrap();
+        assert_eq!(f.tables.len(), 3);
+        f.save("data/test2.ttf");
     }
 }
