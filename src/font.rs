@@ -262,7 +262,7 @@ mod tests {
     use crate::font;
     use crate::head::head;
     use crate::hhea::hhea;
-    use crate::maxp::maxp;
+    use crate::maxp;
 
     use otspec::ser;
 
@@ -318,22 +318,24 @@ mod tests {
             metricDataFormat: 0,
             numberOfHMetrics: 1117,
         };
-        let fmaxp = maxp {
+        let fmaxp = maxp::maxp {
             version: 1.0,
-            numGlyphs: 1117,
-            maxPoints: 98,
-            maxContours: 7,
-            maxCompositePoints: 0,
-            maxCompositeContours: 0,
-            maxZones: 2,
-            maxTwilightPoints: 0,
-            maxStorage: 0,
-            maxFunctionDefs: 0,
-            maxInstructionDefs: 0,
-            maxStackElements: 0,
-            maxSizeOfInstructions: 0,
-            maxComponentElements: 0,
-            maxComponentDepth: 0,
+            table: maxp::MaxpVariant::Maxp10(maxp::maxp10 {
+                numGlyphs: 1117,
+                maxPoints: 98,
+                maxContours: 7,
+                maxCompositePoints: 0,
+                maxCompositeContours: 0,
+                maxZones: 2,
+                maxTwilightPoints: 0,
+                maxStorage: 0,
+                maxFunctionDefs: 0,
+                maxInstructionDefs: 0,
+                maxStackElements: 0,
+                maxSizeOfInstructions: 0,
+                maxComponentElements: 0,
+                maxComponentDepth: 0,
+            }),
         };
         let mut font = font::Font::new(font::SfntVersion::TrueType);
         font.tables.insert(*b"head", font::Table::Head(fhead));

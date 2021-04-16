@@ -38,7 +38,29 @@ pub mod Fixed {
     }
 }
 
-pub use Fixed as Version16Dot16;
+pub mod Version16Dot16 {
+    use crate::types::ot_round;
+    use crate::types::I32Visitor;
+    use serde::{Deserializer, Serializer};
+
+    pub fn serialize<S>(v: &f32, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let major = *v as u8;
+        let minor = (v.fract() * 160.0) as u8;
+        serializer.serialize_bytes(&[0, major, minor, 0])
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let orig = deserializer.deserialize_i32(I32Visitor)?;
+        unimplemented!()
+        // Ok((orig as f32) / 65536.0)
+    }
+}
 
 pub mod F2DOT14 {
     use crate::types::ot_round;
