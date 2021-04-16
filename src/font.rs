@@ -211,7 +211,18 @@ impl<'de> Visitor<'de> for FontVisitor {
             table_records.push(next)
         }
         /* This is not strictly correct. */
+        table_records.sort_by_key(|f| f.offset); /* Really very not correct */
+        let mut pos = (16 * table_records.len() + 12) as u32;
         for tr in table_records {
+            while pos < tr.offset {
+                seq.next_element::<u8>()?.ok_or_else(|| {
+                    serde::de::Error::custom(format!(
+                        "Could not find {:?} table",
+                        String::from_utf8(tr.tag.to_vec())
+                    ))
+                })?;
+                pos += 1;
+            }
             let table =
                 match &tr.tag {
                     b"hhea" => Table::Hhea(seq.next_element::<hhea>()?.ok_or_else(|| {
@@ -230,6 +241,7 @@ impl<'de> Visitor<'de> for FontVisitor {
                     ),
                 };
             result.tables.insert(tr.tag, table);
+            pos += tr.length;
         }
         Ok(result)
     }
