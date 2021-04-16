@@ -42,6 +42,18 @@ mod tests {
     use crate::avar;
     use otspec::ser;
 
+    /* All numbers here carefully chosen to avoid OT rounding errors... */
+    #[test]
+    fn avar_axis_value_map_serde() {
+        let v = avar::AxisValueMap {
+            fromCoordinate: 0.2999878,
+            toCoordinate: 0.5,
+        };
+        let binary_avarmap = ser::to_bytes(&v).unwrap();
+        let deserialized: avar::AxisValueMap = otspec::de::from_bytes(&binary_avarmap).unwrap();
+        assert_eq!(deserialized, v);
+    }
+
     #[test]
     fn avar_ser() {
         let favar = avar::avar {
@@ -52,12 +64,12 @@ mod tests {
                 avar::SegmentMap::new(vec![
                     (-1.0, -1.0),
                     (0.0, 0.0),
-                    (0.125, 0.11444),
-                    (0.25, 0.2349),
-                    (0.5, 0.3554),
+                    (0.125, 0.11444092),
+                    (0.25, 0.23492432),
+                    (0.5, 0.3554077),
                     (0.625, 0.5),
-                    (0.75, 0.6566),
-                    (0.875, 0.8193),
+                    (0.75, 0.6566162),
+                    (0.875, 0.8192749),
                     (1.0, 1.0),
                 ]),
                 avar::SegmentMap::new(vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)]),
