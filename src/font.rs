@@ -231,9 +231,9 @@ impl<'de> Visitor<'de> for FontVisitor {
                     b"head" => Table::Head(otspec::de::from_bytes(this_table).map_err(|_| {
                         serde::de::Error::custom("Could not deserialize head table")
                     })?),
-                    // b"maxp" => Table::Maxp(otspec::de::from_bytes(this_table).map_err(|_| {
-                    //     serde::de::Error::custom("Could not deserialize maxp table")
-                    // })?),
+                    b"maxp" => Table::Maxp(otspec::de::from_bytes(this_table).map_err(|_| {
+                        serde::de::Error::custom("Could not deserialize maxp table")
+                    })?),
                     _ => Table::Unknown(this_table.into()),
                 };
             result.tables.insert(tr.tag, table);
