@@ -210,38 +210,33 @@ impl<'de> Visitor<'de> for FontVisitor {
                 .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
             table_records.push(next)
         }
-        /* This is not strictly correct. */
-        table_records.sort_by_key(|f| f.offset); /* Really very not correct */
         let mut pos = (16 * table_records.len() + 12) as u32;
+        let max_offset = table_records
+            .iter()
+            .map(|x| (x.length + x.offset))
+            .max()
+            .ok_or_else(|| serde::de::Error::custom("No tables?"))?;
+        let remainder: Vec<u8> = (0..(max_offset - pos))
+            .filter_map(|_| seq.next_element::<u8>().unwrap())
+            .collect();
+        table_records.sort_by_key(|tr| tr.offset);
         for tr in table_records {
-            while pos < tr.offset {
-                seq.next_element::<u8>()?.ok_or_else(|| {
-                    serde::de::Error::custom(format!(
-                        "Could not find {:?} table",
-                        String::from_utf8(tr.tag.to_vec())
-                    ))
-                })?;
-                pos += 1;
-            }
+            let start = (tr.offset - pos) as usize;
+            let this_table = &remainder[start..start + tr.length as usize];
             let table =
                 match &tr.tag {
-                    b"hhea" => Table::Hhea(seq.next_element::<hhea>()?.ok_or_else(|| {
+                    b"hhea" => Table::Hhea(otspec::de::from_bytes(this_table).map_err(|_| {
                         serde::de::Error::custom("Could not deserialize hhea table")
                     })?),
-                    b"head" => Table::Head(seq.next_element::<head>()?.ok_or_else(|| {
+                    b"head" => Table::Head(otspec::de::from_bytes(this_table).map_err(|_| {
                         serde::de::Error::custom("Could not deserialize head table")
                     })?),
-                    b"maxp" => Table::Maxp(seq.next_element::<maxp>()?.ok_or_else(|| {
-                        serde::de::Error::custom("Could not deserialize maxp table")
-                    })?),
-                    _ => Table::Unknown(
-                        (0..tr.length)
-                            .filter_map(|_| seq.next_element::<u8>().unwrap())
-                            .collect(),
-                    ),
+                    // b"maxp" => Table::Maxp(otspec::de::from_bytes(this_table).map_err(|_| {
+                    //     serde::de::Error::custom("Could not deserialize maxp table")
+                    // })?),
+                    _ => Table::Unknown(this_table.into()),
                 };
             result.tables.insert(tr.tag, table);
-            pos += tr.length;
         }
         Ok(result)
     }
