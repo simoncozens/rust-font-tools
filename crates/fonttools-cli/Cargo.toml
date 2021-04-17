@@ -1,0 +1,12 @@
+[package]
+name = "fonttools-cli"
+version = "0.1.0"
+authors = ["Simon Cozens <simon@simon-cozens.org>"]
+edition = "2018"
+
+[dependencies]
+fonttools = { path = "../.." }
+structopt = "0.3"
+
+[[bin]]
+name="ttf-fix-checksum"
