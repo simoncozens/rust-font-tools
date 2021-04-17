@@ -129,7 +129,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
     }
 
     fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
-        println!("Serializing struct {}", name);
+        // println!("Serializing struct {}", name);
         self.serialize_map(Some(len))
     }
 
