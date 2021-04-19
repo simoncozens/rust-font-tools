@@ -1,8 +1,5 @@
 use crate::error::{Error, Result};
-use serde::de::{
-    self, Deserialize, DeserializeSeed, EnumAccess, IntoDeserializer, MapAccess, SeqAccess,
-    VariantAccess, Visitor,
-};
+use serde::de::{self, Deserialize, DeserializeSeed, SeqAccess, Visitor};
 use std::convert::TryInto;
 use std::mem;
 
@@ -74,7 +71,8 @@ impl<'de, 'a> SeqAccess<'de> for Deserializer<'de> {
     where
         T: DeserializeSeed<'de>,
     {
-        seed.deserialize(self).map(Some)
+        let thing = seed.deserialize(self);
+        thing.map(Some)
     }
 }
 
@@ -128,14 +126,14 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         unimplemented!()
     }
 
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_str<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         unimplemented!()
     }
 
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_string<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -166,7 +164,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     }
 
     // In Serde, unit means an anonymous value containing no data.
-    fn deserialize_unit<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_unit<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -192,7 +190,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
     where
         V: Visitor<'de>,
     {
-        visitor.visit_seq(self)
+        visitor.visit_seq(EofChecking::new(&mut self))
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
@@ -214,7 +212,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self.deserialize_seq(visitor)
     }
 
-    fn deserialize_map<V>(mut self, visitor: V) -> Result<V::Value>
+    fn deserialize_map<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
@@ -237,25 +235,60 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         self,
         _name: &'static str,
         _variants: &'static [&'static str],
-        visitor: V,
+        _visitor: V,
     ) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
+        // println!(
+        //     "Tying to deserialize an enum {:?}, variants {:?}",
+        //     name, variants
+        // );
         Err(Error::ExpectedEnum)
     }
 
-    fn deserialize_identifier<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_identifier<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         unimplemented!()
     }
 
-    fn deserialize_ignored_any<V>(self, visitor: V) -> Result<V::Value>
+    fn deserialize_ignored_any<V>(self, _visitor: V) -> Result<V::Value>
     where
         V: Visitor<'de>,
     {
         unimplemented!()
+    }
+}
+
+struct EofChecking<'a, 'de: 'a> {
+    de: &'a mut Deserializer<'de>,
+}
+
+impl<'a, 'de> EofChecking<'a, 'de> {
+    fn new(de: &'a mut Deserializer<'de>) -> Self {
+        EofChecking { de }
+    }
+}
+
+impl<'de, 'a> SeqAccess<'de> for EofChecking<'a, 'de> {
+    type Error = Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        // println!(
+        //     "Is there more? PTR = {:?} len = {:?}",
+        //     self.de.ptr,
+        //     self.de.input.len()
+        // );
+        if self.de.ptr > self.de.input.len() {
+            // println!("No, we hit the end");
+            return Ok(None);
+        }
+        // println!("Yes, let's go...");
+        seed.deserialize(&mut *self.de).map(Some)
     }
 }
