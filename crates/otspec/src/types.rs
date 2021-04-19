@@ -1,9 +1,13 @@
-#![allow(unused_must_use, non_snake_case, non_camel_case_types)]
+#![allow(
+    unused_must_use,
+    non_snake_case,
+    non_camel_case_types,
+    clippy::clippy::upper_case_acronyms
+)]
 
 use std::fmt;
 
 use serde::de::{self, Visitor};
-use serde::{Serialize, Serializer};
 
 pub type uint16 = u16;
 pub type uint32 = u32;
@@ -70,7 +74,7 @@ pub mod Version16Dot16 {
 pub mod F2DOT14 {
     use crate::types::ot_round;
     use crate::types::I16Visitor;
-    use crate::types::I32Visitor;
+
     use serde::{Deserializer, Serializer};
     use std::convert::TryInto;
 
@@ -150,7 +154,7 @@ pub mod Counted {
     use serde::de::{SeqAccess, Visitor};
     use serde::ser::SerializeSeq;
     use serde::Serialize;
-    use serde::{Deserialize, Deserializer, Serializer};
+    use serde::{Deserializer, Serializer};
 
     pub fn serialize<S, T>(v: &[T], serializer: S) -> Result<S::Ok, S::Error>
     where
