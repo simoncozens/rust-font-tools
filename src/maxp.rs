@@ -39,7 +39,7 @@ pub enum MaxpVariant {
 #[derive(Debug, Serialize, PartialEq)]
 pub struct maxp {
     #[serde(with = "Version16Dot16")]
-    pub version: f32,
+    pub version: U16F16,
     #[serde(flatten)]
     pub table: MaxpVariant,
 }
@@ -72,16 +72,16 @@ impl<'de> Visitor<'de> for MaxpVisitor {
                 .next_element::<maxp05>()?
                 .ok_or_else(|| serde::de::Error::custom("Expecting a maxp 0.5 table"))?;
             return Ok(maxp {
-                version: 0.5,
+                version: U16F16::from_num(0.5),
                 table: MaxpVariant::Maxp05(table),
             });
         }
         if version == 0x00010000 {
             let table = seq
                 .next_element::<maxp10>()?
-                .ok_or_else(|| serde::de::Error::custom("Expecting a maxp 0.5 table"))?;
+                .ok_or_else(|| serde::de::Error::custom("Expecting a maxp 1.0 table"))?;
             return Ok(maxp {
-                version: 1.0,
+                version: U16F16::from_num(1.0),
                 table: MaxpVariant::Maxp10(table),
             });
         }
@@ -103,11 +103,12 @@ mod tests {
     use crate::maxp;
     use otspec::de;
     use otspec::ser;
+    use otspec::types::U16F16;
 
     #[test]
     fn maxp_ser_v05() {
         let v = maxp::maxp {
-            version: 0.5,
+            version: U16F16::from_num(0.5),
             table: maxp::MaxpVariant::Maxp05(maxp::maxp05 { numGlyphs: 935 }),
         };
         let binary_maxp = ser::to_bytes(&v).unwrap();
@@ -120,7 +121,7 @@ mod tests {
     #[test]
     fn maxp_ser_v10() {
         let v = maxp::maxp {
-            version: 1.0,
+            version: U16F16::from_num(1.0),
             table: maxp::MaxpVariant::Maxp10(maxp::maxp10 {
                 numGlyphs: 1117,
                 maxPoints: 98,
@@ -150,7 +151,7 @@ mod tests {
     #[test]
     fn maxp_de_v05() {
         let v = maxp::maxp {
-            version: 0.5,
+            version: U16F16::from_num(0.5),
             table: maxp::MaxpVariant::Maxp05(maxp::maxp05 { numGlyphs: 935 }),
         };
         let binary_maxp = vec![0x00, 0x00, 0x50, 0x00, 0x03, 0xa7];

@@ -46,9 +46,16 @@ fn expect_ident(item: Option<TokenTree>) -> String {
 
 fn special_type(t: &str) -> Option<String> {
     match t {
+        /* We don't use types from the fixed crate here because fixed-point
+        arithmetic is an artefact of the storage format of OpenType, and
+        not something we want to foist on the user. It's more ergonomic
+        for them to be able to manipulate plain f32s. */
         "Fixed" => Some("f32".to_string()),
-        "Version16Dot16" => Some("f32".to_string()),
         "F2DOT14" => Some("f32".to_string()),
+        /* But we *do* use fixed point here, because we want to be able to
+        compare fractional version numbers for equality without having to
+        do epsilon dances. */
+        "Version16Dot16" => Some("U16F16".to_string()),
         "LONGDATETIME" => Some("chrono::NaiveDateTime".to_string()),
         _ => None,
     }

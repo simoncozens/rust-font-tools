@@ -12,6 +12,8 @@ pub type Tag = [u8; 4];
 pub type FWORD = i16;
 pub type UFWORD = u16;
 
+pub use fixed::types::U16F16;
+
 fn ot_round(value: f32) -> i32 {
     (value + 0.5).floor() as i32
 }
@@ -39,26 +41,29 @@ pub mod Fixed {
 }
 
 pub mod Version16Dot16 {
-    use crate::types::ot_round;
+    extern crate fixed;
+
     use crate::types::I32Visitor;
+    use fixed::types::U16F16;
     use serde::{Deserializer, Serializer};
 
-    pub fn serialize<S>(v: &f32, serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(v: &U16F16, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let major = *v as u8;
-        let minor = (v.fract() * 160.0) as u8;
+        let major = v.floor().to_num::<u8>();
+        let minor = (v.frac().to_num::<f32>() * 160.0) as u8;
         serializer.serialize_bytes(&[0, major, minor, 0])
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<U16F16, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let orig = deserializer.deserialize_i32(I32Visitor)?;
-        unimplemented!()
-        // Ok((orig as f32) / 65536.0)
+        let orig = deserializer.deserialize_i32(I32Visitor)?.to_be_bytes();
+        let major = orig[1] as f32;
+        let minor = orig[2] as f32 / 160.0;
+        Ok(U16F16::from_num(major + minor))
     }
 }
 
@@ -241,7 +246,9 @@ pub mod Offset32 {
 mod tests {
     use crate::types::Counted;
     use crate::types::Offset16;
+    use crate::types::Version16Dot16;
     use crate::{de, ser};
+    use fixed::types::U16F16;
     use serde::{Deserialize, Serialize};
 
     #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -268,14 +275,50 @@ mod tests {
     //     t2: u16,
     // }
 
-    #[test]
-    fn counted_ser() {
-        let c = TestCounted {
-            t: vec![0x10, 0x20],
-        };
-        let binary_c = vec![0x00, 0x02, 0x00, 0x10, 0x00, 0x20];
-        assert_eq!(ser::to_bytes(&c).unwrap(), binary_c);
+    #[derive(Serialize, Deserialize, Debug, PartialEq)]
+    struct TestVersion {
+        #[serde(with = "Version16Dot16")]
+        version: U16F16,
     }
+
+    #[test]
+    fn version_ser() {
+        let c05 = TestVersion {
+            version: U16F16::from_num(0.5),
+        };
+        let binary_c05 = vec![0x00, 0x00, 0x50, 0x00];
+        let c11 = TestVersion {
+            version: U16F16::from_num(1.1),
+        };
+        let binary_c11 = vec![0x00, 0x01, 0x10, 0x00];
+
+        assert_eq!(ser::to_bytes(&c05).unwrap(), binary_c05);
+        assert_eq!(ser::to_bytes(&c11).unwrap(), binary_c11);
+    }
+
+    #[test]
+    fn version_de() {
+        let c05 = TestVersion {
+            version: U16F16::from_num(0.5),
+        };
+        let binary_c05 = vec![0x00, 0x00, 0x50, 0x00];
+        let c11 = TestVersion {
+            version: U16F16::from_num(1.1),
+        };
+        let binary_c11 = vec![0x00, 0x01, 0x10, 0x00];
+
+        assert_eq!(de::from_bytes::<TestVersion>(&binary_c05).unwrap(), c05);
+        assert_eq!(de::from_bytes::<TestVersion>(&binary_c11).unwrap(), c11);
+    }
+
+    // #[test]
+    // fn counted_ser() {
+    //     let c = TestCounted {
+    //         t: vec![0x10, 0x20],
+    //     };
+    //     let binary_c = vec![0x00, 0x02, 0x00, 0x10, 0x00, 0x20];
+    //     assert_eq!(ser::to_bytes(&c).unwrap(), binary_c);
+    // }
 
     #[test]
     fn counted_de() {
