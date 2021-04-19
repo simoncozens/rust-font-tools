@@ -9,6 +9,7 @@ use crate::avar::avar;
 use crate::head::head;
 use crate::hhea::hhea;
 use crate::maxp::maxp;
+use crate::post::post;
 use indexmap::IndexMap;
 use otspec::types::*;
 use std::fs::File;
@@ -22,6 +23,7 @@ enum Table {
     Head(head),
     Hhea(hhea),
     Maxp(maxp),
+    Post(post),
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
@@ -210,7 +212,7 @@ impl<'de> Visitor<'de> for FontVisitor {
                 .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
             table_records.push(next)
         }
-        let mut pos = (16 * table_records.len() + 12) as u32;
+        let pos = (16 * table_records.len() + 12) as u32;
         let max_offset = table_records
             .iter()
             .map(|x| (x.length + x.offset))
@@ -233,6 +235,9 @@ impl<'de> Visitor<'de> for FontVisitor {
                     })?),
                     b"maxp" => Table::Maxp(otspec::de::from_bytes(this_table).map_err(|_| {
                         serde::de::Error::custom("Could not deserialize maxp table")
+                    })?),
+                    b"post" => Table::Post(otspec::de::from_bytes(this_table).map_err(|_| {
+                        serde::de::Error::custom("Could not deserialize post table")
                     })?),
                     _ => Table::Unknown(this_table.into()),
                 };
@@ -258,6 +263,7 @@ mod tests {
     use crate::head::head;
     use crate::hhea::hhea;
     use crate::maxp;
+    use otspec::types::U16F16;
 
     use otspec::ser;
 
@@ -314,7 +320,7 @@ mod tests {
             numberOfHMetrics: 1117,
         };
         let fmaxp = maxp::maxp {
-            version: 1.0,
+            version: U16F16::from_num(1.0),
             table: maxp::MaxpVariant::Maxp10(maxp::maxp10 {
                 numGlyphs: 1117,
                 maxPoints: 98,
