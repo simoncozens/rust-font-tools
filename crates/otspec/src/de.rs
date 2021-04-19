@@ -284,7 +284,7 @@ impl<'de, 'a> SeqAccess<'de> for EofChecking<'a, 'de> {
         //     self.de.ptr,
         //     self.de.input.len()
         // );
-        if self.de.ptr > self.de.input.len() {
+        if self.de.ptr >= self.de.input.len() {
             // println!("No, we hit the end");
             return Ok(None);
         }

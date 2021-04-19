@@ -378,8 +378,13 @@ impl<'de> Visitor<'de> for PostVisitor {
                 if byte_count.is_err() {
                     break;
                 }
+                let byte_count = byte_count.unwrap();
+                if byte_count.is_none() {
+                    break;
+                }
+                let byte_count = byte_count.unwrap() as usize;
                 let mut name = Vec::<u8>::new();
-                for _ in 0..(byte_count.unwrap().unwrap() as usize) {
+                for _ in 0..byte_count {
                     name.push(seq.next_element::<u8>()?.ok_or_else(|| {
                         serde::de::Error::custom("Error reading glyph name table")
                     })?);
