@@ -2,6 +2,7 @@
 
 mod avar;
 pub mod font;
+mod glyf;
 mod head;
 mod hhea;
 mod maxp;
