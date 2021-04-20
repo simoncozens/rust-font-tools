@@ -296,6 +296,11 @@ pub struct post {
     pub glyphnames: Option<Vec<String>>,
 }
 
+impl post {
+    pub fn set_version(&mut self, version: f32) {
+        self.version = U16F16::from_num(version);
+    }
+}
 impl Serialize for post {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -341,7 +346,7 @@ impl Serialize for post {
 deserialize_visitor!(
     post,
     PostVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(mut self, mut seq: A) -> Result<Self::Value, A::Error> {
+    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
         let core = seq
             .next_element::<postcore>()?
             .ok_or_else(|| serde::de::Error::custom("Expecting a post table"))?;
@@ -405,7 +410,7 @@ deserialize_visitor!(
 mod tests {
     use crate::post;
     use assert_approx_eq::assert_approx_eq;
-    use otspec::de;
+
     use otspec::ser;
     use otspec::types::U16F16;
 

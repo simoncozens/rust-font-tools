@@ -44,6 +44,15 @@ pub struct maxp {
     pub table: MaxpVariant,
 }
 
+impl maxp {
+    pub fn num_glyphs(&self) -> u16 {
+        match &self.table {
+            MaxpVariant::Maxp05(s) => s.numGlyphs,
+            MaxpVariant::Maxp10(s) => s.numGlyphs,
+        }
+    }
+}
+
 deserialize_visitor!(
     maxp,
     MaxpVisitor,
@@ -77,7 +86,7 @@ deserialize_visitor!(
 #[cfg(test)]
 mod tests {
     use crate::maxp;
-    use otspec::de;
+
     use otspec::ser;
     use otspec::types::U16F16;
 

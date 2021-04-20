@@ -20,7 +20,7 @@ use std::io::Write;
 
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(untagged)]
-enum Table {
+pub enum Table {
     Unknown(Vec<u8>),
     Avar(avar),
     Head(head),
@@ -68,7 +68,8 @@ struct TableHeader {
 #[derive(Debug)]
 pub struct Font {
     sfntVersion: SfntVersion,
-    tables: IndexMap<Tag, Table>,
+    pub tables: IndexMap<Tag, Table>,
+    _numGlyphs: Option<u16>,
 }
 
 use otspec::ser;
@@ -78,6 +79,7 @@ impl Font {
         Self {
             sfntVersion,
             tables: IndexMap::new(),
+            _numGlyphs: None,
         }
     }
 
@@ -85,6 +87,15 @@ impl Font {
         let serialized = ser::to_bytes(&self).unwrap();
         let mut buffer = File::create(filename).unwrap();
         buffer.write_all(&serialized).unwrap();
+    }
+
+    pub fn num_glyphs(&mut self) -> u16 {
+        if self._numGlyphs.is_none() {
+            if let Table::Maxp(maxp) = self.tables.get(b"maxp").unwrap() {
+                self._numGlyphs = Some(maxp.num_glyphs())
+            }
+        }
+        self._numGlyphs.unwrap()
     }
 }
 
