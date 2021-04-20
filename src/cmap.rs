@@ -1,16 +1,17 @@
 use itertools::izip;
 use otspec::de::CountedDeserializer;
+use otspec::ser;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
-
+use serde::ser::SerializeSeq;
 use serde::Deserializer;
+use serde::Serializer;
 use serde::{Deserialize, Serialize};
-
 extern crate otspec;
 use otspec::deserialize_visitor;
 use otspec::types::*;
 use otspec_macros::tables;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashSet};
 
 tables!(
 
@@ -26,7 +27,7 @@ CmapHeader {
 }
 );
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 struct cmap0 {
     format: uint16,
     length: uint16,
@@ -35,8 +36,16 @@ struct cmap0 {
 }
 
 impl cmap0 {
-    fn to_mapping(self) -> HashMap<uint16, uint16> {
-        return HashMap::new();
+    fn from_mapping(languageID: uint16, map: &BTreeMap<uint16, uint16>) -> Self {
+        return Self {
+            format: 0,
+            length: 0,
+            language: languageID,
+            glyphIdArray: Vec::new(),
+        };
+    }
+    fn to_mapping(self) -> BTreeMap<uint16, uint16> {
+        return BTreeMap::new();
     }
 }
 
@@ -65,13 +74,17 @@ deserialize_visitor!(
     }
 );
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 struct cmap4 {
     format: uint16,
     length: uint16,
     language: uint16,
-    segcount: uint16,
+    segCountX2: uint16,
+    searchRange: uint16,
+    entrySelector: uint16,
+    rangeShift: uint16,
     endCode: Vec<uint16>,
+    reservedPad: uint16,
     startCode: Vec<uint16>,
     idDelta: Vec<int16>,
     idRangeOffsets: Vec<uint16>,
@@ -79,8 +92,26 @@ struct cmap4 {
 }
 
 impl cmap4 {
-    fn to_mapping(&self) -> HashMap<uint16, uint16> {
-        let mut map = HashMap::new();
+    fn from_mapping(languageID: uint16, map: &BTreeMap<uint16, uint16>) -> Self {
+        return Self {
+            format: 4,
+            length: 0,
+            language: languageID,
+            segCountX2: 0,
+            searchRange: 0,
+            entrySelector: 0,
+            rangeShift: 0,
+            endCode: Vec::new(),
+            reservedPad: 0,
+            startCode: Vec::new(),
+            idDelta: Vec::new(),
+            idRangeOffsets: Vec::new(),
+            glyphIdArray: Vec::new(),
+        };
+    }
+
+    fn to_mapping(&self) -> BTreeMap<uint16, uint16> {
+        let mut map = BTreeMap::new();
         for (start, end, delta, offset) in izip!(
             &self.startCode,
             &self.endCode,
@@ -117,16 +148,15 @@ deserialize_visitor!(
             .next_element::<uint16>()?
             .ok_or_else(|| serde::de::Error::custom("Expecting a cmap4 table segcount"))?
             / 2;
-        // Ignore next few fields
-        let _ = seq.next_element::<uint16>()?;
-        let _ = seq.next_element::<uint16>()?;
-        let _ = seq.next_element::<uint16>()?;
+        let searchRange = seq.next_element::<uint16>()?;
+        let entrySelector = seq.next_element::<uint16>()?;
+        let rangeShift = seq.next_element::<uint16>()?;
         // println!("segment count {:?}", segcount);
         let endCode: Vec<uint16> = seq
             .next_element_seed(CountedDeserializer::with_len(segcount as usize))?
             .ok_or_else(|| serde::de::Error::custom("Expecting a cmap4 table endcode"))?;
         // println!("endcode {:?}", endCode);
-        let _ = seq.next_element::<uint16>()?; // reserved padding
+        let reservedPad = seq.next_element::<uint16>()?; // reserved padding
         let startCode: Vec<uint16> = seq
             .next_element_seed(CountedDeserializer::with_len(segcount as usize))?
             .ok_or_else(|| serde::de::Error::custom("Expecting a cmap4 table startcode"))?;
@@ -148,8 +178,12 @@ deserialize_visitor!(
             format,
             length,
             language,
-            segcount,
+            segCountX2: segcount * 2,
+            searchRange: 0,
+            entrySelector: 0,
+            rangeShift: 0,
             endCode,
+            reservedPad: 0,
             startCode,
             idDelta,
             idRangeOffsets,
@@ -158,18 +192,76 @@ deserialize_visitor!(
     }
 );
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct CmapSubtable {
     format: uint16,
     platformID: uint16,
     encodingID: uint16,
     languageID: uint16,
-    mapping: HashMap<uint16, uint16>,
+    mapping: BTreeMap<uint16, uint16>,
+}
+
+impl CmapSubtable {
+    pub fn is_unicode(&self) -> bool {
+        self.platformID == 0
+            || (self.platformID == 3
+                && (self.encodingID == 0 || self.encodingID == 1 || self.encodingID == 10))
+    }
+    pub fn is_symbol(&self) -> bool {
+        self.platformID == 3 && self.encodingID == 0
+    }
+}
+
+impl Serialize for CmapSubtable {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(None)?;
+        match self.format {
+            0 => seq.serialize_element(&cmap0::from_mapping(self.languageID, &self.mapping)),
+            4 => seq.serialize_element(&cmap4::from_mapping(self.languageID, &self.mapping)),
+            _ => unimplemented!(),
+        }?;
+        seq.end()
+    }
 }
 
 #[derive(Debug, PartialEq)]
-struct cmap {
+pub struct cmap {
     subtables: Vec<CmapSubtable>,
+}
+
+impl Serialize for cmap {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut offsets: BTreeMap<&CmapSubtable, uint32> = BTreeMap::new();
+        let mut output: Vec<u8> = Vec::new();
+        let mut encoding_records: Vec<EncodingRecord> = Vec::new();
+        let offset_base = (4 + self.subtables.len() * 8) as u32;
+        for st in &self.subtables {
+            if !offsets.contains_key(st) {
+                let offset = offset_base + output.len() as u32;
+                output.extend(ser::to_bytes(&st).unwrap());
+                offsets.insert(st, offset);
+            }
+            encoding_records.push(EncodingRecord {
+                platformID: st.platformID,
+                encodingID: st.encodingID,
+                subtableOffset: *offsets.get(&st).unwrap(),
+            });
+        }
+        let header = CmapHeader {
+            version: 0,
+            encodingRecords: vec![],
+        };
+        let mut seq = serializer.serialize_seq(None)?;
+        seq.serialize_element(&header)?;
+        seq.serialize_element(&output)?;
+        seq.end()
+    }
 }
 
 deserialize_visitor!(
@@ -216,14 +308,62 @@ deserialize_visitor!(
     }
 );
 
+impl cmap {
+    pub fn getMapping(
+        &self,
+        platformID: u16,
+        encodingID: u16,
+    ) -> Option<&BTreeMap<uint16, uint16>> {
+        for st in &self.subtables {
+            if st.platformID == platformID && st.encodingID == encodingID {
+                return Some(&st.mapping);
+            }
+        }
+        None
+    }
+    pub fn getBestMapping(&self) -> Option<&BTreeMap<uint16, uint16>> {
+        for (p, e) in &[
+            (3, 10),
+            (0, 6),
+            (0, 4),
+            (3, 1),
+            (0, 3),
+            (0, 2),
+            (0, 1),
+            (0, 0),
+        ] {
+            let maybe_map = self.getMapping(*p, *e);
+            if maybe_map.is_some() {
+                return maybe_map;
+            }
+        }
+        None
+    }
+
+    pub fn reversed(&self) -> BTreeMap<u16, HashSet<u16>> {
+        let mut res = BTreeMap::new();
+        for subtable in &self.subtables {
+            if subtable.is_unicode() {
+                for (codepoint, id) in &subtable.mapping {
+                    if !res.contains_key(id) {
+                        res.insert(*id, HashSet::new());
+                    }
+                    res.get_mut(id).unwrap().insert(*codepoint);
+                }
+            }
+        }
+        res
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::cmap;
     use std::iter::FromIterator;
 
-    macro_rules! hashmap {
+    macro_rules! btreemap {
 		    ($($k:expr => $v:expr),* $(,)?) => {
-		        std::collections::HashMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+		        std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
 		    };
 		}
     #[test]
@@ -235,14 +375,14 @@ mod tests {
                     platformID: 0,
                     encodingID: 3,
                     languageID: 0,
-                    mapping: hashmap!( 32 => 1, 160 => 1, 65 => 2 ),
+                    mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
                 },
                 cmap::CmapSubtable {
                     format: 4,
                     platformID: 3,
                     encodingID: 1,
                     languageID: 0,
-                    mapping: hashmap!( 32 => 1, 160 => 1, 65 => 2 ),
+                    mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
                 },
             ],
         };
@@ -255,5 +395,29 @@ mod tests {
         ];
         let deserialized: cmap::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
         assert_eq!(deserialized, fcmap);
+    }
+
+    #[test]
+    fn cmap_reversed() {
+        let fcmap = cmap::cmap {
+            subtables: vec![
+                cmap::CmapSubtable {
+                    format: 4,
+                    platformID: 0,
+                    encodingID: 3,
+                    languageID: 0,
+                    mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
+                },
+                cmap::CmapSubtable {
+                    format: 4,
+                    platformID: 3,
+                    encodingID: 1,
+                    languageID: 0,
+                    mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
+                },
+            ],
+        };
+        let revmap = fcmap.reversed();
+        assert!(revmap.get(&2).unwrap().contains(&65));
     }
 }
