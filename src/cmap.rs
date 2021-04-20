@@ -36,7 +36,7 @@ struct cmap0 {
 }
 
 impl cmap0 {
-    fn from_mapping(languageID: uint16, map: &BTreeMap<uint16, uint16>) -> Self {
+    fn from_mapping(languageID: uint16, map: &BTreeMap<uint32, uint16>) -> Self {
         return Self {
             format: 0,
             length: 0,
@@ -44,7 +44,7 @@ impl cmap0 {
             glyphIdArray: Vec::new(),
         };
     }
-    fn to_mapping(self) -> BTreeMap<uint16, uint16> {
+    fn to_mapping(self) -> BTreeMap<uint32, uint16> {
         return BTreeMap::new();
     }
 }
@@ -92,7 +92,7 @@ struct cmap4 {
 }
 
 impl cmap4 {
-    fn from_mapping(languageID: uint16, map: &BTreeMap<uint16, uint16>) -> Self {
+    fn from_mapping(languageID: uint16, map: &BTreeMap<uint32, uint16>) -> Self {
         return Self {
             format: 4,
             length: 0,
@@ -110,7 +110,7 @@ impl cmap4 {
         };
     }
 
-    fn to_mapping(&self) -> BTreeMap<uint16, uint16> {
+    fn to_mapping(&self) -> BTreeMap<uint32, uint16> {
         let mut map = BTreeMap::new();
         for (start, end, delta, offset) in izip!(
             &self.startCode,
@@ -125,7 +125,7 @@ impl cmap4 {
                 break;
             }
             for i in *start..(1 + *end) {
-                map.insert(i, (i as i16 + *delta) as u16);
+                map.insert(i as u32, (i as i16 + *delta) as u16);
             }
         }
         map
@@ -198,7 +198,7 @@ struct CmapSubtable {
     platformID: uint16,
     encodingID: uint16,
     languageID: uint16,
-    mapping: BTreeMap<uint16, uint16>,
+    mapping: BTreeMap<uint32, uint16>,
 }
 
 impl CmapSubtable {
@@ -313,7 +313,7 @@ impl cmap {
         &self,
         platformID: u16,
         encodingID: u16,
-    ) -> Option<&BTreeMap<uint16, uint16>> {
+    ) -> Option<&BTreeMap<uint32, uint16>> {
         for st in &self.subtables {
             if st.platformID == platformID && st.encodingID == encodingID {
                 return Some(&st.mapping);
@@ -321,7 +321,7 @@ impl cmap {
         }
         None
     }
-    pub fn getBestMapping(&self) -> Option<&BTreeMap<uint16, uint16>> {
+    pub fn getBestMapping(&self) -> Option<&BTreeMap<uint32, uint16>> {
         for (p, e) in &[
             (3, 10),
             (0, 6),
@@ -340,7 +340,7 @@ impl cmap {
         None
     }
 
-    pub fn reversed(&self) -> BTreeMap<u16, HashSet<u16>> {
+    pub fn reversed(&self) -> BTreeMap<u16, HashSet<u32>> {
         let mut res = BTreeMap::new();
         for subtable in &self.subtables {
             if subtable.is_unicode() {
