@@ -6,6 +6,7 @@ use std::convert::{TryFrom, TryInto};
 use std::num::Wrapping;
 extern crate otspec;
 use crate::avar::avar;
+use crate::cmap::cmap;
 use crate::gvar::gvar;
 use crate::head::head;
 use crate::hhea::hhea;
@@ -26,6 +27,7 @@ enum Table {
     Hhea(hhea),
     Maxp(maxp),
     Post(post),
+    Cmap(cmap),
     // Gvar(gvar),
 }
 
@@ -184,7 +186,7 @@ impl Serialize for Font {
 deserialize_visitor!(
     Font,
     FontVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(mut self, mut seq: A) -> Result<Self::Value, A::Error> {
+    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
         let header = seq
             .next_element::<TableHeader>()?
             .ok_or_else(|| serde::de::Error::custom("Expecting a table header"))?;
@@ -214,6 +216,9 @@ deserialize_visitor!(
             let this_table = &remainder[start..start + tr.length as usize];
             let table =
                 match &tr.tag {
+                    b"cmap" => Table::Cmap(otspec::de::from_bytes(this_table).map_err(|_| {
+                        serde::de::Error::custom("Could not deserialize cmap table")
+                    })?),
                     b"hhea" => Table::Hhea(otspec::de::from_bytes(this_table).map_err(|_| {
                         serde::de::Error::custom("Could not deserialize hhea table")
                     })?),
