@@ -40,12 +40,12 @@ struct cmap0 {
 
 impl cmap0 {
     fn from_mapping(languageID: uint16, map: &BTreeMap<uint32, uint16>) -> Self {
-        return Self {
+        Self {
             format: 0,
             length: 0,
             language: languageID,
             glyphIdArray: Vec::new(),
-        };
+        }
     }
     fn to_mapping(self) -> BTreeMap<uint32, uint16> {
         return BTreeMap::new();
@@ -324,7 +324,7 @@ deserialize_visitor!(
             / 2;
         let searchRange = seq.next_element::<uint16>()?;
         let entrySelector = seq.next_element::<uint16>()?;
-        let rangeShift = seq.next_element::<uint16>()?;
+        let _rangeShift = seq.next_element::<uint16>()?;
         // println!("segment count {:?}", segcount);
         let endCode: Vec<uint16> = seq
             .next_element_seed(CountedDeserializer::with_len(segcount as usize))?
