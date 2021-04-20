@@ -56,6 +56,8 @@ fn special_type(t: &str) -> Option<String> {
         compare fractional version numbers for equality without having to
         do epsilon dances. */
         "Version16Dot16" => Some("U16F16".to_string()),
+        "Offset16" => Some("u16".to_string()),
+        "Offset32" => Some("u32".to_string()),
         "LONGDATETIME" => Some("chrono::NaiveDateTime".to_string()),
         _ => None,
     }
