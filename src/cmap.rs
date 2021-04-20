@@ -1,4 +1,4 @@
-use itertools::izip;
+use crate::font::get_search_range;
 use otspec::de::CountedDeserializer;
 use otspec::ser;
 use serde::de::SeqAccess;
@@ -7,11 +7,14 @@ use serde::ser::SerializeSeq;
 use serde::Deserializer;
 use serde::Serializer;
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
+use std::convert::TryInto;
 extern crate otspec;
 use otspec::deserialize_visitor;
 use otspec::types::*;
 use otspec_macros::tables;
 use std::collections::{BTreeMap, HashSet};
+use std::hash::{Hash, Hasher};
 
 tables!(
 
@@ -91,23 +94,173 @@ struct cmap4 {
     glyphIdArray: Vec<uint16>,
 }
 
+fn is_contiguous_list(l: &[u16]) -> bool {
+    for ab in l.windows(2) {
+        if let [a, b] = ab {
+            if *b != *a + 1 {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn split_range(
+    start_code: u16,
+    end_code: u16,
+    map: &BTreeMap<uint32, uint16>,
+) -> (Vec<u16>, Vec<u16>) {
+    if start_code == end_code {
+        return (vec![], vec![end_code]);
+    }
+    let mut last_id = map[&(start_code as u32)];
+    let mut last_code = start_code;
+    let mut in_order = None;
+    let mut ordered_begin = None;
+    let mut subranges = Vec::new();
+    for code in (start_code + 1)..(end_code + 1) {
+        let glyph_id = *map.get(&(code as u32)).unwrap_or(&0);
+        if glyph_id - 1 == last_id {
+            if in_order.is_none() || in_order == Some(0) {
+                in_order = Some(1);
+                ordered_begin = Some(last_code);
+            }
+        } else {
+            if in_order == Some(1) {
+                in_order = Some(0);
+                subranges.push((ordered_begin, last_code));
+                ordered_begin = None;
+            }
+        }
+        last_id = glyph_id;
+        last_code = code;
+    }
+    if in_order == Some(1) {
+        subranges.push((ordered_begin, last_code));
+    }
+    assert_eq!(last_code, end_code);
+
+    let mut new_ranges: Vec<(u32, u32)> = Vec::new();
+    for (b, e) in subranges {
+        let b = b.unwrap();
+
+        if b == start_code && e == end_code {
+            break;
+        }
+        let threshold = if b == start_code || e == end_code {
+            4
+        } else {
+            8
+        };
+        if (e - b + 1) > threshold {
+            new_ranges.push((b.into(), e.into()));
+        }
+    }
+
+    if new_ranges.is_empty() {
+        return (vec![], vec![end_code]);
+    }
+
+    if new_ranges[0].0 != (start_code as u32) {
+        new_ranges.insert(0, (start_code.into(), new_ranges[0].0 - 1))
+    }
+    if new_ranges.last().unwrap().1 != (end_code as u32) {
+        new_ranges.push((new_ranges.last().unwrap().1 + 1, end_code.into()));
+    }
+    let mut i = 1;
+    while i < new_ranges.len() {
+        if new_ranges[i - 1].1 + 1 != new_ranges[i].0 {
+            new_ranges.insert(i, (new_ranges[i - 1].1 + 1, new_ranges[i].0 - 1));
+            i += 1;
+        }
+        i += 1;
+    }
+    let mut start: Vec<u16> = Vec::new();
+    let mut end: Vec<u16> = Vec::new();
+    for (b, e) in new_ranges {
+        start.push(b as u16);
+        end.push(e as u16);
+    }
+    start.drain(0..1);
+    assert_eq!(start.len() + 1, end.len());
+    (start, end)
+}
+
 impl cmap4 {
     fn from_mapping(languageID: uint16, map: &BTreeMap<uint32, uint16>) -> Self {
-        return Self {
+        let mut char_codes: Vec<uint32> = map.keys().cloned().collect();
+        char_codes.sort_unstable();
+        let mut last_code = char_codes[0];
+        let mut startCode: Vec<u16> = vec![last_code.try_into().unwrap()];
+        let mut endCode: Vec<u16> = Vec::new();
+        for char_code in &char_codes[1..] {
+            if *char_code == last_code + 1 {
+                last_code = *char_code;
+                continue;
+            }
+            let (mut start, mut end) = split_range(
+                *startCode.last().unwrap(),
+                last_code.try_into().unwrap(),
+                map,
+            );
+            // println!("Split_range called, returned {:?} {:?}", start, end);
+            startCode.append(&mut start);
+            endCode.append(&mut end);
+            startCode.push((*char_code).try_into().unwrap());
+            last_code = *char_code;
+        }
+        let (mut start, mut end) = split_range(
+            *startCode.last().unwrap(),
+            last_code.try_into().unwrap(),
+            map,
+        );
+        startCode.append(&mut start);
+        endCode.append(&mut end);
+        startCode.push(0xffff);
+        endCode.push(0xffff);
+        // println!("Start code array: {:?} ", startCode);
+        // println!("End code array: {:?}", endCode);
+        let mut idDelta: Vec<i16> = Vec::new();
+        let mut idRangeOffsets = Vec::new();
+        let mut glyphIndexArray = Vec::new();
+        for i in 0..(endCode.len() - 1) {
+            let mut indices: Vec<u16> = Vec::new();
+            for char_code in startCode[i]..endCode[i] + 1 {
+                let gid = *map.get(&(char_code as u32)).unwrap_or(&0);
+                indices.push(gid);
+            }
+            if is_contiguous_list(&indices) {
+                // println!("Contiguous list {:?}", indices);
+                idDelta.push((indices[0] as i16 - startCode[i] as i16) as i16);
+                idRangeOffsets.push(0);
+            } else {
+                // println!("Non contiguous list {:?}", indices);
+                idDelta.push(0);
+                idRangeOffsets.push(2 * (endCode.len() + glyphIndexArray.len() - i) as u16);
+                glyphIndexArray.append(&mut indices);
+            }
+        }
+        // println!("ID Delta array: {:?}", idDelta);
+        // println!("ID Range Offset array: {:?}", idRangeOffsets);
+        idDelta.push(1);
+        idRangeOffsets.push(0);
+        let segcount = endCode.len() as u16;
+        let (searchRange, entrySelector, rangeShift) = get_search_range(segcount, 2);
+        Self {
             format: 4,
-            length: 0,
+            length: (glyphIndexArray.len() * 2 + 16 + 2 * 4 * segcount as usize) as u16,
             language: languageID,
-            segCountX2: 0,
-            searchRange: 0,
-            entrySelector: 0,
-            rangeShift: 0,
-            endCode: Vec::new(),
+            segCountX2: segcount * 2,
+            searchRange,
+            entrySelector,
+            rangeShift,
+            endCode,
             reservedPad: 0,
-            startCode: Vec::new(),
-            idDelta: Vec::new(),
-            idRangeOffsets: Vec::new(),
-            glyphIdArray: Vec::new(),
-        };
+            startCode,
+            idDelta,
+            idRangeOffsets,
+            glyphIdArray: glyphIndexArray,
+        }
     }
 
     fn to_mapping(&self) -> BTreeMap<uint32, uint16> {
@@ -125,8 +278,20 @@ impl cmap4 {
                 if range_offset == 0 {
                     map.insert(char_code as u32, (char_code as i16 + delta) as u16);
                 } else {
-                    let partial = range_offset / 2 - start + (i - self.idRangeOffsets.len()) as u16;
-                    let index = (char_code + partial) as usize;
+                    // println!("Range offset/2: {:?}", range_offset / 2);
+                    // println!("start: {:?}", start);
+                    // println!("i: {:?}", i);
+                    // println!("Range of idRangeOffsets: {:?}", self.idRangeOffsets.len());
+                    let partial = (range_offset / 2) as i16
+                        - (start as i16 + i as i16 - self.idRangeOffsets.len() as i16) as i16;
+                    // println!("Partial: {:?}", partial);
+                    let index = (char_code as i16 + partial) as usize;
+                    // println!("Index: {:?}", index);
+                    // println!("GlyphIdArray: {:?}", self.glyphIdArray.len());
+                    // XXX
+                    if index >= self.glyphIdArray.len() {
+                        break;
+                    }
                     assert!(index < self.glyphIdArray.len());
                     if self.glyphIdArray[index] != 0 {
                         let glyph_id = self.glyphIdArray[index] as i16 + delta;
@@ -201,7 +366,7 @@ deserialize_visitor!(
     }
 );
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct CmapSubtable {
     format: uint16,
     platformID: uint16,
@@ -246,25 +411,28 @@ impl Serialize for cmap {
     where
         S: Serializer,
     {
-        let mut offsets: BTreeMap<&CmapSubtable, uint32> = BTreeMap::new();
+        let mut offsets: BTreeMap<u64, uint32> = BTreeMap::new();
         let mut output: Vec<u8> = Vec::new();
         let mut encoding_records: Vec<EncodingRecord> = Vec::new();
         let offset_base = (4 + self.subtables.len() * 8) as u32;
         for st in &self.subtables {
-            if !offsets.contains_key(st) {
+            let mut hash = DefaultHasher::new();
+            st.mapping.hash(&mut hash);
+            let hash_value = hash.finish();
+            if !offsets.contains_key(&hash_value) {
                 let offset = offset_base + output.len() as u32;
                 output.extend(ser::to_bytes(&st).unwrap());
-                offsets.insert(st, offset);
+                offsets.insert(hash_value, offset);
             }
             encoding_records.push(EncodingRecord {
                 platformID: st.platformID,
                 encodingID: st.encodingID,
-                subtableOffset: *offsets.get(&st).unwrap(),
+                subtableOffset: *offsets.get(&hash_value).unwrap(),
             });
         }
         let header = CmapHeader {
             version: 0,
-            encodingRecords: vec![],
+            encodingRecords: encoding_records,
         };
         let mut seq = serializer.serialize_seq(None)?;
         seq.serialize_element(&header)?;
@@ -406,6 +574,64 @@ mod tests {
         assert_eq!(deserialized, fcmap);
     }
 
+    #[test]
+    fn cmap_ser() {
+        let fcmap = cmap::cmap {
+            subtables: vec![
+                cmap::CmapSubtable {
+                    format: 4,
+                    platformID: 0,
+                    encodingID: 3,
+                    languageID: 0,
+                    mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
+                },
+                cmap::CmapSubtable {
+                    format: 4,
+                    platformID: 3,
+                    encodingID: 1,
+                    languageID: 0,
+                    mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
+                },
+            ],
+        };
+        let expected = vec![
+            0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x14, 0x00, 0x03,
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x14, 0x00, 0x04, 0x00, 0x30, 0x00, 0x00, 0x00, 0x08,
+            0x00, 0x08, 0x00, 0x02, 0x00, 0x00, 0x00, 0x20, 0x00, 0x41, 0x00, 0xa0, 0xff, 0xff,
+            0x00, 0x00, 0x00, 0x20, 0x00, 0x41, 0x00, 0xa0, 0xff, 0xff, 0xff, 0xe1, 0xff, 0xc1,
+            0xff, 0x61, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        let serialized = otspec::ser::to_bytes(&fcmap).unwrap();
+        assert_eq!(serialized, expected);
+    }
+    #[test]
+    fn cmap_serde_notosansarmenian() {
+        let binary_cmap = vec![
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x04,
+            0x00, 0x70, 0x00, 0x00, 0x00, 0x18, 0x00, 0x10, 0x00, 0x03, 0x00, 0x08, 0x00, 0x00,
+            0x00, 0x0d, 0x00, 0x20, 0x00, 0xa0, 0x05, 0x56, 0x05, 0x5f, 0x05, 0x87, 0x05, 0x8a,
+            0x05, 0x8f, 0xfb, 0x17, 0xfe, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0d,
+            0x00, 0x20, 0x00, 0xa0, 0x05, 0x31, 0x05, 0x59, 0x05, 0x61, 0x05, 0x89, 0x05, 0x8f,
+            0xfb, 0x13, 0xfe, 0xff, 0xff, 0xff, 0x00, 0x01, 0xff, 0xf5, 0xff, 0xe3, 0xff, 0x63,
+            0xfa, 0xd3, 0xfa, 0xd1, 0xfa, 0xd0, 0xfa, 0xcf, 0xfa, 0xd0, 0x05, 0x47, 0x01, 0x02,
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        ];
+        let bt = btreemap!(0 => 1, 13 => 2, 32 => 3, 160 => 3, 1329 => 4, 1330 => 5, 1331 => 6, 1332 => 7, 1333 => 8, 1334 => 9, 1335 => 10, 1336 => 11, 1337 => 12, 1338 => 13, 1339 => 14, 1340 => 15, 1341 => 16, 1342 => 17, 1343 => 18, 1344 => 19, 1345 => 20, 1346 => 21, 1347 => 22, 1348 => 23, 1349 => 24, 1350 => 25, 1351 => 26, 1352 => 27, 1353 => 28, 1354 => 29, 1355 => 30, 1356 => 31, 1357 => 32, 1358 => 33, 1359 => 34, 1360 => 35, 1361 => 36, 1362 => 37, 1363 => 38, 1364 => 39, 1365 => 40, 1366 => 41, 1369 => 42, 1370 => 43, 1371 => 44, 1372 => 45, 1373 => 46, 1374 => 47, 1375 => 48, 1377 => 49, 1378 => 50, 1379 => 51, 1380 => 52, 1381 => 53, 1382 => 54, 1383 => 55, 1384 => 56, 1385 => 57, 1386 => 58, 1387 => 59, 1388 => 60, 1389 => 61, 1390 => 62, 1391 => 63, 1392 => 64, 1393 => 65, 1394 => 66, 1395 => 67, 1396 => 68, 1397 => 69, 1398 => 70, 1399 => 71, 1400 => 72, 1401 => 73, 1402 => 74, 1403 => 75, 1404 => 76, 1405 => 77, 1406 => 78, 1407 => 79, 1408 => 80, 1409 => 81, 1410 => 82, 1411 => 83, 1412 => 84, 1413 => 85, 1414 => 86, 1415 => 87, 1417 => 88, 1418 => 89, 1423 => 95, 64275 => 90, 64276 => 91, 64277 => 92, 64278 => 93, 64279 => 94, 65279 => 1);
+        let fcmap = cmap::cmap {
+            subtables: vec![cmap::CmapSubtable {
+                format: 4,
+                platformID: 3,
+                encodingID: 1,
+                languageID: 0,
+                mapping: bt,
+            }],
+        };
+        let deserialized: cmap::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
+        let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
+        assert_eq!(deserialized, fcmap);
+        assert_eq!(serialized, binary_cmap);
+    }
     #[test]
     fn cmap_reversed() {
         let fcmap = cmap::cmap {

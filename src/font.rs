@@ -15,6 +15,7 @@ use crate::post::post;
 use indexmap::IndexMap;
 use otspec::deserialize_visitor;
 use otspec::types::*;
+use std::cmp;
 use std::fs::File;
 use std::io::Write;
 
@@ -138,17 +139,23 @@ fn checksum(x: &[u8]) -> u32 {
     sum.0
 }
 
+pub fn get_search_range(n: u16, itemsize: u16) -> (u16, u16, u16) {
+    let mut max_pow2: u16 = 0;
+    while 1u16 << (max_pow2 + 1) <= n {
+        max_pow2 += 1;
+    }
+    let search_range = (1 << max_pow2) * itemsize;
+    let range_shift = cmp::max(0, n * itemsize - search_range);
+    (search_range, max_pow2, range_shift)
+}
+
 impl Serialize for Font {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
         let lenu16: u16 = self.tables.len().try_into().unwrap();
-        let mut max_pow2: u16 = 0;
-        while 1u16 << (max_pow2 + 1) <= lenu16 {
-            max_pow2 += 1;
-        }
-        let searchRange: u16 = (1u16 << max_pow2) << 4;
+        let (searchRange, max_pow2, range_shift) = get_search_range(lenu16, 16);
         // let mut seq = serializer.serialize_seq(None)?;
         let mut output: Vec<u8> = vec![];
         let mut output_tables: Vec<u8> = vec![];
@@ -156,7 +163,7 @@ impl Serialize for Font {
         output.extend(&lenu16.to_be_bytes());
         output.extend(&searchRange.to_be_bytes());
         output.extend(&max_pow2.to_be_bytes());
-        output.extend(&(lenu16 * 16 - searchRange).to_be_bytes());
+        output.extend(&range_shift.to_be_bytes());
         let mut pos = 16 * self.tables.len() + 12;
         let mut head_pos: Option<usize> = None;
         for (tag, value) in self.tables.iter() {
@@ -227,6 +234,8 @@ deserialize_visitor!(
             let this_table = &remainder[start..start + tr.length as usize];
             let table =
                 match &tr.tag {
+                    /* A clever optimization here would be to store everything as
+                    Table::Unknown and only unpack the binary on demand. */
                     b"cmap" => Table::Cmap(otspec::de::from_bytes(this_table).map_err(|_| {
                         serde::de::Error::custom("Could not deserialize cmap table")
                     })?),
