@@ -49,7 +49,6 @@ fn main() {
             for i in 0..num_glyphs {
                 let prod_name =
                     build_production_name(&glyphnames[i as usize], reversed_map.get(&i));
-                println!("{:} = {:}", i, prod_name);
                 glyphnames[i as usize] = prod_name;
             }
         }
