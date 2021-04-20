@@ -112,20 +112,29 @@ impl cmap4 {
 
     fn to_mapping(&self) -> BTreeMap<uint32, uint16> {
         let mut map = BTreeMap::new();
-        for (start, end, delta, offset) in izip!(
-            &self.startCode,
-            &self.endCode,
-            &self.idDelta,
-            &self.idRangeOffsets
-        ) {
-            if *offset != 0 {
-                unimplemented!()
-            }
-            if *end == 0xffff {
+        for i in 0..(self.startCode.len() - 1) {
+            let start = self.startCode[i];
+            let end = self.endCode[i];
+            let delta = self.idDelta[i];
+            let range_offset = self.idRangeOffsets[i];
+            if end == 0xffff {
                 break;
             }
-            for i in *start..(1 + *end) {
-                map.insert(i as u32, (i as i16 + *delta) as u16);
+            let range_char_codes = start..(1 + end);
+            for char_code in range_char_codes {
+                if range_offset == 0 {
+                    map.insert(char_code as u32, (char_code as i16 + delta) as u16);
+                } else {
+                    let partial = range_offset / 2 - start + (i - self.idRangeOffsets.len()) as u16;
+                    let index = (char_code + partial) as usize;
+                    assert!(index < self.glyphIdArray.len());
+                    if self.glyphIdArray[index] != 0 {
+                        let glyph_id = self.glyphIdArray[index] as i16 + delta;
+                        map.insert(char_code as u32, glyph_id as u16);
+                    } else {
+                        map.insert(char_code as u32, 0);
+                    }
+                }
             }
         }
         map
