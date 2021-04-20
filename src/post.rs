@@ -1,3 +1,4 @@
+use otspec::deserialize_visitor;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::ser::SerializeSeq;
@@ -337,25 +338,9 @@ impl Serialize for post {
         seq.end()
     }
 }
-
-struct PostVisitor {
-    _phantom: std::marker::PhantomData<post>,
-}
-
-impl PostVisitor {
-    fn new() -> Self {
-        PostVisitor {
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-impl<'de> Visitor<'de> for PostVisitor {
-    type Value = post;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "A sequence of values")
-    }
-
+deserialize_visitor!(
+    post,
+    PostVisitor,
     fn visit_seq<A: SeqAccess<'de>>(mut self, mut seq: A) -> Result<Self::Value, A::Error> {
         let core = seq
             .next_element::<postcore>()?
@@ -414,16 +399,7 @@ impl<'de> Visitor<'de> for PostVisitor {
             glyphnames,
         })
     }
-}
-
-impl<'de> Deserialize<'de> for post {
-    fn deserialize<D>(d: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        d.deserialize_seq(PostVisitor::new())
-    }
-}
+);
 
 #[cfg(test)]
 mod tests {

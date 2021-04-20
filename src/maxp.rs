@@ -2,9 +2,9 @@ use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::Deserializer;
 use serde::{Deserialize, Serialize};
-
 extern crate otspec;
 
+use otspec::deserialize_visitor;
 use otspec::types::*;
 use otspec_macros::tables;
 
@@ -44,24 +44,9 @@ pub struct maxp {
     pub table: MaxpVariant,
 }
 
-struct MaxpVisitor {
-    _phantom: std::marker::PhantomData<maxp>,
-}
-
-impl MaxpVisitor {
-    fn new() -> Self {
-        MaxpVisitor {
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-impl<'de> Visitor<'de> for MaxpVisitor {
-    type Value = maxp;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "A sequence of values")
-    }
-
+deserialize_visitor!(
+    maxp,
+    MaxpVisitor,
     fn visit_seq<A: SeqAccess<'de>>(mut self, mut seq: A) -> Result<Self::Value, A::Error> {
         let version = seq
             .next_element::<i32>()?
@@ -87,16 +72,7 @@ impl<'de> Visitor<'de> for MaxpVisitor {
         }
         Err(serde::de::Error::custom("Unknown maxp version"))
     }
-}
-
-impl<'de> Deserialize<'de> for maxp {
-    fn deserialize<D>(d: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        d.deserialize_seq(MaxpVisitor::new())
-    }
-}
+);
 
 #[cfg(test)]
 mod tests {

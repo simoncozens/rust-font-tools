@@ -3,6 +3,7 @@
 use bitflags::bitflags;
 use itertools::izip;
 use kurbo::Affine;
+use otspec::deserialize_visitor;
 use otspec::types::*;
 use otspec_macros::tables;
 use serde::de::SeqAccess;
@@ -91,25 +92,9 @@ struct glyf {
     glyphs: Vec<Glyph>,
 }
 
-struct ComponentVisitor {
-    _phantom: std::marker::PhantomData<glyf>,
-}
-
-impl ComponentVisitor {
-    fn new() -> Self {
-        ComponentVisitor {
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<'de> Visitor<'de> for ComponentVisitor {
-    type Value = Component;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "A component")
-    }
-
+deserialize_visitor!(
+    Component,
+    ComponentVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
         let flags = seq
             .next_element::<ComponentFlags>()?
@@ -212,36 +197,11 @@ impl<'de> Visitor<'de> for ComponentVisitor {
             flags,
         })
     }
-}
+);
 
-impl<'de> Deserialize<'de> for Component {
-    fn deserialize<D>(d: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        d.deserialize_seq(ComponentVisitor::new())
-    }
-}
-
-struct GlyphVisitor {
-    _phantom: std::marker::PhantomData<glyf>,
-}
-
-impl GlyphVisitor {
-    fn new() -> Self {
-        GlyphVisitor {
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<'de> Visitor<'de> for GlyphVisitor {
-    type Value = Glyph;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "A sequence of values")
-    }
-
+deserialize_visitor!(
+    Glyph,
+    GlyphVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
         // println!("Reading a glyph");
         let maybe_num_contours = seq.next_element::<i16>()?;
@@ -423,28 +383,15 @@ impl<'de> Visitor<'de> for GlyphVisitor {
             yMin: core.yMin,
         })
     }
-}
-
-impl<'de> Deserialize<'de> for Glyph {
-    fn deserialize<D>(d: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        d.deserialize_seq(GlyphVisitor::new())
-    }
-}
+);
 
 #[cfg(test)]
 mod tests {
     use crate::glyf;
     use crate::glyf::Point;
 
-    use otspec::de;
-
-    use otspec::ser;
-
     #[test]
-    fn post_serde_glyf() {
+    fn glyf_de() {
         let binary_glyf = vec![
             0x00, 0x02, // Two contours
             0x00, 0x14, // xMin

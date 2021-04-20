@@ -6,11 +6,13 @@ use std::convert::{TryFrom, TryInto};
 use std::num::Wrapping;
 extern crate otspec;
 use crate::avar::avar;
+use crate::gvar::gvar;
 use crate::head::head;
 use crate::hhea::hhea;
 use crate::maxp::maxp;
 use crate::post::post;
 use indexmap::IndexMap;
+use otspec::deserialize_visitor;
 use otspec::types::*;
 use std::fs::File;
 use std::io::Write;
@@ -24,6 +26,7 @@ enum Table {
     Hhea(hhea),
     Maxp(maxp),
     Post(post),
+    // Gvar(gvar),
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
@@ -178,25 +181,9 @@ impl Serialize for Font {
     }
 }
 
-struct FontVisitor {
-    _phantom: std::marker::PhantomData<Font>,
-}
-
-impl FontVisitor {
-    fn new() -> Self {
-        FontVisitor {
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<'de> Visitor<'de> for FontVisitor {
-    type Value = Font;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "A sequence of values")
-    }
-
+deserialize_visitor!(
+    Font,
+    FontVisitor,
     fn visit_seq<A: SeqAccess<'de>>(mut self, mut seq: A) -> Result<Self::Value, A::Error> {
         let header = seq
             .next_element::<TableHeader>()?
@@ -239,22 +226,16 @@ impl<'de> Visitor<'de> for FontVisitor {
                     b"post" => Table::Post(otspec::de::from_bytes(this_table).map_err(|_| {
                         serde::de::Error::custom("Could not deserialize post table")
                     })?),
+                    // b"gvar" => Table::Gvar(otspec::de::from_bytes(this_table).map_err(|_| {
+                    //     serde::de::Error::custom("Could not deserialize gvar table")
+                    // })?),
                     _ => Table::Unknown(this_table.into()),
                 };
             result.tables.insert(tr.tag, table);
         }
         Ok(result)
     }
-}
-
-impl<'de> Deserialize<'de> for Font {
-    fn deserialize<D>(d: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        d.deserialize_seq(FontVisitor::new())
-    }
-}
+);
 
 #[cfg(test)]
 mod tests {
