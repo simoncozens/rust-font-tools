@@ -182,7 +182,7 @@ impl Serialize for Font {
         }
         output.extend(output_tables);
         // Compute full checksum and update head here.
-        let full_checksum = 0xB1B0AFBA - checksum(&output);
+        let full_checksum = (Wrapping(0xB1B0AFBA) - Wrapping(checksum(&output))).0;
         let checksum_be = full_checksum.to_be_bytes();
         if let Some(head_pos) = head_pos {
             output[head_pos + 8] = checksum_be[0];
