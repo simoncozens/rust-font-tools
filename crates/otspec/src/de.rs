@@ -1,6 +1,7 @@
 use crate::error::{Error, Result};
 use serde::de::{self, Deserialize, DeserializeSeed, SeqAccess, Visitor};
 use std::convert::TryInto;
+use std::fmt;
 use std::mem;
 
 pub struct Deserializer<'de> {
@@ -291,4 +292,108 @@ impl<'de, 'a> SeqAccess<'de> for EofChecking<'a, 'de> {
         // println!("Yes, let's go...");
         seed.deserialize(&mut *self.de).map(Some)
     }
+}
+
+pub struct CountedDeserializer<'a, T: 'a> {
+    len: usize,
+    _phantom: &'a std::marker::PhantomData<T>,
+}
+
+impl<T> CountedDeserializer<'_, T> {
+    pub fn with_len(len: usize) -> Self {
+        CountedDeserializer {
+            len,
+            _phantom: &std::marker::PhantomData,
+        }
+    }
+}
+
+impl<'de, 'a, T> DeserializeSeed<'de> for CountedDeserializer<'a, T>
+where
+    T: Deserialize<'de>,
+{
+    type Value = Vec<T>;
+
+    fn deserialize<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        // Visitor implementation that will walk an inner array of the JSON
+        // input.
+        struct CountedDeserializerVisitor<'a, T: 'a> {
+            len: usize,
+            _phantom: &'a std::marker::PhantomData<T>,
+        }
+
+        impl<'de, 'a, T> Visitor<'de> for CountedDeserializerVisitor<'a, T>
+        where
+            T: Deserialize<'de>,
+        {
+            type Value = Vec<T>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "an array of integers")
+            }
+
+            fn visit_seq<A>(mut self, mut seq: A) -> std::result::Result<Vec<T>, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let mut res = Vec::new();
+                if self.len > 0 {
+                    // Visit each element in the inner array and push it onto
+                    // the existing vector.
+                    while let Some(elem) = seq.next_element()? {
+                        res.push(elem);
+                        self.len -= 1;
+                        if self.len == 0 {
+                            break;
+                        }
+                    }
+                }
+                Ok(res)
+            }
+        }
+
+        deserializer.deserialize_seq(CountedDeserializerVisitor {
+            len: self.len,
+            _phantom: &std::marker::PhantomData,
+        })
+    }
+}
+
+#[macro_export]
+macro_rules! deserialize_visitor {
+    ($struct_name:ident, $visitor_name:ident, $item:item) => {
+        struct $visitor_name {
+            _phantom: std::marker::PhantomData<$struct_name>,
+        }
+
+        impl $visitor_name {
+            fn new() -> Self {
+                $visitor_name {
+                    _phantom: std::marker::PhantomData,
+                }
+            }
+        }
+
+        impl<'de> Deserialize<'de> for $struct_name {
+            fn deserialize<D>(d: D) -> Result<Self, D::Error>
+            where
+                D: Deserializer<'de>,
+            {
+                d.deserialize_seq($visitor_name::new())
+            }
+        }
+
+        impl<'de> Visitor<'de> for $visitor_name {
+            type Value = $struct_name;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "A {:} structure", stringify!($struct_name))
+            }
+            $item
+        }
+
+    };
 }

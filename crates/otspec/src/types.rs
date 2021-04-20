@@ -5,6 +5,10 @@
     clippy::clippy::upper_case_acronyms
 )]
 
+use serde::de::DeserializeSeed;
+use serde::de::SeqAccess;
+use serde::Deserialize;
+use serde::Deserializer;
 use std::fmt;
 
 use serde::de::{self, Visitor};
@@ -15,6 +19,7 @@ pub type int16 = i16;
 pub type Tag = [u8; 4];
 pub type FWORD = i16;
 pub type UFWORD = u16;
+pub type Tuple = Vec<f32>;
 
 pub use fixed::types::U16F16;
 
@@ -175,15 +180,21 @@ pub mod Counted {
         d.deserialize_seq(SeqVisitor::new())
     }
 
-    struct SeqVisitor<T> {
-        len: usize,
+    pub struct SeqVisitor<T> {
+        len: Option<usize>,
         _phantom: std::marker::PhantomData<T>,
     }
 
     impl<T> SeqVisitor<T> {
         fn new() -> Self {
             SeqVisitor {
-                len: 0,
+                len: None,
+                _phantom: std::marker::PhantomData,
+            }
+        }
+        pub fn with_len(len: usize) -> Self {
+            SeqVisitor {
+                len: Some(len),
                 _phantom: std::marker::PhantomData,
             }
         }
@@ -196,17 +207,19 @@ pub mod Counted {
         type Value = Vec<T>;
 
         fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            write!(formatter, "A sequence of {} values", self.len)
+            write!(formatter, "A sequence of {:?} values", self.len)
         }
 
         fn visit_seq<A: SeqAccess<'de>>(mut self, mut seq: A) -> Result<Self::Value, A::Error> {
-            self.len = seq
-                .next_element::<u16>()?
-                .ok_or_else(|| serde::de::Error::custom("Count type must begin with length"))?
-                as usize;
-
-            let mut result = Vec::with_capacity(self.len);
-            for i in 0..self.len {
+            if self.len.is_none() {
+                self.len =
+                    Some(seq.next_element::<u16>()?.ok_or_else(|| {
+                        serde::de::Error::custom("Count type must begin with length")
+                    })? as usize);
+            }
+            let expected = self.len.unwrap();
+            let mut result = Vec::with_capacity(expected);
+            for i in 0..expected {
                 let next = seq
                     .next_element::<T>()?
                     .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
