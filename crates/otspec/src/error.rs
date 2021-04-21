@@ -37,6 +37,7 @@ pub enum Error {
     ExpectedEnum,
     TrailingCharacters,
     DeserializeAnyNotSupported,
+    DeserializedInWrongOrder,
 }
 
 impl ser::Error for Error {

@@ -2,18 +2,23 @@ use otspec::read_field;
 use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
-use serde::Deserialize;
-use serde::Deserializer;
+use serde::ser::SerializeSeq;
+use serde::Serialize;
+use serde::Serializer;
 use std::fmt;
-
 extern crate otspec;
+
+#[derive(Debug, PartialEq)]
+pub struct loca {
+    pub indices: Vec<Option<u32>>,
+}
 
 pub struct LocaDeserializer {
     locaIs32Bit: bool,
 }
 
 impl<'de> DeserializeSeed<'de> for LocaDeserializer {
-    type Value = Vec<u32>;
+    type Value = loca;
 
     fn deserialize<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
     where
@@ -24,24 +29,41 @@ impl<'de> DeserializeSeed<'de> for LocaDeserializer {
         }
 
         impl<'de> Visitor<'de> for LocaDeserializerVisitor {
-            type Value = Vec<u32>;
+            type Value = loca;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 write!(formatter, "a loca table")
             }
 
-            fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Vec<u32>, A::Error>
+            fn visit_seq<A>(self, mut seq: A) -> std::result::Result<loca, A::Error>
             where
                 A: SeqAccess<'de>,
             {
-                if self.locaIs32Bit {
-                    Ok(read_field!(seq, Vec<u32>, "a glyph offset"))
+                let mut res = loca {
+                    indices: Vec::new(),
+                };
+                let raw_indices: Vec<u32> = if self.locaIs32Bit {
+                    read_field!(seq, Vec<u32>, "a glyph offset")
                 } else {
-                    Ok(read_field!(seq, Vec<u16>, "a glyph offset")
+                    read_field!(seq, Vec<u16>, "a glyph offset")
                         .iter()
                         .map(|x| (*x as u32) * 2)
-                        .collect())
+                        .collect()
+                };
+                if raw_indices.is_empty() {
+                    // No glyphs, eh?
+                    return Ok(res);
                 }
+                for ab in raw_indices.windows(2) {
+                    if let [a, b] = ab {
+                        if *a == *b {
+                            res.indices.push(None);
+                        } else {
+                            res.indices.push(Some(*a));
+                        }
+                    }
+                }
+                Ok(res)
             }
         }
 
@@ -51,27 +73,33 @@ impl<'de> DeserializeSeed<'de> for LocaDeserializer {
     }
 }
 
+impl Serialize for loca {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let seq = serializer.serialize_seq(None)?;
+        // u32 or u16?
+        seq.end()
+    }
+}
+
+pub fn from_bytes(s: &[u8], locaIs32Bit: bool) -> otspec::error::Result<loca> {
+    let mut deserializer = otspec::de::Deserializer::from_bytes(s);
+    let cs: LocaDeserializer = LocaDeserializer { locaIs32Bit };
+    cs.deserialize(&mut deserializer)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::loca;
 
-    use otspec::de::Deserializer as OTDeserializer;
-
-    use serde::de::DeserializeSeed;
-
     #[test]
-    fn loca_de() {
-        let binary_loca = vec![
-            0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1a,
-        ];
-        let mut de = OTDeserializer::from_bytes(&binary_loca);
-        let cs: loca::LocaDeserializer = loca::LocaDeserializer { locaIs32Bit: false };
-        let floca: Vec<u32> = cs.deserialize(&mut de).unwrap();
+    fn loca_de_16bit() {
+        let binary_loca = vec![0x00, 0x00, 0x01, 0x30, 0x01, 0x30, 0x01, 0x4c];
+        let floca = loca::from_bytes(&binary_loca, false).unwrap();
+        let locations = [Some(0), None, Some(608)];
         println!("{:?}", floca);
-        let mut de = OTDeserializer::from_bytes(&binary_loca);
-        let cs: loca::LocaDeserializer = loca::LocaDeserializer { locaIs32Bit: true };
-        let floca: Vec<u32> = cs.deserialize(&mut de).unwrap();
-        println!("{:?}", floca);
-        assert!(false);
+        assert_eq!(floca.indices, locations);
     }
 }

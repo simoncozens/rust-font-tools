@@ -1,3 +1,4 @@
+use otspec::error::Error as OTSpecError;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer};
@@ -10,6 +11,7 @@ use crate::cmap::cmap;
 use crate::gvar::gvar;
 use crate::head::head;
 use crate::hhea::hhea;
+use crate::loca;
 use crate::maxp::maxp;
 use crate::post::post;
 use indexmap::IndexMap;
@@ -29,6 +31,7 @@ pub enum Table {
     Maxp(maxp),
     Post(post),
     Cmap(cmap),
+    Loca(loca::loca),
     // Gvar(gvar),
 }
 
@@ -76,11 +79,88 @@ pub struct Font {
 use otspec::ser;
 
 impl Font {
+    fn _locaIs32Bit(&self) -> Option<bool> {
+        let head = self.get_table_simple(b"head")?;
+        if self._table_needs_deserializing(head) {
+            return None;
+            // panic!("Deserialize head before loca!")
+        }
+        if let Table::Head(head) = head {
+            return Some(head.indexToLocFormat == 1);
+        }
+        panic!("Can't happen - head not a head table?!")
+    }
+
+    fn _deserialize(&self, tag: &Tag, binary: &[u8]) -> otspec::error::Result<Table> {
+        match tag {
+            b"cmap" => Ok(Table::Cmap(otspec::de::from_bytes(binary)?)),
+            b"head" => Ok(Table::Head(otspec::de::from_bytes(binary)?)),
+            b"hhea" => Ok(Table::Hhea(otspec::de::from_bytes(binary)?)),
+            b"maxp" => Ok(Table::Maxp(otspec::de::from_bytes(binary)?)),
+            b"loca" => {
+                let locaIs32bit = self._locaIs32Bit();
+                if locaIs32bit.is_none() {
+                    return Err(OTSpecError::DeserializedInWrongOrder);
+                }
+                Ok(Table::Loca(loca::from_bytes(binary, locaIs32bit.unwrap())?))
+            }
+            _ => Ok(Table::Unknown(binary.to_vec())),
+        }
+    }
+
     pub fn new(sfntVersion: SfntVersion) -> Self {
         Self {
             sfntVersion,
             tables: IndexMap::new(),
             _numGlyphs: None,
+        }
+    }
+
+    fn _table_needs_deserializing(&self, table: &Table) -> bool {
+        // Also check here for known tables we can't deserialize.
+        if let Table::Unknown(_binary) = table {
+            return true;
+        }
+        false
+    }
+
+    fn get_table_simple<'a>(&'a self, tag: &Tag) -> Option<&'a Table> {
+        if !self.tables.contains_key(tag) {
+            return None;
+        }
+        Some(self.tables.get(tag).unwrap())
+    }
+
+    fn get_table_mut_simple<'a>(&'a mut self, tag: &Tag) -> Option<&'a mut Table> {
+        if !self.tables.contains_key(tag) {
+            return None;
+        }
+        Some(self.tables.get_mut(tag).unwrap())
+    }
+
+    pub fn get_table<'a>(&'a mut self, tag: &Tag) -> otspec::error::Result<Option<&'a mut Table>> {
+        let table = self.get_table_simple(tag);
+        println!("Getting table {:?}", tag);
+        if table.is_none() {
+            println!("Not found");
+            return Ok(None);
+        }
+        let table = table.unwrap();
+
+        // println!("It was {:?}", table);
+        if let Table::Unknown(binary) = table {
+            // println!("Was binary, deserializing");
+            let newtable = self._deserialize(tag, binary)?;
+            // println!("Inserting new table {:?}", newtable);
+            self.tables.insert(*tag, newtable);
+        }
+        Ok(self.get_table_mut_simple(tag))
+    }
+
+    pub fn fully_deserialize(&mut self) {
+        let keys: Vec<Tag> = self.tables.keys().copied().collect();
+        for t in keys {
+            self.get_table(&t).unwrap();
         }
     }
 
@@ -105,7 +185,13 @@ use std::fs;
 
 pub fn load(filename: &str) -> Result<Font, Box<dyn Error>> {
     let buffer = fs::read(&filename)?;
-    otspec::de::from_bytes(&buffer).map_err(|e| e.into())
+    otspec::de::from_bytes(&buffer)
+        .map_err(|e| e.into())
+        .map(|mut f: Font| {
+            let _ = f.get_table(b"head");
+            let _ = f.get_table(b"loca");
+            f
+        })
 }
 
 impl PartialEq for Font {
@@ -230,30 +316,7 @@ deserialize_visitor!(
         for tr in table_records {
             let start = (tr.offset - pos) as usize;
             let this_table = &remainder[start..start + tr.length as usize];
-            let table =
-                match &tr.tag {
-                    /* A clever optimization here would be to store everything as
-                    Table::Unknown and only unpack the binary on demand. */
-                    b"cmap" => Table::Cmap(otspec::de::from_bytes(this_table).map_err(|_| {
-                        serde::de::Error::custom("Could not deserialize cmap table")
-                    })?),
-                    b"hhea" => Table::Hhea(otspec::de::from_bytes(this_table).map_err(|_| {
-                        serde::de::Error::custom("Could not deserialize hhea table")
-                    })?),
-                    b"head" => Table::Head(otspec::de::from_bytes(this_table).map_err(|_| {
-                        serde::de::Error::custom("Could not deserialize head table")
-                    })?),
-                    b"maxp" => Table::Maxp(otspec::de::from_bytes(this_table).map_err(|_| {
-                        serde::de::Error::custom("Could not deserialize maxp table")
-                    })?),
-                    b"post" => Table::Post(otspec::de::from_bytes(this_table).map_err(|_| {
-                        serde::de::Error::custom("Could not deserialize post table")
-                    })?),
-                    // b"gvar" => Table::Gvar(otspec::de::from_bytes(this_table).map_err(|_| {
-                    //     serde::de::Error::custom("Could not deserialize gvar table")
-                    // })?),
-                    _ => Table::Unknown(this_table.into()),
-                };
+            let table = Table::Unknown(this_table.into()); // Deserialize on read
             result.tables.insert(tr.tag, table);
         }
         Ok(result)
@@ -282,7 +345,7 @@ mod tests {
     }
 
     #[test]
-    fn font_ser() {
+    fn font_serde() {
         let fhead = head {
             majorVersion: 1,
             minorVersion: 0,
@@ -365,14 +428,52 @@ mod tests {
         ];
         let serialized = ser::to_bytes(&font).unwrap();
         assert_eq!(serialized, binary_font);
-        let deserialized: font::Font = otspec::de::from_bytes(&binary_font).unwrap();
+        let mut deserialized: font::Font = otspec::de::from_bytes(&binary_font).unwrap();
+        deserialized.fully_deserialize();
         assert_eq!(deserialized, font);
     }
 
     #[test]
-    fn test_load() {
-        let f = font::load("data/test1.ttf").unwrap();
-        assert_eq!(f.tables.len(), 3);
-        f.save("data/test2.ttf");
+    fn test_de_loca() {
+        let binary_font = vec![
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x04, 0x00, 0x40, 0x00, 0x02, 0x00, 0x00, 0x68, 0x65,
+            0x61, 0x64, 0x18, 0x6b, 0x5d, 0xde, 0x00, 0x00, 0x00, 0x4c, 0x00, 0x00, 0x00, 0x36,
+            0x68, 0x68, 0x65, 0x61, 0x06, 0x23, 0x07, 0x4b, 0x00, 0x00, 0x00, 0x84, 0x00, 0x00,
+            0x00, 0x24, 0x6c, 0x6f, 0x63, 0x61, 0x00, 0x5e, 0x00, 0x4c, 0x00, 0x00, 0x00, 0xc8,
+            0x00, 0x00, 0x00, 0x0e, 0x6d, 0x61, 0x78, 0x70, 0x04, 0x65, 0x00, 0x64, 0x00, 0x00,
+            0x00, 0xa8, 0x00, 0x00, 0x00, 0x20, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
+            0xc0, 0x68, 0x3e, 0x6a, 0x5f, 0x0f, 0x3c, 0xf5, 0x00, 0x03, 0x03, 0xe8, 0x00, 0x00,
+            0x00, 0x00, 0xda, 0x56, 0x58, 0xaa, 0x00, 0x00, 0x00, 0x00, 0xdc, 0xa5, 0xc0, 0x69,
+            0x00, 0x09, 0x00, 0x00, 0x02, 0x50, 0x03, 0xe8, 0x00, 0x00, 0x00, 0x06, 0x00, 0x02,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x02, 0xc1, 0xff, 0x4c,
+            0x00, 0x00, 0x05, 0x1f, 0xfe, 0x82, 0xfe, 0x82, 0x04, 0xdd, 0x00, 0x01, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x5d,
+            0x00, 0x01, 0x00, 0x00, 0x04, 0x5d, 0x00, 0x62, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x15, 0x00, 0x15, 0x00, 0x15, 0x00, 0x15,
+            0x00, 0x22, 0x00, 0x34, 0x00, 0x00,
+        ];
+        let mut deserialized: font::Font = otspec::de::from_bytes(&binary_font).unwrap();
+        let head = deserialized.get_table(b"head").unwrap().unwrap();
+        if let crate::font::Table::Head(head) = head {
+            assert_eq!(head.indexToLocFormat, 0);
+        }
+        let floca = deserialized.get_table(b"loca").unwrap().unwrap();
+        match floca {
+            crate::font::Table::Loca(floca) => {
+                assert_eq!(
+                    floca.indices,
+                    vec![Some(0), None, None, None, Some(42), Some(68)]
+                )
+            }
+            _ => panic!("loca table wasn't"),
+        }
     }
+
+    // #[test]
+    // fn test_load() {
+    //     let f = font::load("data/test1.ttf").unwrap();
+    //     assert_eq!(f.tables.len(), 11);
+    //     f.save("data/test2.ttf");
+    // }
 }
