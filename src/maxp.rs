@@ -4,8 +4,8 @@ use serde::Deserializer;
 use serde::{Deserialize, Serialize};
 extern crate otspec;
 
-use otspec::deserialize_visitor;
 use otspec::types::*;
+use otspec::{deserialize_visitor, read_field};
 use otspec_macros::tables;
 
 tables!(
@@ -56,27 +56,18 @@ impl maxp {
 deserialize_visitor!(
     maxp,
     MaxpVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(mut self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let version = seq
-            .next_element::<i32>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a maxp version"))?;
-        // Ok(result)
+    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+        let version = read_field!(seq, i32, "a maxp version");
         if version == 0x00005000 {
-            let table = seq
-                .next_element::<maxp05>()?
-                .ok_or_else(|| serde::de::Error::custom("Expecting a maxp 0.5 table"))?;
             return Ok(maxp {
                 version: U16F16::from_num(0.5),
-                table: MaxpVariant::Maxp05(table),
+                table: MaxpVariant::Maxp05(read_field!(seq, maxp05, "a maxp05 table")),
             });
         }
         if version == 0x00010000 {
-            let table = seq
-                .next_element::<maxp10>()?
-                .ok_or_else(|| serde::de::Error::custom("Expecting a maxp 1.0 table"))?;
             return Ok(maxp {
                 version: U16F16::from_num(1.0),
-                table: MaxpVariant::Maxp10(table),
+                table: MaxpVariant::Maxp10(read_field!(seq, maxp10, "a maxp05 table")),
             });
         }
         Err(serde::de::Error::custom("Unknown maxp version"))

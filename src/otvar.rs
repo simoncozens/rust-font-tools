@@ -8,8 +8,8 @@ use serde::Serializer;
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 extern crate otspec;
-use otspec::deserialize_visitor;
 use otspec::types::*;
+use otspec::{deserialize_visitor, read_field, read_field_counted, read_remainder};
 use otspec_macros::tables;
 
 tables!(
@@ -36,26 +36,16 @@ deserialize_visitor!(
     ItemVariationData,
     ItemVariationDataVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let header = seq
-            .next_element::<ItemVariationDataHeader>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a header"))?;
+        let header = read_field!(seq, ItemVariationDataHeader, "a header");
         let regionIndexCount = header.regionIndexes.len();
         let mut deltaValues = vec![];
         for _ in 0..header.itemCount {
             let mut v: Vec<i16> = Vec::new();
             for col in 0..regionIndexCount {
                 if col <= header.shortDeltaCount as usize {
-                    v.push(
-                        seq.next_element::<i16>()?
-                            .ok_or_else(|| serde::de::Error::custom("Expecting a delta"))?
-                            as i16,
-                    );
+                    v.push(read_field!(seq, i16, "a delta"));
                 } else {
-                    v.push(
-                        seq.next_element::<i8>()?
-                            .ok_or_else(|| serde::de::Error::custom("Expecting a delta"))?
-                            as i16,
-                    );
+                    v.push(read_field!(seq, i8, "a delta").into());
                 }
             }
             deltaValues.push(v);
@@ -76,17 +66,12 @@ deserialize_visitor!(
     VariationRegionList,
     VariationRegionListVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let axisCount = seq
-            .next_element::<uint16>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a header"))?;
-        let regionCount = seq
-            .next_element::<uint16>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a header"))?;
+        let axisCount = read_field!(seq, uint16, "an axis count");
+        let regionCount = read_field!(seq, uint16, "a region count");
         let mut variationRegions = Vec::with_capacity(regionCount.into());
         for _ in 0..regionCount {
-            let v: Vec<RegionAxisCoordinates> = seq
-                .next_element_seed(CountedDeserializer::with_len(axisCount as usize))?
-                .ok_or_else(|| serde::de::Error::custom("Expecting a VariationRegion record"))?;
+            let v: Vec<RegionAxisCoordinates> =
+                read_field_counted!(seq, axisCount, "a VariationRegion record");
             variationRegions.push(v)
         }
         Ok(VariationRegionList {
@@ -109,21 +94,12 @@ deserialize_visitor!(
     ItemVariationStore,
     ItemVariationStoreVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let format = seq
-            .next_element::<uint16>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a header"))?;
-        let offset = seq
-            .next_element::<uint32>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting an offset"))?;
-        let vardatacount =
-            seq.next_element::<uint16>()?
-                .ok_or_else(|| serde::de::Error::custom("Expecting a count"))? as usize;
-        let variationDataOffsets: Vec<uint32> = seq
-            .next_element_seed(CountedDeserializer::with_len(vardatacount as usize))?
-            .ok_or_else(|| serde::de::Error::custom("Expecting item variation data offsets"))?;
-        let remainder = seq
-            .next_element::<Vec<u8>>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting an item variation store"))?;
+        let format = read_field!(seq, uint16, "a header");
+        let offset = read_field!(seq, uint32, "an offset");
+        let vardatacount = read_field!(seq, uint16, "a count") as usize;
+        let variationDataOffsets: Vec<uint32> =
+            read_field_counted!(seq, vardatacount, "item variation data offsets");
+        let remainder = read_remainder!(seq, "an item variation store");
         let binary_variation_region_list =
             &remainder[offset as usize - (8 + 4 * vardatacount as usize)..];
         let variationRegions: VariationRegionList =

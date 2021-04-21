@@ -1,4 +1,5 @@
-use otspec::deserialize_visitor;
+use otspec::de::CountedDeserializer;
+use otspec::{deserialize_visitor, read_field, read_field_counted};
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::ser::SerializeSeq;
@@ -347,21 +348,12 @@ deserialize_visitor!(
     post,
     PostVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let core = seq
-            .next_element::<postcore>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a post table"))?;
-        let mut numGlyphs = None;
+        let core = read_field!(seq, postcore, "a post table");
         let mut glyphnames = None;
         if core.version == U16F16::from_num(2.0) {
-            numGlyphs = seq.next_element::<uint16>()?;
-            let mut glyph_offsets = Vec::with_capacity(numGlyphs.unwrap() as usize);
-            let mut glyphnames_vec = Vec::with_capacity(numGlyphs.unwrap() as usize);
-            for i in 0..numGlyphs.unwrap() {
-                let next = seq
-                    .next_element::<u16>()?
-                    .ok_or_else(|| serde::de::Error::invalid_length(i.into(), &self))?;
-                glyph_offsets.push(next)
-            }
+            let numGlyphs = read_field!(seq, uint16, "a number of glyphs");
+            let glyph_offsets: Vec<u16> = read_field_counted!(seq, numGlyphs, "glyph offsets");
+            let mut glyphnames_vec = Vec::with_capacity(numGlyphs as usize);
             let mut glyph_name_table: Vec<String> = Vec::new();
             loop {
                 let byte_count = seq.next_element::<u8>();
@@ -373,15 +365,10 @@ deserialize_visitor!(
                     break;
                 }
                 let byte_count = byte_count.unwrap() as usize;
-                let mut name = Vec::<u8>::new();
-                for _ in 0..byte_count {
-                    name.push(seq.next_element::<u8>()?.ok_or_else(|| {
-                        serde::de::Error::custom("Error reading glyph name table")
-                    })?);
-                }
+                let name: Vec<u8> = read_field_counted!(seq, byte_count, "glyph name");
                 glyph_name_table.push(String::from_utf8(name).unwrap());
             }
-            for i in 0..numGlyphs.unwrap() {
+            for i in 0..numGlyphs {
                 let offset = glyph_offsets[i as usize] as usize;
                 if offset < 258 {
                     glyphnames_vec.push(String::from(APPLE_NAMES[offset]));

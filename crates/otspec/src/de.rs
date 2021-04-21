@@ -397,3 +397,27 @@ macro_rules! deserialize_visitor {
 
     };
 }
+
+#[macro_export]
+macro_rules! read_field {
+    ($seq:ident, $type:ty, $name:expr) => {
+        $seq.next_element::<$type>()?
+            .ok_or_else(|| serde::de::Error::custom(format!("Expecting {:}", $name)))?;
+    };
+}
+
+#[macro_export]
+macro_rules! read_remainder {
+    ($seq:ident, $name:expr) => {
+        $seq.next_element::<Vec<u8>>()?
+            .ok_or_else(|| serde::de::Error::custom(format!("Expecting {:}", $name)))?;
+    };
+}
+
+#[macro_export]
+macro_rules! read_field_counted {
+    ($seq:ident, $count:expr, $name:expr) => {
+        $seq.next_element_seed(CountedDeserializer::with_len($count as usize))?
+            .ok_or_else(|| serde::de::Error::custom(format!("Expecting {:}", $name)))?;
+    };
+}

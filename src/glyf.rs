@@ -3,8 +3,9 @@
 use bitflags::bitflags;
 use itertools::izip;
 use kurbo::Affine;
-use otspec::deserialize_visitor;
+use otspec::de::CountedDeserializer;
 use otspec::types::*;
+use otspec::{deserialize_visitor, read_field, read_field_counted};
 use otspec_macros::tables;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
@@ -96,32 +97,20 @@ deserialize_visitor!(
     Component,
     ComponentVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let flags = seq
-            .next_element::<ComponentFlags>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a component flag field"))?;
-        let glyphIndex = seq
-            .next_element::<uint16>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a component glyph index"))?;
+        let flags = read_field!(seq, ComponentFlags, "a component flag field");
+        let glyphIndex = read_field!(seq, uint16, "a component glyph index");
         let mut matchPoints: Option<(uint16, uint16)> = None;
         let mut xOffset: i16 = 0;
         let mut yOffset: i16 = 0;
         if flags.contains(ComponentFlags::ARGS_ARE_XY_VALUES) {
             // unsigned point values
             if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
-                let p1 = seq
-                    .next_element::<u8>()?
-                    .ok_or_else(|| serde::de::Error::custom("Expecting a component point value"))?;
-                let p2 = seq
-                    .next_element::<u8>()?
-                    .ok_or_else(|| serde::de::Error::custom("Expecting a component point value"))?;
+                let p1 = read_field!(seq, u8, "a component point value");
+                let p2 = read_field!(seq, u8, "a component point value");
                 matchPoints = Some((p1.into(), p2.into()));
             } else {
-                let p1 = seq
-                    .next_element::<u16>()?
-                    .ok_or_else(|| serde::de::Error::custom("Expecting a component point value"))?;
-                let p2 = seq
-                    .next_element::<u16>()?
-                    .ok_or_else(|| serde::de::Error::custom("Expecting a component point value"))?;
+                let p1 = read_field!(seq, u16, "a component point value");
+                let p2 = read_field!(seq, u16, "a component point value");
                 matchPoints = Some((p1, p2));
             }
             if flags.contains(
@@ -134,21 +123,11 @@ deserialize_visitor!(
         } else {
             // signed xy values
             if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
-                xOffset = seq
-                    .next_element::<i8>()?
-                    .ok_or_else(|| serde::de::Error::custom("Expecting a component xy value"))?
-                    .into();
-                yOffset = seq
-                    .next_element::<i8>()?
-                    .ok_or_else(|| serde::de::Error::custom("Expecting a component xy value"))?
-                    .into();
+                xOffset = read_field!(seq, i8, "a component point value").into();
+                yOffset = read_field!(seq, i8, "a component point value").into();
             } else {
-                xOffset = seq
-                    .next_element::<i16>()?
-                    .ok_or_else(|| serde::de::Error::custom("Expecting a component xy value"))?;
-                yOffset = seq
-                    .next_element::<i16>()?
-                    .ok_or_else(|| serde::de::Error::custom("Expecting a component xy value"))?;
+                xOffset = read_field!(seq, i16, "a component point value");
+                yOffset = read_field!(seq, i16, "a component point value");
             }
         }
         let mut trA = 1.0_f64;
@@ -156,33 +135,19 @@ deserialize_visitor!(
         let mut trC = 1.0_f64;
         let mut trD = 0.0_f64;
         if flags.contains(ComponentFlags::WE_HAVE_A_SCALE) {
-            let scale = seq
-                .next_element::<i16>()?
-                .ok_or_else(|| serde::de::Error::custom("Expecting a scale"))?;
+            let scale = read_field!(seq, i16, "a scale");
             trA = ((scale as f32) / 16384.0).into();
             trC = trA;
         } else if flags.contains(ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE) {
-            let scaleX_i16 = seq
-                .next_element::<i16>()?
-                .ok_or_else(|| serde::de::Error::custom("Expecting an X scale"))?;
-            let scaleY_i16 = seq
-                .next_element::<i16>()?
-                .ok_or_else(|| serde::de::Error::custom("Expecting a Y scale"))?;
+            let scaleX_i16 = read_field!(seq, i16, "an X scale");
+            let scaleY_i16 = read_field!(seq, i16, "a Y scale");
             trA = ((scaleX_i16 as f32) / 16384.0).into();
             trC = ((scaleY_i16 as f32) / 16384.0).into();
         } else if flags.contains(ComponentFlags::WE_HAVE_A_TWO_BY_TWO) {
-            let trA_i16 = seq
-                .next_element::<i16>()?
-                .ok_or_else(|| serde::de::Error::custom("Expecting a 2x2 component"))?;
-            let trB_i16 = seq
-                .next_element::<i16>()?
-                .ok_or_else(|| serde::de::Error::custom("Expecting a 2x2 component"))?;
-            let trC_i16 = seq
-                .next_element::<i16>()?
-                .ok_or_else(|| serde::de::Error::custom("Expecting a 2x2 component"))?;
-            let trD_i16 = seq
-                .next_element::<i16>()?
-                .ok_or_else(|| serde::de::Error::custom("Expecting a 2x2 component"))?;
+            let trA_i16 = read_field!(seq, i16, "a 2x2 component");
+            let trB_i16 = read_field!(seq, i16, "a 2x2 component");
+            let trC_i16 = read_field!(seq, i16, "a 2x2 component");
+            let trD_i16 = read_field!(seq, i16, "a 2x2 component");
             trA = ((trA_i16 as f32) / 16384.0).into();
             trB = ((trB_i16 as f32) / 16384.0).into();
             trC = ((trC_i16 as f32) / 16384.0).into();
@@ -207,10 +172,7 @@ deserialize_visitor!(
         let maybe_num_contours = seq.next_element::<i16>()?;
         let num_contours = maybe_num_contours.unwrap();
         // println!("Num contours: {:?}", num_contours);
-        let core = seq
-            .next_element::<GlyphCore>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a glyph header"))?;
-        // println!("This header: {:?}", core);
+        let core = read_field!(seq, GlyphCore, "a glyph header");
         let mut components = None;
         let mut instructions: Option<Vec<u8>> = None;
         let mut contours: Option<Vec<Vec<Point>>> = None;
@@ -219,9 +181,7 @@ deserialize_visitor!(
         if num_contours < 1 {
             let mut components_vec: Vec<Component> = Vec::new();
             loop {
-                let comp = seq
-                    .next_element::<Component>()?
-                    .ok_or_else(|| serde::de::Error::custom("Expecting a component"))?;
+                let comp = read_field!(seq, Component, "component");
                 let has_more = comp.flags.contains(ComponentFlags::MORE_COMPONENTS);
                 if comp.flags.contains(ComponentFlags::OVERLAP_COMPOUND) {
                     overlap = true;
@@ -236,15 +196,11 @@ deserialize_visitor!(
             }
             components = Some(components_vec);
             if has_instructions {
-                let instructions_count = seq.next_element::<i16>()?.ok_or_else(|| {
-                    serde::de::Error::custom("Expecting a count of instruction bytes")
-                })?;
-
-                instructions = Some(
-                    (0..instructions_count)
-                        .filter_map(|_| seq.next_element::<u8>().unwrap())
-                        .collect(),
-                );
+                let instructions_count = read_field!(seq, i16, "a count of instruction bytes");
+                if instructions_count > 0 {
+                    instructions =
+                        Some(read_field_counted!(seq, instructions_count, "instructions"));
+                }
             }
         } else {
             // println!("Reading {:?} contours", num_contours);
@@ -253,15 +209,9 @@ deserialize_visitor!(
                 .map(|x| (1 + x) as usize)
                 .collect();
             // println!("End points of contours: {:?}", end_pts_of_contour);
-            let instruction_length = seq
-                .next_element::<uint16>()?
-                .ok_or_else(|| serde::de::Error::custom("Expecting an instruction length"))?;
-            if instruction_length > 0 {
-                instructions = Some(
-                    (0..instruction_length as usize)
-                        .filter_map(|_| seq.next_element::<u8>().unwrap())
-                        .collect(),
-                );
+            let instructions_count = read_field!(seq, i16, "a count of instruction bytes");
+            if instructions_count > 0 {
+                instructions = Some(read_field_counted!(seq, instructions_count, "instructions"));
             }
             // println!("Instructions: {:?}", instruction_length);
             let num_points = *(end_pts_of_contour
@@ -272,15 +222,10 @@ deserialize_visitor!(
             // println!("Number of points: {:?}", num_points);
             let mut flags: Vec<SimpleGlyphFlags> = Vec::with_capacity(num_points);
             while i < num_points {
-                let flag: SimpleGlyphFlags = seq
-                    .next_element::<SimpleGlyphFlags>()?
-                    .ok_or_else(|| serde::de::Error::custom("Expecting a flag"))?;
+                let flag = read_field!(seq, SimpleGlyphFlags, "a glyph flag");
                 flags.push(flag);
-                // println!("Flag {}: {:?}", i, flag);
                 if flag.contains(SimpleGlyphFlags::REPEAT_FLAG) {
-                    let mut repeat_count = seq
-                        .next_element::<u8>()?
-                        .ok_or_else(|| serde::de::Error::custom("Expecting a flag repeat count"))?;
+                    let mut repeat_count = read_field!(seq, u8, "a flag repeat count");
                     // println!("Repeated flag! {:?}", repeat_count);
                     while repeat_count > 0 {
                         flags.push(flag);
@@ -295,10 +240,7 @@ deserialize_visitor!(
             let mut last_y = 0_i16;
             for i in 0..num_points {
                 if flags[i].contains(SimpleGlyphFlags::X_SHORT_VECTOR) {
-                    let coord = seq
-                        .next_element::<u8>()?
-                        .ok_or_else(|| serde::de::Error::custom("Expecting an X coordinate"))?
-                        as i16;
+                    let coord = read_field!(seq, u8, "an X coordinate") as i16;
                     if flags[i].contains(SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR) {
                         last_x += coord;
                     } else {
@@ -313,9 +255,7 @@ deserialize_visitor!(
                     // println!("Elided X coordinate");
                     // println!("X is still {:?}", last_x);
                 } else {
-                    let coord = seq
-                        .next_element::<i16>()?
-                        .ok_or_else(|| serde::de::Error::custom("Expecting an X coordinate"))?;
+                    let coord = read_field!(seq, i16, "an X coordinate");
                     // println!("Read long X coordinate {:?}", coord);
                     last_x += coord;
                     // println!("X is now {:?}", last_x);
@@ -324,10 +264,7 @@ deserialize_visitor!(
             }
             for i in 0..num_points {
                 if flags[i].contains(SimpleGlyphFlags::Y_SHORT_VECTOR) {
-                    let coord = seq
-                        .next_element::<u8>()?
-                        .ok_or_else(|| serde::de::Error::custom("Expecting an Y coordinate"))?
-                        as i16;
+                    let coord = read_field!(seq, u8, "a Y coordinate") as i16;
                     if flags[i].contains(SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR) {
                         last_y += coord;
                     } else {
@@ -342,9 +279,7 @@ deserialize_visitor!(
                     // println!("Elided Y coordinate");
                     // println!("Y is still {:?}", last_y);
                 } else {
-                    let coord = seq
-                        .next_element::<i16>()?
-                        .ok_or_else(|| serde::de::Error::custom("Expecting an Y coordinate"))?;
+                    let coord = read_field!(seq, i16, "a Y coordinate");
                     last_y += coord;
                     // println!("Read long Y coordinate {:?}", coord);
                     // println!("Y is now {:?}", last_y);

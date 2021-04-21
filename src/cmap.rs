@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::convert::TryInto;
 extern crate otspec;
-use otspec::deserialize_visitor;
 use otspec::types::*;
+use otspec::{deserialize_visitor, read_field, read_field_counted};
 use otspec_macros::tables;
 use std::collections::{BTreeMap, HashSet};
 use std::hash::{Hash, Hasher};
@@ -56,18 +56,10 @@ deserialize_visitor!(
     cmap0,
     Cmap0Visitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let format = seq
-            .next_element::<uint16>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap0 table"))?;
-        let length = seq
-            .next_element::<uint16>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap0 table"))?;
-        let language = seq
-            .next_element::<uint16>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap0 table"))?;
-        let glyphIdArray = seq
-            .next_element_seed(CountedDeserializer::with_len(length as usize))?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap0 table"))?;
+        let format = read_field!(seq, uint16, "a cmap0 table format");
+        let length = read_field!(seq, uint16, "a cmap0 table length");
+        let language = read_field!(seq, uint16, "a cmap0 table language");
+        let glyphIdArray = read_field_counted!(seq, length, "a cmap0 glyph array");
         Ok(cmap0 {
             format,
             length,
@@ -309,45 +301,27 @@ deserialize_visitor!(
     cmap4,
     Cmap4Visitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let format = seq
-            .next_element::<uint16>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap4 table format"))?;
-        let length = seq
-            .next_element::<uint16>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap4 table length"))?;
-        let language = seq
-            .next_element::<uint16>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap4 table language"))?;
-        let segcount = seq
-            .next_element::<uint16>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap4 table segcount"))?
-            / 2;
-        let searchRange = seq.next_element::<uint16>()?;
-        let entrySelector = seq.next_element::<uint16>()?;
-        let _rangeShift = seq.next_element::<uint16>()?;
-        // println!("segment count {:?}", segcount);
-        let endCode: Vec<uint16> = seq
-            .next_element_seed(CountedDeserializer::with_len(segcount as usize))?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap4 table endcode"))?;
-        // println!("endcode {:?}", endCode);
-        let reservedPad = seq.next_element::<uint16>()?; // reserved padding
-        let startCode: Vec<uint16> = seq
-            .next_element_seed(CountedDeserializer::with_len(segcount as usize))?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap4 table startcode"))?;
-        // println!("startCode {:?}", startCode);
-        let idDelta: Vec<int16> = seq
-            .next_element_seed(CountedDeserializer::with_len(segcount as usize))?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap4 table idDelta"))?;
-        // println!("idDelta {:?}", idDelta);
-        let idRangeOffsets: Vec<uint16> = seq
-            .next_element_seed(CountedDeserializer::with_len(segcount as usize))?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap4 table idRangeOffset"))?;
-        // println!("Offsets {:?}", idRangeOffsets);
+        let format = read_field!(seq, uint16, "a cmap4 table format");
+        let length = read_field!(seq, uint16, "a cmap4 table length");
+        let language = read_field!(seq, uint16, "a cmap4 table language");
+        let segcount = read_field!(seq, uint16, "a cmap4 table segcount") / 2;
+        let _searchRange = read_field!(seq, uint16, "a cmap4 table search range");
+        let _entrySelector = read_field!(seq, uint16, "a cmap4 table entry selector");
+        let _rangeShift = read_field!(seq, uint16, "a cmap4 table entry range shift");
+        let endCode: Vec<uint16> = read_field_counted!(seq, segcount, "a cmap4 table endcode");
+        let _reservedPad = read_field!(seq, uint16, "padding");
+        let startCode: Vec<uint16> = read_field_counted!(seq, segcount, "a cmap4 table startcode");
+        let idDelta: Vec<int16> = read_field_counted!(seq, segcount, "a cmap4 table idDelta");
+        let idRangeOffsets: Vec<uint16> =
+            read_field_counted!(seq, segcount, "a cmap4 table idRangeOffsets");
+
         let lenSoFar = 16 + (segcount * 2 * 4);
-        // println!("Reading {:?} bytes", (length - lenSoFar));
+
+        // This one is optional, hence unwrap_or_default
         let glyphIdArray: Vec<u16> = seq
             .next_element_seed(CountedDeserializer::with_len((length - lenSoFar) as usize))?
             .unwrap_or_default();
+
         Ok(cmap4 {
             format,
             length,
@@ -445,12 +419,8 @@ deserialize_visitor!(
     cmap,
     CmapVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let core = seq
-            .next_element::<CmapHeader>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap table"))?;
-        let remainder = seq
-            .next_element::<Vec<u8>>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a cmap table"))?;
+        let core = read_field!(seq, CmapHeader, "a cmap table");
+        let remainder = read_field!(seq, Vec<u8>, "a cmap table");
         let offset_base = (4 + core.encodingRecords.len() * 8) as u32;
         let mut subtables = Vec::with_capacity(core.encodingRecords.len());
         for er in &core.encodingRecords {

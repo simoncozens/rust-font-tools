@@ -13,8 +13,8 @@ use crate::hhea::hhea;
 use crate::maxp::maxp;
 use crate::post::post;
 use indexmap::IndexMap;
-use otspec::deserialize_visitor;
 use otspec::types::*;
+use otspec::{deserialize_visitor, read_field};
 use std::cmp;
 use std::fs::File;
 use std::io::Write;
@@ -205,9 +205,7 @@ deserialize_visitor!(
     Font,
     FontVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let header = seq
-            .next_element::<TableHeader>()?
-            .ok_or_else(|| serde::de::Error::custom("Expecting a table header"))?;
+        let header = read_field!(seq, TableHeader, "table header");
         let version = TryInto::<SfntVersion>::try_into(header.sfntVersion)
             .map_err(|_| serde::de::Error::custom("Font must begin with a valid version"))?;
 
