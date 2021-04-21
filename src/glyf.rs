@@ -12,6 +12,7 @@ use serde::de::Visitor;
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
+use std::convert::TryInto;
 use std::fmt;
 
 tables!(
@@ -77,6 +78,45 @@ struct Component {
     flags: ComponentFlags,
 }
 
+impl Component {
+    fn recompute_flags(&self, more: bool, instructions: bool) -> ComponentFlags {
+        let mut flags = self.flags
+            & (ComponentFlags::ROUND_XY_TO_GRID
+                | ComponentFlags::USE_MY_METRICS
+                | ComponentFlags::SCALED_COMPONENT_OFFSET
+                | ComponentFlags::UNSCALED_COMPONENT_OFFSET
+                | ComponentFlags::OVERLAP_COMPOUND);
+        if more {
+            flags |= ComponentFlags::MORE_COMPONENTS;
+        } else if instructions {
+            flags |= ComponentFlags::WE_HAVE_INSTRUCTIONS;
+        }
+        let [scaleX, shearX, scaleY, shearY, translateX, translateY] =
+            self.transformation.as_coeffs();
+        if self.matchPoints.is_some() {
+            let (x, y) = self.matchPoints.unwrap();
+            if !(x <= 255 && y <= 255) {
+                flags |= ComponentFlags::ARG_1_AND_2_ARE_WORDS;
+            }
+        } else {
+            flags |= ComponentFlags::ARGS_ARE_XY_VALUES;
+            let (x, y) = (translateX, translateY);
+            if !((-128.0..=127.0).contains(&x) && (-128.0..=127.0).contains(&y)) {
+                flags |= ComponentFlags::ARG_1_AND_2_ARE_WORDS;
+            }
+        }
+        if shearX != 0.0 || shearY != 0.0 {
+            flags |= ComponentFlags::WE_HAVE_A_TWO_BY_TWO;
+        }
+        if (scaleX - scaleY).abs() > f64::EPSILON {
+            flags |= ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE;
+        } else if (scaleX - 1.0).abs() > f64::EPSILON {
+            flags |= ComponentFlags::WE_HAVE_A_SCALE;
+        }
+        flags
+    }
+}
+
 #[derive(Debug, PartialEq)]
 struct Glyph {
     xMin: int16,
@@ -127,8 +167,8 @@ impl<'de> DeserializeSeed<'de> for GlyfDeserializer {
                         None => res.glyphs.push(None),
                         Some(item) => {
                             let binary_glyf = &remainder[(item as usize)..];
-                            println!("Reading glyf at item {:?}", item);
-                            println!("Reading binary glyf {:?}", binary_glyf);
+                            // println!("Reading glyf at item {:?}", item);
+                            // println!("Reading binary glyf {:?}", binary_glyf);
                             let glyph: Glyph =
                                 otspec::de::from_bytes(binary_glyf).map_err(|e| {
                                     serde::de::Error::custom(format!("Expecting a glyph: {:?}", e))
@@ -391,12 +431,184 @@ deserialize_visitor!(
     }
 );
 
+fn abs_to_rel(vals: &[i16]) -> Vec<i16> {
+    let mut v = vec![vals[0]];
+    for ab in vals.windows(2) {
+        if let [a, b] = ab {
+            v.push(b - a);
+        }
+    }
+    v
+}
+
+impl Glyph {
+    fn is_composite(&self) -> bool {
+        self.components.is_some()
+    }
+    fn is_empty(&self) -> bool {
+        self.components.is_none() && self.contours.is_none()
+    }
+    fn end_points(&self) -> Vec<u16> {
+        assert!(!self.is_composite());
+        let mut count = -1;
+        let mut end_points = Vec::new();
+        for contour in self.contours.as_ref().unwrap() {
+            count += contour.len() as i16;
+            end_points.push(count as u16);
+        }
+        end_points
+    }
+    fn _compileDeltasGreedy(&self) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+        assert!(!self.is_composite());
+        let mut last_x = 0;
+        let mut last_y = 0;
+        let mut compressed_flags: Vec<u8> = vec![];
+        let mut compressed_xs: Vec<u8> = vec![];
+        let mut compressed_ys: Vec<u8> = vec![];
+        for point in self.contours.as_ref().unwrap().iter().flatten() {
+            let mut x = point.x - last_x;
+            let mut y = point.y - last_y;
+            let mut flag = if point.on_curve {
+                SimpleGlyphFlags::ON_CURVE_POINT
+            } else {
+                SimpleGlyphFlags::empty()
+            };
+            if x == 0 {
+                flag |= SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR
+            } else if -255 <= x && x <= 255 {
+                flag |= SimpleGlyphFlags::X_SHORT_VECTOR;
+                if x > 0 {
+                    flag |= SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR
+                } else {
+                    x = -x;
+                }
+                compressed_xs.push(x as u8);
+            } else {
+                compressed_xs.extend(&i16::to_be_bytes(x as i16));
+            }
+            if y == 0 {
+                flag |= SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR
+            } else if -255 <= y && y <= 255 {
+                flag |= SimpleGlyphFlags::Y_SHORT_VECTOR;
+                if y > 0 {
+                    flag |= SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR
+                } else {
+                    y = -y;
+                }
+                compressed_ys.push(y as u8);
+            } else {
+                compressed_ys.extend(&i16::to_be_bytes(y as i16));
+            }
+            /* Not gonna do repeating flags today */
+            compressed_flags.push(flag.bits());
+
+            last_x = point.x;
+            last_y = point.y;
+        }
+        (compressed_flags, compressed_xs, compressed_ys)
+    }
+}
+
+impl Serialize for Glyph {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(None)?;
+        if self.is_empty() {
+            return seq.end();
+        }
+        seq.serialize_element::<i16>(
+            &(if self.is_composite() {
+                -1
+            } else {
+                self.contours.as_ref().unwrap().len() as i16
+            }),
+        )?;
+        // recalc bounds?
+        seq.serialize_element::<GlyphCore>(&GlyphCore {
+            xMin: self.xMin,
+            xMax: self.xMax,
+            yMin: self.yMin,
+            yMax: self.yMax,
+        })?;
+        if self.is_composite() {
+            let components = self.components.as_ref().unwrap();
+            for (i, comp) in components.iter().enumerate() {
+                let flags =
+                    comp.recompute_flags(i < components.len() - 1, self.instructions.is_some());
+                seq.serialize_element::<uint16>(&flags.bits())?;
+                seq.serialize_element::<uint16>(&comp.glyphIndex)?;
+                let [scaleX, shearX, scaleY, shearY, translateX, translateY] =
+                    comp.transformation.as_coeffs();
+                if flags.contains(ComponentFlags::ARGS_ARE_XY_VALUES) {
+                    if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
+                        seq.serialize_element::<i16>(&(translateX.round() as i16))?;
+                        seq.serialize_element::<i16>(&(translateY as i16))?;
+                    } else {
+                        seq.serialize_element::<i8>(&(translateX.round() as i8))?;
+                        seq.serialize_element::<i8>(&(translateY as i8))?;
+                    }
+                } else {
+                    let (x, y) = comp.matchPoints.unwrap();
+                    if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
+                        seq.serialize_element::<i16>(&(x as i16))?;
+                        seq.serialize_element::<i16>(&(y as i16))?;
+                    } else {
+                        seq.serialize_element::<i8>(&(x as i8))?;
+                        seq.serialize_element::<i8>(&(y as i8))?;
+                    }
+                }
+                if flags.contains(ComponentFlags::WE_HAVE_A_TWO_BY_TWO) {
+                    F2DOT14::serialize_element(&(scaleX as f32), &mut seq)?;
+                    F2DOT14::serialize_element(&(shearY as f32), &mut seq)?;
+                    F2DOT14::serialize_element(&(shearX as f32), &mut seq)?;
+                    F2DOT14::serialize_element(&(scaleY as f32), &mut seq)?;
+                    F2DOT14::serialize_element(&(scaleY as f32), &mut seq)?;
+                } else if flags.contains(ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE) {
+                    F2DOT14::serialize_element(&(scaleX as f32), &mut seq)?;
+                    F2DOT14::serialize_element(&(scaleY as f32), &mut seq)?;
+                } else if flags.contains(ComponentFlags::WE_HAVE_A_SCALE) {
+                    F2DOT14::serialize_element(&(scaleX as f32), &mut seq)?;
+                }
+                if flags.contains(ComponentFlags::WE_HAVE_INSTRUCTIONS) {
+                    let instructions = self.instructions.as_ref().unwrap();
+                    seq.serialize_element::<uint16>(&(instructions.len() as u16))?;
+                    seq.serialize_element::<Vec<u8>>(&instructions)?;
+                }
+            }
+        } else {
+            let end_pts_of_contour = self.end_points();
+            seq.serialize_element::<Vec<uint16>>(&end_pts_of_contour)?;
+            if self.instructions.is_some() {
+                seq.serialize_element::<uint16>(
+                    &(self.instructions.as_ref().unwrap().len() as u16),
+                )?;
+                seq.serialize_element::<Vec<u8>>(&self.instructions.as_ref().unwrap())?;
+            } else {
+                seq.serialize_element::<uint16>(&0)?;
+            }
+            let (compressed_flags, compressed_xs, compressed_ys) = self._compileDeltasGreedy();
+            seq.serialize_element::<Vec<u8>>(&compressed_flags)?;
+            seq.serialize_element::<Vec<u8>>(&compressed_xs)?;
+            seq.serialize_element::<Vec<u8>>(&compressed_ys)?;
+        }
+        seq.end()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::font;
     use crate::glyf;
     use crate::glyf::ComponentFlags;
     use crate::glyf::Point;
+
+    #[test]
+    fn test_abs_to_rel() {
+        let coords = vec![123, 125, 125, 0, 80, 0];
+        assert_eq!(glyf::abs_to_rel(&coords), vec![123, 2, 0, -125, 80, -80]);
+    }
 
     #[test]
     fn glyf_de() {
@@ -434,7 +646,7 @@ mod tests {
             0x78, // X -= 120
             0x01, // ???
             0x1e, 0x36, 0x25, 0x25, 0x35, 0x35, 0x25, 0x25, 0x36, 0xc8, 0x25, 0x35, 0x35, 0x25,
-            0x25, 0x36, 0x36, 0x25, 0x00,
+            0x25, 0x36, 0x36, 0x25,
         ];
         let deserialized = otspec::de::from_bytes::<glyf::Glyph>(&binary_glyf).unwrap();
         #[rustfmt::skip]
@@ -466,6 +678,10 @@ mod tests {
             overlap: false,
         };
         assert_eq!(deserialized, glyph);
+        let serialized = otspec::ser::to_bytes(&glyph).unwrap();
+        // println!("Got:      {:02x?}", serialized);
+        // println!("Expected: {:02x?}", binary_glyf);
+        assert_eq!(serialized, binary_glyf);
     }
 
     #[test]
@@ -598,8 +814,9 @@ mod tests {
           <instructions/>
         </TTGlyph>
         */
+        let A = glyf.glyphs[0].as_ref().unwrap();
         #[rustfmt::skip]
-        assert_eq!(glyf.glyphs[0], Some(glyf::Glyph {
+        assert_eq!(A, &glyf::Glyph {
             xMin:5, yMin:0, xMax: 751, yMax:700,
             contours: Some(vec![
                 vec![
@@ -624,7 +841,7 @@ mod tests {
             components: None,
             instructions: None,
             overlap: false // There is, though.
-        }));
+        });
 
         /*
         <TTGlyph name="Aacute" xMin="5" yMin="0" xMax="751" yMax="915">
@@ -632,13 +849,9 @@ mod tests {
           <component glyphName="acutecomb" x="402" y="130" flags="0x4"/>
         </TTGlyph>
         */
+        let aacute = glyf.glyphs[1].as_ref().unwrap();
         assert_eq!(
-            glyf.glyphs[1]
-                .as_ref()
-                .unwrap()
-                .components
-                .as_ref()
-                .unwrap()[0],
+            aacute.components.as_ref().unwrap()[0],
             glyf::Component {
                 glyphIndex: 0,
                 transformation: kurbo::Affine::new([1.0, 0.0, 1.0, 0.0, 0.0, 0.0]),
@@ -650,7 +863,8 @@ mod tests {
         );
 
         #[rustfmt::skip]
-        assert_eq!(glyf.glyphs[1].as_ref().unwrap().components.as_ref().unwrap()[1],
+        assert_eq!(
+            aacute.components.as_ref().unwrap()[1],
             glyf::Component {
                 glyphIndex: 7,
                 transformation: kurbo::Affine::new([1.0, 0.0, 1.0, 0.0, 402.0, 130.0]),
@@ -659,7 +873,16 @@ mod tests {
                     | ComponentFlags::ARGS_ARE_XY_VALUES
                     | ComponentFlags::ARG_1_AND_2_ARE_WORDS
             }
-            );
+        );
+
+        let component1_bytes = otspec::ser::to_bytes(&aacute).unwrap();
+        assert_eq!(
+            component1_bytes,
+            vec![
+                0xff, 0xff, 0x00, 0x05, 0x00, 0x00, 0x02, 0xef, 0x03, 0x93, 0x00, 0x26, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x07, 0x00, 0x07, 0x01, 0x92, 0x00, 0x82
+            ]
+        );
 
         assert!(glyf.glyphs[4].is_none());
         let dollarbold = glyf.glyphs[6].as_ref().unwrap();
