@@ -318,8 +318,6 @@ where
     where
         D: serde::de::Deserializer<'de>,
     {
-        // Visitor implementation that will walk an inner array of the JSON
-        // input.
         struct CountedDeserializerVisitor<'a, T: 'a> {
             len: usize,
             _phantom: &'a std::marker::PhantomData<T>,
@@ -332,7 +330,7 @@ where
             type Value = Vec<T>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "an array of integers")
+                write!(formatter, "an array of data")
             }
 
             fn visit_seq<A>(mut self, mut seq: A) -> std::result::Result<Vec<T>, A::Error>
@@ -341,8 +339,6 @@ where
             {
                 let mut res = Vec::new();
                 if self.len > 0 {
-                    // Visit each element in the inner array and push it onto
-                    // the existing vector.
                     while let Some(elem) = seq.next_element()? {
                         res.push(elem);
                         self.len -= 1;
