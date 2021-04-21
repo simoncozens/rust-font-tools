@@ -133,6 +133,7 @@ impl Font {
             b"head" => Ok(Table::Head(otspec::de::from_bytes(binary)?)),
             b"hhea" => Ok(Table::Hhea(otspec::de::from_bytes(binary)?)),
             b"maxp" => Ok(Table::Maxp(otspec::de::from_bytes(binary)?)),
+            b"post" => Ok(Table::Post(otspec::de::from_bytes(binary)?)),
             b"loca" => {
                 let locaIs32bit = self._locaIs32Bit();
                 if locaIs32bit.is_none() {
