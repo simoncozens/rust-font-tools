@@ -8,9 +8,13 @@ edition = "2018"
 fonttools = { path = "../.." }
 structopt = "0.3"
 itertools = "0.10.0"
+skia-safe = "0"
 
 [[bin]]
 name="ttf-fix-checksum"
 
 [[bin]]
 name="ttf-rename-glyphs"
+
+[[bin]]
+name="ttf-remove-overlap"
