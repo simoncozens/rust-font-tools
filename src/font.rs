@@ -8,6 +8,7 @@ use std::num::Wrapping;
 extern crate otspec;
 use crate::avar::avar;
 use crate::cmap::cmap;
+use crate::glyf;
 use crate::gvar::gvar;
 use crate::head::head;
 use crate::hhea::hhea;
@@ -32,7 +33,30 @@ pub enum Table {
     Post(post),
     Cmap(cmap),
     Loca(loca::loca),
+    Glyf(glyf::glyf),
     // Gvar(gvar),
+}
+
+macro_rules! table_unchecked {
+    ($name: ident, $enum:ident, $t: ty) => {
+        pub fn $name(&self) -> &$t {
+            if let Table::$enum(thing) = self {
+                return thing;
+            }
+            panic!("Asked for a {:} but found a {:?}", stringify!($t), self)
+        }
+    };
+}
+
+impl Table {
+    table_unchecked!(avar_unchecked, Avar, avar);
+    table_unchecked!(head_unchecked, Head, head);
+    table_unchecked!(hhea_unchecked, Hhea, hhea);
+    table_unchecked!(maxp_unchecked, Maxp, maxp);
+    table_unchecked!(post_unchecked, Post, post);
+    table_unchecked!(cmap_unchecked, Cmap, cmap);
+    table_unchecked!(loca_unchecked, Loca, loca::loca);
+    table_unchecked!(glyf_unchecked, Glyf, glyf::glyf);
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
@@ -91,6 +115,18 @@ impl Font {
         panic!("Can't happen - head not a head table?!")
     }
 
+    fn _locaOffsets(&self) -> Option<Vec<Option<u32>>> {
+        let loca = self.get_table_simple(b"loca")?;
+        if self._table_needs_deserializing(loca) {
+            return None;
+            // panic!("Deserialize loca before glyf!")
+        }
+        if let Table::Loca(loca) = loca {
+            return Some(loca.indices.clone()); // XXX
+        }
+        panic!("Can't happen - loca not a loca table?!")
+    }
+
     fn _deserialize(&self, tag: &Tag, binary: &[u8]) -> otspec::error::Result<Table> {
         match tag {
             b"cmap" => Ok(Table::Cmap(otspec::de::from_bytes(binary)?)),
@@ -103,6 +139,13 @@ impl Font {
                     return Err(OTSpecError::DeserializedInWrongOrder);
                 }
                 Ok(Table::Loca(loca::from_bytes(binary, locaIs32bit.unwrap())?))
+            }
+            b"glyf" => {
+                let locaOffsets = self._locaOffsets();
+                if locaOffsets.is_none() {
+                    return Err(OTSpecError::DeserializedInWrongOrder);
+                }
+                Ok(Table::Glyf(glyf::from_bytes(binary, locaOffsets.unwrap())?))
             }
             _ => Ok(Table::Unknown(binary.to_vec())),
         }
@@ -458,16 +501,15 @@ mod tests {
         if let crate::font::Table::Head(head) = head {
             assert_eq!(head.indexToLocFormat, 0);
         }
-        let floca = deserialized.get_table(b"loca").unwrap().unwrap();
-        match floca {
-            crate::font::Table::Loca(floca) => {
-                assert_eq!(
-                    floca.indices,
-                    vec![Some(0), None, None, None, Some(42), Some(68)]
-                )
-            }
-            _ => panic!("loca table wasn't"),
-        }
+        let floca = deserialized
+            .get_table(b"loca")
+            .unwrap()
+            .unwrap()
+            .loca_unchecked();
+        assert_eq!(
+            floca.indices,
+            vec![Some(0), None, None, None, Some(42), Some(68)]
+        )
     }
 
     // #[test]
