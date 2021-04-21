@@ -80,6 +80,7 @@ pub mod F2DOT14 {
     use crate::types::ot_round;
     use crate::types::I16Visitor;
 
+    use serde::ser::SerializeSeq;
     use serde::{Deserializer, Serializer};
     use std::convert::TryInto;
 
@@ -90,6 +91,18 @@ pub mod F2DOT14 {
         let fixed = ot_round(v * 16384.0);
         serializer.serialize_i16(fixed.try_into().unwrap())
     }
+
+    pub fn serialize_element<S>(
+        v: &f32,
+        seq: &mut S,
+    ) -> std::result::Result<(), <S as serde::ser::SerializeSeq>::Error>
+    where
+        S: SerializeSeq,
+    {
+        let fixed: i16 = ot_round(v * 16384.0).try_into().unwrap();
+        seq.serialize_element::<i16>(&fixed)
+    }
+
     pub fn deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
     where
         D: Deserializer<'de>,
