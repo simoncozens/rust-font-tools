@@ -3,7 +3,7 @@
 mod avar;
 mod cmap;
 pub mod font;
-mod glyf;
+pub mod glyf;
 mod gvar;
 mod head;
 mod hhea;

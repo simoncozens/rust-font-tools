@@ -25,10 +25,10 @@ tables!(
 );
 
 #[derive(Debug, PartialEq, Copy, Clone)]
-struct Point {
-    x: int16,
-    y: int16,
-    on_curve: bool,
+pub struct Point {
+    pub x: int16,
+    pub y: int16,
+    pub on_curve: bool,
 }
 
 bitflags! {
@@ -71,7 +71,7 @@ enum ComponentScalingMode {
 }
 
 #[derive(Debug, PartialEq)]
-struct Component {
+pub struct Component {
     glyphIndex: uint16,
     transformation: Affine,
     matchPoints: Option<(uint16, uint16)>,
@@ -118,20 +118,20 @@ impl Component {
 }
 
 #[derive(Debug, PartialEq)]
-struct Glyph {
-    xMin: int16,
-    xMax: int16,
-    yMin: int16,
-    yMax: int16,
-    contours: Option<Vec<Vec<Point>>>,
-    instructions: Option<Vec<u8>>,
-    components: Option<Vec<Component>>,
+pub struct Glyph {
+    pub xMin: int16,
+    pub xMax: int16,
+    pub yMin: int16,
+    pub yMax: int16,
+    pub contours: Option<Vec<Vec<Point>>>,
+    pub instructions: Option<Vec<u8>>,
+    pub components: Option<Vec<Component>>,
     overlap: bool,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct glyf {
-    glyphs: Vec<Option<Glyph>>,
+    pub glyphs: Vec<Option<Glyph>>,
 }
 
 pub struct GlyfDeserializer {
@@ -442,10 +442,10 @@ fn abs_to_rel(vals: &[i16]) -> Vec<i16> {
 }
 
 impl Glyph {
-    fn is_composite(&self) -> bool {
+    pub fn is_composite(&self) -> bool {
         self.components.is_some()
     }
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.components.is_none() && self.contours.is_none()
     }
     fn end_points(&self) -> Vec<u16> {
