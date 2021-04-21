@@ -7,6 +7,7 @@ mod glyf;
 mod gvar;
 mod head;
 mod hhea;
+mod loca;
 mod maxp;
 mod otvar;
 mod post;
