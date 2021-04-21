@@ -8,39 +8,22 @@ use std::fmt;
 
 extern crate otspec;
 
-pub struct LocaDeserializer<'a, T: 'a> {
+pub struct LocaDeserializer {
     locaIs32Bit: bool,
-    _phantom: &'a std::marker::PhantomData<T>,
 }
 
-impl<T> LocaDeserializer<'_, T> {
-    pub fn new(locaIs32Bit: bool) -> Self {
-        LocaDeserializer {
-            locaIs32Bit,
-            _phantom: &std::marker::PhantomData,
-        }
-    }
-}
-
-impl<'de, 'a, T> DeserializeSeed<'de> for LocaDeserializer<'a, T>
-where
-    T: Deserialize<'de>,
-{
+impl<'de> DeserializeSeed<'de> for LocaDeserializer {
     type Value = Vec<u32>;
 
     fn deserialize<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
     where
         D: serde::de::Deserializer<'de>,
     {
-        struct LocaDeserializerVisitor<'a, T: 'a> {
+        struct LocaDeserializerVisitor {
             locaIs32Bit: bool,
-            _phantom: &'a std::marker::PhantomData<T>,
         }
 
-        impl<'de, 'a, T> Visitor<'de> for LocaDeserializerVisitor<'a, T>
-        where
-            T: Deserialize<'de>,
-        {
+        impl<'de> Visitor<'de> for LocaDeserializerVisitor {
             type Value = Vec<u32>;
 
             fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
@@ -62,9 +45,8 @@ where
             }
         }
 
-        deserializer.deserialize_seq(LocaDeserializerVisitor::<u32> {
+        deserializer.deserialize_seq(LocaDeserializerVisitor {
             locaIs32Bit: self.locaIs32Bit,
-            _phantom: &std::marker::PhantomData,
         })
     }
 }
@@ -83,11 +65,11 @@ mod tests {
             0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1a,
         ];
         let mut de = OTDeserializer::from_bytes(&binary_loca);
-        let cs: loca::LocaDeserializer<u32> = loca::LocaDeserializer::new(false);
+        let cs: loca::LocaDeserializer = loca::LocaDeserializer { locaIs32Bit: false };
         let floca: Vec<u32> = cs.deserialize(&mut de).unwrap();
         println!("{:?}", floca);
         let mut de = OTDeserializer::from_bytes(&binary_loca);
-        let cs: loca::LocaDeserializer<u32> = loca::LocaDeserializer::new(true);
+        let cs: loca::LocaDeserializer = loca::LocaDeserializer { locaIs32Bit: true };
         let floca: Vec<u32> = cs.deserialize(&mut de).unwrap();
         println!("{:?}", floca);
         assert!(false);
