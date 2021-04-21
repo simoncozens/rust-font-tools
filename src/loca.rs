@@ -99,7 +99,7 @@ mod tests {
         let binary_loca = vec![0x00, 0x00, 0x01, 0x30, 0x01, 0x30, 0x01, 0x4c];
         let floca = loca::from_bytes(&binary_loca, false).unwrap();
         let locations = [Some(0), None, Some(608)];
-        println!("{:?}", floca);
+        // println!("{:?}", floca);
         assert_eq!(floca.indices, locations);
     }
 }

@@ -183,9 +183,9 @@ impl Font {
 
     pub fn get_table<'a>(&'a mut self, tag: &Tag) -> otspec::error::Result<Option<&'a mut Table>> {
         let table = self.get_table_simple(tag);
-        println!("Getting table {:?}", tag);
+        // println!("Getting table {:?}", tag);
         if table.is_none() {
-            println!("Not found");
+            // println!("Not found");
             return Ok(None);
         }
         let table = table.unwrap();
