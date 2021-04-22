@@ -1,11 +1,11 @@
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg};
 use fonttools::font;
 use std::fs::File;
 use std::io;
 
 fn main() {
-    let matches = App::new("ttf-remove-overlap")
-        .about("Removes overlap from TTF files")
+    let matches = App::new("ttf-fix-checksum")
+        .about("Ensures TTF files have correct checksum")
         .arg(Arg::with_name("drop-names"))
         .arg(
             Arg::with_name("INPUT")

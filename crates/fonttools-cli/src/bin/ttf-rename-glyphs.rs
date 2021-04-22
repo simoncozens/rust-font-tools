@@ -1,4 +1,4 @@
-use clap::{App, Arg, SubCommand};
+use clap::{App, Arg};
 use fonttools::font;
 use fonttools::font::Table;
 use itertools::Itertools;
@@ -19,8 +19,8 @@ fn build_production_name(name: &str, unicodes: Option<&HashSet<u32>>) -> String 
 }
 
 fn main() {
-    let matches = App::new("ttf-remove-overlap")
-        .about("Removes overlap from TTF files")
+    let matches = App::new("ttf-rename-glyphs")
+        .about("Renames glyphs to production")
         .arg(Arg::with_name("drop-names"))
         .arg(
             Arg::with_name("INPUT")
