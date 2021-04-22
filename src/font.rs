@@ -208,11 +208,13 @@ impl Font {
         }
     }
 
-    pub fn save(&mut self, filename: &str) {
+    pub fn save<T>(&mut self, file: &mut T)
+    where
+        T: Write,
+    {
         self.compile_glyf_loca_maxp();
         let serialized = ser::to_bytes(&self).unwrap();
-        let mut buffer = File::create(filename).unwrap();
-        buffer.write_all(&serialized).unwrap();
+        file.write_all(&serialized).unwrap();
     }
 
     pub fn num_glyphs(&mut self) -> u16 {
@@ -278,10 +280,14 @@ impl Font {
 }
 
 use std::error::Error;
-use std::fs;
+use std::io::Read;
 
-pub fn load(filename: &str) -> Result<Font, Box<dyn Error>> {
-    let buffer = fs::read(&filename)?;
+pub fn load<T>(mut file: T) -> Result<Font, Box<dyn Error>>
+where
+    T: Read,
+{
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer)?;
     otspec::de::from_bytes(&buffer)
         .map_err(|e| e.into())
         .map(|mut f: Font| {
