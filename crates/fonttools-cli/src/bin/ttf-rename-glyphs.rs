@@ -32,10 +32,18 @@ fn main() {
     let num_glyphs = infont.num_glyphs();
     let mut reversed_map = BTreeMap::new();
 
-    if let Table::Cmap(cmap) = infont.tables.get_mut(b"cmap").expect("No cmap table found") {
+    if let Table::Cmap(cmap) = infont
+        .get_table(b"cmap")
+        .expect("Error reading cmap table")
+        .expect("No cmap table found")
+    {
         reversed_map = cmap.reversed();
     }
-    if let Table::Post(post) = infont.tables.get_mut(b"post").expect("No post table found") {
+    if let Table::Post(post) = infont
+        .get_table(b"post")
+        .expect("Error reading post table")
+        .expect("No post table found")
+    {
         if opts.drop_names {
             if has_cff {
                 println!("Dropping glyph names from CFF 1.0 is a bad idea!");
