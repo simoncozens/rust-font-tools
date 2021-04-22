@@ -48,7 +48,10 @@ fn draw_glyph(g: &Glyph) {
     }
     if let Some(newpath) = simplify(&path) {
         if newpath != path {
-            // println!("Removed overlap!");
+            let points_count = newpath.count_points();
+            let mut points = vec![skia_safe::Point::default(); points_count];
+            let count_returned = newpath.get_points(&mut points);
+            // println!("New points {:?}", points);
         }
     }
 }
