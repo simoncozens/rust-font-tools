@@ -7,6 +7,7 @@ pub mod glyf;
 mod gvar;
 mod head;
 mod hhea;
+mod hmtx;
 mod loca;
 mod maxp;
 mod otvar;

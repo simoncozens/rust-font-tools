@@ -74,13 +74,14 @@ impl<'de> DeserializeSeed<'de> for LocaDeserializer {
 }
 
 impl Serialize for loca {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let seq = serializer.serialize_seq(None)?;
-        // u32 or u16?
-        seq.end()
+        panic!(
+            "loca cannot be serialized directly. Call compile_glyf_loca_maxp on the font instead"
+        )
+        // But we still want an impl here to dispatch the Table serializer in Font
     }
 }
 

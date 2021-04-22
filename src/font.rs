@@ -12,6 +12,7 @@ use crate::glyf;
 use crate::gvar::gvar;
 use crate::head::head;
 use crate::hhea::hhea;
+use crate::hmtx;
 use crate::loca;
 use crate::maxp::maxp;
 use crate::post::post;
@@ -27,13 +28,14 @@ use std::io::Write;
 pub enum Table {
     Unknown(Vec<u8>),
     Avar(avar),
+    Cmap(cmap),
+    Glyf(glyf::glyf),
     Head(head),
     Hhea(hhea),
+    Hmtx(hmtx::hmtx),
+    Loca(loca::loca),
     Maxp(maxp),
     Post(post),
-    Cmap(cmap),
-    Loca(loca::loca),
-    Glyf(glyf::glyf),
     // Gvar(gvar),
 }
 
@@ -50,13 +52,14 @@ macro_rules! table_unchecked {
 
 impl Table {
     table_unchecked!(avar_unchecked, Avar, avar);
+    table_unchecked!(cmap_unchecked, Cmap, cmap);
+    table_unchecked!(glyf_unchecked, Glyf, glyf::glyf);
     table_unchecked!(head_unchecked, Head, head);
     table_unchecked!(hhea_unchecked, Hhea, hhea);
+    table_unchecked!(hmtx_unchecked, Hmtx, hmtx::hmtx);
+    table_unchecked!(loca_unchecked, Loca, loca::loca);
     table_unchecked!(maxp_unchecked, Maxp, maxp);
     table_unchecked!(post_unchecked, Post, post);
-    table_unchecked!(cmap_unchecked, Cmap, cmap);
-    table_unchecked!(loca_unchecked, Loca, loca::loca);
-    table_unchecked!(glyf_unchecked, Glyf, glyf::glyf);
 }
 
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
@@ -127,6 +130,18 @@ impl Font {
         panic!("Can't happen - loca not a loca table?!")
     }
 
+    fn _numberOfHMetrics(&self) -> Option<u16> {
+        let hhea = self.get_table_simple(b"hhea")?;
+        if self._table_needs_deserializing(hhea) {
+            return None;
+            // panic!("Deserialize loca before glyf!")
+        }
+        if let Table::Hhea(hhea) = hhea {
+            return Some(hhea.numberOfHMetrics);
+        }
+        panic!("Can't happen - hhea not a hhea table?!")
+    }
+
     fn _deserialize(&self, tag: &Tag, binary: &[u8]) -> otspec::error::Result<Table> {
         match tag {
             b"cmap" => Ok(Table::Cmap(otspec::de::from_bytes(binary)?)),
@@ -134,6 +149,16 @@ impl Font {
             b"hhea" => Ok(Table::Hhea(otspec::de::from_bytes(binary)?)),
             b"maxp" => Ok(Table::Maxp(otspec::de::from_bytes(binary)?)),
             b"post" => Ok(Table::Post(otspec::de::from_bytes(binary)?)),
+            b"hmtx" => {
+                let numberOfHMetrics = self._numberOfHMetrics();
+                if numberOfHMetrics.is_none() {
+                    return Err(OTSpecError::DeserializedInWrongOrder);
+                }
+                Ok(Table::Hmtx(hmtx::from_bytes(
+                    binary,
+                    numberOfHMetrics.unwrap(),
+                )?))
+            }
             b"loca" => {
                 let locaIs32bit = self._locaIs32Bit();
                 if locaIs32bit.is_none() {
