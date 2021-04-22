@@ -9,10 +9,10 @@ use serde::Serializer;
 use std::fmt;
 extern crate otspec;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct Metric {
-    advanceWidth: u16,
-    lsb: int16,
+    pub advanceWidth: u16,
+    pub lsb: int16,
 }
 
 #[derive(Debug, PartialEq)]
@@ -24,6 +24,28 @@ pub struct HmtxDeserializer {
     numberOfHMetrics: uint16,
 }
 
+impl hmtx {
+    pub fn to_bytes(&self) -> (Vec<u8>, uint16) {
+        let mut num_h_metrics = self.metrics.len() - 1;
+        while num_h_metrics > 0
+            && self.metrics[num_h_metrics - 1].advanceWidth
+                == self.metrics[num_h_metrics].advanceWidth
+        {
+            num_h_metrics -= 1;
+        }
+        let mut bytes: Vec<u8> = vec![];
+
+        for (i, metric) in self.metrics.iter().enumerate() {
+            if i <= num_h_metrics {
+                bytes.extend(otspec::ser::to_bytes(&metric).unwrap());
+            } else {
+                bytes.extend(otspec::ser::to_bytes(&metric.lsb).unwrap());
+            }
+        }
+
+        (bytes, num_h_metrics as u16)
+    }
+}
 impl<'de> DeserializeSeed<'de> for HmtxDeserializer {
     type Value = hmtx;
 

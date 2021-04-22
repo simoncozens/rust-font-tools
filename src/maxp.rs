@@ -45,6 +45,14 @@ pub struct maxp {
 }
 
 impl maxp {
+    pub fn new05(num_glyphs: u16) -> maxp {
+        maxp {
+            version: U16F16::from_num(0.5),
+            table: MaxpVariant::Maxp05(maxp05 {
+                numGlyphs: num_glyphs,
+            }),
+        }
+    }
     pub fn num_glyphs(&self) -> u16 {
         match &self.table {
             MaxpVariant::Maxp05(s) => s.numGlyphs,

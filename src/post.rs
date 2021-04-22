@@ -301,6 +301,27 @@ impl post {
     pub fn set_version(&mut self, version: f32) {
         self.version = U16F16::from_num(version);
     }
+    pub fn new(
+        version: f32,
+        italicAngle: f32,
+        underlinePosition: FWORD,
+        underlineThickness: FWORD,
+        isFixedPitch: bool,
+        glyphnames: Option<Vec<String>>,
+    ) -> post {
+        post {
+            version: U16F16::from_num(version),
+            italicAngle,
+            underlinePosition,
+            underlineThickness,
+            isFixedPitch: if isFixedPitch { 1 } else { 0 },
+            glyphnames,
+            maxMemType1: 0,
+            minMemType1: 0,
+            maxMemType42: 0,
+            minMemType42: 0,
+        }
+    }
 }
 impl Serialize for post {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

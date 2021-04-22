@@ -70,7 +70,7 @@ deserialize_visitor!(
 );
 
 #[derive(Debug, PartialEq, Serialize)]
-struct cmap4 {
+pub struct cmap4 {
     format: uint16,
     length: uint16,
     language: uint16,
@@ -179,7 +179,7 @@ fn split_range(
 }
 
 impl cmap4 {
-    fn from_mapping(languageID: uint16, map: &BTreeMap<uint32, uint16>) -> Self {
+    pub fn from_mapping(languageID: uint16, map: &BTreeMap<uint32, uint16>) -> Self {
         let mut char_codes: Vec<uint32> = map.keys().cloned().collect();
         char_codes.sort_unstable();
         let mut last_code = char_codes[0];
@@ -341,12 +341,12 @@ deserialize_visitor!(
 );
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct CmapSubtable {
-    format: uint16,
-    platformID: uint16,
-    encodingID: uint16,
-    languageID: uint16,
-    mapping: BTreeMap<uint32, uint16>,
+pub struct CmapSubtable {
+    pub format: uint16,
+    pub platformID: uint16,
+    pub encodingID: uint16,
+    pub languageID: uint16,
+    pub mapping: BTreeMap<uint32, uint16>,
 }
 
 impl CmapSubtable {
@@ -377,7 +377,7 @@ impl Serialize for CmapSubtable {
 
 #[derive(Debug, PartialEq)]
 pub struct cmap {
-    subtables: Vec<CmapSubtable>,
+    pub subtables: Vec<CmapSubtable>,
 }
 
 impl Serialize for cmap {

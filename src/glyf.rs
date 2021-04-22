@@ -33,7 +33,7 @@ pub struct Point {
 
 bitflags! {
     #[derive(Serialize, Deserialize)]
-    struct ComponentFlags: u16 {
+    pub struct ComponentFlags: u16 {
         const ARG_1_AND_2_ARE_WORDS = 0x0001;
         const ARGS_ARE_XY_VALUES = 0x0002;
         const ROUND_XY_TO_GRID = 0x0004;
@@ -72,10 +72,10 @@ enum ComponentScalingMode {
 
 #[derive(Debug, PartialEq)]
 pub struct Component {
-    glyphIndex: uint16,
-    transformation: Affine,
-    matchPoints: Option<(uint16, uint16)>,
-    flags: ComponentFlags,
+    pub glyphIndex: uint16,
+    pub transformation: Affine,
+    pub matchPoints: Option<(uint16, uint16)>,
+    pub flags: ComponentFlags,
 }
 
 impl Component {
@@ -126,7 +126,7 @@ pub struct Glyph {
     pub contours: Option<Vec<Vec<Point>>>,
     pub instructions: Option<Vec<u8>>,
     pub components: Option<Vec<Component>>,
-    overlap: bool,
+    pub overlap: bool,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -447,6 +447,23 @@ impl Glyph {
     }
     pub fn is_empty(&self) -> bool {
         self.components.is_none() && self.contours.is_none()
+    }
+    pub fn recalc_bounds(&mut self) {
+        if self.contours.is_none() {
+            return;
+        }
+        let (x_pts, y_pts): (Vec<i16>, Vec<i16>) = self
+            .contours
+            .as_ref()
+            .unwrap()
+            .iter()
+            .flatten()
+            .map(|pt| (pt.x, pt.y))
+            .unzip();
+        self.xMin = *x_pts.iter().min().unwrap_or(&0);
+        self.xMax = *x_pts.iter().max().unwrap_or(&0);
+        self.yMin = *y_pts.iter().min().unwrap_or(&0);
+        self.yMax = *y_pts.iter().max().unwrap_or(&0);
     }
     fn end_points(&self) -> Vec<u16> {
         assert!(!self.is_composite());

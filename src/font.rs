@@ -258,11 +258,12 @@ impl Font {
         let mut glyf_output: Vec<u8> = vec![];
         let mut loca_indices: Vec<u32> = vec![];
         let mut locaIs32bit = false;
-        let glyf = self
-            .get_table(b"glyf")
-            .expect("No glyf table")
-            .expect("No glyf table")
-            .glyf_unchecked();
+        let maybe_glyf = self.get_table(b"glyf").unwrap();
+        if maybe_glyf.is_none() {
+            println!("Warning: no glyf table");
+            return;
+        }
+        let glyf = maybe_glyf.unwrap().glyf_unchecked();
         let glyf_count = glyf.glyphs.len();
         for g in &glyf.glyphs {
             let cur_len: u32 = glyf_output.len().try_into().unwrap();

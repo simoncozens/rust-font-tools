@@ -1,14 +1,14 @@
 #![allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms)]
 
 mod avar;
-mod cmap;
+pub mod cmap;
 pub mod font;
 pub mod glyf;
 mod gvar;
-mod head;
-mod hhea;
-mod hmtx;
+pub mod head;
+pub mod hhea;
+pub mod hmtx;
 mod loca;
-mod maxp;
+pub mod maxp;
 mod otvar;
-mod post;
+pub mod post;

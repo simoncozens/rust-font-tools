@@ -26,6 +26,38 @@ tables!(head {
     int16 glyphDataFormat
 });
 
+impl head {
+    pub fn new(
+        fontRevision: f32,
+        upm: uint16,
+        xMin: int16,
+        yMin: int16,
+        xMax: int16,
+        yMax: int16,
+    ) -> head {
+        head {
+            majorVersion: 1,
+            minorVersion: 0,
+            fontRevision,
+            checksumAdjustment: 0x0,
+            magicNumber: 0x5F0F3CF5,
+            flags: 0,
+            unitsPerEm: upm,
+            created: chrono::Utc::now().naive_local(),
+            modified: chrono::Utc::now().naive_local(),
+            xMin,
+            yMin,
+            xMax,
+            yMax,
+            macStyle: 0,
+            lowestRecPPEM: 10,
+            fontDirectionHint: 0,
+            indexToLocFormat: 0,
+            glyphDataFormat: 0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::head::head;
