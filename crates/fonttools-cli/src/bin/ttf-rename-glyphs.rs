@@ -1,10 +1,8 @@
 use clap::{App, Arg};
-use fonttools::font;
 use fonttools::font::Table;
+use fonttools_cli::{open_font, save_font};
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashSet};
-use std::fs::File;
-use std::io;
 
 fn build_production_name(name: &str, unicodes: Option<&HashSet<u32>>) -> String {
     if unicodes.is_none() {
@@ -33,14 +31,7 @@ fn main() {
                 .required(false),
         )
         .get_matches();
-    let mut infont = if matches.is_present("INPUT") {
-        let filename = matches.value_of("INPUT").unwrap();
-        let infile = File::open(filename).unwrap();
-        font::load(infile)
-    } else {
-        font::load(io::stdin())
-    }
-    .expect("Could not parse font");
+    let mut infont = open_font(&matches);
     let has_cff = infont.tables.contains_key(b"CFF ");
     let num_glyphs = infont.num_glyphs();
     let mut reversed_map = BTreeMap::new();
@@ -75,11 +66,5 @@ fn main() {
         }
     }
 
-    if matches.is_present("OUTPUT") {
-        let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())
-            .expect("Could not open file for writing");
-        infont.save(&mut outfile);
-    } else {
-        infont.save(&mut io::stdout());
-    };
+    save_font(infont, &matches);
 }

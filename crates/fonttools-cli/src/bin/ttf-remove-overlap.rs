@@ -1,10 +1,10 @@
-use clap::{App, Arg, SubCommand};
-use fonttools::font::{self, Table};
+use fonttools::font::Table;
 use fonttools::glyf::{Glyph, Point};
-use skia_safe::path::Verb;
+use fonttools_cli::{open_font, read_args, save_font};
+
 use skia_safe::{simplify, Path};
 
-fn draw_glyph(g: &mut Glyph) {
+fn remove_overlap(g: &mut Glyph) {
     if g.is_composite() || g.is_empty() {
         return;
     }
@@ -43,7 +43,6 @@ fn draw_glyph(g: &mut Glyph) {
                 (segment[0].x as i32, segment[0].y as i32),
                 (contour[0].x as i32, contour[0].y as i32),
             );
-            segment = vec![];
         }
         path.close();
     }
@@ -94,53 +93,13 @@ fn skia_to_glyf(p: Path) -> Vec<Vec<Point>> {
     new_glyph
 }
 
-use std::fs::File;
-use std::io;
-
 fn main() {
-    let matches = App::new("ttf-remove-overlap")
-        .about("Removes overlap from TTF files")
-        .arg(
-            Arg::with_name("INPUT")
-                .help("Sets the input file to use")
-                .required(false),
-        )
-        .arg(
-            Arg::with_name("OUTPUT")
-                .help("Sets the output file to use")
-                .required(false),
-        )
-        .get_matches();
-    let mut infont = if matches.is_present("INPUT") {
-        let filename = matches.value_of("INPUT").unwrap();
-        let infile = File::open(filename).unwrap();
-        font::load(infile)
-    } else {
-        font::load(io::stdin())
-    }
-    .expect("Could not parse font");
-    let names = infont
-        .get_table(b"post")
-        .unwrap()
-        .unwrap()
-        .post_unchecked()
-        .glyphnames
-        .as_ref()
-        .unwrap()
-        .clone();
+    let matches = read_args("ttf-remove-overlap", "Removes overlap from TTF files");
+    let mut infont = open_font(&matches);
     if let Table::Glyf(glyf) = infont.get_table(b"glyf").unwrap().unwrap() {
-        for (i, glyph) in glyf.glyphs.iter_mut().enumerate() {
-            if let Some(glyph) = glyph {
-                draw_glyph(glyph);
-            }
+        for glyph in glyf.glyphs.iter_mut().flatten() {
+            remove_overlap(glyph);
         }
     }
-
-    if matches.is_present("OUTPUT") {
-        let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())
-            .expect("Could not open file for writing");
-        infont.save(&mut outfile);
-    } else {
-        infont.save(&mut io::stdout());
-    };
+    save_font(infont, &matches);
 }

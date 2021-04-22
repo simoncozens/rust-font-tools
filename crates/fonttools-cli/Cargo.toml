@@ -1,5 +1,5 @@
 [package]
-name = "fonttools-cli"
+name = "fonttools_cli"
 version = "0.1.0"
 authors = ["Simon Cozens <simon@simon-cozens.org>"]
 edition = "2018"
