@@ -1,5 +1,6 @@
-use fonttools::font;
+use fonttools::font::{self, Table};
 use fonttools::glyf::{Glyph, Point};
+use skia_safe::path::Verb;
 use skia_safe::{simplify, Path};
 use structopt::StructOpt;
 
@@ -10,17 +11,17 @@ struct Opt {
     output: String,
 }
 
-fn draw_glyph(g: &Glyph) {
+fn draw_glyph(g: &mut Glyph) {
     if g.is_composite() || g.is_empty() {
         return;
     }
     let mut path = Path::default();
+    g.insert_explicit_oncurves();
     for contour in g.contours.as_ref().unwrap() {
         path.move_to((contour[0].x as i32, contour[0].y as i32));
         let mut segment: Vec<&Point> = vec![];
         for pt in &contour[1..] {
             segment.push(pt);
-            /* This is clearly bogus because of phantom points */
             if pt.on_curve {
                 match segment.len() {
                     1 => {
@@ -44,16 +45,60 @@ fn draw_glyph(g: &Glyph) {
                 segment = vec![];
             }
         }
+        if !segment.is_empty() {
+            path.quad_to(
+                (segment[0].x as i32, segment[0].y as i32),
+                (contour[0].x as i32, contour[0].y as i32),
+            );
+            segment = vec![];
+        }
         path.close();
     }
     if let Some(newpath) = simplify(&path) {
-        if newpath != path {
-            let points_count = newpath.count_points();
-            let mut points = vec![skia_safe::Point::default(); points_count];
-            let count_returned = newpath.get_points(&mut points);
-            // println!("New points {:?}", points);
+        g.contours = Some(skia_to_glyf(newpath));
+    }
+}
+
+fn skia_to_glyf(p: Path) -> Vec<Vec<Point>> {
+    let points_count = p.count_points();
+    let mut points = vec![skia_safe::Point::default(); points_count];
+    let _count_returned = p.get_points(&mut points);
+
+    let verb_count = p.count_verbs();
+    let mut verbs = vec![0_u8; verb_count];
+    let _count_returned_verbs = p.get_verbs(&mut verbs);
+    let mut new_contour: Vec<Point> = vec![];
+    let mut new_glyph: Vec<Vec<Point>> = vec![];
+    let mut cur_pt = 0;
+    for verb in verbs {
+        if verb > 4 {
+            new_glyph.push(new_contour);
+            new_contour = vec![];
+            continue;
+        }
+        if verb < 2 {
+            new_contour.push(Point {
+                x: points[cur_pt].x as i16,
+                y: points[cur_pt].y as i16,
+                on_curve: true,
+            });
+            cur_pt += 1;
+        } else {
+            new_contour.push(Point {
+                x: points[cur_pt].x as i16,
+                y: points[cur_pt].y as i16,
+                on_curve: false,
+            });
+            cur_pt += 1;
+            new_contour.push(Point {
+                x: points[cur_pt].x as i16,
+                y: points[cur_pt].y as i16,
+                on_curve: true,
+            });
+            cur_pt += 1;
         }
     }
+    new_glyph
 }
 
 fn main() {
@@ -68,11 +113,11 @@ fn main() {
         .as_ref()
         .unwrap()
         .clone();
-    let glyf = infont.get_table(b"glyf").unwrap().unwrap().glyf_unchecked();
-    for (i, glyph) in glyf.glyphs.iter().enumerate() {
-        if let Some(glyph) = glyph {
-            // println!("glyph ID: {:?} ({:})", i, names[i]);
-            draw_glyph(glyph);
+    if let Table::Glyf(glyf) = infont.get_table(b"glyf").unwrap().unwrap() {
+        for (i, glyph) in glyf.glyphs.iter_mut().enumerate() {
+            if let Some(glyph) = glyph {
+                draw_glyph(glyph);
+            }
         }
     }
 
