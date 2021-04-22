@@ -148,12 +148,11 @@ fn norad_component_to_glyf_component(
         println!("Couldn't find component for {:?}", component.base);
         return None;
     }
-    let maybe_id = mapping.get(&component.base.to_string());
     let transform = [
         component.transform.x_scale as f64,
         component.transform.xy_scale as f64,
-        component.transform.yx_scale as f64,
         component.transform.y_scale as f64,
+        component.transform.yx_scale as f64,
         component.transform.x_offset as f64,
         component.transform.y_offset as f64,
     ];
