@@ -208,7 +208,8 @@ impl Font {
         }
     }
 
-    pub fn save(&self, filename: &str) {
+    pub fn save(&mut self, filename: &str) {
+        self.compile_glyf_loca_maxp();
         let serialized = ser::to_bytes(&self).unwrap();
         let mut buffer = File::create(filename).unwrap();
         buffer.write_all(&serialized).unwrap();
@@ -216,11 +217,63 @@ impl Font {
 
     pub fn num_glyphs(&mut self) -> u16 {
         if self._numGlyphs.is_none() {
-            if let Table::Maxp(maxp) = self.tables.get(b"maxp").unwrap() {
-                self._numGlyphs = Some(maxp.num_glyphs())
-            }
+            let maxp = self
+                .get_table(b"maxp")
+                .expect("Error deserializing maxp")
+                .expect("No maxp?")
+                .maxp_unchecked();
+            self._numGlyphs = Some(maxp.num_glyphs())
         }
         self._numGlyphs.unwrap()
+    }
+
+    pub fn compile_glyf_loca_maxp(&mut self) {
+        let mut glyf_output: Vec<u8> = vec![];
+        let mut loca_indices: Vec<u32> = vec![];
+        let mut locaIs32bit = false;
+        let glyf = self
+            .get_table(b"glyf")
+            .expect("No glyf table")
+            .expect("No glyf table")
+            .glyf_unchecked();
+        let glyf_count = glyf.glyphs.len();
+        for g in &glyf.glyphs {
+            let cur_len: u32 = glyf_output.len().try_into().unwrap();
+            if cur_len * 2 > (u16::MAX as u32) {
+                locaIs32bit = true;
+            }
+            loca_indices.push(cur_len);
+            if g.is_none() {
+                continue;
+            }
+            let glyph = g.as_ref().unwrap();
+            glyf_output.extend(otspec::ser::to_bytes(&glyph).unwrap());
+            // Add multiple-of-four padding
+            while glyf_output.len() % 4 != 0 {
+                glyf_output.push(0);
+            }
+        }
+        loca_indices.push(glyf_output.len().try_into().unwrap());
+
+        let maxp_table = self.get_table(b"maxp").unwrap().unwrap();
+        if let Table::Maxp(maxp) = maxp_table {
+            maxp.set_num_glyphs(glyf_count as u16);
+        }
+
+        let head_table = self.get_table(b"head").unwrap().unwrap();
+        if let Table::Head(head) = head_table {
+            head.indexToLocFormat = if locaIs32bit { 1 } else { 0 };
+        }
+
+        self.tables.insert(*b"glyf", Table::Unknown(glyf_output));
+        let loca_output: Vec<u8>;
+        if locaIs32bit {
+            loca_output = otspec::ser::to_bytes(&loca_indices).unwrap();
+        } else {
+            let converted: Vec<u16> = loca_indices.iter().map(|x| (*x / 2_u32) as u16).collect();
+            loca_output = otspec::ser::to_bytes(&converted).unwrap();
+        }
+        self.tables.insert(*b"loca", Table::Unknown(loca_output));
     }
 }
 

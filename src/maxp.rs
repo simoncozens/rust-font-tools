@@ -51,6 +51,12 @@ impl maxp {
             MaxpVariant::Maxp10(s) => s.numGlyphs,
         }
     }
+    pub fn set_num_glyphs(&mut self, num: u16) {
+        match &mut self.table {
+            MaxpVariant::Maxp05(s) => s.numGlyphs = num,
+            MaxpVariant::Maxp10(s) => s.numGlyphs = num,
+        }
+    }
 }
 
 deserialize_visitor!(
