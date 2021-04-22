@@ -9,6 +9,12 @@ use fonttools::hmtx;
 use fonttools::maxp::maxp;
 use fonttools::post::post;
 use kurbo::Affine;
+use lyon::geom::cubic_bezier::CubicBezierSegment;
+use lyon::geom::euclid::TypedPoint2D;
+use std::marker::PhantomData;
+type LyonPoint = TypedPoint2D<f32, lyon::geom::euclid::UnknownUnit>;
+use lyon::path::geom::cubic_to_quadratic::cubic_to_quadratics;
+use norad::glyph::PointType;
 use norad::Ufo;
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -31,7 +37,7 @@ fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> Option
         }
 
         if !outline.components.is_empty() && !outline.contours.is_empty() {
-            println!("Mixed glyph needs decomposition {:?}", glif.name);
+            // println!("Mixed glyph needs decomposition {:?}", glif.name);
             return Some(glyph);
         }
 
@@ -64,20 +70,72 @@ fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> Option
 
 fn norad_contour_to_glyf_contour(contour: &norad::glyph::Contour) -> Option<Vec<glyf::Point>> {
     // Stupid implementation
-    Some(
-        contour
-            .points
-            .iter()
-            .map({
-                |pt| glyf::Point {
-                    x: pt.x as i16,
-                    y: pt.y as i16,
-                    on_curve: pt.typ == norad::glyph::PointType::Line
-                        || pt.typ == norad::glyph::PointType::Move,
-                }
-            })
-            .collect(),
-    )
+    let cp = &contour.points;
+    let mut points: Vec<glyf::Point> = vec![glyf::Point {
+        x: cp[0].x as i16,
+        y: cp[0].y as i16,
+        on_curve: true, // I think?
+    }];
+    let mut i = 0;
+    while i < cp.len() - 1 {
+        i += 1;
+        if cp[i].typ != PointType::OffCurve {
+            points.push(glyf::Point {
+                x: cp[i].x as i16,
+                y: cp[i].y as i16,
+                on_curve: true,
+            });
+            continue;
+        } else {
+            // Gonna assume cubic...
+            points.pop(); // Drop last point, we'll add it
+            let before_pt = &cp[i - 1];
+            let this_pt = &cp[i];
+            let next_handle = &cp[(i + 1) % cp.len()];
+            let to_pt = &cp[(i + 2) % cp.len()];
+            let seg = CubicBezierSegment {
+                from: LyonPoint {
+                    x: before_pt.x,
+                    y: before_pt.y,
+                    _unit: PhantomData,
+                },
+                ctrl1: LyonPoint {
+                    x: this_pt.x,
+                    y: this_pt.y,
+                    _unit: PhantomData,
+                },
+                ctrl2: LyonPoint {
+                    x: next_handle.x,
+                    y: next_handle.y,
+                    _unit: PhantomData,
+                },
+                to: LyonPoint {
+                    x: to_pt.x,
+                    y: to_pt.y,
+                    _unit: PhantomData,
+                },
+            };
+            cubic_to_quadratics(&seg, 1.0, &mut |quad| {
+                points.push(glyf::Point {
+                    x: quad.from.x as i16,
+                    y: quad.from.y as i16,
+                    on_curve: true,
+                });
+                points.push(glyf::Point {
+                    x: quad.ctrl.x as i16,
+                    y: quad.ctrl.y as i16,
+                    on_curve: false,
+                });
+                points.push(glyf::Point {
+                    x: quad.to.x as i16,
+                    y: quad.to.y as i16,
+                    on_curve: true,
+                });
+            });
+            i += 2;
+        }
+    }
+    Some(points)
 }
 
 fn norad_component_to_glyf_component(
