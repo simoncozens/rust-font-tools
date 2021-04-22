@@ -10,6 +10,6 @@ struct Opt {
 
 fn main() {
     let opts: Opt = Opt::from_args();
-    let infont = font::load(&opts.input).unwrap();
+    let mut infont = font::load(&opts.input).unwrap();
     infont.save(&opts.output);
 }
