@@ -9,12 +9,6 @@ fonttools = { path = "../.." }
 clap = "2.33.3"
 itertools = "0.10.0"
 skia-safe = "0"
-
-[[bin]]
-name="ttf-fix-checksum"
-
-[[bin]]
-name="ttf-rename-glyphs"
-
-[[bin]]
-name="ttf-remove-overlap"
+norad = "0.3.1"
+lyon = "0.11.0"
+kurbo = { version = "0.8.1" }
