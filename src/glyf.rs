@@ -458,6 +458,26 @@ impl Glyph {
         }
         end_points
     }
+    pub fn insert_explicit_oncurves(&mut self) {
+        if self.contours.is_none() {
+            return;
+        }
+        let contours = self.contours.as_mut().unwrap();
+        for contour in contours.iter_mut() {
+            for i in (0..contour.len() - 1).rev() {
+                if !contour[i].on_curve && !contour[i + 1].on_curve {
+                    contour.insert(
+                        i + 1,
+                        Point {
+                            on_curve: true,
+                            x: (contour[i].x + contour[i + 1].x) / 2,
+                            y: (contour[i].y + contour[i + 1].y) / 2,
+                        },
+                    )
+                }
+            }
+        }
+    }
     fn _compileDeltasGreedy(&self) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
         assert!(!self.is_composite());
         let mut last_x = 0;
@@ -898,6 +918,50 @@ mod tests {
                 y: 715,
                 on_curve: true
             }
+        );
+    }
+
+    #[test]
+    fn test_insert_implicit_oncurves() {
+        #[rustfmt::skip]
+        let mut glyph = glyf::Glyph {
+            xMin: 30, xMax: 634, yMin: -10, yMax: 710,
+            components: None,
+            instructions: None,
+            overlap: false,
+            contours: Some(vec![
+                vec![
+                    Point {x: 634, y: 650, on_curve: true, },
+                    Point {x: 634, y: 160, on_curve: false, },
+                    Point {x: 484, y: -10, on_curve: false, },
+                    Point {x: 332, y: -10, on_curve: true, },
+                    Point {x: 181, y: -10, on_curve: false, },
+                    Point {x: 30,  y: 169, on_curve: false, },
+                    Point {x: 30,  y: 350, on_curve: true, },
+                    Point {x: 30,  y: 531, on_curve: false, },
+                    Point {x: 181, y: 710, on_curve: false, },
+                    Point {x: 332, y: 710, on_curve: true, },
+                ]
+            ])
+        };
+        glyph.insert_explicit_oncurves();
+        #[rustfmt::skip]
+        assert_eq!(
+            glyph.contours.unwrap()[0],
+            vec![
+                Point { x: 634, y: 650, on_curve: true },
+                Point { x: 634, y: 160, on_curve: false },
+                Point { x: 559, y: 75, on_curve: true },
+                Point { x: 484, y: -10, on_curve: false },
+                Point { x: 332, y: -10, on_curve: true },
+                Point { x: 181, y: -10, on_curve: false },
+                Point { x: 105, y: 79, on_curve: true },
+                Point { x: 30, y: 169, on_curve: false },
+                Point { x: 30, y: 350, on_curve: true },
+                Point { x: 30, y: 531, on_curve: false },
+                Point { x: 105, y: 620, on_curve: true },
+                Point { x: 181, y: 710, on_curve: false },
+                Point { x: 332, y: 710, on_curve: true }]
         );
     }
 }
