@@ -1,15 +1,37 @@
+use clap::{App, Arg, SubCommand};
 use fonttools::font;
-use structopt::StructOpt;
-
-#[derive(StructOpt, Debug)]
-#[structopt(name = "basic")]
-struct Opt {
-    input: String,
-    output: String,
-}
+use std::fs::File;
+use std::io;
 
 fn main() {
-    let opts: Opt = Opt::from_args();
-    let mut infont = font::load(&opts.input).unwrap();
-    infont.save(&opts.output);
+    let matches = App::new("ttf-remove-overlap")
+        .about("Removes overlap from TTF files")
+        .arg(Arg::with_name("drop-names"))
+        .arg(
+            Arg::with_name("INPUT")
+                .help("Sets the input file to use")
+                .required(false),
+        )
+        .arg(
+            Arg::with_name("OUTPUT")
+                .help("Sets the output file to use")
+                .required(false),
+        )
+        .get_matches();
+
+    let mut infont = if matches.is_present("INPUT") {
+        let filename = matches.value_of("INPUT").unwrap();
+        let infile = File::open(filename).unwrap();
+        font::load(infile)
+    } else {
+        font::load(io::stdin())
+    }
+    .expect("Could not parse font");
+    if matches.is_present("OUTPUT") {
+        let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())
+            .expect("Could not open file for writing");
+        infont.save(&mut outfile);
+    } else {
+        infont.save(&mut io::stdout());
+    };
 }

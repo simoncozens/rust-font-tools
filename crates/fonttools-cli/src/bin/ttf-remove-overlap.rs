@@ -1,15 +1,8 @@
+use clap::{App, Arg, SubCommand};
 use fonttools::font::{self, Table};
 use fonttools::glyf::{Glyph, Point};
 use skia_safe::path::Verb;
 use skia_safe::{simplify, Path};
-use structopt::StructOpt;
-
-#[derive(StructOpt, Debug)]
-#[structopt(name = "basic")]
-struct Opt {
-    input: String,
-    output: String,
-}
 
 fn draw_glyph(g: &mut Glyph) {
     if g.is_composite() || g.is_empty() {
@@ -101,9 +94,31 @@ fn skia_to_glyf(p: Path) -> Vec<Vec<Point>> {
     new_glyph
 }
 
+use std::fs::File;
+use std::io;
+
 fn main() {
-    let opts: Opt = Opt::from_args();
-    let mut infont = font::load(&opts.input).expect("Could not parse font");
+    let matches = App::new("ttf-remove-overlap")
+        .about("Removes overlap from TTF files")
+        .arg(
+            Arg::with_name("INPUT")
+                .help("Sets the input file to use")
+                .required(false),
+        )
+        .arg(
+            Arg::with_name("OUTPUT")
+                .help("Sets the output file to use")
+                .required(false),
+        )
+        .get_matches();
+    let mut infont = if matches.is_present("INPUT") {
+        let filename = matches.value_of("INPUT").unwrap();
+        let infile = File::open(filename).unwrap();
+        font::load(infile)
+    } else {
+        font::load(io::stdin())
+    }
+    .expect("Could not parse font");
     let names = infont
         .get_table(b"post")
         .unwrap()
@@ -121,5 +136,11 @@ fn main() {
         }
     }
 
-    infont.save(&opts.output);
+    if matches.is_present("OUTPUT") {
+        let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())
+            .expect("Could not open file for writing");
+        infont.save(&mut outfile);
+    } else {
+        infont.save(&mut io::stdout());
+    };
 }

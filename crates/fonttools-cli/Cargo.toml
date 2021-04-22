@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 fonttools = { path = "../.." }
-structopt = "0.3"
+clap = "2.33.3"
 itertools = "0.10.0"
 skia-safe = "0"
 
