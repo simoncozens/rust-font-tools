@@ -41,15 +41,14 @@ deserialize_visitor!(
     GvarVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
         let core = read_field!(seq, GvarHeader, "a gvar table header");
-        let mut dataOffsets: Vec<u32> = Vec::new();
-        if core.flags & 0x1 == 0 {
+        let dataOffsets: Vec<u32> = if core.flags & 0x1 == 0 {
             // u16 offsets, need doubling
             let u16_and_halved: Vec<u16> =
                 read_field_counted!(seq, core.glyphCount, "a glyphVariationDataOffset");
-            dataOffsets = u16_and_halved.iter().map(|x| (x * 2).into()).collect();
+            u16_and_halved.iter().map(|x| (x * 2).into()).collect()
         } else {
-            dataOffsets = read_field_counted!(seq, core.glyphCount, "a glyphVariationDataOffset");
-        }
+            read_field_counted!(seq, core.glyphCount, "a glyphVariationDataOffset")
+        };
         let remainder = read_remainder!(seq, "a gvar table");
         let offset_base: usize = 20;
         let axis_count = core.axisCount as usize;
@@ -75,7 +74,7 @@ deserialize_visitor!(
             shared_tuples.push(tuple);
         }
 
-        /* Glyph offsets */
+        /* Glyph variation data */
         for i in 0..(core.glyphCount) {
             println!("Glyph {:?} offset {:?}", i, dataOffsets[i as usize]);
             let offset: usize = (dataOffsets[i as usize] + (core.glyphVariationDataArrayOffset)
