@@ -11,11 +11,12 @@ use fonttools::post::post;
 use kurbo::Affine;
 use lyon::geom::cubic_bezier::CubicBezierSegment;
 use lyon::geom::euclid::TypedPoint2D;
+use std::convert::From;
 use std::marker::PhantomData;
 type LyonPoint = TypedPoint2D<f32, lyon::geom::euclid::UnknownUnit>;
 use lyon::path::geom::cubic_to_quadratic::cubic_to_quadratics;
-use norad::glyph::PointType;
-use norad::Ufo;
+use norad::Font as Ufo;
+use norad::PointType;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io;
@@ -31,44 +32,41 @@ fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> Option
         components: None,
         overlap: false,
     };
-    if let Some(outline) = &glif.outline {
-        if outline.components.is_empty() && outline.contours.is_empty() {
-            return None;
-        }
+    if glif.components.is_empty() && glif.contours.is_empty() {
+        return None;
+    }
 
-        if !outline.components.is_empty() && !outline.contours.is_empty() {
-            // println!("Mixed glyph needs decomposition {:?}", glif.name);
-            return Some(glyph);
-        }
-
-        /* Do components */
-        let mut components: Vec<glyf::Component> = vec![];
-        for component in &outline.components {
-            if let Some(glyf_component) = norad_component_to_glyf_component(component, mapping) {
-                components.push(glyf_component);
-            }
-        }
-        if !components.is_empty() {
-            glyph.components = Some(components);
-        }
-
-        /* Do outlines */
-        let mut contours: Vec<Vec<glyf::Point>> = vec![];
-        for contour in &outline.contours {
-            if let Some(glyf_contour) = norad_contour_to_glyf_contour(contour) {
-                contours.push(glyf_contour);
-            }
-        }
-        if !contours.is_empty() {
-            glyph.contours = Some(contours);
-            glyph.recalc_bounds();
-        }
+    if !glif.components.is_empty() && !glif.contours.is_empty() {
+        // println!("Mixed glyph needs decomposition {:?}", glif.name);
         return Some(glyph);
     }
-    None
+
+    /* Do components */
+    let mut components: Vec<glyf::Component> = vec![];
+    for component in &glif.components {
+        if let Some(glyf_component) = norad_component_to_glyf_component(component, mapping) {
+            components.push(glyf_component);
+        }
+    }
+    if !components.is_empty() {
+        glyph.components = Some(components);
+    }
+
+    /* Do outlines */
+    let mut contours: Vec<Vec<glyf::Point>> = vec![];
+    for contour in &glif.contours {
+        if let Some(glyf_contour) = norad_contour_to_glyf_contour(contour) {
+            contours.push(glyf_contour);
+        }
+    }
+    if !contours.is_empty() {
+        glyph.contours = Some(contours);
+        glyph.recalc_bounds();
+    }
+    Some(glyph)
 }
 
-fn norad_contour_to_glyf_contour(contour: &norad::glyph::Contour) -> Option<Vec<glyf::Point>> {
+fn norad_contour_to_glyf_contour(contour: &norad::Contour) -> Option<Vec<glyf::Point>> {
     // Stupid implementation
     let cp = &contour.points;
     let mut points: Vec<glyf::Point> = vec![glyf::Point {
@@ -139,7 +137,7 @@ fn norad_contour_to_glyf_contour(contour: &norad::glyph::Contour) -> Option<Vec<
 }
 
 fn norad_component_to_glyf_component(
-    component: &norad::glyph::Component,
+    component: &norad::Component,
     mapping: &BTreeMap<String, u16>,
 ) -> Option<glyf::Component> {
     let maybe_id = mapping.get(&component.base.to_string());
@@ -148,20 +146,12 @@ fn norad_component_to_glyf_component(
         println!("Couldn't find component for {:?}", component.base);
         return None;
     }
-    let transform = [
-        component.transform.x_scale as f64,
-        component.transform.xy_scale as f64,
-        component.transform.y_scale as f64,
-        component.transform.yx_scale as f64,
-        component.transform.x_offset as f64,
-        component.transform.y_offset as f64,
-    ];
 
     Some(glyf::Component {
         glyphIndex: *maybe_id.unwrap(),
         matchPoints: None,
         flags: glyf::ComponentFlags::empty(),
-        transformation: Affine::new(transform),
+        transformation: component.transform.into(),
     })
 }
 fn main() {
@@ -182,7 +172,7 @@ fn main() {
     let ufo = Ufo::load(filename).expect("failed to load font");
     let mut font = font::Font::new(font::SfntVersion::TrueType);
 
-    let layer = ufo.get_default_layer().unwrap();
+    let layer = ufo.default_layer();
     let info = ufo.font_info.as_ref().unwrap();
 
     let mut names: Vec<String> = vec![];
@@ -196,16 +186,15 @@ fn main() {
         let name = glyf.name.to_string();
         names.push(name.clone());
         name_to_id.insert(name, glyph_id);
-        if let Some(cp) = &glyf.codepoints {
-            if !cp.is_empty() {
-                mapping.insert(cp[0] as u32, glyph_id);
-            }
+        let cp = &glyf.codepoints;
+        if !cp.is_empty() {
+            mapping.insert(cp[0] as u32, glyph_id);
         }
         glyph_id += 1;
     }
     for glyf in layer.iter_contents() {
         metrics.push(hmtx::Metric {
-            advanceWidth: glyf.advance.as_ref().map_or(1000, |f| f.width as u16),
+            advanceWidth: glyf.width as u16,
             lsb: 0,
         });
         glyphs.push(glif_to_glyph(&glyf, &name_to_id));
