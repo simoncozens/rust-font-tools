@@ -246,23 +246,16 @@ deserialize_visitor!(
         let mut trC = 1.0_f64;
         let mut trD = 0.0_f64;
         if flags.contains(ComponentFlags::WE_HAVE_A_SCALE) {
-            let scale = read_field!(seq, i16, "a scale");
-            trA = ((scale as f32) / 16384.0).into();
+            trA = F2DOT14::unpack(read_field!(seq, i16, "a scale")).into();
             trC = trA;
         } else if flags.contains(ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE) {
-            let scaleX_i16 = read_field!(seq, i16, "an X scale");
-            let scaleY_i16 = read_field!(seq, i16, "a Y scale");
-            trA = ((scaleX_i16 as f32) / 16384.0).into();
-            trC = ((scaleY_i16 as f32) / 16384.0).into();
+            trA = F2DOT14::unpack(read_field!(seq, i16, "an X scale")).into();
+            trC = F2DOT14::unpack(read_field!(seq, i16, "a Y scale")).into();
         } else if flags.contains(ComponentFlags::WE_HAVE_A_TWO_BY_TWO) {
-            let trA_i16 = read_field!(seq, i16, "a 2x2 component");
-            let trB_i16 = read_field!(seq, i16, "a 2x2 component");
-            let trC_i16 = read_field!(seq, i16, "a 2x2 component");
-            let trD_i16 = read_field!(seq, i16, "a 2x2 component");
-            trA = ((trA_i16 as f32) / 16384.0).into();
-            trB = ((trB_i16 as f32) / 16384.0).into();
-            trC = ((trC_i16 as f32) / 16384.0).into();
-            trD = ((trD_i16 as f32) / 16384.0).into();
+            trA = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
+            trB = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
+            trC = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
+            trD = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
         }
         let transformation = Affine::new([trA, trB, trC, trD, xOffset.into(), yOffset.into()]);
 

@@ -84,12 +84,18 @@ pub mod F2DOT14 {
     use serde::{Deserializer, Serializer};
     use std::convert::TryInto;
 
+    pub fn unpack(v: i16) -> f32 {
+        (v as f32) / 16384.0
+    }
+    pub fn pack(v: f32) -> i16 {
+        ot_round(v * 16384.0).try_into().unwrap()
+    }
+
     pub fn serialize<S>(v: &f32, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let fixed = ot_round(v * 16384.0);
-        serializer.serialize_i16(fixed.try_into().unwrap())
+        serializer.serialize_i16(pack(*v))
     }
 
     pub fn serialize_element<S>(
@@ -99,16 +105,14 @@ pub mod F2DOT14 {
     where
         S: SerializeSeq,
     {
-        let fixed: i16 = ot_round(v * 16384.0).try_into().unwrap();
-        seq.serialize_element::<i16>(&fixed)
+        seq.serialize_element::<i16>(&pack(*v))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let orig = deserializer.deserialize_i16(I16Visitor)?;
-        Ok((orig as f32) / 16384.0)
+        Ok(unpack(deserializer.deserialize_i16(I16Visitor)?))
     }
 }
 
