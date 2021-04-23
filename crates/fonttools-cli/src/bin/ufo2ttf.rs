@@ -8,10 +8,8 @@ use fonttools::hhea;
 use fonttools::hmtx;
 use fonttools::maxp::maxp;
 use fonttools::post::post;
-use kurbo::Affine;
 use lyon::geom::cubic_bezier::CubicBezierSegment;
 use lyon::geom::euclid::TypedPoint2D;
-use std::convert::From;
 use std::marker::PhantomData;
 type LyonPoint = TypedPoint2D<f32, lyon::geom::euclid::UnknownUnit>;
 use lyon::path::geom::cubic_to_quadratic::cubic_to_quadratics;
@@ -193,11 +191,12 @@ fn main() {
         glyph_id += 1;
     }
     for glyf in layer.iter_contents() {
+        let glyph = glif_to_glyph(&glyf, &name_to_id);
         metrics.push(hmtx::Metric {
             advanceWidth: glyf.width as u16,
-            lsb: 0,
+            lsb: glyph.as_ref().map_or(0, |g| g.xMin),
         });
-        glyphs.push(glif_to_glyph(&glyf, &name_to_id));
+        glyphs.push(glyph);
     }
 
     let head_table = head::new(
