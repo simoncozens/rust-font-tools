@@ -12,7 +12,7 @@ use serde::de::Visitor;
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
-use std::convert::TryInto;
+
 use std::fmt;
 
 tables!(
@@ -91,7 +91,7 @@ impl Component {
         } else if instructions {
             flags |= ComponentFlags::WE_HAVE_INSTRUCTIONS;
         }
-        let [scaleX, shearX, scaleY, shearY, translateX, translateY] =
+        let [scaleX, shearX, shearY, scaleY, translateX, translateY] =
             self.transformation.as_coeffs();
         if self.matchPoints.is_some() {
             let (x, y) = self.matchPoints.unwrap();
