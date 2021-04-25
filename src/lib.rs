@@ -3,6 +3,7 @@
 mod avar;
 pub mod cmap;
 pub mod font;
+pub mod fvar;
 pub mod glyf;
 mod gvar;
 pub mod head;
