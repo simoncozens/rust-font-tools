@@ -9,6 +9,7 @@ use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::Deserialize;
 use serde::Deserializer;
+use std::convert::TryInto;
 use std::fmt;
 
 use serde::de::{self, Visitor};
@@ -32,20 +33,25 @@ pub mod Fixed {
     use crate::types::I32Visitor;
     use serde::{Deserializer, Serializer};
 
+    pub fn unpack(v: i32) -> f32 {
+        (v as f32) / 65536.0
+    }
+    pub fn pack(v: f32) -> i32 {
+        ot_round(v * 65536.0)
+    }
+
     pub fn serialize<S>(v: &f32, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let fixed = ot_round(v * 65536.0);
-        serializer.serialize_i32(fixed)
+        serializer.serialize_i32(pack(*v))
     }
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let orig = deserializer.deserialize_i32(I32Visitor)?;
-        Ok((orig as f32) / 65536.0)
+        Ok(unpack(deserializer.deserialize_i32(I32Visitor)?))
     }
 }
 
