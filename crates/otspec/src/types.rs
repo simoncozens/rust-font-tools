@@ -246,40 +246,10 @@ pub mod Counted {
         }
     }
 }
-pub mod Offset16 {
-    use crate::error::Result;
-    use crate::ser::SerializeOffsetStruct;
-    use serde::Serialize;
-    use serde::Serializer;
-
-    pub fn serialize<S, T>(v: &T, mut serializer: S) -> Result<()>
-    where
-        S: Serializer + SerializeOffsetStruct,
-        T: Serialize + Sized,
-    {
-        serializer.serialize_off16_struct(v)
-    }
-}
-
-pub mod Offset32 {
-    use crate::error::Result;
-    use crate::ser::SerializeOffsetStruct;
-    use serde::Serialize;
-    use serde::Serializer;
-
-    pub fn serialize<S, T>(v: &T, mut serializer: S) -> Result<()>
-    where
-        S: Serializer + SerializeOffsetStruct,
-        T: Serialize + Sized,
-    {
-        serializer.serialize_off32_struct(v)
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use crate::types::Counted;
-    use crate::types::Offset16;
     use crate::types::Version16Dot16;
     use crate::{de, ser};
     use fixed::types::U16F16;
@@ -391,15 +361,4 @@ mod tests {
         assert_eq!(ser::to_bytes(&c2).unwrap(), binary_c2);
         assert_eq!(de::from_bytes::<TestCounted2>(&binary_c2).unwrap(), c2);
     }
-
-    // #[test]
-    // fn offset_ser() {
-    //     let c = TestOffset {
-    //         t0: 0x01020304,
-    //         t1: vec![0xaabb, 0xccdd],
-    //         t2: 0xeeff,
-    //     };
-    //     let binary_c = vec![0x00, 0x02, 0x00, 0x10, 0x00, 0x20];
-    //     assert_eq!(ser::to_bytes(&c).unwrap(), binary_c);
-    // }
 }

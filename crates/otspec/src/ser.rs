@@ -3,23 +3,13 @@ use serde::{ser, Serialize};
 
 pub struct Serializer {
     output: Vec<u8>,
-    add_later: Vec<OffsetEntry>,
-}
-
-struct OffsetEntry {
-    where_to_insert_offset: usize,
-    offset_base: usize,
-    child: Option<Serializer>,
 }
 
 pub fn to_bytes<T>(value: &T) -> Result<Vec<u8>>
 where
     T: Serialize,
 {
-    let mut serializer = Serializer {
-        output: vec![],
-        add_later: vec![],
-    };
+    let mut serializer = Serializer { output: vec![] };
     value.serialize(&mut serializer)?;
     Ok(serializer.output)
 }
@@ -31,12 +21,6 @@ macro_rules! serialize_number_type {
             Ok(())
         }
     };
-}
-
-pub trait SerializeOffsetStruct {
-    // add code here
-    fn serialize_off16_struct<T>(&mut self, value: &T) -> Result<()>;
-    fn serialize_off32_struct<T>(&mut self, value: &T) -> Result<()>;
 }
 
 impl<'a> ser::Serializer for &'a mut Serializer {
@@ -293,9 +277,6 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     }
 
     fn end(self) -> Result<()> {
-        for todo in &self.add_later {
-            println!("Fixing offset for entry at {}", todo.where_to_insert_offset);
-        }
         Ok(())
     }
 }
@@ -314,32 +295,6 @@ impl<'a> ser::SerializeStructVariant for &'a mut Serializer {
     }
 
     fn end(self) -> Result<()> {
-        Ok(())
-    }
-}
-
-impl<'a> SerializeOffsetStruct for &'a mut Serializer {
-    fn serialize_off16_struct<T>(&mut self, _value: &T) -> Result<()> {
-        let pos = self.output.len();
-        // Two-byte placeholder offset
-        self.output.extend(vec![0, 0]);
-        self.add_later.push(OffsetEntry {
-            where_to_insert_offset: pos,
-            offset_base: 0,
-            child: None, // XXX
-        });
-        Ok(())
-    }
-
-    fn serialize_off32_struct<T>(&mut self, _value: &T) -> Result<()> {
-        let pos = self.output.len();
-        // Four-byte placeholder offset
-        self.output.extend(vec![0, 0, 0, 0]);
-        self.add_later.push(OffsetEntry {
-            where_to_insert_offset: pos,
-            offset_base: 0,
-            child: None, // XXX
-        });
         Ok(())
     }
 }
