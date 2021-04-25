@@ -8,6 +8,8 @@ use std::num::Wrapping;
 extern crate otspec;
 use crate::avar::avar;
 use crate::cmap::cmap;
+use crate::fvar::fvar;
+use crate::gasp::gasp;
 use crate::glyf;
 use crate::gvar::gvar;
 use crate::head::head;
@@ -29,6 +31,8 @@ pub enum Table {
     Unknown(Vec<u8>),
     Avar(avar),
     Cmap(cmap),
+    Fvar(fvar),
+    Gasp(gasp),
     Glyf(glyf::glyf),
     Head(head),
     Hhea(hhea),
@@ -53,6 +57,8 @@ macro_rules! table_unchecked {
 impl Table {
     table_unchecked!(avar_unchecked, Avar, avar);
     table_unchecked!(cmap_unchecked, Cmap, cmap);
+    table_unchecked!(fvar_unchecked, Fvar, fvar);
+    table_unchecked!(gasp_unchecked, Gasp, gasp);
     table_unchecked!(glyf_unchecked, Glyf, glyf::glyf);
     table_unchecked!(head_unchecked, Head, head);
     table_unchecked!(hhea_unchecked, Hhea, hhea);
@@ -147,6 +153,8 @@ impl Font {
             b"cmap" => Ok(Table::Cmap(otspec::de::from_bytes(binary)?)),
             b"head" => Ok(Table::Head(otspec::de::from_bytes(binary)?)),
             b"hhea" => Ok(Table::Hhea(otspec::de::from_bytes(binary)?)),
+            b"fvar" => Ok(Table::Fvar(otspec::de::from_bytes(binary)?)),
+            b"gasp" => Ok(Table::Gasp(otspec::de::from_bytes(binary)?)),
             b"maxp" => Ok(Table::Maxp(otspec::de::from_bytes(binary)?)),
             b"post" => Ok(Table::Post(otspec::de::from_bytes(binary)?)),
             b"hmtx" => {
