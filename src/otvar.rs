@@ -1,4 +1,3 @@
-use crate::glyf::Glyph;
 use otspec::de::CountedDeserializer;
 use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;

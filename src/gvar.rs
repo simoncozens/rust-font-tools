@@ -4,7 +4,6 @@ use otspec::{deserialize_visitor, read_field, read_field_counted, read_remainder
 use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
-use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
 use std::convert::TryInto;
@@ -12,7 +11,7 @@ extern crate otspec;
 use otspec::types::*;
 use otspec_macros::tables;
 
-tables!( GvarHeader {
+tables!( gvarcore {
     uint16  majorVersion
     uint16  minorVersion
     uint16  axisCount
@@ -40,7 +39,7 @@ deserialize_visitor!(
     gvar,
     GvarVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let core = read_field!(seq, GvarHeader, "a gvar table header");
+        let core = read_field!(seq, gvarcore, "a gvar table header");
         let dataOffsets: Vec<u32> = if core.flags & 0x1 == 0 {
             // u16 offsets, need doubling
             let u16_and_halved: Vec<u16> =

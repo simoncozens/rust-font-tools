@@ -5,14 +5,8 @@
     clippy::clippy::upper_case_acronyms
 )]
 
-use serde::de::DeserializeSeed;
-use serde::de::SeqAccess;
-use serde::Deserialize;
-use serde::Deserializer;
-use std::convert::TryInto;
-use std::fmt;
-
 use serde::de::{self, Visitor};
+use std::fmt;
 
 pub type uint16 = u16;
 pub type uint32 = u32;

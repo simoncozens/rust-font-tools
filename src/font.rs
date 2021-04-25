@@ -22,7 +22,6 @@ use indexmap::IndexMap;
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_field};
 use std::cmp;
-use std::fs::File;
 use std::io::Write;
 
 #[derive(Debug, Serialize, PartialEq)]
@@ -97,9 +96,9 @@ struct TableRecord {
 struct TableHeader {
     sfntVersion: u32,
     numTables: u16,
-    searchRange: u16,
-    entrySelector: u16,
-    rangeShift: u16,
+    _searchRange: u16,
+    _entrySelector: u16,
+    _rangeShift: u16,
 }
 
 #[derive(Debug)]

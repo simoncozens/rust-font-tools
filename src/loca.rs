@@ -1,10 +1,6 @@
 use otspec::read_field;
-use serde::de::DeserializeSeed;
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::ser::SerializeSeq;
-use serde::Serialize;
-use serde::Serializer;
+use serde::de::{DeserializeSeed, SeqAccess, Visitor};
+use serde::{Serialize, Serializer};
 use std::fmt;
 extern crate otspec;
 

@@ -424,16 +424,6 @@ deserialize_visitor!(
     }
 );
 
-fn abs_to_rel(vals: &[i16]) -> Vec<i16> {
-    let mut v = vec![vals[0]];
-    for ab in vals.windows(2) {
-        if let [a, b] = ab {
-            v.push(b - a);
-        }
-    }
-    v
-}
-
 impl Glyph {
     pub fn is_composite(&self) -> bool {
         self.components.is_some()
@@ -633,12 +623,6 @@ mod tests {
     use crate::glyf;
     use crate::glyf::ComponentFlags;
     use crate::glyf::Point;
-
-    #[test]
-    fn test_abs_to_rel() {
-        let coords = vec![123, 125, 125, 0, 80, 0];
-        assert_eq!(glyf::abs_to_rel(&coords), vec![123, 2, 0, -125, 80, -80]);
-    }
 
     #[test]
     fn glyf_de() {

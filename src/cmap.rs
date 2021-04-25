@@ -40,6 +40,7 @@ struct cmap0 {
 
 impl cmap0 {
     fn from_mapping(languageID: uint16, map: &BTreeMap<uint32, uint16>) -> Self {
+        unimplemented!();
         Self {
             format: 0,
             length: 0,
