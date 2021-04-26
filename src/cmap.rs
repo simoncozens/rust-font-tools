@@ -113,7 +113,7 @@ fn split_range(
     let mut subranges = Vec::new();
     for code in (start_code + 1)..(end_code + 1) {
         let glyph_id = *map.get(&(code as u32)).unwrap_or(&0);
-        if glyph_id - 1 == last_id {
+        if glyph_id > 0 && glyph_id - 1 == last_id {
             if in_order.is_none() || in_order == Some(0) {
                 in_order = Some(1);
                 ordered_begin = Some(last_code);

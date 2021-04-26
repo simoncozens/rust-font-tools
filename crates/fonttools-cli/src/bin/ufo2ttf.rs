@@ -19,6 +19,65 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::io;
 
+fn int_list_to_num(int_list: &[u8]) -> u32 {
+    let mut flags = 0;
+    for flag in int_list {
+        flags += 1 << (flag + 1);
+    }
+    flags
+}
+
+fn compile_head(info: &norad::FontInfo, glyphs: &[Option<glyf::Glyph>]) -> head {
+    let mut minor = info.version_minor.unwrap_or(0);
+    while minor > 999 {
+        minor /= 10;
+    }
+    let font_revision: f32 =
+        (info.version_major.unwrap_or(1) as f32 * 1000.0 + minor as f32).round() / 1000.0;
+    let mut head_table = head::new(
+        font_revision,
+        info.units_per_em.map_or(1000, |f| f.get() as u16),
+        -200,
+        500,
+        -200,
+        500,
+    );
+    if info.open_type_head_created.is_some() {
+        if let Ok(date) = chrono::NaiveDateTime::parse_from_str(
+            &info.open_type_head_created.as_ref().unwrap(),
+            "%Y/%m/%d %H:%M:%S",
+        ) {
+            head_table.created = date
+        } else {
+            log::warn!(
+                "Couldn't parse created date {:?}",
+                info.open_type_head_created
+            )
+        }
+    }
+    // bounding box
+    let bounds: Vec<(i16, i16, i16, i16)> = glyphs
+        .iter()
+        .filter_map(|x| x.as_ref())
+        .map(|x| (x.xMin, x.xMax, x.yMin, x.yMax))
+        .collect();
+    head_table.xMin = bounds.iter().map(|x| x.0).min().unwrap_or(0);
+    head_table.xMax = bounds.iter().map(|x| x.1).max().unwrap_or(0);
+    head_table.yMin = bounds.iter().map(|x| x.2).min().unwrap_or(0);
+    head_table.yMax = bounds.iter().map(|x| x.3).max().unwrap_or(0);
+
+    // mac style
+    if let Some(lowest_rec_ppm) = info.open_type_head_lowest_rec_ppem {
+        head_table.lowestRecPPEM = lowest_rec_ppm as u16;
+    }
+
+    // misc
+    if let Some(flags) = &info.open_type_head_flags {
+        head_table.flags = int_list_to_num(flags) as u16;
+    }
+    head_table
+}
+
 fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> Option<glyf::Glyph> {
     let mut glyph = glyf::Glyph {
         xMin: 0,
@@ -199,14 +258,7 @@ fn main() {
         glyphs.push(glyph);
     }
 
-    let head_table = head::new(
-        info.version_major.unwrap_or(1) as f32,
-        info.units_per_em.map_or(1000, |f| f.get() as u16),
-        -200,
-        500,
-        -200,
-        500,
-    );
+    let head_table = compile_head(info, &glyphs);
 
     let post_table = post::new(2.0, 0.0, 0, 0, false, Some(names));
     let maxp_table = maxp::new05(glyph_id);
