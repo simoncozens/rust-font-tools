@@ -10,14 +10,15 @@ use fonttools::maxp::maxp;
 use fonttools::post::post;
 use lyon::geom::cubic_bezier::CubicBezierSegment;
 use lyon::geom::euclid::TypedPoint2D;
-use std::marker::PhantomData;
-type LyonPoint = TypedPoint2D<f32, lyon::geom::euclid::UnknownUnit>;
 use lyon::path::geom::cubic_to_quadratic::cubic_to_quadratics;
 use norad::Font as Ufo;
 use norad::PointType;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io;
+use std::marker::PhantomData;
+
+type LyonPoint = TypedPoint2D<f32, lyon::geom::euclid::UnknownUnit>;
 
 fn int_list_to_num(int_list: &[u8]) -> u32 {
     let mut flags = 0;
@@ -34,14 +35,23 @@ fn compile_head(info: &norad::FontInfo, glyphs: &[Option<glyf::Glyph>]) -> head 
     }
     let font_revision: f32 =
         (info.version_major.unwrap_or(1) as f32 * 1000.0 + minor as f32).round() / 1000.0;
+
+    // bounding box
+    let bounds: Vec<(i16, i16, i16, i16)> = glyphs
+        .iter()
+        .filter_map(|x| x.as_ref())
+        .map(|x| (x.xMin, x.xMax, x.yMin, x.yMax))
+        .collect();
     let mut head_table = head::new(
         font_revision,
         info.units_per_em.map_or(1000, |f| f.get() as u16),
-        -200,
-        500,
-        -200,
-        500,
+        bounds.iter().map(|x| x.0).min().unwrap_or(0), /* xmin */
+        bounds.iter().map(|x| x.1).max().unwrap_or(0), /* xmax */
+        bounds.iter().map(|x| x.2).min().unwrap_or(0), /* ymin */
+        bounds.iter().map(|x| x.3).max().unwrap_or(0), /* ymax */
     );
+
+    // dates (modified is set to now by default)
     if info.open_type_head_created.is_some() {
         if let Ok(date) = chrono::NaiveDateTime::parse_from_str(
             &info.open_type_head_created.as_ref().unwrap(),
@@ -55,16 +65,6 @@ fn compile_head(info: &norad::FontInfo, glyphs: &[Option<glyf::Glyph>]) -> head 
             )
         }
     }
-    // bounding box
-    let bounds: Vec<(i16, i16, i16, i16)> = glyphs
-        .iter()
-        .filter_map(|x| x.as_ref())
-        .map(|x| (x.xMin, x.xMax, x.yMin, x.yMax))
-        .collect();
-    head_table.xMin = bounds.iter().map(|x| x.0).min().unwrap_or(0);
-    head_table.xMax = bounds.iter().map(|x| x.1).max().unwrap_or(0);
-    head_table.yMin = bounds.iter().map(|x| x.2).min().unwrap_or(0);
-    head_table.yMax = bounds.iter().map(|x| x.3).max().unwrap_or(0);
 
     // mac style
     if let Some(lowest_rec_ppm) = info.open_type_head_lowest_rec_ppem {
@@ -76,6 +76,41 @@ fn compile_head(info: &norad::FontInfo, glyphs: &[Option<glyf::Glyph>]) -> head 
         head_table.flags = int_list_to_num(flags) as u16;
     }
     head_table
+}
+
+fn compile_post(info: &norad::FontInfo, names: &[String]) -> post {
+    let upm = info.units_per_em.map_or(1000.0, |f| f.get());
+    post::new(
+        2.0,
+        info.italic_angle.map_or(0.0, |f| f.get() as f32),
+        info.postscript_underline_position
+            .map_or_else(|| upm * -0.075, |f| f.get()) as i16,
+        info.postscript_underline_thickness
+            .map_or_else(|| upm * 0.05, |f| f.get()) as i16,
+        info.postscript_is_fixed_pitch.unwrap_or(false),
+        Some(names.to_vec()),
+    )
+}
+
+fn compile_cmap(mapping: BTreeMap<u32, u16>) -> cmap::cmap {
+    cmap::cmap {
+        subtables: vec![
+            cmap::CmapSubtable {
+                format: 4,
+                platformID: 0,
+                encodingID: 3,
+                languageID: 0,
+                mapping: mapping.clone(),
+            },
+            cmap::CmapSubtable {
+                format: 4,
+                platformID: 3,
+                encodingID: 1,
+                languageID: 0,
+                mapping,
+            },
+        ],
+    }
 }
 
 fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> Option<glyf::Glyph> {
@@ -124,7 +159,6 @@ fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> Option
 }
 
 fn norad_contour_to_glyf_contour(contour: &norad::Contour) -> Option<Vec<glyf::Point>> {
-    // Stupid implementation
     let cp = &contour.points;
     let mut points: Vec<glyf::Point> = vec![glyf::Point {
         x: cp[0].x as i16,
@@ -259,25 +293,16 @@ fn main() {
     }
 
     let head_table = compile_head(info, &glyphs);
-
-    let post_table = post::new(2.0, 0.0, 0, 0, false, Some(names));
+    let post_table = compile_post(info, &names);
     let maxp_table = maxp::new05(glyph_id);
-    let cmap_table = cmap::cmap {
-        subtables: vec![cmap::CmapSubtable {
-            format: 4,
-            platformID: 0,
-            encodingID: 3,
-            languageID: 0,
+    let cmap_table = compile_cmap(mapping);
 
-            mapping,
-        }],
-    };
     let mut hhea_table = hhea::hhea {
         majorVersion: 1,
         minorVersion: 0,
         ascender: info.ascender.map_or(600, |f| f.get() as i16),
         descender: info.descender.map_or(-200, |f| f.get() as i16),
-        lineGap: 0,
+        lineGap: info.open_type_hhea_line_gap.unwrap_or(0) as i16,
         advanceWidthMax: metrics.iter().map(|x| x.advanceWidth).max().unwrap_or(0),
         minLeftSideBearing: metrics.iter().map(|x| x.lsb).min().unwrap_or(0),
         minRightSideBearing: 0, // xxx
@@ -286,9 +311,9 @@ fn main() {
             .filter_map(|o| o.as_ref().map(|g| g.xMax))
             .max()
             .unwrap_or(0),
-        caretSlopeRise: 1,
-        caretSlopeRun: 0,
-        caretOffset: 0,
+        caretSlopeRise: 1, // XXX
+        caretSlopeRun: 0,  // XXX
+        caretOffset: info.open_type_hhea_caret_offset.unwrap_or(0) as i16,
         reserved0: 0,
         reserved1: 0,
         reserved2: 0,
