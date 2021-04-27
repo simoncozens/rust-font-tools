@@ -22,24 +22,24 @@ pub struct HmtxDeserializer {
 
 impl hmtx {
     pub fn to_bytes(&self) -> (Vec<u8>, uint16) {
-        let mut num_h_metrics = self.metrics.len() - 1;
-        while num_h_metrics > 0
-            && self.metrics[num_h_metrics - 1].advanceWidth
-                == self.metrics[num_h_metrics].advanceWidth
+        let mut end_index_h_metrics = self.metrics.len() - 1;
+        while end_index_h_metrics > 0
+            && self.metrics[end_index_h_metrics - 1].advanceWidth
+                == self.metrics[end_index_h_metrics].advanceWidth
         {
-            num_h_metrics -= 1;
+            end_index_h_metrics -= 1;
         }
         let mut bytes: Vec<u8> = vec![];
 
         for (i, metric) in self.metrics.iter().enumerate() {
-            if i <= num_h_metrics {
+            if i <= end_index_h_metrics {
                 bytes.extend(otspec::ser::to_bytes(&metric).unwrap());
             } else {
                 bytes.extend(otspec::ser::to_bytes(&metric.lsb).unwrap());
             }
         }
 
-        (bytes, num_h_metrics as u16)
+        (bytes, (end_index_h_metrics + 1) as u16)
     }
 }
 impl<'de> DeserializeSeed<'de> for HmtxDeserializer {
