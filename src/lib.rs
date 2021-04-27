@@ -13,5 +13,6 @@ pub mod hmtx;
 mod loca;
 pub mod maxp;
 pub mod name;
+pub mod os2;
 mod otvar;
 pub mod post;

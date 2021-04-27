@@ -18,6 +18,7 @@ use crate::hmtx;
 use crate::loca;
 use crate::maxp::maxp;
 use crate::name::name;
+use crate::os2::os2;
 use crate::post::post;
 use indexmap::IndexMap;
 use otspec::types::*;
@@ -40,6 +41,7 @@ pub enum Table {
     Loca(loca::loca),
     Maxp(maxp),
     Name(name),
+    Os2(os2),
     Post(post),
     // Gvar(gvar),
 }
@@ -67,6 +69,7 @@ impl Table {
     table_unchecked!(loca_unchecked, Loca, loca::loca);
     table_unchecked!(maxp_unchecked, Maxp, maxp);
     table_unchecked!(name_unchecked, Name, name);
+    table_unchecked!(os2_unchecked, Os2, os2);
     table_unchecked!(post_unchecked, Post, post);
 }
 
@@ -160,6 +163,7 @@ impl Font {
             b"maxp" => Ok(Table::Maxp(otspec::de::from_bytes(binary)?)),
             b"name" => Ok(Table::Name(otspec::de::from_bytes(binary)?)),
             b"post" => Ok(Table::Post(otspec::de::from_bytes(binary)?)),
+            b"OS/2" => Ok(Table::Os2(otspec::de::from_bytes(binary)?)),
             b"hmtx" => {
                 let numberOfHMetrics = self._numberOfHMetrics();
                 if numberOfHMetrics.is_none() {

@@ -90,7 +90,15 @@ pub fn tables(item: TokenStream) -> TokenStream {
                 break;
             }
             let t = expect_ident(maybe_t);
-            if t == "Counted" {
+            if t == "Maybe" {
+                let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .to_string();
+                let name = expect_ident(table_def.next());
+                out_s.push_str(&format!("pub {} : Option<{}>,\n", name, subtype))
+            } else if t == "Counted" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
                     .into_iter()
                     .next()
