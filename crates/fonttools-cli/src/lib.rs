@@ -42,6 +42,24 @@ pub fn save_font(mut font: Font, matches: &clap::ArgMatches) {
 
 /* FontInfo things for ufo2ttf */
 pub mod font_info_data {
+    pub fn ascender(info: &norad::FontInfo) -> i16 {
+        let upm = info.units_per_em.map_or(1000.0, |f| f.get()) as f64;
+        info.ascender
+            .map_or((upm * 0.80) as i16, |f| f.get() as i16)
+    }
+    pub fn descender(info: &norad::FontInfo) -> i16 {
+        let upm = info.units_per_em.map_or(1000.0, |f| f.get()) as f64;
+        info.descender
+            .map_or((-upm * 0.20) as i16, |f| f.get() as i16)
+    }
+    pub fn hhea_ascender(info: &norad::FontInfo) -> i16 {
+        info.open_type_hhea_ascender
+            .map_or_else(|| ascender(info), |x| x as i16)
+    }
+    pub fn hhea_descender(info: &norad::FontInfo) -> i16 {
+        info.open_type_hhea_descender
+            .map_or_else(|| descender(info), |x| x as i16)
+    }
     pub fn preferred_family_name(info: &norad::FontInfo) -> String {
         info.open_type_name_preferred_family_name
             .as_ref()

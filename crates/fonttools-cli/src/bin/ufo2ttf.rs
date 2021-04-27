@@ -115,6 +115,36 @@ fn compile_cmap(mapping: BTreeMap<u32, u16>) -> cmap::cmap {
     }
 }
 
+fn compile_hhea(
+    info: &norad::FontInfo,
+    metrics: &[hmtx::Metric],
+    glyphs: &[Option<glyf::Glyph>],
+) -> hhea::hhea {
+    hhea::hhea {
+        majorVersion: 1,
+        minorVersion: 0,
+        ascender: hhea_ascender(info),
+        descender: hhea_descender(info),
+        lineGap: info.open_type_hhea_line_gap.unwrap_or(0) as i16,
+        advanceWidthMax: metrics.iter().map(|x| x.advanceWidth).max().unwrap_or(0),
+        minLeftSideBearing: metrics.iter().map(|x| x.lsb).min().unwrap_or(0),
+        minRightSideBearing: 0, // xxx
+        xMaxExtent: glyphs
+            .iter()
+            .filter_map(|o| o.as_ref().map(|g| g.xMax))
+            .max()
+            .unwrap_or(0),
+        caretSlopeRise: 1, // XXX
+        caretSlopeRun: 0,  // XXX
+        caretOffset: info.open_type_hhea_caret_offset.unwrap_or(0) as i16,
+        reserved0: 0,
+        reserved1: 0,
+        reserved2: 0,
+        reserved3: 0,
+        metricDataFormat: 0,
+        numberOfHMetrics: 0,
+    }
+}
 fn compile_name(info: &norad::FontInfo) -> name {
     let mut name = name { records: vec![] };
     /* Ideally...
@@ -389,31 +419,7 @@ fn main() {
     let maxp_table = maxp::new05(glyph_id);
     let cmap_table = compile_cmap(mapping);
     let name_table = compile_name(info);
-
-    let mut hhea_table = hhea::hhea {
-        majorVersion: 1,
-        minorVersion: 0,
-        ascender: info.ascender.map_or(600, |f| f.get() as i16),
-        descender: info.descender.map_or(-200, |f| f.get() as i16),
-        lineGap: info.open_type_hhea_line_gap.unwrap_or(0) as i16,
-        advanceWidthMax: metrics.iter().map(|x| x.advanceWidth).max().unwrap_or(0),
-        minLeftSideBearing: metrics.iter().map(|x| x.lsb).min().unwrap_or(0),
-        minRightSideBearing: 0, // xxx
-        xMaxExtent: glyphs
-            .iter()
-            .filter_map(|o| o.as_ref().map(|g| g.xMax))
-            .max()
-            .unwrap_or(0),
-        caretSlopeRise: 1, // XXX
-        caretSlopeRun: 0,  // XXX
-        caretOffset: info.open_type_hhea_caret_offset.unwrap_or(0) as i16,
-        reserved0: 0,
-        reserved1: 0,
-        reserved2: 0,
-        reserved3: 0,
-        metricDataFormat: 0,
-        numberOfHMetrics: 0,
-    };
+    let mut hhea_table = compile_hhea(info, &metrics, &glyphs);
     let glyf_table = glyf::glyf { glyphs };
     let hmtx_table = hmtx::hmtx { metrics };
     let (hmtx_bytes, num_h_metrics) = hmtx_table.to_bytes();
