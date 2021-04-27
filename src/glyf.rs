@@ -31,6 +31,17 @@ pub struct Point {
     pub on_curve: bool,
 }
 
+impl Point {
+    pub fn transform(&self, t: Affine) -> Point {
+        let kurbo_point = t * kurbo::Point::new(self.x as f64, self.y as f64);
+        Point {
+            x: kurbo_point.x as i16,
+            y: kurbo_point.y as i16,
+            on_curve: self.on_curve,
+        }
+    }
+}
+
 bitflags! {
     #[derive(Serialize, Deserialize)]
     pub struct ComponentFlags: u16 {
@@ -552,8 +563,13 @@ impl Glyph {
                     }
                     Some(Some(other_glyph)) => {
                         if let Some(other_countours) = &other_glyph.contours {
-                            // XXX apply transformation
-                            new_contours.extend(other_countours.clone())
+                            for c in other_countours {
+                                new_contours.push(
+                                    c.iter()
+                                        .map(|pt| pt.transform(comp.transformation))
+                                        .collect(),
+                                );
+                            }
                         }
                         if let Some(other_components) = &other_glyph.components {
                             println!("Found nested components while decomposing");
