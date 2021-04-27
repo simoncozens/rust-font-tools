@@ -17,6 +17,7 @@ indexmap = { version = "1" }
 kurbo = { version = "0.8.1" }
 bitflags = "1.2.1"
 itertools = "0.10.0"
+encoding = "0.2"
 
 [dev-dependencies]
 serde_json = { version = "1.0" }
