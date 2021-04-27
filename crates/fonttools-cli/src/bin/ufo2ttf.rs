@@ -247,11 +247,6 @@ fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> Option
         return None;
     }
 
-    if !glif.components.is_empty() && !glif.contours.is_empty() {
-        // println!("Mixed glyph needs decomposition {:?}", glif.name);
-        return Some(glyph);
-    }
-
     /* Do components */
     let mut components: Vec<glyf::Component> = vec![];
     for component in &glif.components {
@@ -412,6 +407,20 @@ fn main() {
             lsb: glyph.as_ref().map_or(0, |g| g.xMin),
         });
         glyphs.push(glyph);
+    }
+
+    // Decompose mixed.
+    let mut to_replace: Vec<(usize, glyf::Glyph)> = vec![];
+    for (id, glyph) in glyphs.iter().enumerate() {
+        if let Some(glyph) = glyph {
+            if glyph.components.is_some() && glyph.contours.is_some() {
+                println!("Decomposed mixed glyph {:?}", names[id]);
+                to_replace.push((id, glyph.decompose(&glyphs)));
+            }
+        }
+    }
+    for (id, glyph) in to_replace {
+        glyphs[id] = Some(glyph);
     }
 
     let head_table = compile_head(info, &glyphs);

@@ -527,6 +527,48 @@ impl Glyph {
         }
         (compressed_flags, compressed_xs, compressed_ys)
     }
+
+    pub fn decompose(&self, glyphs: &[Option<Glyph>]) -> Glyph {
+        let mut newglyph = Glyph {
+            xMin: 0,
+            xMax: 0,
+            yMin: 0,
+            yMax: 0,
+            instructions: None,
+            overlap: self.overlap,
+            contours: None,
+            components: None,
+        };
+        let mut new_contours = vec![];
+        if let Some(contours) = &self.contours {
+            new_contours.extend(contours.clone());
+        }
+        if let Some(components) = &self.components {
+            for comp in components {
+                let ix = comp.glyphIndex;
+                match glyphs.get(ix as usize) {
+                    None => {
+                        println!("Component not found for ID={:?}", ix);
+                    }
+                    Some(Some(other_glyph)) => {
+                        if let Some(other_countours) = &other_glyph.contours {
+                            // XXX apply transformation
+                            new_contours.extend(other_countours.clone())
+                        }
+                        if let Some(other_components) = &other_glyph.components {
+                            println!("Found nested components while decomposing");
+                        }
+                    }
+                    Some(None) => { /* Component was empty, eh? */ }
+                }
+            }
+        }
+        if !new_contours.is_empty() {
+            newglyph.contours = Some(new_contours);
+            newglyph.recalc_bounds();
+        }
+        newglyph
+    }
 }
 
 impl Serialize for Glyph {
