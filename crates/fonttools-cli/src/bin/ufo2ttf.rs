@@ -15,7 +15,7 @@ use lyon::geom::euclid::TypedPoint2D;
 use lyon::path::geom::cubic_to_quadratic::cubic_to_quadratics;
 use norad::Font as Ufo;
 use norad::PointType;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::fs::File;
 use std::io;
 use std::marker::PhantomData;
@@ -244,11 +244,15 @@ fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> Option
         glyph.contours = Some(contours);
         glyph.recalc_bounds();
     }
+
     Some(glyph)
 }
 
 fn norad_contour_to_glyf_contour(contour: &norad::Contour) -> Option<Vec<glyf::Point>> {
-    let cp = &contour.points;
+    let mut cp: VecDeque<norad::ContourPoint> = contour.points.clone().into();
+    while cp[0].typ == PointType::OffCurve {
+        cp.rotate_left(1);
+    }
     let mut points: Vec<glyf::Point> = vec![glyf::Point {
         x: cp[0].x as i16,
         y: cp[0].y as i16,
@@ -266,7 +270,6 @@ fn norad_contour_to_glyf_contour(contour: &norad::Contour) -> Option<Vec<glyf::P
             continue;
         } else {
             // Gonna assume cubic...
-            points.pop(); // Drop last point, we'll add it
             let before_pt = &cp[i - 1];
             let this_pt = &cp[i];
             let next_handle = &cp[(i + 1) % cp.len()];
@@ -294,11 +297,11 @@ fn norad_contour_to_glyf_contour(contour: &norad::Contour) -> Option<Vec<glyf::P
                 },
             };
             cubic_to_quadratics(&seg, 1.0, &mut |quad| {
-                points.push(glyf::Point {
-                    x: quad.from.x as i16,
-                    y: quad.from.y as i16,
-                    on_curve: true,
-                });
+                // points.push(glyf::Point {
+                //     x: quad.from.x as i16,
+                //     y: quad.from.y as i16,
+                //     on_curve: true,
+                // });
                 points.push(glyf::Point {
                     x: quad.ctrl.x as i16,
                     y: quad.ctrl.y as i16,
