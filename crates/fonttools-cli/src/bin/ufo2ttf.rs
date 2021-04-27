@@ -7,7 +7,9 @@ use fonttools::head::head;
 use fonttools::hhea;
 use fonttools::hmtx;
 use fonttools::maxp::maxp;
+use fonttools::name::{name, NameRecord, NameRecordID};
 use fonttools::post::post;
+use fonttools_cli::font_info_data::*;
 use lyon::geom::cubic_bezier::CubicBezierSegment;
 use lyon::geom::euclid::TypedPoint2D;
 use lyon::path::geom::cubic_to_quadratic::cubic_to_quadratics;
@@ -111,6 +113,93 @@ fn compile_cmap(mapping: BTreeMap<u32, u16>) -> cmap::cmap {
             },
         ],
     }
+}
+
+fn compile_name(info: &norad::FontInfo) -> name {
+    let mut name = name { records: vec![] };
+    /* Ideally...
+    if let Some(records) = &info.open_type_name_records {
+        for record in records {
+            name.records.push(NameRecord {
+                nameID: record.name_id as u16,
+                platformID: record.platform_id as u16,
+                encodingID: record.encoding_id as u16,
+                languageID: record.language_id as u16,
+                string: record.string,
+            })
+        }
+    }
+    */
+
+    let mut records: Vec<(NameRecordID, String)> = vec![];
+    if let Some(copyright) = &info.copyright {
+        records.push((NameRecordID::Copyright, copyright.to_string()));
+    }
+
+    let family_name = style_map_family_name(info);
+    let style_name = style_map_style_name(info);
+    let pfn = preferred_family_name(info);
+    let psfn = preferred_subfamily_name(info);
+    records.extend(vec![
+        (NameRecordID::FontFamilyName, family_name.clone()),
+        (NameRecordID::FontSubfamilyName, style_name.clone()),
+        (NameRecordID::UniqueID, unique_id(info)),
+        (NameRecordID::FullFontName, format!("{0} {1}", pfn, psfn)),
+        (NameRecordID::Version, name_version(info)),
+        (NameRecordID::PostscriptName, postscript_font_name(info)),
+    ]);
+    for (id, field) in &[
+        (NameRecordID::Trademark, &info.trademark),
+        (
+            NameRecordID::Manufacturer,
+            &info.open_type_name_manufacturer,
+        ),
+        (NameRecordID::Designer, &info.open_type_name_designer),
+        (NameRecordID::Description, &info.open_type_name_description),
+        (
+            NameRecordID::ManufacturerURL,
+            &info.open_type_name_manufacturer_url,
+        ),
+        (NameRecordID::DesignerURL, &info.open_type_name_designer_url),
+        (NameRecordID::License, &info.open_type_name_license),
+        (NameRecordID::LicenseURL, &info.open_type_name_license_url),
+    ] {
+        if let Some(value) = field {
+            records.push((*id, value.to_string()));
+        }
+    }
+
+    if pfn != family_name {
+        records.push((NameRecordID::PreferredFamilyName, pfn));
+    }
+    if psfn != style_name {
+        records.push((NameRecordID::PreferredSubfamilyName, psfn));
+    }
+
+    for (id, field) in &[
+        (
+            NameRecordID::CompatibleFullName,
+            &info.open_type_name_compatible_full_name,
+        ),
+        (NameRecordID::SampleText, &info.open_type_name_sample_text),
+        (
+            NameRecordID::WWSFamilyName,
+            &info.open_type_name_wws_family_name,
+        ),
+        (
+            NameRecordID::WWSSubfamilyName,
+            &info.open_type_name_wws_subfamily_name,
+        ),
+    ] {
+        if let Some(value) = field {
+            records.push((*id, value.to_string()));
+        }
+    }
+    for (id, string) in records {
+        name.records.push(NameRecord::windows_unicode(id, string));
+    }
+
+    name
 }
 
 fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> Option<glyf::Glyph> {
@@ -296,6 +385,7 @@ fn main() {
     let post_table = compile_post(info, &names);
     let maxp_table = maxp::new05(glyph_id);
     let cmap_table = compile_cmap(mapping);
+    let name_table = compile_name(info);
 
     let mut hhea_table = hhea::hhea {
         majorVersion: 1,
@@ -333,6 +423,7 @@ fn main() {
     font.tables.insert(*b"cmap", Table::Cmap(cmap_table));
     font.tables.insert(*b"glyf", Table::Glyf(glyf_table));
     font.tables.insert(*b"hhea", Table::Hhea(hhea_table));
+    font.tables.insert(*b"name", Table::Name(name_table));
 
     if matches.is_present("OUTPUT") {
         let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())

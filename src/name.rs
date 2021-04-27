@@ -47,6 +47,42 @@ fn get_encoding(platform_id: u16, encoding_id: u16) -> EncodingRef {
     unimplemented!()
 }
 
+#[derive(Copy, Clone)]
+pub enum NameRecordID {
+    Copyright,
+    FontFamilyName,
+    FontSubfamilyName,
+    UniqueID,
+    FullFontName,
+    Version,
+    PostscriptName,
+    Trademark,
+    Manufacturer,
+    Designer,
+    Description,
+    ManufacturerURL,
+    DesignerURL,
+    License,
+    LicenseURL,
+    Reserved,
+    PreferredFamilyName,
+    PreferredSubfamilyName,
+    CompatibleFullName,
+    SampleText,
+    PostScriptCID,
+    WWSFamilyName,
+    WWSSubfamilyName,
+    LightBackgroundPalette,
+    DarkBackgroundPalette,
+    VariationsPostScriptNamePrefix,
+}
+
+impl From<NameRecordID> for u16 {
+    fn from(namerecord: NameRecordID) -> u16 {
+        namerecord as u16
+    }
+}
+
 tables!(
     NameRecordInternal {
         uint16 platformID
@@ -60,16 +96,32 @@ tables!(
 
 #[derive(Debug, PartialEq)]
 pub struct NameRecord {
-    platformID: uint16,
-    encodingID: uint16,
-    languageID: uint16,
-    nameID: uint16,
-    string: String,
+    pub platformID: uint16,
+    pub encodingID: uint16,
+    pub languageID: uint16,
+    pub nameID: uint16,
+    pub string: String,
+}
+
+impl NameRecord {
+    pub fn windows_unicode<T, U>(n: T, s: U) -> NameRecord
+    where
+        T: Into<u16>,
+        U: Into<String>,
+    {
+        NameRecord {
+            platformID: 3,
+            encodingID: 10,
+            languageID: 0x409,
+            nameID: n.into(),
+            string: s.into(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct name {
-    records: Vec<NameRecord>,
+    pub records: Vec<NameRecord>,
 }
 
 deserialize_visitor!(
