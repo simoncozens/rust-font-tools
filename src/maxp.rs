@@ -53,6 +53,27 @@ impl maxp {
             }),
         }
     }
+    pub fn new10(num_glyphs: u16, maxComponentElements: u16) -> maxp {
+        maxp {
+            version: U16F16::from_num(1.0),
+            table: MaxpVariant::Maxp10(maxp10 {
+                numGlyphs: num_glyphs,
+                maxPoints: 0,
+                maxContours: 0,
+                maxCompositePoints: 0,
+                maxCompositeContours: 0,
+                maxZones: 0,
+                maxTwilightPoints: 0,
+                maxStorage: 0,
+                maxFunctionDefs: 0,
+                maxInstructionDefs: 0,
+                maxStackElements: 0,
+                maxSizeOfInstructions: 0,
+                maxComponentElements,
+                maxComponentDepth: 0,
+            }),
+        }
+    }
     pub fn num_glyphs(&self) -> u16 {
         match &self.table {
             MaxpVariant::Maxp05(s) => s.numGlyphs,
