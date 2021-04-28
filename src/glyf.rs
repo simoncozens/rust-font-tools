@@ -81,7 +81,7 @@ enum ComponentScalingMode {
     Default,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Component {
     pub glyphIndex: uint16,
     pub transformation: Affine,
@@ -221,6 +221,141 @@ pub fn from_bytes(s: &[u8], locaOffsets: Vec<Option<u32>>) -> otspec::error::Res
     let mut deserializer = otspec::de::Deserializer::from_bytes(s);
     let cs: GlyfDeserializer = GlyfDeserializer { locaOffsets };
     cs.deserialize(&mut deserializer)
+}
+
+impl glyf {
+    pub fn flat_components(&self, g: &Glyph, depth: u32) -> Vec<Component> {
+        let mut new_components = vec![];
+        if depth > 64 {
+            println!(
+                "Extremely deeply nested component in glyph {:?}. Possible loop?",
+                g
+            );
+            return new_components;
+        }
+        for comp in &g.components {
+            let component_glyph = &self.glyphs[comp.glyphIndex as usize];
+            if component_glyph.has_components() {
+                let mut flattened = self.flat_components(&component_glyph, depth + 1);
+                for f in flattened.iter_mut() {
+                    f.transformation = comp.transformation * f.transformation;
+                    // This may be the wrong way around...
+                }
+                new_components.extend(flattened);
+            } else {
+                new_components.push(comp.clone());
+            }
+        }
+        new_components
+    }
+    pub fn flatten_components(&mut self) {
+        let mut needs_flattening = vec![];
+        for (id, g) in self.glyphs.iter().enumerate() {
+            if !g.has_components() {
+                continue;
+            }
+            for comp in &g.components {
+                if (comp.glyphIndex as usize) >= self.glyphs.len() {
+                    panic!(
+                        "Whoa! Glyph {:?} had component {:?} > {:?}",
+                        id,
+                        comp.glyphIndex,
+                        self.glyphs.len()
+                    );
+                }
+            }
+            let flat = self.flat_components(g, 0);
+            if g.components != flat {
+                needs_flattening.push((id, flat));
+            }
+        }
+        for (id, comp) in needs_flattening {
+            self.glyphs[id].components = comp;
+        }
+    }
+    pub fn recalc_bounds(&mut self) {
+        self.flatten_components();
+        // First do simple glyphs
+        for g in self.glyphs.iter_mut() {
+            if !g.has_components() {
+                let (x_pts, y_pts): (Vec<i16>, Vec<i16>) =
+                    g.contours.iter().flatten().map(|pt| (pt.x, pt.y)).unzip();
+                g.xMin = *x_pts.iter().min().unwrap_or(&0);
+                g.xMax = *x_pts.iter().max().unwrap_or(&0);
+                g.yMin = *y_pts.iter().min().unwrap_or(&0);
+                g.yMax = *y_pts.iter().max().unwrap_or(&0);
+            }
+        }
+
+        // Gather boxes
+        let boxes: Vec<kurbo::Rect> = self.glyphs.iter().map(|x| x.bounds_rect()).collect();
+
+        // Now do component
+        let mut i: i32 = -1;
+        for g in self.glyphs.iter_mut() {
+            let mut done = false;
+            i += 1;
+            if !g.has_components() {
+                continue;
+            }
+            for comp in &g.components {
+                if comp.flags.contains(ComponentFlags::USE_MY_METRICS) {
+                    let component_bounds = boxes[comp.glyphIndex as usize];
+                    g.set_bounds_rect(component_bounds);
+                    done = true;
+                    break;
+                }
+            }
+            if !done {
+                let newbounds = g
+                    .components
+                    .iter()
+                    .map({
+                        |comp| {
+                            let component_bounds = boxes[comp.glyphIndex as usize];
+                            comp.transformation.transform_rect_bbox(component_bounds)
+                        }
+                    })
+                    .reduce(|a, b| a.union(b))
+                    .unwrap();
+                g.set_bounds_rect(newbounds);
+            }
+        }
+    }
+    pub fn maxp_statistics(&self) -> (u16, u16, u16, u16, u16, u16, u16) {
+        let numGlyphs = self.glyphs.len() as u16;
+        let maxPoints = self
+            .glyphs
+            .iter()
+            .map(|x| x.contours.iter().map(|c| c.len()).sum())
+            .max()
+            .unwrap_or(0) as u16;
+
+        let maxContours = self
+            .glyphs
+            .iter()
+            .map(|x| x.contours.len())
+            .max()
+            .unwrap_or(0) as u16;
+        let maxCompositePoints = 0;
+        let maxCompositeContours = 0;
+        let maxComponentElements = self
+            .glyphs
+            .iter()
+            .map(|x| x.components.len())
+            .max()
+            .unwrap_or(0) as u16;
+        let maxComponentDepth = 1; // XXX
+        (
+            numGlyphs,
+            maxPoints,
+            maxContours,
+            maxCompositePoints,
+            maxCompositeContours,
+            maxComponentElements,
+            maxComponentDepth,
+        )
+    }
 }
 
 deserialize_visitor!(
@@ -470,36 +605,6 @@ impl Glyph {
         self.yMax = r.max_y() as i16;
     }
 
-    pub fn recalc_bounds(&mut self) {
-        if self.has_components() {
-            // self.components
-            //    .iter()
-            //    .map({
-            //        |comp| {
-            //            glyphs[comp.glyphIndex as usize]
-            //                .as_ref()
-            //                .map(|component_glyph| {
-            //                    comp.transformation
-            //                        .transform_rect_bbox(component_glyph.bounds_rect())
-            //                })
-            //        }
-            //    })
-            //    .flatten()
-            //    .reduce(|a, b| a.union(b))
-            //    .unwrap();
-            return;
-        }
-        let (x_pts, y_pts): (Vec<i16>, Vec<i16>) = self
-            .contours
-            .iter()
-            .flatten()
-            .map(|pt| (pt.x, pt.y))
-            .unzip();
-        self.xMin = *x_pts.iter().min().unwrap_or(&0);
-        self.xMax = *x_pts.iter().max().unwrap_or(&0);
-        self.yMin = *y_pts.iter().min().unwrap_or(&0);
-        self.yMax = *y_pts.iter().max().unwrap_or(&0);
-    }
     fn end_points(&self) -> Vec<u16> {
         assert!(!self.has_components());
         let mut count: i16 = -1;
@@ -614,7 +719,6 @@ impl Glyph {
         }
         if !new_contours.is_empty() {
             newglyph.contours = new_contours;
-            newglyph.recalc_bounds();
         }
         newglyph
     }
@@ -688,7 +792,7 @@ impl Serialize for Glyph {
         } else {
             let end_pts_of_contour = self.end_points();
             seq.serialize_element::<Vec<uint16>>(&end_pts_of_contour)?;
-            if self.instructions.len() > 0 {
+            if !self.instructions.is_empty() {
                 seq.serialize_element::<uint16>(&(self.instructions.len() as u16))?;
                 seq.serialize_element::<Vec<u8>>(&self.instructions)?;
             } else {

@@ -32,7 +32,7 @@ fn int_list_to_num(int_list: &[u8]) -> u32 {
     flags
 }
 
-fn compile_head(info: &norad::FontInfo, glyphs: &[glyf::Glyph]) -> head {
+fn compile_head(info: &norad::FontInfo, glyf: &glyf::glyf) -> head {
     let mut minor = info.version_minor.unwrap_or(0);
     while minor > 999 {
         minor /= 10;
@@ -41,7 +41,8 @@ fn compile_head(info: &norad::FontInfo, glyphs: &[glyf::Glyph]) -> head {
         (info.version_major.unwrap_or(1) as f32 * 1000.0 + minor as f32).round() / 1000.0;
 
     // bounding box
-    let bounds: Vec<(i16, i16, i16, i16)> = glyphs
+    let bounds: Vec<(i16, i16, i16, i16)> = glyf
+        .glyphs
         .iter()
         .map(|x| (x.xMin, x.xMax, x.yMin, x.yMax))
         .collect();
@@ -115,11 +116,7 @@ fn compile_cmap(mapping: BTreeMap<u32, u16>) -> cmap::cmap {
     }
 }
 
-fn compile_hhea(
-    info: &norad::FontInfo,
-    metrics: &[hmtx::Metric],
-    glyphs: &[glyf::Glyph],
-) -> hhea::hhea {
+fn compile_hhea(info: &norad::FontInfo, metrics: &[hmtx::Metric], glyf: &glyf::glyf) -> hhea::hhea {
     hhea::hhea {
         majorVersion: 1,
         minorVersion: 0,
@@ -129,7 +126,7 @@ fn compile_hhea(
         advanceWidthMax: metrics.iter().map(|x| x.advanceWidth).max().unwrap_or(0),
         minLeftSideBearing: metrics.iter().map(|x| x.lsb).min().unwrap_or(0),
         minRightSideBearing: 0, // xxx
-        xMaxExtent: glyphs.iter().map(|g| g.xMax).max().unwrap_or(0),
+        xMaxExtent: glyf.glyphs.iter().map(|g| g.xMax).max().unwrap_or(0),
         caretSlopeRise: 1, // XXX
         caretSlopeRun: 0,  // XXX
         caretOffset: info.open_type_hhea_caret_offset.unwrap_or(0) as i16,
@@ -155,7 +152,7 @@ where
 fn compile_os2(
     info: &norad::FontInfo,
     metrics: &[hmtx::Metric],
-    glyphs: &[glyf::Glyph],
+    glyf: &glyf::glyf,
     mapping: &BTreeMap<u32, u16>,
 ) -> os2 {
     let upm = info.units_per_em.map_or(1000.0, |f| f.get());
@@ -379,7 +376,6 @@ fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> glyf::
     }
     if !contours.is_empty() {
         glyph.contours = contours;
-        glyph.recalc_bounds();
     }
 
     glyph
@@ -516,6 +512,7 @@ fn main() {
         glyph_id += 1;
     }
     for glyf in layer.iter_contents() {
+        let name = glyf.name.to_string();
         let glyph = glif_to_glyph(&glyf, &name_to_id);
         metrics.push(hmtx::Metric {
             advanceWidth: glyf.width as u16,
@@ -527,7 +524,7 @@ fn main() {
     // Decompose mixed.
     let mut to_replace: Vec<(usize, glyf::Glyph)> = vec![];
     for (id, glyph) in glyphs.iter().enumerate() {
-        if glyph.components.len() > 0 && glyph.contours.len() > 0 {
+        if !glyph.components.is_empty() && !glyph.contours.is_empty() {
             println!("Decomposed mixed glyph {:?}", names[id]);
             to_replace.push((id, glyph.decompose(&glyphs)));
         }
@@ -536,14 +533,38 @@ fn main() {
         glyphs[id] = glyph;
     }
 
-    let head_table = compile_head(info, &glyphs);
+    let mut glyf_table = glyf::glyf { glyphs };
+    glyf_table.recalc_bounds();
+
+    // Do LSBs again
+    for (id, glyph) in glyf_table.glyphs.iter().enumerate() {
+        metrics[id].lsb = glyph.xMin;
+    }
+
+    let head_table = compile_head(info, &glyf_table);
     let post_table = compile_post(info, &names);
-    let maxp_table = maxp::new10(glyph_id, 0);
-    let os2_table = compile_os2(info, &metrics, &glyphs, &mapping);
+    let (
+        num_glyphs,
+        max_points,
+        max_contours,
+        max_composite_points,
+        max_composite_contours,
+        max_component_elements,
+        max_component_depth,
+    ) = glyf_table.maxp_statistics();
+    let maxp_table = maxp::new10(
+        num_glyphs,
+        max_points,
+        max_contours,
+        max_composite_points,
+        max_composite_contours,
+        max_component_elements,
+        max_component_depth,
+    );
+    let os2_table = compile_os2(info, &metrics, &glyf_table, &mapping);
     let cmap_table = compile_cmap(mapping);
     let name_table = compile_name(info);
-    let mut hhea_table = compile_hhea(info, &metrics, &glyphs);
-    let glyf_table = glyf::glyf { glyphs };
+    let mut hhea_table = compile_hhea(info, &metrics, &glyf_table);
     let hmtx_table = hmtx::hmtx { metrics };
     let (hmtx_bytes, num_h_metrics) = hmtx_table.to_bytes();
     hhea_table.numberOfHMetrics = num_h_metrics;
@@ -554,10 +575,10 @@ fn main() {
     font.tables.insert(*b"OS/2", Table::Os2(os2_table));
     font.tables.insert(*b"hmtx", Table::Unknown(hmtx_bytes));
     font.tables.insert(*b"cmap", Table::Cmap(cmap_table));
+    font.tables.insert(*b"loca", Table::Unknown(vec![0]));
     font.tables.insert(*b"glyf", Table::Glyf(glyf_table));
     font.tables.insert(*b"name", Table::Name(name_table));
     font.tables.insert(*b"post", Table::Post(post_table));
-    font.tables.insert(*b"loca", Table::Unknown(vec![0]));
 
     if matches.is_present("OUTPUT") {
         let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())
