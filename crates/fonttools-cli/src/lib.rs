@@ -154,4 +154,24 @@ pub mod font_info_data {
             |x| x.clone(),
         )
     }
+    pub fn postscript_underline_thickness(info: &norad::FontInfo) -> i16 {
+        let upm = info.units_per_em.map_or(1000.0, |f| f.get()) as f64;
+        info.postscript_underline_thickness
+            .map_or_else(|| upm * 0.05, |f| f.get()) as i16
+    }
+    pub fn get_panose(_info: &norad::FontInfo) -> fonttools::os2::Panose {
+        // Struct not public, unfortunately.
+        fonttools::os2::Panose {
+            panose0: 0,
+            panose1: 0,
+            panose2: 0,
+            panose3: 0,
+            panose4: 0,
+            panose5: 0,
+            panose6: 0,
+            panose7: 0,
+            panose8: 0,
+            panose9: 0,
+        }
+    }
 }

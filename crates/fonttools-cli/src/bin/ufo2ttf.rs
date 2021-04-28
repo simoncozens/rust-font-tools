@@ -8,6 +8,7 @@ use fonttools::hhea;
 use fonttools::hmtx;
 use fonttools::maxp::maxp;
 use fonttools::name::{name, NameRecord, NameRecordID};
+use fonttools::os2::os2;
 use fonttools::post::post;
 use fonttools_cli::font_info_data::*;
 use lyon::geom::cubic_bezier::CubicBezierSegment;
@@ -16,6 +17,7 @@ use lyon::path::geom::cubic_to_quadratic::cubic_to_quadratics;
 use norad::Font as Ufo;
 use norad::PointType;
 use std::collections::{BTreeMap, VecDeque};
+use std::convert::TryInto;
 use std::fs::File;
 use std::io;
 use std::marker::PhantomData;
@@ -87,8 +89,7 @@ fn compile_post(info: &norad::FontInfo, names: &[String]) -> post {
         info.italic_angle.map_or(0.0, |f| f.get() as f32),
         info.postscript_underline_position
             .map_or_else(|| upm * -0.075, |f| f.get()) as i16,
-        info.postscript_underline_thickness
-            .map_or_else(|| upm * 0.05, |f| f.get()) as i16,
+        postscript_underline_thickness(info),
         info.postscript_is_fixed_pitch.unwrap_or(false),
         Some(names.to_vec()),
     )
@@ -145,6 +146,122 @@ fn compile_hhea(
         numberOfHMetrics: 0,
     }
 }
+
+fn adjust_offset<T>(offset: T, angle: f64) -> i32
+where
+    T: Into<f32>,
+{
+    if angle == 0.0 {
+        return 0;
+    }
+    (offset.into() as f64 * (-angle).to_radians().tan()) as i32
+}
+
+fn compile_os2(
+    info: &norad::FontInfo,
+    metrics: &[hmtx::Metric],
+    glyphs: &[Option<glyf::Glyph>],
+    mapping: &BTreeMap<u32, u16>,
+) -> os2 {
+    let upm = info.units_per_em.map_or(1000.0, |f| f.get());
+    let italic_angle = info.italic_angle.map_or(0.0, |f| f.get());
+    let xHeight = info.x_height.map_or(upm * 0.5, |f| f.get());
+    let subscript_y_offset = info
+        .open_type_os2_subscript_y_offset
+        .unwrap_or((upm * 0.075) as i32) as i16;
+    let font_ascender = ascender(info);
+    let font_descender = descender(info);
+    let sTypoAscender = info
+        .open_type_os2_typo_ascender
+        .unwrap_or(font_ascender.into()) as i16;
+    let sTypoDescender = info
+        .open_type_os2_typo_descender
+        .unwrap_or(font_descender.into()) as i16;
+    let sTypoLineGap =
+        info.open_type_hhea_line_gap
+            .unwrap_or((upm * 1.2) as i32 + (font_ascender - font_descender) as i32) as i16;
+    let superscript_y_offset = info
+        .open_type_os2_superscript_y_offset
+        .unwrap_or((upm * 0.35) as i32) as i16;
+
+    let subscript_x_size = info
+        .open_type_os2_subscript_x_size
+        .unwrap_or((upm * 0.65) as i32) as i16;
+
+    os2 {
+        version: 4,
+        xAvgCharWidth: metrics
+            .iter()
+            .map(|m| m.advanceWidth as f32 / metrics.len() as f32)
+            .sum::<f32>() as i16,
+        usWeightClass: info.open_type_os2_weight_class.unwrap_or(400) as u16,
+        usWidthClass: info.open_type_os2_width_class.map_or(5, |f| f as u16),
+        fsType: int_list_to_num(&info.open_type_os2_type.as_ref().unwrap_or(&vec![2])) as u16,
+        ySubscriptXSize: subscript_x_size,
+        ySubscriptYSize: info
+            .open_type_os2_subscript_y_size
+            .unwrap_or((upm * 0.6) as i32) as i16,
+        ySubscriptYOffset: subscript_y_offset,
+        ySubscriptXOffset: info
+            .open_type_os2_subscript_x_offset
+            .unwrap_or(adjust_offset(-subscript_y_offset, italic_angle))
+            as i16,
+
+        ySuperscriptXSize: info
+            .open_type_os2_superscript_x_size
+            .unwrap_or((upm * 0.65) as i32) as i16,
+        ySuperscriptYSize: info
+            .open_type_os2_superscript_y_size
+            .unwrap_or((upm * 0.6) as i32) as i16,
+        ySuperscriptYOffset: superscript_y_offset,
+        ySuperscriptXOffset: info
+            .open_type_os2_superscript_x_offset
+            .unwrap_or(adjust_offset(-superscript_y_offset, italic_angle))
+            as i16,
+
+        yStrikeoutSize: info
+            .open_type_os2_strikeout_size
+            .unwrap_or(postscript_underline_thickness(info).into()) as i16,
+        yStrikeoutPosition: info
+            .open_type_os2_strikeout_position
+            .unwrap_or((xHeight * 0.22) as i32) as i16,
+
+        sxHeight: Some(xHeight as i16),
+        achVendID: info
+            .open_type_os2_vendor_id
+            .as_ref()
+            .map_or(*b"NONE", |x| x.as_bytes().try_into().unwrap()),
+        sCapHeight: Some(info.cap_height.map_or(upm * 0.7, |f| f.get()) as i16),
+        sTypoAscender,
+        sTypoDescender,
+        sTypoLineGap,
+        usWinAscent: info
+            .open_type_os2_win_ascent
+            .unwrap_or((font_ascender + sTypoLineGap).try_into().unwrap())
+            as u16,
+        usWinDescent: info
+            .open_type_os2_win_descent
+            .unwrap_or(font_descender.abs() as u32) as u16,
+        usBreakChar: Some(32),
+        usMaxContext: Some(0),
+        usDefaultChar: Some(0),
+        // sFamilyClass: info.open_type_os2_family_class... (not public)
+        sFamilyClass: 0,
+        panose: get_panose(info),
+        ulCodePageRange1: Some(0b01100000000000000000000110010011), // XXX
+        ulCodePageRange2: Some(0),                                  // XXX
+        ulUnicodeRange1: 0b10100001000000000000000011111111,        // XXX
+        ulUnicodeRange2: 0,                                         // XXX
+        ulUnicodeRange3: 0,                                         // XXX
+        ulUnicodeRange4: 0,                                         // XXX
+        usFirstCharIndex: *mapping.keys().min().unwrap_or(&0xFFFF) as u16,
+        usLastCharIndex: *mapping.keys().max().unwrap_or(&0xFFFF) as u16,
+        usLowerOpticalPointSize: None,
+        usUpperOpticalPointSize: None,
+        fsSelection: 0b11000000, // XXX
+    }
+}
+
 fn compile_name(info: &norad::FontInfo) -> name {
     let mut name = name { records: vec![] };
     /* Ideally...
@@ -341,6 +458,9 @@ fn norad_contour_to_glyf_contour(contour: &norad::Contour) -> Option<Vec<glyf::P
             i += 2;
         }
     }
+
+    // Reverse it
+    points.reverse();
     Some(points)
 }
 
@@ -425,23 +545,27 @@ fn main() {
 
     let head_table = compile_head(info, &glyphs);
     let post_table = compile_post(info, &names);
-    let maxp_table = maxp::new05(glyph_id);
+    let maxp_table = maxp::new10(glyph_id, 0);
+    let os2_table = compile_os2(info, &metrics, &glyphs, &mapping);
     let cmap_table = compile_cmap(mapping);
     let name_table = compile_name(info);
     let mut hhea_table = compile_hhea(info, &metrics, &glyphs);
     let glyf_table = glyf::glyf { glyphs };
+    glyf.fix_component_bounds();
     let hmtx_table = hmtx::hmtx { metrics };
     let (hmtx_bytes, num_h_metrics) = hmtx_table.to_bytes();
     hhea_table.numberOfHMetrics = num_h_metrics;
 
     font.tables.insert(*b"head", Table::Head(head_table));
-    font.tables.insert(*b"hmtx", Table::Unknown(hmtx_bytes));
+    font.tables.insert(*b"hhea", Table::Hhea(hhea_table));
     font.tables.insert(*b"maxp", Table::Maxp(maxp_table));
-    font.tables.insert(*b"post", Table::Post(post_table));
+    font.tables.insert(*b"OS/2", Table::Os2(os2_table));
+    font.tables.insert(*b"hmtx", Table::Unknown(hmtx_bytes));
     font.tables.insert(*b"cmap", Table::Cmap(cmap_table));
     font.tables.insert(*b"glyf", Table::Glyf(glyf_table));
-    font.tables.insert(*b"hhea", Table::Hhea(hhea_table));
     font.tables.insert(*b"name", Table::Name(name_table));
+    font.tables.insert(*b"post", Table::Post(post_table));
+    font.tables.insert(*b"loca", Table::Unknown(vec![0]));
 
     if matches.is_present("OUTPUT") {
         let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())

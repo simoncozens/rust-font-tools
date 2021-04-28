@@ -132,7 +132,7 @@ impl<'a> ser::Serializer for &'a mut Serializer {
         todo!()
     }
     fn serialize_unit(self) -> Result<()> {
-        todo!()
+        Ok(())
     }
     fn serialize_unit_variant(self, _: &str, _: u32, _: &str) -> Result<()> {
         todo!()
