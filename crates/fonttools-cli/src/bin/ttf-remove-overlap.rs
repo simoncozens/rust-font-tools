@@ -64,6 +64,7 @@ fn skia_to_glyf(p: Path) -> Vec<Vec<Point>> {
     let mut cur_pt = 0;
     for verb in verbs {
         if verb > 4 {
+            new_contour.reverse();
             new_glyph.push(new_contour);
             new_contour = vec![];
             continue;
@@ -100,6 +101,7 @@ fn main() {
         for glyph in glyf.glyphs.iter_mut() {
             remove_overlap(glyph);
         }
+        glyf.recalc_bounds();
     }
     save_font(infont, &matches);
 }
