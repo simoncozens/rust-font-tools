@@ -118,8 +118,7 @@ impl Component {
         }
         if shearX != 0.0 || shearY != 0.0 {
             flags |= ComponentFlags::WE_HAVE_A_TWO_BY_TWO;
-        }
-        if (scaleX - scaleY).abs() > f64::EPSILON {
+        } else if (scaleX - scaleY).abs() > f64::EPSILON {
             flags |= ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE;
         } else if (scaleX - 1.0).abs() > f64::EPSILON {
             flags |= ComponentFlags::WE_HAVE_A_SCALE;
