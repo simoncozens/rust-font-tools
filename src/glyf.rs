@@ -142,7 +142,7 @@ pub struct Glyph {
 
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct glyf {
-    pub glyphs: Vec<Option<Glyph>>,
+    pub glyphs: Vec<Glyph>,
 }
 
 pub struct GlyfDeserializer {
@@ -175,7 +175,16 @@ impl<'de> DeserializeSeed<'de> for GlyfDeserializer {
                 let remainder = read_remainder!(seq, "a glyph table");
                 for item in self.locaOffsets {
                     match item {
-                        None => res.glyphs.push(None),
+                        None => res.glyphs.push(Glyph {
+                            contours: None,
+                            components: None,
+                            overlap: false,
+                            xMax: 0,
+                            xMin: 0,
+                            yMax: 0,
+                            yMin: 0,
+                            instructions: None,
+                        }),
                         Some(item) => {
                             let binary_glyf = &remainder[(item as usize)..];
                             // println!("Reading glyf at item {:?}", item);
@@ -184,7 +193,7 @@ impl<'de> DeserializeSeed<'de> for GlyfDeserializer {
                                 otspec::de::from_bytes(binary_glyf).map_err(|e| {
                                     serde::de::Error::custom(format!("Expecting a glyph: {:?}", e))
                                 })?;
-                            res.glyphs.push(Some(glyph))
+                            res.glyphs.push(glyph)
                         }
                     }
                 }
@@ -443,8 +452,38 @@ impl Glyph {
     pub fn is_empty(&self) -> bool {
         self.components.is_none() && self.contours.is_none()
     }
+    pub fn bounds_rect(&self) -> kurbo::Rect {
+        kurbo::Rect::new(
+            self.xMin.into(),
+            self.yMin.into(),
+            self.xMax.into(),
+            self.yMax.into(),
+        )
+    }
+    pub fn set_bounds_rect(&mut self, r: kurbo::Rect) {
+        self.xMin = r.min_x() as i16;
+        self.xMax = r.max_x() as i16;
+        self.yMin = r.min_y() as i16;
+        self.yMax = r.max_y() as i16;
+    }
+
     pub fn recalc_bounds(&mut self) {
-        if self.contours.is_none() {
+        if self.has_components() {
+            // self.components
+            //    .iter()
+            //    .map({
+            //        |comp| {
+            //            glyphs[comp.glyphIndex as usize]
+            //                .as_ref()
+            //                .map(|component_glyph| {
+            //                    comp.transformation
+            //                        .transform_rect_bbox(component_glyph.bounds_rect())
+            //                })
+            //        }
+            //    })
+            //    .flatten()
+            //    .reduce(|a, b| a.union(b))
+            //    .unwrap();
             return;
         }
         let (x_pts, y_pts): (Vec<i16>, Vec<i16>) = self
@@ -887,7 +926,7 @@ mod tests {
           <instructions/>
         </TTGlyph>
         */
-        let A = glyf.glyphs[0].as_ref().unwrap();
+        let A = &glyf.glyphs[0];
         #[rustfmt::skip]
         assert_eq!(A, &glyf::Glyph {
             xMin:5, yMin:0, xMax: 751, yMax:700,
@@ -922,7 +961,7 @@ mod tests {
           <component glyphName="acutecomb" x="402" y="130" flags="0x4"/>
         </TTGlyph>
         */
-        let aacute = glyf.glyphs[1].as_ref().unwrap();
+        let aacute = &glyf.glyphs[1];
         assert_eq!(
             aacute.components.as_ref().unwrap()[0],
             glyf::Component {
@@ -949,6 +988,7 @@ mod tests {
         );
 
         let component1_bytes = otspec::ser::to_bytes(&aacute).unwrap();
+        let rede: glyf::Glyph = otspec::de::from_bytes(&component1_bytes).unwrap();
         assert_eq!(
             component1_bytes,
             vec![
@@ -957,8 +997,8 @@ mod tests {
             ]
         );
 
-        assert!(glyf.glyphs[4].is_none());
-        let dollarbold = glyf.glyphs[6].as_ref().unwrap();
+        assert!(glyf.glyphs[4].is_empty());
+        let dollarbold = &glyf.glyphs[6];
         assert_eq!(dollarbold.xMin, 29);
         assert_eq!(dollarbold.yMin, -76);
         assert_eq!(dollarbold.xMax, 580);

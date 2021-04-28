@@ -286,11 +286,10 @@ impl Font {
                 locaIs32bit = true;
             }
             loca_indices.push(cur_len);
-            if g.is_none() {
+            if g.is_empty() {
                 continue;
             }
-            let glyph = g.as_ref().unwrap();
-            glyf_output.extend(otspec::ser::to_bytes(&glyph).unwrap());
+            glyf_output.extend(otspec::ser::to_bytes(&g).unwrap());
             // Add multiple-of-four padding
             while glyf_output.len() % 4 != 0 {
                 glyf_output.push(0);
