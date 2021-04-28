@@ -32,7 +32,7 @@ fn int_list_to_num(int_list: &[u8]) -> u32 {
     flags
 }
 
-fn compile_head(info: &norad::FontInfo, glyphs: &[Option<glyf::Glyph>]) -> head {
+fn compile_head(info: &norad::FontInfo, glyphs: &[glyf::Glyph]) -> head {
     let mut minor = info.version_minor.unwrap_or(0);
     while minor > 999 {
         minor /= 10;
@@ -43,7 +43,6 @@ fn compile_head(info: &norad::FontInfo, glyphs: &[Option<glyf::Glyph>]) -> head 
     // bounding box
     let bounds: Vec<(i16, i16, i16, i16)> = glyphs
         .iter()
-        .filter_map(|x| x.as_ref())
         .map(|x| (x.xMin, x.xMax, x.yMin, x.yMax))
         .collect();
     let mut head_table = head::new(
@@ -119,7 +118,7 @@ fn compile_cmap(mapping: BTreeMap<u32, u16>) -> cmap::cmap {
 fn compile_hhea(
     info: &norad::FontInfo,
     metrics: &[hmtx::Metric],
-    glyphs: &[Option<glyf::Glyph>],
+    glyphs: &[glyf::Glyph],
 ) -> hhea::hhea {
     hhea::hhea {
         majorVersion: 1,
@@ -130,11 +129,7 @@ fn compile_hhea(
         advanceWidthMax: metrics.iter().map(|x| x.advanceWidth).max().unwrap_or(0),
         minLeftSideBearing: metrics.iter().map(|x| x.lsb).min().unwrap_or(0),
         minRightSideBearing: 0, // xxx
-        xMaxExtent: glyphs
-            .iter()
-            .filter_map(|o| o.as_ref().map(|g| g.xMax))
-            .max()
-            .unwrap_or(0),
+        xMaxExtent: glyphs.iter().map(|g| g.xMax).max().unwrap_or(0),
         caretSlopeRise: 1, // XXX
         caretSlopeRun: 0,  // XXX
         caretOffset: info.open_type_hhea_caret_offset.unwrap_or(0) as i16,
@@ -160,7 +155,7 @@ where
 fn compile_os2(
     info: &norad::FontInfo,
     metrics: &[hmtx::Metric],
-    glyphs: &[Option<glyf::Glyph>],
+    glyphs: &[glyf::Glyph],
     mapping: &BTreeMap<u32, u16>,
 ) -> os2 {
     let upm = info.units_per_em.map_or(1000.0, |f| f.get());
@@ -349,19 +344,19 @@ fn compile_name(info: &norad::FontInfo) -> name {
     name
 }
 
-fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> Option<glyf::Glyph> {
+fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> glyf::Glyph {
     let mut glyph = glyf::Glyph {
         xMin: 0,
         xMax: 0,
         yMin: 0,
         yMax: 0,
-        contours: None,
-        instructions: None,
-        components: None,
+        contours: vec![],
+        instructions: vec![],
+        components: vec![],
         overlap: false,
     };
     if glif.components.is_empty() && glif.contours.is_empty() {
-        return None;
+        return glyph;
     }
 
     /* Do components */
@@ -372,7 +367,7 @@ fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> Option
         }
     }
     if !components.is_empty() {
-        glyph.components = Some(components);
+        glyph.components = components;
     }
 
     /* Do outlines */
@@ -383,11 +378,11 @@ fn glif_to_glyph(glif: &norad::Glyph, mapping: &BTreeMap<String, u16>) -> Option
         }
     }
     if !contours.is_empty() {
-        glyph.contours = Some(contours);
+        glyph.contours = contours;
         glyph.recalc_bounds();
     }
 
-    Some(glyph)
+    glyph
 }
 
 fn norad_contour_to_glyf_contour(contour: &norad::Contour) -> Option<Vec<glyf::Point>> {
@@ -508,7 +503,7 @@ fn main() {
     let mut glyph_id = 0;
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
-    let mut glyphs: Vec<Option<glyf::Glyph>> = vec![];
+    let mut glyphs: Vec<glyf::Glyph> = vec![];
 
     for glyf in layer.iter_contents() {
         let name = glyf.name.to_string();
@@ -524,7 +519,7 @@ fn main() {
         let glyph = glif_to_glyph(&glyf, &name_to_id);
         metrics.push(hmtx::Metric {
             advanceWidth: glyf.width as u16,
-            lsb: glyph.as_ref().map_or(0, |g| g.xMin),
+            lsb: glyph.xMin,
         });
         glyphs.push(glyph);
     }
@@ -532,15 +527,13 @@ fn main() {
     // Decompose mixed.
     let mut to_replace: Vec<(usize, glyf::Glyph)> = vec![];
     for (id, glyph) in glyphs.iter().enumerate() {
-        if let Some(glyph) = glyph {
-            if glyph.components.is_some() && glyph.contours.is_some() {
-                println!("Decomposed mixed glyph {:?}", names[id]);
-                to_replace.push((id, glyph.decompose(&glyphs)));
-            }
+        if glyph.components.len() > 0 && glyph.contours.len() > 0 {
+            println!("Decomposed mixed glyph {:?}", names[id]);
+            to_replace.push((id, glyph.decompose(&glyphs)));
         }
     }
     for (id, glyph) in to_replace {
-        glyphs[id] = Some(glyph);
+        glyphs[id] = glyph;
     }
 
     let head_table = compile_head(info, &glyphs);
@@ -551,7 +544,6 @@ fn main() {
     let name_table = compile_name(info);
     let mut hhea_table = compile_hhea(info, &metrics, &glyphs);
     let glyf_table = glyf::glyf { glyphs };
-    glyf.fix_component_bounds();
     let hmtx_table = hmtx::hmtx { metrics };
     let (hmtx_bytes, num_h_metrics) = hmtx_table.to_bytes();
     hhea_table.numberOfHMetrics = num_h_metrics;

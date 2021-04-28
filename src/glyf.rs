@@ -134,9 +134,9 @@ pub struct Glyph {
     pub xMax: int16,
     pub yMin: int16,
     pub yMax: int16,
-    pub contours: Option<Vec<Vec<Point>>>,
-    pub instructions: Option<Vec<u8>>,
-    pub components: Option<Vec<Component>>,
+    pub contours: Vec<Vec<Point>>,
+    pub instructions: Vec<u8>,
+    pub components: Vec<Component>,
     pub overlap: bool,
 }
 
@@ -176,14 +176,14 @@ impl<'de> DeserializeSeed<'de> for GlyfDeserializer {
                 for item in self.locaOffsets {
                     match item {
                         None => res.glyphs.push(Glyph {
-                            contours: None,
-                            components: None,
+                            contours: vec![],
+                            components: vec![],
                             overlap: false,
                             xMax: 0,
                             xMin: 0,
                             yMax: 0,
                             yMin: 0,
-                            instructions: None,
+                            instructions: vec![],
                         }),
                         Some(item) => {
                             let binary_glyf = &remainder[(item as usize)..];
@@ -298,13 +298,16 @@ deserialize_visitor!(
         let num_contours = maybe_num_contours.unwrap();
         // println!("Num contours: {:?}", num_contours);
         let core = read_field!(seq, GlyphCore, "a glyph header");
-        let mut components = None;
-        let mut instructions: Option<Vec<u8>> = None;
-        let mut contours: Option<Vec<Vec<Point>>> = None;
+        let mut components: Vec<Component> = vec![];
+        let mut instructions: Vec<u8> = vec![];
+        let mut contours: Vec<Vec<Point>> = Vec::with_capacity(if num_contours < 1 {
+            0
+        } else {
+            num_contours as usize
+        });
         let mut overlap = false;
         let mut has_instructions = false;
         if num_contours < 1 {
-            let mut components_vec: Vec<Component> = Vec::new();
             loop {
                 let comp = read_field!(seq, Component, "component");
                 let has_more = comp.flags.contains(ComponentFlags::MORE_COMPONENTS);
@@ -314,17 +317,15 @@ deserialize_visitor!(
                 if comp.flags.contains(ComponentFlags::WE_HAVE_INSTRUCTIONS) {
                     has_instructions = true;
                 }
-                components_vec.push(comp);
+                components.push(comp);
                 if !has_more {
                     break;
                 }
             }
-            components = Some(components_vec);
             if has_instructions {
                 let instructions_count = read_field!(seq, i16, "a count of instruction bytes");
                 if instructions_count > 0 {
-                    instructions =
-                        Some(read_field_counted!(seq, instructions_count, "instructions"));
+                    instructions = read_field_counted!(seq, instructions_count, "instructions");
                 }
             }
         } else {
@@ -335,7 +336,7 @@ deserialize_visitor!(
                 .collect();
             let instructions_count = read_field!(seq, i16, "a count of instruction bytes");
             if instructions_count > 0 {
-                instructions = Some(read_field_counted!(seq, instructions_count, "instructions"));
+                instructions = read_field_counted!(seq, instructions_count, "instructions");
             }
             // println!("Instructions: {:?}", instructions);
             let num_points = *(end_pts_of_contour
@@ -422,15 +423,12 @@ deserialize_visitor!(
                     on_curve: flag.contains(SimpleGlyphFlags::ON_CURVE_POINT),
                 })
                 .collect();
-            let mut contours_vec = Vec::with_capacity(num_contours as usize);
             end_pts_of_contour.insert(0, 0);
             for window in end_pts_of_contour.windows(2) {
                 // println!("Window: {:?}", window);
-                contours_vec.push(points[window[0]..window[1]].to_vec());
+                contours.push(points[window[0]..window[1]].to_vec());
             }
             // println!("Contours: {:?}", contours_vec);
-
-            contours = Some(contours_vec);
         }
         Ok(Glyph {
             contours,
@@ -447,10 +445,10 @@ deserialize_visitor!(
 
 impl Glyph {
     pub fn has_components(&self) -> bool {
-        self.components.is_some()
+        !self.components.is_empty()
     }
     pub fn is_empty(&self) -> bool {
-        self.components.is_none() && self.contours.is_none()
+        self.components.is_empty() && self.contours.is_empty()
     }
     pub fn bounds_rect(&self) -> kurbo::Rect {
         kurbo::Rect::new(
@@ -488,8 +486,6 @@ impl Glyph {
         }
         let (x_pts, y_pts): (Vec<i16>, Vec<i16>) = self
             .contours
-            .as_ref()
-            .unwrap()
             .iter()
             .flatten()
             .map(|pt| (pt.x, pt.y))
@@ -501,20 +497,19 @@ impl Glyph {
     }
     fn end_points(&self) -> Vec<u16> {
         assert!(!self.has_components());
-        let mut count = -1;
+        let mut count: i16 = -1;
         let mut end_points = Vec::new();
-        for contour in self.contours.as_ref().unwrap() {
+        for contour in &self.contours {
             count += contour.len() as i16;
             end_points.push(count as u16);
         }
         end_points
     }
     pub fn insert_explicit_oncurves(&mut self) {
-        if self.contours.is_none() {
+        if self.contours.is_empty() {
             return;
         }
-        let contours = self.contours.as_mut().unwrap();
-        for contour in contours.iter_mut() {
+        for contour in self.contours.iter_mut() {
             for i in (0..contour.len() - 1).rev() {
                 if !contour[i].on_curve && !contour[i + 1].on_curve {
                     contour.insert(
@@ -536,7 +531,7 @@ impl Glyph {
         let mut compressed_flags: Vec<u8> = vec![];
         let mut compressed_xs: Vec<u8> = vec![];
         let mut compressed_ys: Vec<u8> = vec![];
-        for point in self.contours.as_ref().unwrap().iter().flatten() {
+        for point in self.contours.iter().flatten() {
             let mut x = point.x - last_x;
             let mut y = point.y - last_y;
             let mut flag = if point.on_curve {
@@ -579,48 +574,41 @@ impl Glyph {
         (compressed_flags, compressed_xs, compressed_ys)
     }
 
-    pub fn decompose(&self, glyphs: &[Option<Glyph>]) -> Glyph {
+    pub fn decompose(&self, glyphs: &[Glyph]) -> Glyph {
         let mut newglyph = Glyph {
             xMin: 0,
             xMax: 0,
             yMin: 0,
             yMax: 0,
-            instructions: None,
+            instructions: vec![],
             overlap: self.overlap,
-            contours: None,
-            components: None,
+            contours: vec![],
+            components: vec![],
         };
         let mut new_contours = vec![];
-        if let Some(contours) = &self.contours {
-            new_contours.extend(contours.clone());
-        }
-        if let Some(components) = &self.components {
-            for comp in components {
-                let ix = comp.glyphIndex;
-                match glyphs.get(ix as usize) {
-                    None => {
-                        println!("Component not found for ID={:?}", ix);
+        new_contours.extend(self.contours.clone());
+        for comp in &self.components {
+            let ix = comp.glyphIndex;
+            match glyphs.get(ix as usize) {
+                None => {
+                    println!("Component not found for ID={:?}", ix);
+                }
+                Some(other_glyph) => {
+                    for c in &other_glyph.contours {
+                        new_contours.push(
+                            c.iter()
+                                .map(|pt| pt.transform(comp.transformation))
+                                .collect(),
+                        );
                     }
-                    Some(Some(other_glyph)) => {
-                        if let Some(other_countours) = &other_glyph.contours {
-                            for c in other_countours {
-                                new_contours.push(
-                                    c.iter()
-                                        .map(|pt| pt.transform(comp.transformation))
-                                        .collect(),
-                                );
-                            }
-                        }
-                        if let Some(other_components) = &other_glyph.components {
-                            println!("Found nested components while decomposing");
-                        }
+                    if other_glyph.has_components() {
+                        println!("Found nested components while decomposing");
                     }
-                    Some(None) => { /* Component was empty, eh? */ }
                 }
             }
         }
         if !new_contours.is_empty() {
-            newglyph.contours = Some(new_contours);
+            newglyph.contours = new_contours;
             newglyph.recalc_bounds();
         }
         newglyph
@@ -640,7 +628,7 @@ impl Serialize for Glyph {
             &(if self.has_components() {
                 -1
             } else {
-                self.contours.as_ref().unwrap().len() as i16
+                self.contours.len() as i16
             }),
         )?;
         // recalc bounds?
@@ -651,10 +639,9 @@ impl Serialize for Glyph {
             yMax: self.yMax,
         })?;
         if self.has_components() {
-            let components = self.components.as_ref().unwrap();
-            for (i, comp) in components.iter().enumerate() {
-                let flags =
-                    comp.recompute_flags(i < components.len() - 1, self.instructions.is_some());
+            for (i, comp) in self.components.iter().enumerate() {
+                let flags = comp
+                    .recompute_flags(i < self.components.len() - 1, !self.instructions.is_empty());
                 seq.serialize_element::<uint16>(&flags.bits())?;
                 seq.serialize_element::<uint16>(&comp.glyphIndex)?;
                 let [scaleX, shearX, scaleY, shearY, translateX, translateY] =
@@ -690,19 +677,16 @@ impl Serialize for Glyph {
                     F2DOT14::serialize_element(&(scaleX as f32), &mut seq)?;
                 }
                 if flags.contains(ComponentFlags::WE_HAVE_INSTRUCTIONS) {
-                    let instructions = self.instructions.as_ref().unwrap();
-                    seq.serialize_element::<uint16>(&(instructions.len() as u16))?;
-                    seq.serialize_element::<Vec<u8>>(&instructions)?;
+                    seq.serialize_element::<uint16>(&(self.instructions.len() as u16))?;
+                    seq.serialize_element::<Vec<u8>>(&self.instructions)?;
                 }
             }
         } else {
             let end_pts_of_contour = self.end_points();
             seq.serialize_element::<Vec<uint16>>(&end_pts_of_contour)?;
-            if self.instructions.is_some() {
-                seq.serialize_element::<uint16>(
-                    &(self.instructions.as_ref().unwrap().len() as u16),
-                )?;
-                seq.serialize_element::<Vec<u8>>(&self.instructions.as_ref().unwrap())?;
+            if self.instructions.len() > 0 {
+                seq.serialize_element::<uint16>(&(self.instructions.len() as u16))?;
+                seq.serialize_element::<Vec<u8>>(&self.instructions)?;
             } else {
                 seq.serialize_element::<uint16>(&0)?;
             }
@@ -764,7 +748,7 @@ mod tests {
         #[rustfmt::skip]
         let glyph = glyf::Glyph {
             xMin: 20, xMax: 567, yMin: 0, yMax: 290,
-            contours: Some(vec![
+            contours: vec![
                 vec![
                     Point {x: 20, y: 0, on_curve: true, },
                     Point {x: 220, y: 0, on_curve: true, },
@@ -784,9 +768,9 @@ mod tests {
                     Point {x: 386, y: 163, on_curve: false, },
                     Point {x: 386, y: 200, on_curve: true, },
                 ],
-            ]),
-            instructions: None,
-            components: None,
+            ],
+            instructions: vec![],
+            components: vec![],
             overlap: false,
         };
         assert_eq!(deserialized, glyph);
@@ -930,7 +914,7 @@ mod tests {
         #[rustfmt::skip]
         assert_eq!(A, &glyf::Glyph {
             xMin:5, yMin:0, xMax: 751, yMax:700,
-            contours: Some(vec![
+            contours: vec![
                 vec![
                     Point { x:323, y:700, on_curve: true },
                     Point { x:641, y:0, on_curve: true },
@@ -949,9 +933,9 @@ mod tests {
                     Point { x:152, y:284, on_curve: true },
                     Point { x:152, y:204, on_curve: true },
                 ],
-            ]),
-            components: None,
-            instructions: None,
+            ],
+            components: vec![],
+            instructions: vec![],
             overlap: false // There is, though.
         });
 
@@ -963,7 +947,7 @@ mod tests {
         */
         let aacute = &glyf.glyphs[1];
         assert_eq!(
-            aacute.components.as_ref().unwrap()[0],
+            aacute.components[0],
             glyf::Component {
                 glyphIndex: 0,
                 transformation: kurbo::Affine::new([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]),
@@ -976,7 +960,7 @@ mod tests {
 
         #[rustfmt::skip]
         assert_eq!(
-            aacute.components.as_ref().unwrap()[1],
+            aacute.components[1],
             glyf::Component {
                 glyphIndex: 7,
                 transformation: kurbo::Affine::new([1.0, 0.0, 0.0, 1.0, 402.0, 130.0]),
@@ -1003,7 +987,7 @@ mod tests {
         assert_eq!(dollarbold.yMin, -76);
         assert_eq!(dollarbold.xMax, 580);
         assert_eq!(dollarbold.yMax, 759);
-        let firstpoint = dollarbold.contours.as_ref().unwrap()[0][0];
+        let firstpoint = dollarbold.contours[0][0];
         assert_eq!(
             firstpoint,
             Point {
@@ -1019,10 +1003,10 @@ mod tests {
         #[rustfmt::skip]
         let mut glyph = glyf::Glyph {
             xMin: 30, xMax: 634, yMin: -10, yMax: 710,
-            components: None,
-            instructions: None,
+            components: vec![],
+            instructions: vec![],
             overlap: false,
-            contours: Some(vec![
+            contours: vec![
                 vec![
                     Point {x: 634, y: 650, on_curve: true, },
                     Point {x: 634, y: 160, on_curve: false, },
@@ -1035,12 +1019,12 @@ mod tests {
                     Point {x: 181, y: 710, on_curve: false, },
                     Point {x: 332, y: 710, on_curve: true, },
                 ]
-            ])
+            ]
         };
         glyph.insert_explicit_oncurves();
         #[rustfmt::skip]
         assert_eq!(
-            glyph.contours.unwrap()[0],
+            glyph.contours[0],
             vec![
                 Point { x: 634, y: 650, on_curve: true },
                 Point { x: 634, y: 160, on_curve: false },
