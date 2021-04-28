@@ -436,7 +436,7 @@ deserialize_visitor!(
 );
 
 impl Glyph {
-    pub fn is_composite(&self) -> bool {
+    pub fn has_components(&self) -> bool {
         self.components.is_some()
     }
     pub fn is_empty(&self) -> bool {
@@ -460,7 +460,7 @@ impl Glyph {
         self.yMax = *y_pts.iter().max().unwrap_or(&0);
     }
     fn end_points(&self) -> Vec<u16> {
-        assert!(!self.is_composite());
+        assert!(!self.has_components());
         let mut count = -1;
         let mut end_points = Vec::new();
         for contour in self.contours.as_ref().unwrap() {
@@ -490,7 +490,7 @@ impl Glyph {
         }
     }
     fn _compileDeltasGreedy(&self) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
-        assert!(!self.is_composite());
+        assert!(!self.has_components());
         let mut last_x = 0;
         let mut last_y = 0;
         let mut compressed_flags: Vec<u8> = vec![];
@@ -597,7 +597,7 @@ impl Serialize for Glyph {
             return seq.end();
         }
         seq.serialize_element::<i16>(
-            &(if self.is_composite() {
+            &(if self.has_components() {
                 -1
             } else {
                 self.contours.as_ref().unwrap().len() as i16
@@ -610,7 +610,7 @@ impl Serialize for Glyph {
             yMin: self.yMin,
             yMax: self.yMax,
         })?;
-        if self.is_composite() {
+        if self.has_components() {
             let components = self.components.as_ref().unwrap();
             for (i, comp) in components.iter().enumerate() {
                 let flags =
