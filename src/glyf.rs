@@ -643,7 +643,7 @@ impl Serialize for Glyph {
                     .recompute_flags(i < self.components.len() - 1, !self.instructions.is_empty());
                 seq.serialize_element::<uint16>(&flags.bits())?;
                 seq.serialize_element::<uint16>(&comp.glyphIndex)?;
-                let [scaleX, shearX, scaleY, shearY, translateX, translateY] =
+                let [scaleX, shearX, shearY, scaleY, translateX, translateY] =
                     comp.transformation.as_coeffs();
                 if flags.contains(ComponentFlags::ARGS_ARE_XY_VALUES) {
                     if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
@@ -667,7 +667,6 @@ impl Serialize for Glyph {
                     F2DOT14::serialize_element(&(scaleX as f32), &mut seq)?;
                     F2DOT14::serialize_element(&(shearY as f32), &mut seq)?;
                     F2DOT14::serialize_element(&(shearX as f32), &mut seq)?;
-                    F2DOT14::serialize_element(&(scaleY as f32), &mut seq)?;
                     F2DOT14::serialize_element(&(scaleY as f32), &mut seq)?;
                 } else if flags.contains(ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE) {
                     F2DOT14::serialize_element(&(scaleX as f32), &mut seq)?;
