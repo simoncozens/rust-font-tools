@@ -129,7 +129,13 @@ fn compile_hhea(info: &norad::FontInfo, metrics: &[hmtx::Metric], glyf: &glyf::g
         lineGap: info.open_type_hhea_line_gap.unwrap_or(0) as i16,
         advanceWidthMax: metrics.iter().map(|x| x.advanceWidth).max().unwrap_or(0),
         minLeftSideBearing: metrics.iter().map(|x| x.lsb).min().unwrap_or(0),
-        minRightSideBearing: 0, // xxx
+        minRightSideBearing: metrics
+            .iter()
+            .map(|x| x.advanceWidth as i16)
+            .zip(glyf.glyphs.iter().map(|g| g.xMax))
+            .map(|t| t.0 - t.1)
+            .min()
+            .unwrap_or(0),
         xMaxExtent: glyf.glyphs.iter().map(|g| g.xMax).max().unwrap_or(0),
         caretSlopeRise: 1, // XXX
         caretSlopeRun: 0,  // XXX
