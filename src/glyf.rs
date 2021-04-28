@@ -227,7 +227,7 @@ impl glyf {
     pub fn flat_components(&self, g: &Glyph, depth: u32) -> Vec<Component> {
         let mut new_components = vec![];
         if depth > 64 {
-            println!(
+            log::warn!(
                 "Extremely deeply nested component in glyph {:?}. Possible loop?",
                 g
             );
@@ -253,16 +253,6 @@ impl glyf {
         for (id, g) in self.glyphs.iter().enumerate() {
             if !g.has_components() {
                 continue;
-            }
-            for comp in &g.components {
-                if (comp.glyphIndex as usize) >= self.glyphs.len() {
-                    panic!(
-                        "Whoa! Glyph {:?} had component {:?} > {:?}",
-                        id,
-                        comp.glyphIndex,
-                        self.glyphs.len()
-                    );
-                }
             }
             let flat = self.flat_components(g, 0);
             if g.components != flat {
@@ -701,7 +691,7 @@ impl Glyph {
             let ix = comp.glyphIndex;
             match glyphs.get(ix as usize) {
                 None => {
-                    println!("Component not found for ID={:?}", ix);
+                    log::error!("Component not found for ID={:?}", ix);
                 }
                 Some(other_glyph) => {
                     for c in &other_glyph.contours {
@@ -712,7 +702,7 @@ impl Glyph {
                         );
                     }
                     if other_glyph.has_components() {
-                        println!("Found nested components while decomposing");
+                        log::warn!("Found nested components while decomposing");
                     }
                 }
             }

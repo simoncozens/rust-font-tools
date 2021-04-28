@@ -16,11 +16,15 @@ use lyon::geom::euclid::TypedPoint2D;
 use lyon::path::geom::cubic_to_quadratic::cubic_to_quadratics;
 use norad::Font as Ufo;
 use norad::PointType;
+use otf_fea_rs::glyph::{GlyphError, GlyphRef};
+use otf_fea_rs::{compiler, parser, GlyphOrder, IntoGlyphOrder};
+use std::collections::HashMap;
 use std::collections::{BTreeMap, VecDeque};
 use std::convert::TryInto;
 use std::fs::File;
 use std::io;
 use std::marker::PhantomData;
+use std::path::Path;
 
 type LyonPoint = TypedPoint2D<f32, lyon::geom::euclid::UnknownUnit>;
 
@@ -462,7 +466,7 @@ fn norad_component_to_glyf_component(
     let maybe_id = mapping.get(&component.base.to_string());
 
     if maybe_id.is_none() {
-        println!("Couldn't find component for {:?}", component.base);
+        log::warn!("Couldn't find component for {:?}", component.base);
         return None;
     }
 
@@ -474,6 +478,7 @@ fn norad_component_to_glyf_component(
     })
 }
 fn main() {
+    env_logger::init();
     let matches = App::new("ufo2ttf")
         .about("Build TTF files from UFO")
         .arg(
@@ -512,7 +517,6 @@ fn main() {
         glyph_id += 1;
     }
     for glyf in layer.iter_contents() {
-        let name = glyf.name.to_string();
         let glyph = glif_to_glyph(&glyf, &name_to_id);
         metrics.push(hmtx::Metric {
             advanceWidth: glyf.width as u16,
@@ -525,7 +529,7 @@ fn main() {
     let mut to_replace: Vec<(usize, glyf::Glyph)> = vec![];
     for (id, glyph) in glyphs.iter().enumerate() {
         if !glyph.components.is_empty() && !glyph.contours.is_empty() {
-            println!("Decomposed mixed glyph {:?}", names[id]);
+            log::info!("Decomposed mixed glyph {:?}", names[id]);
             to_replace.push((id, glyph.decompose(&glyphs)));
         }
     }
@@ -579,6 +583,30 @@ fn main() {
     font.tables.insert(*b"glyf", Table::Glyf(glyf_table));
     font.tables.insert(*b"name", Table::Name(name_table));
     font.tables.insert(*b"post", Table::Post(post_table));
+
+    // Temporary use of otf-fea-rs to get features in there
+    let feature_path = filename.to_owned() + &"/features.fea".to_string();
+    if Path::new(&feature_path).exists() {
+        let res = otf_fea_rs::parser::parse_file(
+            File::open(feature_path).expect("Couldn't open feature file"),
+        )
+        .expect("Couldn't parse feature file");
+        let glyphorder = name_to_id
+            .iter()
+            .map(|(name, id)| (*id as u16, GlyphRef::from_name(name)))
+            .collect_into_glyph_order()
+            .unwrap();
+        let compiled = compiler::compile(glyphorder, &res).expect("Could not compile features");
+        // let tables = compiled.encode_tables().expect("Could not encode tables");
+        // for (tag, table) in tables.iter_tables() {
+        //     font.tables.insert(
+        //         tag.0.iter().map(|b| b.as_byte()).collect::<Vec<u8>>()[..]
+        //             .try_into()
+        //             .unwrap(),
+        //         Table::Unknown(table.bytes.to_vec()),
+        //     );
+        // }
+    }
 
     if matches.is_present("OUTPUT") {
         let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())

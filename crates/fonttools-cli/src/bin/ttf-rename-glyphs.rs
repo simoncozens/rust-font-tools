@@ -17,6 +17,7 @@ fn build_production_name(name: &str, unicodes: Option<&HashSet<u32>>) -> String 
 }
 
 fn main() {
+    env_logger::init();
     let matches = App::new("ttf-rename-glyphs")
         .about("Renames glyphs to production")
         .arg(Arg::with_name("drop-names"))
@@ -50,7 +51,7 @@ fn main() {
     {
         if matches.is_present("drop-names") {
             if has_cff {
-                println!("Dropping glyph names from CFF 1.0 is a bad idea!");
+                log::warn!("Dropping glyph names from CFF 1.0 is a bad idea!");
             }
             post.set_version(3.0);
         } else {
