@@ -5,12 +5,12 @@ use fonttools_cli::{open_font, read_args, save_font};
 use skia_safe::{simplify, Path};
 
 fn remove_overlap(g: &mut Glyph) {
-    if g.is_composite() || g.is_empty() {
+    if g.has_components() || g.is_empty() {
         return;
     }
     let mut path = Path::default();
     g.insert_explicit_oncurves();
-    for contour in g.contours.as_ref().unwrap() {
+    for contour in &g.contours {
         path.move_to((contour[0].x as i32, contour[0].y as i32));
         let mut segment: Vec<&Point> = vec![];
         for pt in &contour[1..] {
@@ -47,7 +47,7 @@ fn remove_overlap(g: &mut Glyph) {
         path.close();
     }
     if let Some(newpath) = simplify(&path) {
-        g.contours = Some(skia_to_glyf(newpath));
+        g.contours = skia_to_glyf(newpath);
     }
 }
 
@@ -97,7 +97,7 @@ fn main() {
     let matches = read_args("ttf-remove-overlap", "Removes overlap from TTF files");
     let mut infont = open_font(&matches);
     if let Table::Glyf(glyf) = infont.get_table(b"glyf").unwrap().unwrap() {
-        for glyph in glyf.glyphs.iter_mut().flatten() {
+        for glyph in glyf.glyphs.iter_mut() {
             remove_overlap(glyph);
         }
     }
