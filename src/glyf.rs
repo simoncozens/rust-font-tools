@@ -102,7 +102,7 @@ impl Component {
         } else if instructions {
             flags |= ComponentFlags::WE_HAVE_INSTRUCTIONS;
         }
-        let [scaleX, shearX, shearY, scaleY, translateX, translateY] =
+        let [x_scale, scale01, scale10, scale_y, translateX, translateY] =
             self.transformation.as_coeffs();
         if self.matchPoints.is_some() {
             let (x, y) = self.matchPoints.unwrap();
@@ -116,11 +116,11 @@ impl Component {
                 flags |= ComponentFlags::ARG_1_AND_2_ARE_WORDS;
             }
         }
-        if shearX != 0.0 || shearY != 0.0 {
+        if scale01 != 0.0 || scale10 != 0.0 {
             flags |= ComponentFlags::WE_HAVE_A_TWO_BY_TWO;
-        } else if (scaleX - scaleY).abs() > f64::EPSILON {
+        } else if (x_scale - scale_y).abs() > f64::EPSILON {
             flags |= ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE;
-        } else if (scaleX - 1.0).abs() > f64::EPSILON {
+        } else if (x_scale - 1.0).abs() > f64::EPSILON {
             flags |= ComponentFlags::WE_HAVE_A_SCALE;
         }
         flags
@@ -260,24 +260,30 @@ deserialize_visitor!(
                 yOffset = read_field!(seq, i8, "a component point value").into();
             }
         }
-        let mut trA = 1.0_f64;
-        let mut trB = 0.0_f64;
-        let mut trC = 1.0_f64;
-        let mut trD = 0.0_f64;
+        let mut x_scale = 1.0_f64;
+        let mut scale01 = 0.0_f64;
+        let mut scale10 = 0.0_f64;
+        let mut y_scale = 1.0_f64;
         if flags.contains(ComponentFlags::WE_HAVE_A_SCALE) {
-            trA = F2DOT14::unpack(read_field!(seq, i16, "a scale")).into();
-            trC = trA;
+            x_scale = F2DOT14::unpack(read_field!(seq, i16, "a scale")).into();
+            y_scale = x_scale;
         } else if flags.contains(ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE) {
-            trA = F2DOT14::unpack(read_field!(seq, i16, "an X scale")).into();
-            trC = F2DOT14::unpack(read_field!(seq, i16, "a Y scale")).into();
+            x_scale = F2DOT14::unpack(read_field!(seq, i16, "an X scale")).into();
+            y_scale = F2DOT14::unpack(read_field!(seq, i16, "a Y scale")).into();
         } else if flags.contains(ComponentFlags::WE_HAVE_A_TWO_BY_TWO) {
-            trA = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
-            trB = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
-            trC = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
-            trD = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
+            x_scale = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
+            scale01 = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
+            scale10 = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
+            y_scale = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
         }
-        // "Note that this convention is transposed from PostScript and Direct2D"
-        let transformation = Affine::new([trA, trB, trD, trC, xOffset.into(), yOffset.into()]);
+        let transformation = Affine::new([
+            x_scale,
+            scale01,
+            scale10,
+            y_scale,
+            xOffset.into(),
+            yOffset.into(),
+        ]);
 
         Ok(Component {
             glyphIndex,
@@ -643,7 +649,7 @@ impl Serialize for Glyph {
                     .recompute_flags(i < self.components.len() - 1, !self.instructions.is_empty());
                 seq.serialize_element::<uint16>(&flags.bits())?;
                 seq.serialize_element::<uint16>(&comp.glyphIndex)?;
-                let [scaleX, shearX, shearY, scaleY, translateX, translateY] =
+                let [x_scale, scale01, scale10, scale_y, translateX, translateY] =
                     comp.transformation.as_coeffs();
                 if flags.contains(ComponentFlags::ARGS_ARE_XY_VALUES) {
                     if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
@@ -664,15 +670,15 @@ impl Serialize for Glyph {
                     }
                 }
                 if flags.contains(ComponentFlags::WE_HAVE_A_TWO_BY_TWO) {
-                    F2DOT14::serialize_element(&(scaleX as f32), &mut seq)?;
-                    F2DOT14::serialize_element(&(shearY as f32), &mut seq)?;
-                    F2DOT14::serialize_element(&(shearX as f32), &mut seq)?;
-                    F2DOT14::serialize_element(&(scaleY as f32), &mut seq)?;
+                    F2DOT14::serialize_element(&(x_scale as f32), &mut seq)?;
+                    F2DOT14::serialize_element(&(scale01 as f32), &mut seq)?;
+                    F2DOT14::serialize_element(&(scale10 as f32), &mut seq)?;
+                    F2DOT14::serialize_element(&(scale_y as f32), &mut seq)?;
                 } else if flags.contains(ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE) {
-                    F2DOT14::serialize_element(&(scaleX as f32), &mut seq)?;
-                    F2DOT14::serialize_element(&(scaleY as f32), &mut seq)?;
+                    F2DOT14::serialize_element(&(x_scale as f32), &mut seq)?;
+                    F2DOT14::serialize_element(&(scale_y as f32), &mut seq)?;
                 } else if flags.contains(ComponentFlags::WE_HAVE_A_SCALE) {
-                    F2DOT14::serialize_element(&(scaleX as f32), &mut seq)?;
+                    F2DOT14::serialize_element(&(x_scale as f32), &mut seq)?;
                 }
                 if flags.contains(ComponentFlags::WE_HAVE_INSTRUCTIONS) {
                     seq.serialize_element::<uint16>(&(self.instructions.len() as u16))?;
