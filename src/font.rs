@@ -3,6 +3,7 @@ use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::{Deserialize, Deserializer};
 use serde::{Serialize, Serializer};
+use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
 use std::num::Wrapping;
 extern crate otspec;
@@ -20,7 +21,6 @@ use crate::maxp::maxp;
 use crate::name::name;
 use crate::os2::os2;
 use crate::post::post;
-use indexmap::IndexMap;
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_field};
 use std::cmp;
@@ -110,7 +110,7 @@ struct TableHeader {
 #[derive(Debug)]
 pub struct Font {
     sfntVersion: SfntVersion,
-    pub tables: IndexMap<Tag, Table>,
+    pub tables: BTreeMap<Tag, Table>,
     _numGlyphs: Option<u16>,
 }
 
@@ -195,7 +195,7 @@ impl Font {
     pub fn new(sfntVersion: SfntVersion) -> Self {
         Self {
             sfntVersion,
-            tables: IndexMap::new(),
+            tables: BTreeMap::new(),
             _numGlyphs: None,
         }
     }
