@@ -50,8 +50,8 @@ fn compile_head(info: &norad::FontInfo, glyphs: &[Option<glyf::Glyph>]) -> head 
         font_revision,
         info.units_per_em.map_or(1000, |f| f.get() as u16),
         bounds.iter().map(|x| x.0).min().unwrap_or(0), /* xmin */
-        bounds.iter().map(|x| x.1).max().unwrap_or(0), /* xmax */
         bounds.iter().map(|x| x.2).min().unwrap_or(0), /* ymin */
+        bounds.iter().map(|x| x.1).max().unwrap_or(0), /* xmax */
         bounds.iter().map(|x| x.3).max().unwrap_or(0), /* ymax */
     );
 
