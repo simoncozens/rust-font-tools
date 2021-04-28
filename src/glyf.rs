@@ -268,7 +268,8 @@ deserialize_visitor!(
             trC = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
             trD = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
         }
-        let transformation = Affine::new([trA, trB, trC, trD, xOffset.into(), yOffset.into()]);
+        // "Note that this convention is transposed from PostScript and Direct2D"
+        let transformation = Affine::new([trA, trB, trD, trC, xOffset.into(), yOffset.into()]);
 
         Ok(Component {
             glyphIndex,
@@ -926,7 +927,7 @@ mod tests {
             aacute.components.as_ref().unwrap()[0],
             glyf::Component {
                 glyphIndex: 0,
-                transformation: kurbo::Affine::new([1.0, 0.0, 1.0, 0.0, 0.0, 0.0]),
+                transformation: kurbo::Affine::new([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]),
                 matchPoints: None,
                 flags: ComponentFlags::ROUND_XY_TO_GRID
                     | ComponentFlags::ARGS_ARE_XY_VALUES
@@ -939,7 +940,7 @@ mod tests {
             aacute.components.as_ref().unwrap()[1],
             glyf::Component {
                 glyphIndex: 7,
-                transformation: kurbo::Affine::new([1.0, 0.0, 1.0, 0.0, 402.0, 130.0]),
+                transformation: kurbo::Affine::new([1.0, 0.0, 0.0, 1.0, 402.0, 130.0]),
                 matchPoints: None,
                 flags: glyf::ComponentFlags::ROUND_XY_TO_GRID
                     | ComponentFlags::ARGS_ARE_XY_VALUES
