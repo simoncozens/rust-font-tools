@@ -1,4 +1,4 @@
-use otspec::read_field;
+use otspec::{read_field, stateful_deserializer};
 use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 use serde::{Serialize, Serializer};
 use std::fmt;
@@ -9,65 +9,41 @@ pub struct loca {
     pub indices: Vec<Option<u32>>,
 }
 
-pub struct LocaDeserializer {
-    locaIs32Bit: bool,
-}
-
-impl<'de> DeserializeSeed<'de> for LocaDeserializer {
-    type Value = loca;
-
-    fn deserialize<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
+stateful_deserializer!(
+    loca,
+    LocaDeserializer,
+    { locaIs32Bit: bool },
+    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<loca, A::Error>
     where
-        D: serde::de::Deserializer<'de>,
+        A: SeqAccess<'de>,
     {
-        struct LocaDeserializerVisitor {
-            locaIs32Bit: bool,
+        let mut res = loca {
+            indices: Vec::new(),
+        };
+        let raw_indices: Vec<u32> = if self.locaIs32Bit {
+            read_field!(seq, Vec<u32>, "a glyph offset")
+        } else {
+            read_field!(seq, Vec<u16>, "a glyph offset")
+                .iter()
+                .map(|x| (*x as u32) * 2)
+                .collect()
+        };
+        if raw_indices.is_empty() {
+            // No glyphs, eh?
+            return Ok(res);
         }
-
-        impl<'de> Visitor<'de> for LocaDeserializerVisitor {
-            type Value = loca;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "a loca table")
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> std::result::Result<loca, A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                let mut res = loca {
-                    indices: Vec::new(),
-                };
-                let raw_indices: Vec<u32> = if self.locaIs32Bit {
-                    read_field!(seq, Vec<u32>, "a glyph offset")
+        for ab in raw_indices.windows(2) {
+            if let [a, b] = ab {
+                if *a == *b {
+                    res.indices.push(None);
                 } else {
-                    read_field!(seq, Vec<u16>, "a glyph offset")
-                        .iter()
-                        .map(|x| (*x as u32) * 2)
-                        .collect()
-                };
-                if raw_indices.is_empty() {
-                    // No glyphs, eh?
-                    return Ok(res);
+                    res.indices.push(Some(*a));
                 }
-                for ab in raw_indices.windows(2) {
-                    if let [a, b] = ab {
-                        if *a == *b {
-                            res.indices.push(None);
-                        } else {
-                            res.indices.push(Some(*a));
-                        }
-                    }
-                }
-                Ok(res)
             }
         }
-
-        deserializer.deserialize_seq(LocaDeserializerVisitor {
-            locaIs32Bit: self.locaIs32Bit,
-        })
+        Ok(res)
     }
-}
+);
 
 impl Serialize for loca {
     fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>

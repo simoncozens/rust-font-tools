@@ -4,7 +4,9 @@ use itertools::izip;
 use kurbo::Affine;
 use otspec::de::CountedDeserializer;
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_field_counted, read_remainder};
+use otspec::{
+    deserialize_visitor, read_field, read_field_counted, read_remainder, stateful_deserializer,
+};
 use otspec_macros::tables;
 use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
@@ -144,76 +146,50 @@ pub struct glyf {
     pub glyphs: Vec<Glyph>,
 }
 
-pub struct GlyfDeserializer {
-    locaOffsets: Vec<Option<u32>>,
-}
-
-impl<'de> DeserializeSeed<'de> for GlyfDeserializer {
-    type Value = glyf;
-
-    fn deserialize<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
+stateful_deserializer!(
+    glyf,
+    GlyfDeserializer,
+    { locaOffsets: Vec<Option<u32>> },
+    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<glyf, A::Error>
     where
-        D: serde::de::Deserializer<'de>,
+        A: SeqAccess<'de>,
     {
-        struct GlyfDeserializerVisitor {
-            locaOffsets: Vec<Option<u32>>,
-        }
-
-        impl<'de> Visitor<'de> for GlyfDeserializerVisitor {
-            type Value = glyf;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "a glyf table")
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> std::result::Result<glyf, A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                let mut res = glyf { glyphs: Vec::new() };
-                let remainder = read_remainder!(seq, "a glyph table");
-                for item in self.locaOffsets {
-                    match item {
-                        None => res.glyphs.push(Glyph {
-                            contours: vec![],
-                            components: vec![],
-                            overlap: false,
-                            xMax: 0,
-                            xMin: 0,
-                            yMax: 0,
-                            yMin: 0,
-                            instructions: vec![],
-                        }),
-                        Some(item) => {
-                            let binary_glyf = &remainder[(item as usize)..];
-                            // println!("Reading glyf at item {:?}", item);
-                            // println!("Reading binary glyf {:?}", binary_glyf);
-                            let glyph: Glyph =
-                                otspec::de::from_bytes(binary_glyf).map_err(|e| {
-                                    serde::de::Error::custom(format!("Expecting a glyph: {:?}", e))
-                                })?;
-                            res.glyphs.push(glyph)
-                        }
-                    }
+        let mut res = glyf { glyphs: Vec::new() };
+        let remainder = read_remainder!(seq, "a glyph table");
+        for item in self.locaOffsets {
+            match item {
+                None => res.glyphs.push(Glyph {
+                    contours: vec![],
+                    components: vec![],
+                    overlap: false,
+                    xMax: 0,
+                    xMin: 0,
+                    yMax: 0,
+                    yMin: 0,
+                    instructions: vec![],
+                }),
+                Some(item) => {
+                    let binary_glyf = &remainder[(item as usize)..];
+                    // println!("Reading glyf at item {:?}", item);
+                    // println!("Reading binary glyf {:?}", binary_glyf);
+                    let glyph: Glyph =
+                        otspec::de::from_bytes(binary_glyf).map_err(|e| {
+                            serde::de::Error::custom(format!("Expecting a glyph: {:?}", e))
+                        })?;
+                    res.glyphs.push(glyph)
                 }
-                Ok(res)
             }
         }
-
-        deserializer.deserialize_seq(GlyfDeserializerVisitor {
-            locaOffsets: self.locaOffsets,
-        })
+        Ok(res)
     }
-}
+);
 
 impl Serialize for glyf {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let seq = serializer.serialize_seq(None)?;
-        // u32 or u16?
-        seq.end()
+        panic!("Don't call this serializer, call the one in Font instead")
     }
 }
 

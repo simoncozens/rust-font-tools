@@ -3,7 +3,9 @@
 use otspec::de::CountedDeserializer;
 use otspec::de::Deserializer as OTDeserializer;
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_field_counted, read_remainder};
+use otspec::{
+    deserialize_visitor, read_field, read_field_counted, read_remainder, stateful_deserializer,
+};
 use otspec_macros::tables;
 use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
@@ -39,73 +41,47 @@ pub struct InstanceRecord {
     postscriptNameID: Option<uint16>,
 }
 
-pub struct InstanceRecordDeserializer {
+stateful_deserializer!(
+Vec<InstanceRecord>,
+InstanceRecordDeserializer,
+{
     axisCount: uint16,
     instanceCount: uint16,
-    has_postscript_name_id: bool,
-}
-
-impl<'de> DeserializeSeed<'de> for InstanceRecordDeserializer {
-    type Value = Vec<InstanceRecord>;
-
-    fn deserialize<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
-    where
-        D: serde::de::Deserializer<'de>,
-    {
-        struct InstanceRecordDeserializerVisitor {
-            axisCount: uint16,
-            instanceCount: uint16,
-            has_postscript_name_id: bool,
-        }
-
-        impl<'de> Visitor<'de> for InstanceRecordDeserializerVisitor {
-            type Value = Vec<InstanceRecord>;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "a InstanceRecord table")
+    has_postscript_name_id: bool
+},
+fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Vec<InstanceRecord>, A::Error>
+        where
+            A: SeqAccess<'de>
+        {
+            let mut res = vec![];
+            for _ in 0..self.instanceCount {
+                let subfamilyNameID =
+                    read_field!(seq, uint16, "instance record family name ID");
+                let _flags = read_field!(seq, uint16, "instance record flags");
+                let coordinates = (read_field_counted!(seq, self.axisCount, "a coordinate")
+                    as Vec<i32>)
+                    .iter()
+                    .map(|x| Fixed::unpack(*x))
+                    .collect();
+                let postscriptNameID = if self.has_postscript_name_id {
+                    Some(read_field!(
+                        seq,
+                        uint16,
+                        "instance record postscript name ID"
+                    ))
+                } else {
+                    None
+                };
+                res.push(InstanceRecord {
+                    subfamilyNameID,
+                    coordinates,
+                    postscriptNameID,
+                });
+                println!("Got a record {:?}", res);
             }
-
-            fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Vec<InstanceRecord>, A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                let mut res = vec![];
-                for _ in 0..self.instanceCount {
-                    let subfamilyNameID =
-                        read_field!(seq, uint16, "instance record family name ID");
-                    let _flags = read_field!(seq, uint16, "instance record flags");
-                    let coordinates = (read_field_counted!(seq, self.axisCount, "a coordinate")
-                        as Vec<i32>)
-                        .iter()
-                        .map(|x| Fixed::unpack(*x))
-                        .collect();
-                    let postscriptNameID = if self.has_postscript_name_id {
-                        Some(read_field!(
-                            seq,
-                            uint16,
-                            "instance record postscript name ID"
-                        ))
-                    } else {
-                        None
-                    };
-                    res.push(InstanceRecord {
-                        subfamilyNameID,
-                        coordinates,
-                        postscriptNameID,
-                    });
-                    println!("Got a record {:?}", res);
-                }
-                Ok(res)
-            }
+            Ok(res)
         }
-
-        deserializer.deserialize_seq(InstanceRecordDeserializerVisitor {
-            axisCount: self.axisCount,
-            instanceCount: self.instanceCount,
-            has_postscript_name_id: self.has_postscript_name_id,
-        })
-    }
-}
+);
 
 #[derive(Debug, PartialEq)]
 pub struct fvar {

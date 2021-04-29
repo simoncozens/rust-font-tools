@@ -1,12 +1,9 @@
 use otspec::de::CountedDeserializer;
-use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::Deserializer;
 use serde::{Deserialize, Serialize};
-use std::fmt;
 extern crate otspec;
-use bitflags::bitflags;
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_field, read_field_counted, read_remainder};
 use otspec_macros::tables;

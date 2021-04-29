@@ -1,5 +1,5 @@
-use otspec::read_field;
 use otspec::types::*;
+use otspec::{read_field, stateful_deserializer};
 use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 use serde::{Serialize, Serializer};
 use std::fmt;
@@ -14,10 +14,6 @@ pub struct Metric {
 #[derive(Debug, PartialEq)]
 pub struct hmtx {
     pub metrics: Vec<Metric>,
-}
-
-pub struct HmtxDeserializer {
-    numberOfHMetrics: uint16,
 }
 
 impl hmtx {
@@ -42,56 +38,37 @@ impl hmtx {
         (bytes, (end_index_h_metrics + 1) as u16)
     }
 }
-impl<'de> DeserializeSeed<'de> for HmtxDeserializer {
-    type Value = hmtx;
 
-    fn deserialize<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
+stateful_deserializer!(
+    hmtx,
+    HmtxDeserializer,
+    { numberOfHMetrics: uint16 },
+    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<hmtx, A::Error>
     where
-        D: serde::de::Deserializer<'de>,
+        A: SeqAccess<'de>,
     {
-        struct HmtxDeserializerVisitor {
-            numberOfHMetrics: uint16,
+        let mut res = hmtx {
+            metrics: Vec::new(),
+        };
+        for _ in 0..self.numberOfHMetrics {
+            let advanceWidth = read_field!(seq, uint16, "an advance width");
+            let lsb = read_field!(seq, int16, "a LSB");
+            res.metrics.push(Metric { advanceWidth, lsb })
         }
-
-        impl<'de> Visitor<'de> for HmtxDeserializerVisitor {
-            type Value = hmtx;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "a hmtx table")
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> std::result::Result<hmtx, A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                let mut res = hmtx {
-                    metrics: Vec::new(),
-                };
-                for _ in 0..self.numberOfHMetrics {
-                    let advanceWidth = read_field!(seq, uint16, "an advance width");
-                    let lsb = read_field!(seq, int16, "a LSB");
-                    res.metrics.push(Metric { advanceWidth, lsb })
-                }
-                if let Some(otherMetrics) = seq.next_element::<Vec<int16>>()? {
-                    let last = res
-                        .metrics
-                        .last()
-                        .expect("Must be one advance width in hmtx!")
-                        .advanceWidth;
-                    res.metrics.extend(otherMetrics.iter().map(|x| Metric {
-                        lsb: *x,
-                        advanceWidth: last,
-                    }))
-                }
-                Ok(res)
-            }
+        if let Some(otherMetrics) = seq.next_element::<Vec<int16>>()? {
+            let last = res
+                .metrics
+                .last()
+                .expect("Must be one advance width in hmtx!")
+                .advanceWidth;
+            res.metrics.extend(otherMetrics.iter().map(|x| Metric {
+                lsb: *x,
+                advanceWidth: last,
+            }))
         }
-
-        deserializer.deserialize_seq(HmtxDeserializerVisitor {
-            numberOfHMetrics: self.numberOfHMetrics,
-        })
+        Ok(res)
     }
-}
+);
 
 impl Serialize for hmtx {
     fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>

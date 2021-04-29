@@ -7,7 +7,7 @@ use std::fmt;
 extern crate otspec;
 use bitflags::bitflags;
 use otspec::types::*;
-use otspec::{read_field, read_field_counted};
+use otspec::{read_field, read_field_counted, stateful_deserializer};
 
 bitflags! {
     #[derive(Serialize, Deserialize)]
@@ -29,71 +29,47 @@ pub struct TupleVariationHeader {
     pub endTuple: Option<Vec<f32>>,
 }
 
-pub struct TupleVariationHeaderDeserializer {
-    pub axisCount: uint16,
-}
-
-impl<'de> DeserializeSeed<'de> for TupleVariationHeaderDeserializer {
-    type Value = TupleVariationHeader;
-
-    fn deserialize<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
+stateful_deserializer!(
+    TupleVariationHeader,
+    TupleVariationHeaderDeserializer,
+    { axis_count: uint16 },
+    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<TupleVariationHeader, A::Error>
     where
-        D: serde::de::Deserializer<'de>,
+        A: SeqAccess<'de>,
     {
-        struct TupleVariationHeaderVisitor {
-            axisCount: uint16,
+        let mut res = TupleVariationHeader {
+            peakTuple: None,
+            startTuple: None,
+            endTuple: None,
+            flags: TupleIndexFlags::empty(),
+            size: 0,
+            sharedTupleIndex: 0,
+        };
+        res.size = read_field!(seq, uint16, "a table size");
+        res.flags = read_field!(seq, TupleIndexFlags, "a tuple index");
+        res.sharedTupleIndex = res.flags.bits() & TupleIndexFlags::TUPLE_INDEX_MASK.bits();
+        if res.flags.contains(TupleIndexFlags::EMBEDDED_PEAK_TUPLE) {
+            res.peakTuple = Some(
+                (read_field_counted!(seq, self.axis_count, "a peak tuple") as Vec<i16>)
+                    .iter()
+                    .map(|x| F2DOT14::unpack(*x))
+                    .collect(),
+            );
         }
-
-        impl<'de> Visitor<'de> for TupleVariationHeaderVisitor {
-            type Value = TupleVariationHeader;
-
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                write!(formatter, "a tuple variation store")
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> std::result::Result<TupleVariationHeader, A::Error>
-            where
-                A: SeqAccess<'de>,
-            {
-                let mut res = TupleVariationHeader {
-                    peakTuple: None,
-                    startTuple: None,
-                    endTuple: None,
-                    flags: TupleIndexFlags::empty(),
-                    size: 0,
-                    sharedTupleIndex: 0,
-                };
-                res.size = read_field!(seq, uint16, "a table size");
-                res.flags = read_field!(seq, TupleIndexFlags, "a tuple index");
-                res.sharedTupleIndex = res.flags.bits() & TupleIndexFlags::TUPLE_INDEX_MASK.bits();
-                if res.flags.contains(TupleIndexFlags::EMBEDDED_PEAK_TUPLE) {
-                    res.peakTuple = Some(
-                        (read_field_counted!(seq, self.axisCount, "a peak tuple") as Vec<i16>)
-                            .iter()
-                            .map(|x| F2DOT14::unpack(*x))
-                            .collect(),
-                    );
-                }
-                if res.flags.contains(TupleIndexFlags::INTERMEDIATE_REGION) {
-                    res.startTuple = Some(
-                        (read_field_counted!(seq, self.axisCount, "a start tuple") as Vec<i16>)
-                            .iter()
-                            .map(|x| F2DOT14::unpack(*x))
-                            .collect(),
-                    );
-                    res.endTuple = Some(
-                        (read_field_counted!(seq, self.axisCount, "an end tuple") as Vec<i16>)
-                            .iter()
-                            .map(|x| F2DOT14::unpack(*x))
-                            .collect(),
-                    );
-                }
-                Ok(res)
-            }
+        if res.flags.contains(TupleIndexFlags::INTERMEDIATE_REGION) {
+            res.startTuple = Some(
+                (read_field_counted!(seq, self.axis_count, "a start tuple") as Vec<i16>)
+                    .iter()
+                    .map(|x| F2DOT14::unpack(*x))
+                    .collect(),
+            );
+            res.endTuple = Some(
+                (read_field_counted!(seq, self.axis_count, "an end tuple") as Vec<i16>)
+                    .iter()
+                    .map(|x| F2DOT14::unpack(*x))
+                    .collect(),
+            );
         }
-
-        deserializer.deserialize_seq(TupleVariationHeaderVisitor {
-            axisCount: self.axisCount,
-        })
+        Ok(res)
     }
-}
+);

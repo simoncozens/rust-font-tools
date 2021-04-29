@@ -417,3 +417,50 @@ macro_rules! read_field_counted {
             .ok_or_else(|| serde::de::Error::custom(format!("Expecting {:}", $name)))?;
     };
 }
+
+#[macro_export]
+macro_rules! stateful_deserializer {
+    ($struct_name:ty,
+     $deserializer_name:ident,
+     { $($element: ident: $ty:ty),+ },
+     $visit_seq_implementation:item
+     ) => {
+
+pub struct $deserializer_name {
+    $( pub $element: $ty, )+
+}
+
+impl<'de> DeserializeSeed<'de> for $deserializer_name {
+    type Value = $struct_name;
+
+    fn deserialize<D>(self, deserializer: D) ->
+        std::result::Result<Self::Value, D::Error>
+        where D: serde::de::Deserializer<'de>,
+    {
+
+        struct MyVisitor {
+            $( pub $element: $ty, )+
+        }
+
+        impl<'de> Visitor<'de> for MyVisitor {
+            type Value = $struct_name;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                write!(formatter, "a {:?}", stringify!($struct_name))
+            }
+
+            $visit_seq_implementation
+
+        }
+
+        deserializer.deserialize_seq(MyVisitor {
+            $( $element: self.$element, )+
+        })
+
+    }
+
+}
+
+
+    };
+}
