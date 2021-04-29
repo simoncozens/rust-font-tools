@@ -15,8 +15,6 @@ use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
 
-use std::fmt;
-
 tables!(
     GlyphCore {
         int16	xMin
@@ -185,7 +183,7 @@ stateful_deserializer!(
 );
 
 impl Serialize for glyf {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
@@ -257,10 +255,8 @@ impl glyf {
         let boxes: Vec<kurbo::Rect> = self.glyphs.iter().map(|x| x.bounds_rect()).collect();
 
         // Now do component
-        let mut i: i32 = -1;
         for g in self.glyphs.iter_mut() {
             let mut done = false;
-            i += 1;
             if !g.has_components() {
                 continue;
             }

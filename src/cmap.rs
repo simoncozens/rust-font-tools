@@ -39,17 +39,17 @@ struct cmap0 {
 }
 
 impl cmap0 {
-    fn from_mapping(languageID: uint16, map: &BTreeMap<uint32, uint16>) -> Self {
+    fn from_mapping(_languageID: uint16, _map: &BTreeMap<uint32, uint16>) -> Self {
         unimplemented!();
-        Self {
-            format: 0,
-            length: 0,
-            language: languageID,
-            glyphIdArray: Vec::new(),
-        }
+        // Self {
+        //     format: 0,
+        //     length: 0,
+        //     language: languageID,
+        //     glyphIdArray: Vec::new(),
+        // }
     }
-    fn to_mapping(self) -> BTreeMap<uint32, uint16> {
-        return BTreeMap::new();
+    fn to_mapping(&self) -> BTreeMap<uint32, uint16> {
+        BTreeMap::new()
     }
 }
 

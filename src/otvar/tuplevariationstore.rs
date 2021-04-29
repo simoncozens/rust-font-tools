@@ -8,7 +8,6 @@ use otspec::{read_field, stateful_deserializer};
 use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
-use serde::Deserializer;
 use std::collections::VecDeque;
 
 #[derive(Debug, PartialEq)]
@@ -36,7 +35,7 @@ stateful_deserializer!(
         let count = packed_count & 0x0FFF;
         let points_are_shared = (packed_count & 0x8000) != 0;
         let mut shared_points = vec![];
-        let data_offset = read_field!(seq, uint16, "a data offset");
+        let _data_offset = read_field!(seq, uint16, "a data offset");
         let mut headers: Vec<TupleVariationHeader> = vec![];
         let mut variations: Vec<(TupleVariationHeader, Vec<Delta>)> = vec![];
         for _ in 0..count {

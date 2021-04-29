@@ -1,13 +1,11 @@
+use bitflags::bitflags;
 use otspec::de::CountedDeserializer;
+use otspec::types::*;
+use otspec::{read_field, read_field_counted, stateful_deserializer};
 use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
-use serde::{Deserialize, Deserializer, Serialize};
-use std::fmt;
-extern crate otspec;
-use bitflags::bitflags;
-use otspec::types::*;
-use otspec::{read_field, read_field_counted, stateful_deserializer};
+use serde::{Deserialize, Serialize};
 
 bitflags! {
     #[derive(Serialize, Deserialize)]

@@ -12,7 +12,7 @@ use crate::cmap::cmap;
 use crate::fvar::fvar;
 use crate::gasp::gasp;
 use crate::glyf;
-use crate::gvar::gvar;
+// use crate::gvar::gvar;
 use crate::head::head;
 use crate::hhea::hhea;
 use crate::hmtx;

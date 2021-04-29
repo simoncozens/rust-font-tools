@@ -1,7 +1,6 @@
 use crate::error::{Error, Result};
 use serde::de::{self, Deserialize, DeserializeSeed, SeqAccess, Visitor};
 use std::convert::TryInto;
-use std::fmt;
 use std::mem;
 
 pub struct Deserializer<'de> {

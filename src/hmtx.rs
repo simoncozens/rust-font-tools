@@ -2,7 +2,6 @@ use otspec::types::*;
 use otspec::{read_field, stateful_deserializer};
 use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 use serde::{Serialize, Serializer};
-use std::fmt;
 extern crate otspec;
 
 #[derive(Debug, PartialEq, Serialize)]

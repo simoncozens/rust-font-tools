@@ -11,7 +11,6 @@ use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::Serializer;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::fmt;
 
 tables!(
     fvarcore {

@@ -5,7 +5,6 @@ use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
-use serde::{Deserializer, Serializer};
 use std::convert::TryInto;
 extern crate otspec;
 use crate::otvar::*;
@@ -48,9 +47,8 @@ stateful_deserializer!(
         };
         println!("Offsets {:?}", dataOffsets);
         let remainder = read_remainder!(seq, "a gvar table");
-        let mut offset_base: usize =
+        let offset_base: usize =
             20 + (core.glyphCount as usize + 1) * (if core.flags & 0x1 == 0 { 2 } else { 4 });
-        println!("Offset base: {:?}", offset_base);
         println!("Remainder: {:?}", remainder);
         let axis_count = core.axisCount as usize;
 
