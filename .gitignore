@@ -1,2 +1,6 @@
 /target
 Cargo.lock
+*.ufo
+*.ttf
+*.otf
+*.ttx
