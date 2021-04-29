@@ -101,6 +101,7 @@ deserialize_visitor!(
                 let mut de = otspec::de::Deserializer::from_bytes(bytes);
                 let cs = GlyphVariationDataDeserializer {
                     axisCount: core.axisCount,
+                    is_gvar: true,
                 };
                 let tvh = cs.deserialize(&mut de).unwrap();
                 println!("TVH {:?}", tvh);
