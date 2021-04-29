@@ -38,7 +38,9 @@ fn iup_segment(
             std::mem::swap(&mut x2, &mut x1);
             std::mem::swap(&mut d2, &mut d1);
         }
+
         let scale = (d2 - d1) as f32 / (x2 - x1) as f32;
+
         for pair in coords {
             let x = if j == 0 { pair.0 } else { pair.1 };
             let d = if x <= x1 {
@@ -96,7 +98,7 @@ fn iup_contour(newdeltas: &mut Vec<(i16, i16)>, deltas: &[Option<Delta>], coords
     newdeltas.push(deltas[start].as_ref().unwrap().get_2d());
     for end in indices.iter().skip(1) {
         if *end - start > 1 {
-            let (i1, i2, ri1, ri2) = (0, start, start, *indices.last().unwrap());
+            let (i1, i2, ri1, ri2) = (start + 1, *end, start, *end);
             iup_segment(
                 newdeltas,
                 &coords[i1..i2],
