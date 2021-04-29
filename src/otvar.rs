@@ -1,18 +1,18 @@
-mod glyphvariationdata;
 mod itemvariationstore;
 mod packeddeltas;
 mod packedpoints;
 mod tuplevariationheader;
+mod tuplevariationstore;
 
-pub use crate::otvar::glyphvariationdata::GlyphVariationDataDeserializer;
 pub use crate::otvar::itemvariationstore::{
     ItemVariationData, ItemVariationStore, RegionAxisCoordinates,
 };
-pub use crate::otvar::packeddeltas::PackedDeltas;
+pub use crate::otvar::packeddeltas::{PackedDeltas, PackedDeltasDeserializer};
 pub use crate::otvar::packedpoints::PackedPoints;
 pub use crate::otvar::tuplevariationheader::{
     TupleIndexFlags, TupleVariationHeader, TupleVariationHeaderDeserializer,
 };
+pub use crate::otvar::tuplevariationstore::TupleVariationStoreDeserializer;
 
 #[cfg(test)]
 mod tests {
