@@ -1,6 +1,5 @@
-use crate::otvar::PackedPoints;
 use crate::otvar::{
-    PackedDeltasDeserializer, TupleIndexFlags, TupleVariationHeader,
+    Delta, PackedDeltasDeserializer, PackedPoints, TupleIndexFlags, TupleVariationHeader,
     TupleVariationHeaderDeserializer,
 };
 use otspec::types::*;
@@ -9,12 +8,6 @@ use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use std::collections::VecDeque;
-
-#[derive(Debug, PartialEq)]
-pub enum Delta {
-    Delta1D(int16),
-    Delta2D((int16, int16)),
-}
 
 #[derive(Debug, PartialEq)]
 pub struct TupleVariationStore(pub Vec<(TupleVariationHeader, Vec<Delta>)>);
@@ -47,22 +40,10 @@ stateful_deserializer!(
             );
         }
         if points_are_shared {
-            // first thing in data offset is packed point number data
-            let first_packed = read_field!(seq, u8, "a packed point number");
-            let shared_point_count: uint16 = if first_packed > 127 {
-                let second_packed = read_field!(seq, u8, "a packed point number");
-                ((first_packed as uint16 & 0x7f) << 8) + (second_packed as uint16)
-            } else {
-                first_packed as uint16
+            shared_points = match read_field!(seq, PackedPoints, "packed points").points {
+                Some(pts) => pts,
+                None =>  (0..self.point_count).collect()
             };
-            if shared_point_count == 0 {
-                shared_points =  (0..self.point_count).collect();
-            } else {
-                while shared_points.len() < shared_point_count as usize {
-                    let run_control_byte = read_field!(seq, u8, "a control byte");
-                    unimplemented!()
-                }
-            }
         }
 
         for header in headers {

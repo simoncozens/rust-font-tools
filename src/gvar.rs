@@ -24,7 +24,17 @@ tables!( gvarcore {
 );
 
 #[derive(Debug, PartialEq)]
-struct GlyphVariationData {}
+pub struct DeltaSet {
+    pub peak: Tuple,
+    pub start: Tuple,
+    pub end: Tuple,
+    pub deltas: Vec<(i16, i16)>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct GlyphVariationData {
+    pub deltasets: Vec<DeltaSet>,
+}
 
 #[derive(Debug, PartialEq)]
 pub struct gvar {
@@ -92,14 +102,30 @@ stateful_deserializer!(
             if length == 0 {
                 glyphVariations.push(None);
             } else {
+                let mut deltasets:Vec<DeltaSet> = vec![];
                 let mut de = otspec::de::Deserializer::from_bytes(bytes);
                 let cs = TupleVariationStoreDeserializer {
                     axis_count: core.axisCount,
                     point_count: self.point_counts[i as usize],
                     is_gvar: true,
                 };
-                let tvh = cs.deserialize(&mut de).unwrap();
-                println!("TVH {:?}", tvh);
+                let tvs = cs.deserialize(&mut de).unwrap();
+                println!("TVS {:?}", tvs);
+                for (tvh, deltas) in tvs.0 {
+                    let index = tvh.sharedTupleIndex as usize;
+                    let peak_tuple = tvh.peakTuple.unwrap_or_else(|| shared_tuples[index].clone());
+                    let start_tuple = tvh.startTuple.unwrap_or_else(|| peak_tuple.clone());
+                    let end_tuple = tvh.endTuple.unwrap_or_else(|| peak_tuple.clone());
+                    deltasets.push(DeltaSet {
+                        deltas: deltas.iter().map(|x| x.get_2d()).collect(),
+                        peak: peak_tuple,
+                        end: end_tuple,
+                        start: start_tuple
+
+                    })
+                }
+                glyphVariations.push(Some(GlyphVariationData { deltasets }));
+
             }
         }
 
@@ -118,6 +144,7 @@ pub fn from_bytes(s: &[u8], point_counts: Vec<u16>) -> otspec::error::Result<gva
 #[cfg(test)]
 mod tests {
     use crate::gvar;
+    use crate::gvar::GlyphVariationData;
 
     #[test]
     fn gvar_de() {
@@ -132,12 +159,51 @@ mod tests {
             0xda, 0xda, 0x83, 0x87, 0x03, 0x13, 0x13, 0xed, 0xed, 0x83, 0x87, 0x00,
         ];
         let deserialized: gvar::gvar = gvar::from_bytes(&binary_gvar, vec![10, 0, 7, 8]).unwrap();
-        // assert_eq!(deserialized.majorVersion, 1);
-        // assert_eq!(deserialized.minorVersion, 0);
-        // assert_eq!(deserialized.axisCount, 2);
-        // assert_eq!(deserialized.sharedTuples.len(), 0);
-        // let serialized = ser::to_bytes(&deserialized).unwrap();
-        // assert_eq!(serialized, binary_post);
-        assert!(false);
+        let variations = &deserialized.variations;
+        assert_eq!(variations[0], None);
+        assert_eq!(variations[1], None);
+        /*
+            <glyphVariations glyph="A">
+              <tuple>
+                <coord axis="wght" value="1.0"/>
+                <delta pt="0" x="0" y="-46"/>
+                <delta pt="1" x="0" y="-46"/>
+                <delta pt="2" x="0" y="46"/>
+                <delta pt="3" x="0" y="0"/>
+                <delta pt="4" x="0" y="0"/>
+                <delta pt="5" x="0" y="0"/>
+                <delta pt="6" x="0" y="0"/>
+              </tuple>
+              <tuple>
+                <coord axis="wdth" value="1.0"/>
+                <delta pt="0" x="82" y="0"/>
+                <delta pt="1" x="-82" y="0"/>
+                <delta pt="2" x="-9" y="0"/>
+                <delta pt="3" x="0" y="0"/>
+                <delta pt="4" x="0" y="0"/>
+                <delta pt="5" x="0" y="0"/>
+                <delta pt="6" x="0" y="0"/>
+              </tuple>
+            </glyphVariations>
+        */
+        assert_eq!(
+            variations[2],
+            Some(GlyphVariationData {
+                deltasets: vec![
+                    gvar::DeltaSet {
+                        peak: vec![1.0, 0.0],
+                        start: vec![1.0, 0.0],
+                        end: vec![1.0, 0.0],
+                        deltas: vec![(0, -46), (0, -46), (0, 46), (0, 0), (0, 0), (0, 0), (0, 0)]
+                    },
+                    gvar::DeltaSet {
+                        peak: vec![0.0, 1.0],
+                        start: vec![0.0, 1.0],
+                        end: vec![0.0, 1.0],
+                        deltas: vec![(82, 0), (-82, 0), (-9, 0), (0, 0), (0, 0), (0, 0), (0, 0)]
+                    }
+                ]
+            })
+        );
     }
 }

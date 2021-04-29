@@ -4,6 +4,22 @@ mod packedpoints;
 mod tuplevariationheader;
 mod tuplevariationstore;
 
+use otspec::types::int16;
+
+#[derive(Debug, PartialEq)]
+pub enum Delta {
+    Delta1D(int16),
+    Delta2D((int16, int16)),
+}
+impl Delta {
+    pub fn get_2d(&self) -> (int16, int16) {
+        if let Delta::Delta2D(p) = self {
+            *p
+        } else {
+            panic!("Tried to turn a scalar delta into a coordinate delta");
+        }
+    }
+}
 pub use crate::otvar::itemvariationstore::{
     ItemVariationData, ItemVariationStore, RegionAxisCoordinates,
 };
