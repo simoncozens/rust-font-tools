@@ -12,12 +12,114 @@ use std::collections::VecDeque;
 #[derive(Debug, PartialEq)]
 pub struct TupleVariation(pub TupleVariationHeader, pub Vec<Option<Delta>>);
 
-fn iup_contour(
+fn iup_segment(
     newdeltas: &mut Vec<(i16, i16)>,
-    deltas: &[Option<Delta>],
     coords: &[(i16, i16)],
-) -> Vec<(i16, i16)> {
-    unimplemented!()
+    rc1: (i16, i16),
+    rd1: &Option<Delta>,
+    rc2: (i16, i16),
+    rd2: &Option<Delta>,
+) {
+    let rd1 = rd1.as_ref().unwrap().get_2d();
+    let rd2 = rd2.as_ref().unwrap().get_2d();
+    let mut out_arrays: Vec<Vec<i16>> = vec![vec![], vec![]];
+    for j in 0..2 {
+        let (mut x1, mut x2, mut d1, mut d2) = if j == 0 {
+            (rc1.0, rc2.0, rd1.0, rd2.0)
+        } else {
+            (rc1.1, rc2.1, rd1.1, rd2.1)
+        };
+        if x1 == x2 {
+            let n = coords.len();
+            out_arrays[j].extend(std::iter::repeat(if d1 == d2 { d1 } else { 0 }).take(n));
+            continue;
+        }
+        if x1 > x2 {
+            std::mem::swap(&mut x2, &mut x1);
+            std::mem::swap(&mut d2, &mut d1);
+        }
+        let scale = (d2 - d1) as f32 / (x2 - x1) as f32;
+        for pair in coords {
+            let x = if j == 0 { pair.0 } else { pair.1 };
+            let d = if x <= x1 {
+                d1
+            } else if x >= x2 {
+                d2
+            } else {
+                d1 + ((x - x1) as f32 * scale) as i16
+            };
+            out_arrays[j].push(d);
+        }
+    }
+    newdeltas.extend(
+        out_arrays[0]
+            .iter()
+            .zip(out_arrays[1].iter())
+            .map(|(x, y)| (*x, *y)),
+    );
+}
+
+fn iup_contour(newdeltas: &mut Vec<(i16, i16)>, deltas: &[Option<Delta>], coords: &[(i16, i16)]) {
+    if deltas.iter().all(|x| x.is_some()) {
+        newdeltas.extend::<Vec<(i16, i16)>>(
+            deltas
+                .iter()
+                .map(|x| x.as_ref().unwrap().get_2d())
+                .collect(),
+        );
+        return;
+    }
+    let n = deltas.len();
+    let indices: Vec<usize> = deltas
+        .iter()
+        .enumerate()
+        .filter(|(_, d)| d.is_some())
+        .map(|(i, _)| i)
+        .collect();
+    if indices.is_empty() {
+        newdeltas.extend(std::iter::repeat((0, 0)).take(n));
+        return;
+    }
+    let mut start = indices[0];
+    let verystart = start;
+    if start != 0 {
+        let (i1, i2, ri1, ri2) = (0, start, start, *indices.last().unwrap());
+        iup_segment(
+            newdeltas,
+            &coords[i1..i2],
+            coords[ri1],
+            &deltas[ri1],
+            coords[ri2],
+            &deltas[ri2],
+        );
+    }
+    newdeltas.push(deltas[start].as_ref().unwrap().get_2d());
+    for end in indices.iter().skip(1) {
+        if *end - start > 1 {
+            let (i1, i2, ri1, ri2) = (0, start, start, *indices.last().unwrap());
+            iup_segment(
+                newdeltas,
+                &coords[i1..i2],
+                coords[ri1],
+                &deltas[ri1],
+                coords[ri2],
+                &deltas[ri2],
+            );
+        }
+        newdeltas.push(deltas[*end].as_ref().unwrap().get_2d());
+        start = *end;
+    }
+    if start != n - 1 {
+        let (i1, i2, ri1, ri2) = (start + 1, n, start, verystart);
+        iup_segment(
+            newdeltas,
+            &coords[i1..i2],
+            coords[ri1],
+            &deltas[ri1],
+            coords[ri2],
+            &deltas[ri2],
+        );
+    }
 }
 
 impl TupleVariation {

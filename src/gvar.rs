@@ -250,5 +250,57 @@ mod tests {
                 ]
             })
         );
+        assert_eq!(
+            variations[3], // IUP here
+            Some(GlyphVariationData {
+                deltasets: vec![
+                    gvar::DeltaSet {
+                        peak: vec![1.0, 0.0],
+                        start: vec![1.0, 0.0],
+                        end: vec![1.0, 0.0],
+                        deltas: vec![
+                            (38, 125),   // IUP
+                            (38, -125),  // given
+                            (-38, -125), // IUP
+                            (-38, 125),  // given
+                            (0, 0),
+                            (0, 0),
+                            (0, 0),
+                            (0, 0)
+                        ]
+                    },
+                    gvar::DeltaSet {
+                        peak: vec![0.0, 1.0],
+                        start: vec![0.0, 1.0],
+                        end: vec![0.0, 1.0],
+                        deltas: vec![
+                            (38, 0),
+                            (38, 0),
+                            (-38, 0),
+                            (-38, 0),
+                            (0, 0),
+                            (0, 0),
+                            (0, 0),
+                            (0, 0)
+                        ]
+                    },
+                    gvar::DeltaSet {
+                        peak: vec![1.0, 1.0],
+                        start: vec![1.0, 1.0],
+                        end: vec![1.0, 1.0],
+                        deltas: vec![
+                            (19, 0),
+                            (19, 0),
+                            (-19, 0),
+                            (-19, 0),
+                            (0, 0),
+                            (0, 0),
+                            (0, 0),
+                            (0, 0)
+                        ]
+                    }
+                ]
+            })
+        );
     }
 }
