@@ -28,7 +28,7 @@ pub use crate::otvar::packedpoints::PackedPoints;
 pub use crate::otvar::tuplevariationheader::{
     TupleIndexFlags, TupleVariationHeader, TupleVariationHeaderDeserializer,
 };
-pub use crate::otvar::tuplevariationstore::TupleVariationStoreDeserializer;
+pub use crate::otvar::tuplevariationstore::{TupleVariation, TupleVariationStoreDeserializer};
 
 #[cfg(test)]
 mod tests {

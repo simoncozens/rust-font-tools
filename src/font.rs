@@ -12,7 +12,7 @@ use crate::cmap::cmap;
 use crate::fvar::fvar;
 use crate::gasp::gasp;
 use crate::glyf;
-// use crate::gvar::gvar;
+use crate::gvar;
 use crate::head::head;
 use crate::hhea::hhea;
 use crate::hmtx;
@@ -43,7 +43,7 @@ pub enum Table {
     Name(name),
     Os2(os2),
     Post(post),
-    // Gvar(gvar),
+    Gvar(gvar::gvar),
 }
 
 macro_rules! table_unchecked {
@@ -63,6 +63,7 @@ impl Table {
     table_unchecked!(fvar_unchecked, Fvar, fvar);
     table_unchecked!(gasp_unchecked, Gasp, gasp);
     table_unchecked!(glyf_unchecked, Glyf, glyf::glyf);
+    table_unchecked!(gvar_unchecked, Gvar, gvar::gvar);
     table_unchecked!(head_unchecked, Head, head);
     table_unchecked!(hhea_unchecked, Hhea, hhea);
     table_unchecked!(hmtx_unchecked, Hmtx, hmtx::hmtx);
@@ -153,6 +154,20 @@ impl Font {
         panic!("Can't happen - hhea not a hhea table?!")
     }
 
+    fn _gvar_coords_and_ends(&self) -> Option<Vec<(Vec<(int16, int16)>, Vec<usize>)>> {
+        let glyf = self.get_table_simple(b"glyf")?;
+        if self._table_needs_deserializing(glyf) {
+            return None;
+        }
+        let glyf = glyf.glyf_unchecked();
+        Some(
+            glyf.glyphs
+                .iter()
+                .map(|g| g.gvar_coords_and_ends())
+                .collect(),
+        )
+    }
+
     fn _deserialize(&self, tag: &Tag, binary: &[u8]) -> otspec::error::Result<Table> {
         match tag {
             b"cmap" => Ok(Table::Cmap(otspec::de::from_bytes(binary)?)),
@@ -187,6 +202,16 @@ impl Font {
                     return Err(OTSpecError::DeserializedInWrongOrder);
                 }
                 Ok(Table::Glyf(glyf::from_bytes(binary, locaOffsets.unwrap())?))
+            }
+            b"gvar" => {
+                let gvar_coords_and_ends = self._gvar_coords_and_ends();
+                if gvar_coords_and_ends.is_none() {
+                    return Err(OTSpecError::DeserializedInWrongOrder);
+                }
+                Ok(Table::Gvar(gvar::from_bytes(
+                    binary,
+                    gvar_coords_and_ends.unwrap(),
+                )?))
             }
             _ => Ok(Table::Unknown(binary.to_vec())),
         }

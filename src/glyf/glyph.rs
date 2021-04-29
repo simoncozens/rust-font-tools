@@ -337,6 +337,45 @@ impl Glyph {
         }
         newglyph
     }
+
+    pub fn gvar_coords_and_ends(&self) -> (Vec<(int16, int16)>, Vec<usize>) {
+        let mut ends: Vec<usize> = self
+            .contours
+            .iter()
+            .map(|c| c.len())
+            .scan(0, |acc, x| {
+                *acc += x;
+                Some(*acc)
+            })
+            .collect();
+
+        let mut coords: Vec<(i16, i16)> = self
+            .contours
+            .iter()
+            .flatten()
+            .map(|pt| (pt.x, pt.y))
+            .collect();
+        for comp in &self.components {
+            let [_, _, _, _, translateX, translateY] = comp.transformation.as_coeffs();
+            coords.push((translateX as i16, translateY as i16));
+            ends.push(ends.len());
+        }
+
+        // Phantom points
+        let left_side_x = 0; // XXX WRONG
+        let right_side_x = 0;
+        let top_side_y = 0;
+        let bottom_side_y = 0;
+        coords.push((left_side_x, 0));
+        ends.push(ends.len());
+        coords.push((right_side_x, 0));
+        ends.push(ends.len());
+        coords.push((0, top_side_y));
+        ends.push(ends.len());
+        coords.push((0, bottom_side_y));
+        ends.push(ends.len());
+        (coords, ends)
+    }
 }
 
 impl Serialize for Glyph {

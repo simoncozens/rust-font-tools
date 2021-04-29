@@ -1,15 +1,14 @@
+use crate::otvar::*;
 use otspec::de::CountedDeserializer;
 use otspec::de::Deserializer as OTDeserializer;
+use otspec::types::*;
 use otspec::{read_field, read_field_counted, read_remainder, stateful_deserializer};
+use otspec_macros::tables;
 use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::convert::TryInto;
-extern crate otspec;
-use crate::otvar::*;
-use otspec::types::*;
-use otspec_macros::tables;
 
 tables!( gvarcore {
     uint16  majorVersion
@@ -44,7 +43,7 @@ pub struct gvar {
 stateful_deserializer!(
     gvar,
     GvarDeserializer,
-    { point_counts: Vec<u16> },
+    { coords_and_ends: Vec<(Vec<(int16,int16)>,Vec<usize>)> },
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
         let core = read_field!(seq, gvarcore, "a gvar table header");
         let dataOffsets: Vec<u32> = if core.flags & 0x1 == 0 {
@@ -55,11 +54,11 @@ stateful_deserializer!(
         } else {
             read_field_counted!(seq, core.glyphCount + 1, "a glyphVariationDataOffset")
         };
-        println!("Offsets {:?}", dataOffsets);
+        // println!("Offsets {:?}", dataOffsets);
         let remainder = read_remainder!(seq, "a gvar table");
         let offset_base: usize =
             20 + (core.glyphCount as usize + 1) * (if core.flags & 0x1 == 0 { 2 } else { 4 });
-        println!("Remainder: {:?}", remainder);
+        // println!("Remainder: {:?}", remainder);
         let axis_count = core.axisCount as usize;
 
         /* Shared tuples */
@@ -68,10 +67,10 @@ stateful_deserializer!(
         let shared_tuple_end =
             shared_tuple_start + (core.sharedTupleCount * core.axisCount * 2) as usize;
         while shared_tuple_start < shared_tuple_end {
-            println!("Start {:?}", shared_tuple_start);
+            // println!("Start {:?}", shared_tuple_start);
             let bytes = &remainder[shared_tuple_start..shared_tuple_start + 2 * axis_count];
             let mut de = OTDeserializer::from_bytes(bytes);
-            println!("Trying to deserialize shared tuple array {:?}", bytes);
+            // println!("Trying to deserialize shared tuple array {:?}", bytes);
             let cs: CountedDeserializer<i16> = CountedDeserializer::with_len(axis_count);
             let tuple: Vec<f32> = cs
                 .deserialize(&mut de)
@@ -79,16 +78,16 @@ stateful_deserializer!(
                 .iter()
                 .map(|i| *i as f32 / 16384.0)
                 .collect();
-            println!("Tuple {:?}", tuple);
+            // println!("Tuple {:?}", tuple);
             shared_tuple_start += 2 * axis_count;
             shared_tuples.push(tuple);
         }
 
         /* Glyph variation data */
         let mut glyphVariations = vec![];
-        for i in 0..(core.glyphCount) {
-            println!("Reading data for glyph {:?}", i);
-            let offset: usize = (dataOffsets[i as usize] + (core.glyphVariationDataArrayOffset)
+        for i in 0..(core.glyphCount as usize) {
+            // println!("Reading data for glyph {:?}", i);
+            let offset: usize = (dataOffsets[i] + (core.glyphVariationDataArrayOffset)
                 - offset_base as u32)
                 .try_into()
                 .unwrap();
@@ -102,30 +101,32 @@ stateful_deserializer!(
             if length == 0 {
                 glyphVariations.push(None);
             } else {
-                let mut deltasets:Vec<DeltaSet> = vec![];
+                let mut deltasets: Vec<DeltaSet> = vec![];
                 let mut de = otspec::de::Deserializer::from_bytes(bytes);
                 let cs = TupleVariationStoreDeserializer {
                     axis_count: core.axisCount,
-                    point_count: self.point_counts[i as usize],
+                    point_count: self.coords_and_ends[i].0.len() as u16,
                     is_gvar: true,
                 };
                 let tvs = cs.deserialize(&mut de).unwrap();
-                println!("TVS {:?}", tvs);
-                for (tvh, deltas) in tvs.0 {
-                    let index = tvh.sharedTupleIndex as usize;
-                    let peak_tuple = tvh.peakTuple.unwrap_or_else(|| shared_tuples[index].clone());
-                    let start_tuple = tvh.startTuple.unwrap_or_else(|| peak_tuple.clone());
-                    let end_tuple = tvh.endTuple.unwrap_or_else(|| peak_tuple.clone());
+                // println!("TVS {:?}", tvs);
+                for tvh in tvs.0 {
+                    let deltas = tvh.iup_delta(&self.coords_and_ends[i].0, &self.coords_and_ends[i].1);
+                    let index = tvh.0.sharedTupleIndex as usize;
+                    let peak_tuple = tvh
+                        .0
+                        .peakTuple
+                        .unwrap_or_else(|| shared_tuples[index].clone());
+                    let start_tuple = tvh.0.startTuple.unwrap_or_else(|| peak_tuple.clone());
+                    let end_tuple = tvh.0.endTuple.unwrap_or_else(|| peak_tuple.clone());
                     deltasets.push(DeltaSet {
-                        deltas: deltas.iter().map(|x| x.get_2d()).collect(),
+                        deltas,
                         peak: peak_tuple,
                         end: end_tuple,
-                        start: start_tuple
-
+                        start: start_tuple,
                     })
                 }
                 glyphVariations.push(Some(GlyphVariationData { deltasets }));
-
             }
         }
 
@@ -135,10 +136,22 @@ stateful_deserializer!(
     }
 );
 
-pub fn from_bytes(s: &[u8], point_counts: Vec<u16>) -> otspec::error::Result<gvar> {
+pub fn from_bytes(
+    s: &[u8],
+    coords_and_ends: Vec<(Vec<(int16, int16)>, Vec<usize>)>,
+) -> otspec::error::Result<gvar> {
     let mut deserializer = otspec::de::Deserializer::from_bytes(s);
-    let cs = GvarDeserializer { point_counts };
+    let cs = GvarDeserializer { coords_and_ends };
     cs.deserialize(&mut deserializer)
+}
+
+impl Serialize for gvar {
+    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        panic!("Don't call this serializer, call the one in Font instead")
+    }
 }
 
 #[cfg(test)]
@@ -158,7 +171,39 @@ mod tests {
             0x00, 0x02, 0x01, 0x01, 0x02, 0x01, 0x26, 0xda, 0x01, 0x83, 0x7d, 0x03, 0x26, 0x26,
             0xda, 0xda, 0x83, 0x87, 0x03, 0x13, 0x13, 0xed, 0xed, 0x83, 0x87, 0x00,
         ];
-        let deserialized: gvar::gvar = gvar::from_bytes(&binary_gvar, vec![10, 0, 7, 8]).unwrap();
+        let deserialized: gvar::gvar = gvar::from_bytes(
+            &binary_gvar,
+            vec![
+                (vec![], vec![]), // .notdef
+                (vec![], vec![]), // space
+                (
+                    vec![
+                        (437, 125),
+                        (109, 125),
+                        (254, 308),
+                        (0, 0),
+                        (0, 0),
+                        (0, 0),
+                        (0, 0),
+                    ],
+                    vec![2, 3, 4, 5, 6],
+                ),
+                (
+                    vec![
+                        (261, 611),
+                        (261, 113),
+                        (108, 113),
+                        (108, 611),
+                        (0, 0),
+                        (0, 0),
+                        (0, 0),
+                        (0, 0),
+                    ],
+                    vec![3, 4, 5, 6, 7],
+                ),
+            ],
+        )
+        .unwrap();
         let variations = &deserialized.variations;
         assert_eq!(variations[0], None);
         assert_eq!(variations[1], None);
