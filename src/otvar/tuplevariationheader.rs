@@ -1,5 +1,4 @@
 use bitflags::bitflags;
-use otspec::de::CountedDeserializer;
 use otspec::types::*;
 use otspec::{read_field, read_field_counted, stateful_deserializer};
 use serde::de::DeserializeSeed;

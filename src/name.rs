@@ -4,7 +4,6 @@ use encoding::all::{
     BIG5_2003, GBK, MAC_CYRILLIC, MAC_ROMAN, UTF_16BE, WINDOWS_1252, WINDOWS_31J, WINDOWS_949,
 };
 use encoding::{DecoderTrap, EncoderTrap, EncodingRef};
-use otspec::de::CountedDeserializer;
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_field, read_field_counted, read_remainder};
 use otspec_macros::tables;

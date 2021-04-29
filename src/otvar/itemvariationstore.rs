@@ -1,4 +1,3 @@
-use otspec::de::CountedDeserializer;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::Deserializer;

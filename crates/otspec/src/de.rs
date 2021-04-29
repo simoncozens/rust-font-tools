@@ -412,7 +412,7 @@ macro_rules! read_remainder {
 #[macro_export]
 macro_rules! read_field_counted {
     ($seq:ident, $count:expr, $name:expr) => {
-        $seq.next_element_seed(CountedDeserializer::with_len($count as usize))?
+        $seq.next_element_seed(otspec::de::CountedDeserializer::with_len($count as usize))?
             .ok_or_else(|| serde::de::Error::custom(format!("Expecting {:}", $name)))?;
     };
 }

@@ -1,11 +1,9 @@
-use otspec::de::CountedDeserializer;
+use otspec::types::*;
+use otspec::{deserialize_visitor, read_field, read_field_counted};
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::Deserialize;
 use serde::Deserializer;
-extern crate otspec;
-use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_field_counted};
 
 #[derive(Debug, PartialEq)]
 pub struct PackedPoints {
