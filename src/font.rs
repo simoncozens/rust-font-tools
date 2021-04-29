@@ -242,6 +242,13 @@ impl Font {
     }
 
     pub fn fully_deserialize(&mut self) {
+        // Order is important
+        self.get_table(b"head").unwrap();
+        self.get_table(b"maxp").unwrap();
+        if self.tables.contains_key(b"glyf") {
+            self.get_table(b"loca").unwrap();
+            self.get_table(b"glyf").unwrap();
+        }
         let keys: Vec<Tag> = self.tables.keys().copied().collect();
         for t in keys {
             self.get_table(&t).unwrap();
