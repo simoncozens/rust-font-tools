@@ -329,7 +329,7 @@ where
         {
             type Value = Vec<T>;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 write!(formatter, "an array of data")
             }
 
@@ -445,7 +445,7 @@ impl<'de> DeserializeSeed<'de> for $deserializer_name {
         impl<'de> Visitor<'de> for MyVisitor {
             type Value = $struct_name;
 
-            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
                 write!(formatter, "a {:?}", stringify!($struct_name))
             }
 
