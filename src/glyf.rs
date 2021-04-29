@@ -4,16 +4,21 @@ use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize, Serializer};
 
+/// Structures for handling components within a composite glyph
 mod component;
+/// Structures for handling simple glyph descriptions
 mod glyph;
+/// A representation of a contour point
 mod point;
 
 pub use component::{Component, ComponentFlags};
 pub use glyph::Glyph;
 pub use point::Point;
 
+/// The glyf table
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct glyf {
+    /// A list of glyph objects in the font
     pub glyphs: Vec<Glyph>,
 }
 
@@ -64,6 +69,9 @@ impl Serialize for glyf {
     }
 }
 
+/// Deserialize the font from a binary buffer.
+///
+/// locaOffsets must be obtained from the `loca` table.
 pub fn from_bytes(s: &[u8], locaOffsets: Vec<Option<u32>>) -> otspec::error::Result<glyf> {
     let mut deserializer = otspec::de::Deserializer::from_bytes(s);
     let cs: GlyfDeserializer = GlyfDeserializer { locaOffsets };
@@ -71,6 +79,9 @@ pub fn from_bytes(s: &[u8], locaOffsets: Vec<Option<u32>>) -> otspec::error::Res
 }
 
 impl glyf {
+    /// Given a `Glyph` object, return all components used by this glyph,
+    /// including recursively descending into nested components and positioning
+    /// them accordingly. Should be called with `depth=0`.
     pub fn flat_components(&self, g: &Glyph, depth: u32) -> Vec<Component> {
         let mut new_components = vec![];
         if depth > 64 {
@@ -95,6 +106,9 @@ impl glyf {
         }
         new_components
     }
+
+    /// Flattens all components in this table, replacing nested components with
+    /// a single level of correctly positioned components.
     pub fn flatten_components(&mut self) {
         let mut needs_flattening = vec![];
         for (id, g) in self.glyphs.iter().enumerate() {
@@ -110,6 +124,8 @@ impl glyf {
             self.glyphs[id].components = comp;
         }
     }
+    /// Recalculate the bounds of all glyphs within the table.
+    /// *Note* that this flattens nested components.
     pub fn recalc_bounds(&mut self) {
         self.flatten_components();
         // First do simple glyphs
@@ -157,6 +173,8 @@ impl glyf {
             }
         }
     }
+    /// Gathers statistics to be used in the `maxp` table, returning a tuple of
+    /// `(numGlyphs, maxPoints, maxContours, maxCompositePoints, maxCompositeContours, maxComponentElements, maxComponentDepth)
     pub fn maxp_statistics(&self) -> (u16, u16, u16, u16, u16, u16, u16) {
         let numGlyphs = self.glyphs.len() as u16;
         let maxPoints = self

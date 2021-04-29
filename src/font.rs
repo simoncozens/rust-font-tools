@@ -25,6 +25,7 @@ use std::convert::{TryFrom, TryInto};
 use std::io::Write;
 use std::num::Wrapping;
 
+/// A generic container for a font table, either known (deserialized) or unknown (binary)
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(untagged)]
 pub enum Table {
@@ -47,6 +48,10 @@ pub enum Table {
 
 macro_rules! table_unchecked {
     ($name: ident, $enum:ident, $t: ty) => {
+        /// Forcibly extracts the table object from a generic Table enum
+        ///
+        /// Panics if the table object contains a different kind of table.
+        /// You are responsible for ensuring that the table is deserialized.
         pub fn $name(&self) -> &$t {
             if let Table::$enum(thing) = self {
                 return thing;
@@ -73,9 +78,12 @@ impl Table {
     table_unchecked!(post_unchecked, Post, post);
 }
 
+/// Magic number used to identify the font type
 #[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub enum SfntVersion {
+    /// TrueType (generally containing glyf outlines)
     TrueType = 0x00010000,
+    /// OpenType (generally containing CFF outlines)
     OpenType = 0x4F54544F,
 }
 
@@ -91,6 +99,7 @@ impl TryFrom<u32> for SfntVersion {
     }
 }
 
+/// Low-level structure used for serializing/deserializing entries in the table directory
 #[derive(Serialize, Deserialize, Debug)]
 struct TableRecord {
     tag: Tag,
@@ -98,6 +107,7 @@ struct TableRecord {
     offset: uint32,
     length: uint32,
 }
+/// The header of the font's table directory
 #[derive(Deserialize)]
 struct TableHeader {
     sfntVersion: u32,
@@ -107,9 +117,12 @@ struct TableHeader {
     _rangeShift: u16,
 }
 
+/// An OpenType font object
 #[derive(Debug)]
 pub struct Font {
+    /// Font version (TrueType/OpenType)
     sfntVersion: SfntVersion,
+    /// Dictionary of tables in the font
     pub tables: BTreeMap<Tag, Table>,
     _numGlyphs: Option<u16>,
 }
@@ -216,6 +229,7 @@ impl Font {
         }
     }
 
+    /// Create a new font, empty of a given version (TrueType/OpenType)
     pub fn new(sfntVersion: SfntVersion) -> Self {
         Self {
             sfntVersion,
@@ -246,6 +260,15 @@ impl Font {
         Some(self.tables.get_mut(tag).unwrap())
     }
 
+    /// Retrieve a table from the font
+    ///
+    /// If the table tag is known to this library and can be deserialized, this
+    /// is done and the appropriate Table enum entry is returned. If not, then
+    /// a Table::Unknown is returned with the binary table data as a Vec<u8>.
+    ///
+    /// Returns an Err if the table could not be correctly deserialized.
+    /// Returns Ok(None) if the table was not present within the font.
+    /// Returns Ok(Some(Table)) if the table was present.
     pub fn get_table<'a>(&'a mut self, tag: &Tag) -> otspec::error::Result<Option<&'a mut Table>> {
         let table = self.get_table_simple(tag);
         // println!("Getting table {:?}", tag);
@@ -265,6 +288,11 @@ impl Font {
         Ok(self.get_table_mut_simple(tag))
     }
 
+    /// Deserializes all tables in the font.
+    ///
+    /// This is done in the correct order (as some tables can only be deserialized
+    /// after certain others have been processed), so is a helpful way of getting
+    /// the font into a useful state before working on it.
     pub fn fully_deserialize(&mut self) {
         // Order is important
         self.get_table(b"head").unwrap();
@@ -279,6 +307,7 @@ impl Font {
         }
     }
 
+    /// Writes the font to the given file handle
     pub fn save<T>(&mut self, file: &mut T)
     where
         T: Write,
@@ -288,6 +317,9 @@ impl Font {
         file.write_all(&serialized).unwrap();
     }
 
+    /// Total number of glyphs in the font, from the maxp table.
+    ///
+    /// Deserializes the maxp table if this is not already done.
     pub fn num_glyphs(&mut self) -> u16 {
         if self._numGlyphs.is_none() {
             let maxp = self
@@ -300,6 +332,12 @@ impl Font {
         self._numGlyphs.unwrap()
     }
 
+    /// Compiles all dependent tables to binary.
+    ///
+    /// Certain tables cannot be serialized independently, but need data from
+    /// other tables to be passed in to the deserializer. We handle this by
+    /// manually compiling those tables to binary here and replacing them with
+    /// Table::Unknown. This is automatically called on `.save`.
     pub fn compile_glyf_loca_maxp(&mut self) {
         let mut glyf_output: Vec<u8> = vec![];
         let mut loca_indices: Vec<u32> = vec![];
@@ -353,6 +391,7 @@ impl Font {
 use std::error::Error;
 use std::io::Read;
 
+/// Loads a binary font from the given filehandle.
 pub fn load<T>(mut file: T) -> Result<Font, Box<dyn Error>>
 where
     T: Read,
