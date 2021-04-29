@@ -1,3 +1,4 @@
+use crate::otvar::PackedPoints;
 use crate::otvar::{TupleIndexFlags, TupleVariationHeader, TupleVariationHeaderDeserializer};
 use otspec::de::CountedDeserializer;
 use serde::de::DeserializeSeed;
