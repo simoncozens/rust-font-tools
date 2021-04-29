@@ -28,21 +28,32 @@ maxp10 {
     uint16  maxComponentDepth
 });
 
+/// Which maxp table is contained within the object.
+///
+/// The `maxp` table comes in two versions, 0.5 and 1.0, which have
+/// different fields. The enum allows a single maxp object to represent
+/// both versions.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum MaxpVariant {
+    /// This table is a maxp version 0.5
     Maxp05(maxp05),
+    /// This table is a maxp version 1.0
     Maxp10(maxp10),
 }
 
+/// A maxp table, regardless of version.
 #[derive(Debug, Serialize, PartialEq)]
 pub struct maxp {
+    /// The version number as a fixed U16F16 value (for ease of serialization)
     #[serde(with = "Version16Dot16")]
     pub version: U16F16,
+    /// Either a maxp 0.5 table or a maxp 1.0 table
     #[serde(flatten)]
     pub table: MaxpVariant,
 }
 
 impl maxp {
+    /// Creates a new `maxp` table with version=0.5, given a number of glyphs
     pub fn new05(num_glyphs: u16) -> maxp {
         maxp {
             version: U16F16::from_num(0.5),

@@ -1,16 +1,24 @@
 ///! OpenType Variations common tables
+
+/// Item Variation Store (used in `MVAR`, etc.)
 mod itemvariationstore;
+/// Structs for storing packed deltas within a tuple variation store
 mod packeddeltas;
+/// Structs for storing packed points
 mod packedpoints;
+/// Headers locating variation data within a tuple variation store
 mod tuplevariationheader;
+/// Tuple Variation Store
 mod tuplevariationstore;
 
 use otspec::types::int16;
 
-/// Represents either a two-dimensional (gvar) or one-dimensional (cvt) delta value
+/// Represents either a two-dimensional (`gvar`) or one-dimensional (`cvt`) delta value
 #[derive(Debug, PartialEq)]
 pub enum Delta {
+    /// A one-dimensional delta (used in the `cvt` table)
     Delta1D(int16),
+    /// A two-dimensional delta (used in the `gvar` table)
     Delta2D((int16, int16)),
 }
 impl Delta {

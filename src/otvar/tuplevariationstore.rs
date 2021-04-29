@@ -9,6 +9,11 @@ use serde::de::SeqAccess;
 use serde::de::Visitor;
 use std::collections::VecDeque;
 
+/// A record within a tuple variation store
+///
+/// This is a low-level representation of variation data, consisting of a
+/// TupleVariationHeader (which serves to locate the deltas in the design space)
+/// and an optimized set of deltas, some of which may be omitted due to IUP.
 #[derive(Debug, PartialEq)]
 pub struct TupleVariation(pub TupleVariationHeader, pub Vec<Option<Delta>>);
 
@@ -125,6 +130,14 @@ fn iup_contour(newdeltas: &mut Vec<(i16, i16)>, deltas: &[Option<Delta>], coords
 }
 
 impl TupleVariation {
+    /// Unpacks the delta array using Interpolation of Unreferenced Points
+    ///
+    /// The tuple variation record is stored in an optimized format with deltas
+    /// omitted if they can be computed from other surrounding deltas. This takes
+    /// a tuple variation record along with the original points list (from the glyf
+    /// table) and the indices of the end points of the contours (as the optimization
+    /// is done contour-wise), and returns a full list of (x,y) deltas, with the
+    /// implied deltas expanded.
     pub fn iup_delta(&self, coords: &[(i16, i16)], ends: &[usize]) -> Vec<(i16, i16)> {
         // Unlike Python the ends array has all the ends in.
         let deltas = &self.1;
@@ -148,6 +161,10 @@ impl TupleVariation {
     }
 }
 
+/// A Tuple Variation Store
+///
+/// A tuple variation store is the way that OpenType internally represents
+/// variation records in the `gvar` and `cvt` tables.
 #[derive(Debug, PartialEq)]
 pub struct TupleVariationStore(pub Vec<TupleVariation>);
 

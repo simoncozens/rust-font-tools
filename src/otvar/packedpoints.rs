@@ -1,3 +1,4 @@
+/// Packed points within a Tuple Variation Store
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_field, read_field_counted};
 use serde::de::SeqAccess;
@@ -5,8 +6,15 @@ use serde::de::Visitor;
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+/// An array of packed points
+///
+/// If the option is None, then this represents all points within the glyph.
+/// (Including phantom points.) This must be decoded with reference to the
+/// glyph's contour and component information. If the option is Some, a vector
+/// of the point numbers for which delta information is provided.
 #[derive(Debug, PartialEq)]
 pub struct PackedPoints {
+    /// the array of points
     pub points: Option<Vec<uint16>>,
 }
 
