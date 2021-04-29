@@ -1,10 +1,15 @@
+use otspec::types::*;
 use otspec::{deserialize_visitor, read_field, read_field_counted};
+use otspec_macros::tables;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize};
 use serde::{Deserializer, Serializer};
 
+/// The list of 258 standard Macintosh glyph names.
+/// Names not in this list will be stored separately in the post table if
+/// version==2
 const APPLE_NAMES: &[&str] = &[
     ".notdef",
     ".null",
@@ -266,10 +271,6 @@ const APPLE_NAMES: &[&str] = &[
     "dcroat",
 ];
 
-extern crate otspec;
-use otspec::types::*;
-use otspec_macros::tables;
-
 tables!( postcore {
     Version16Dot16  version
     Fixed   italicAngle
@@ -282,24 +283,34 @@ tables!( postcore {
     uint32  maxMemType1
 });
 
+/// Represents the font's post (PostScript) table
 #[derive(Debug, PartialEq)]
 pub struct post {
+    /// version of the post table (either 0.5 or 1.0), expressed as a Fixed::U16F16.
     pub version: U16F16,
+    /// Italic angle in counter-clockwise degrees.
     pub italicAngle: f32,
+    /// Suggested distance of the top of the underline from the baseline.
     pub underlinePosition: FWORD,
+    /// Suggested values for the underline thickness.
     pub underlineThickness: FWORD,
+    /// If set to non-zero, the renderer may regard this as strictly a fixed pitch font.
     pub isFixedPitch: uint32,
+    /// Minimum memory usage (deprecated, set to zero)
     pub minMemType42: uint32,
+    /// Maximum memory usage (deprecated, set to zero)
     pub maxMemType42: uint32,
+    /// Minimum memory usage when downloaded to Type1 (deprecated, set to zero)
     pub minMemType1: uint32,
+    /// Maxium memory usage when downloaded to Type1 (deprecated, set to zero)
     pub maxMemType1: uint32,
+    /// Array of glyph names
     pub glyphnames: Option<Vec<String>>,
 }
 
 impl post {
-    pub fn set_version(&mut self, version: f32) {
-        self.version = U16F16::from_num(version);
-    }
+    /// Creates a new table with a given version.
+    /// The glyph names are optional, and only written out if version==2
     pub fn new(
         version: f32,
         italicAngle: f32,
@@ -320,6 +331,14 @@ impl post {
             maxMemType42: 0,
             minMemType42: 0,
         }
+    }
+
+    /// Change this table's version.
+    ///
+    /// Versions are stored internally as fixed U16F16 numbers for ease of
+    /// serialization, so this function stops you from having to mess with them.
+    pub fn set_version(&mut self, version: f32) {
+        self.version = U16F16::from_num(version);
     }
 }
 impl Serialize for post {

@@ -1,12 +1,10 @@
+use otspec::types::*;
+use otspec::{deserialize_visitor, read_field};
+use otspec_macros::tables;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::Deserializer;
 use serde::{Deserialize, Serialize};
-extern crate otspec;
-
-use otspec::types::*;
-use otspec::{deserialize_visitor, read_field};
-use otspec_macros::tables;
 
 tables!(
 maxp05 {

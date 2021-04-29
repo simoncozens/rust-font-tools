@@ -1,9 +1,6 @@
-use serde::{Deserialize, Serialize};
-
-extern crate otspec;
-
 use otspec::types::*;
 use otspec_macros::tables;
+use serde::{Deserialize, Serialize};
 
 tables!(head {
     uint16 majorVersion

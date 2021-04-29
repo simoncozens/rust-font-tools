@@ -46,33 +46,60 @@ fn get_encoding(platform_id: u16, encoding_id: u16) -> EncodingRef {
     unimplemented!()
 }
 
+/// Descriptive names of the name table nameID entries
 #[derive(Copy, Clone)]
 pub enum NameRecordID {
+    /// Copyright notice
     Copyright,
+    /// Font Family name
     FontFamilyName,
+    /// Font Subfamily name
     FontSubfamilyName,
+    /// Unique font identifier
     UniqueID,
+    /// Full font name that reflects all family and relevant subfamily descriptors
     FullFontName,
+    /// Version string
     Version,
+    /// PostScript name for the font
     PostscriptName,
+    /// Trademark
     Trademark,
+    /// Manufacturer Name
     Manufacturer,
+    /// Designer
     Designer,
+    /// Description
     Description,
+    /// URL Vendor
     ManufacturerURL,
+    /// URL Designer
     DesignerURL,
+    /// License Description
     License,
+    /// License Info URL
     LicenseURL,
+    /// Reserved
     Reserved,
+    /// Typographic Family name
     PreferredFamilyName,
+    /// Typographic Subfamily name
     PreferredSubfamilyName,
+    /// Compatible Full (Macintosh only)
     CompatibleFullName,
+    /// Sample text
     SampleText,
+    /// PostScript CID findfont name
     PostScriptCID,
+    /// WWS Family Name
     WWSFamilyName,
+    /// WWS Subfamily Name
     WWSSubfamilyName,
+    /// Light Background Palette
     LightBackgroundPalette,
+    /// Dark Background Palette
     DarkBackgroundPalette,
+    /// Variations PostScript Name Prefix
     VariationsPostScriptNamePrefix,
 }
 
@@ -93,16 +120,24 @@ tables!(
     }
 );
 
+/// A single name record to be placed inside the name table
 #[derive(Debug, PartialEq)]
 pub struct NameRecord {
+    /// Platform ID (0=Unicode, 1=Macintosh, 3=Windows)
     pub platformID: uint16,
+    /// Identifier for encoding of string content. Platform-specific.
     pub encodingID: uint16,
+    /// Identifier for language of string content. Platform-specific.
     pub languageID: uint16,
+    /// The numeric identifier representing the type of data. See NameRecordID.
     pub nameID: uint16,
+    /// The actual content
     pub string: String,
 }
 
 impl NameRecord {
+    /// Create a new name record for the Windows platform in Unicode encoding
+    /// (3,10,0x409)
     pub fn windows_unicode<T, U>(n: T, s: U) -> NameRecord
     where
         T: Into<u16>,
@@ -118,6 +153,7 @@ impl NameRecord {
     }
 }
 
+/// Represents a font's name (Naming) table
 #[derive(Debug, PartialEq)]
 pub struct name {
     pub records: Vec<NameRecord>,

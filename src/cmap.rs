@@ -1,6 +1,9 @@
 use crate::font::get_search_range;
 use otspec::de::CountedDeserializer;
 use otspec::ser;
+use otspec::types::*;
+use otspec::{deserialize_visitor, read_field, read_field_counted};
+use otspec_macros::tables;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::ser::SerializeSeq;
@@ -8,12 +11,8 @@ use serde::Deserializer;
 use serde::Serializer;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
-use std::convert::TryInto;
-extern crate otspec;
-use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_field_counted};
-use otspec_macros::tables;
 use std::collections::{BTreeMap, HashSet};
+use std::convert::TryInto;
 use std::hash::{Hash, Hasher};
 
 tables!(

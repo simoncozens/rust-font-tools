@@ -72,46 +72,86 @@ tables!(
     }
 );
 
+/// Represents a font's OS/2 (OS/2 and Windows Metrics) table
 #[derive(Debug, PartialEq)]
 pub struct os2 {
+    /// Table version (between 0 and 5)
     pub version: uint16,
+    /// Average width (xMax-xMin) of all non-empty glyphs
     pub xAvgCharWidth: int16,
+    /// Visual weight class (0-1000)
     pub usWeightClass: uint16,
+    /// Visual width class (1=Ultra-Condensed <-> 9=Ultra-Expanded)
     pub usWidthClass: uint16,
+    /// Font embedding permissions bit field
     pub fsType: uint16,
+    /// Horizontal size of subscript glyphs
     pub ySubscriptXSize: int16,
+    /// Vertical size of subscript glyphs
     pub ySubscriptYSize: int16,
+    /// Horizontal offset of subscript glyphs
     pub ySubscriptXOffset: int16,
+    /// Vertical offset of subscript glyphs
     pub ySubscriptYOffset: int16,
+    /// Horizontal size of superscript glyphs
     pub ySuperscriptXSize: int16,
+    /// Vertical size of superscript glyphs
     pub ySuperscriptYSize: int16,
+    /// Horizontal offset of superscript glyphs
     pub ySuperscriptXOffset: int16,
+    /// Vertical offset of superscript glyphs
     pub ySuperscriptYOffset: int16,
+    /// Thickness of strikeout dash (usually same as em dash thickness)
     pub yStrikeoutSize: int16,
+    /// Strikeout dash position above baseline
     pub yStrikeoutPosition: int16,
+    /// IBM font class parameter. See <https://docs.microsoft.com/en-us/typography/opentype/spec/ibmfc>.
     pub sFamilyClass: int16,
+    /// PANOSE metrics. See <https://monotype.github.io/panose/pan1.htm>.
     pub panose: Panose,
+    /// Supported unicode range (bitfield)
     pub ulUnicodeRange1: uint32,
+    /// Supported unicode range (bitfield)
     pub ulUnicodeRange2: uint32,
+    /// Supported unicode range (bitfield)
     pub ulUnicodeRange3: uint32,
+    /// Supported unicode range (bitfield)
     pub ulUnicodeRange4: uint32,
+    /// Registered vendor ID. See <https://docs.microsoft.com/en-gb/typography/vendors/>.
     pub achVendID: Tag,
+    /// Font selection bitfield
     pub fsSelection: uint16,
+    /// Minimum Unicode codepoint supported by font
     pub usFirstCharIndex: uint16,
+    /// Maximum Unicode codepoint supported by font
     pub usLastCharIndex: uint16,
+    /// Typographic ascender
     pub sTypoAscender: int16,
+    /// Typographic descender
     pub sTypoDescender: int16,
+    /// Typographic line gap
     pub sTypoLineGap: int16,
+    /// Windows clipping region ascender
     pub usWinAscent: uint16,
+    /// Windows clipping region descender (Usually positive!)
     pub usWinDescent: uint16,
+    /// Bitfield of supported codepages (Version >=1)
     pub ulCodePageRange1: Option<uint32>,
+    /// Bitfield of supported codepages (Version >=1)
     pub ulCodePageRange2: Option<uint32>,
+    /// x-Height (Version >= 2)
     pub sxHeight: Option<int16>,
+    /// Cap height (Version >= 2)
     pub sCapHeight: Option<int16>,
+    /// GID used for undefined glyph (Version >= 2)
     pub usDefaultChar: Option<uint16>,
+    /// GID used for word break glyph (Version >= 2)
     pub usBreakChar: Option<uint16>,
+    /// Length of largest contextual lookup (Version >= 2)
     pub usMaxContext: Option<uint16>,
+    /// Lowest supported optical point size. Deprecated, use STAT instead (Version >= 5)
     pub usLowerOpticalPointSize: Option<uint16>,
+    /// Highest supported optical point size. Deprecated, use STAT instead (Version >= 5)
     pub usUpperOpticalPointSize: Option<uint16>,
 }
 

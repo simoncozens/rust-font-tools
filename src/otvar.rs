@@ -1,3 +1,4 @@
+///! OpenType Variations common tables
 mod itemvariationstore;
 mod packeddeltas;
 mod packedpoints;
@@ -6,12 +7,15 @@ mod tuplevariationstore;
 
 use otspec::types::int16;
 
+/// Represents either a two-dimensional (gvar) or one-dimensional (cvt) delta value
 #[derive(Debug, PartialEq)]
 pub enum Delta {
     Delta1D(int16),
     Delta2D((int16, int16)),
 }
 impl Delta {
+    /// Assuming that this is a two-dimensional delta, returns the delta as a
+    /// X,Y coordinate tuple.
     pub fn get_2d(&self) -> (int16, int16) {
         if let Delta::Delta2D(p) = self {
             *p

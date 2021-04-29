@@ -3,8 +3,6 @@ use otspec::types::*;
 use otspec_macros::tables;
 use serde::{Deserialize, Serialize};
 
-extern crate otspec;
-
 tables!(
 GaspRecord {
     uint16 rangeMaxPPEM

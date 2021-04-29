@@ -78,8 +78,8 @@ pub fn tables(item: TokenStream) -> TokenStream {
 
         let table_name = expect_ident(maybe_table_name);
         out_s.push_str(&format!(
-            "#[derive(Serialize, Deserialize, Debug, PartialEq)]\npub struct {} {{",
-            table_name
+            "/// Low-level structure used for serializing/deserializing table\n#[allow(missing_docs)]\n#[derive(Serialize, Deserialize, Debug, PartialEq)]\npub struct {} {{",
+            table_name,
         ));
 
         let mut table_def = expect_group(iter.next(), Delimiter::Brace).into_iter();

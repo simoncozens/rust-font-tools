@@ -1,3 +1,4 @@
+#![warn(missing_docs, missing_crate_level_docs)]
 #![allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms)]
 
 mod avar;
@@ -12,7 +13,11 @@ pub mod hhea;
 pub mod hmtx;
 mod loca;
 pub mod maxp;
+/// Represents a font's name (Naming) table
 pub mod name;
+/// Represents a font's OS/2 (OS/2 and Windows Metrics) table
 pub mod os2;
-mod otvar;
+/// OpenType Variations common tables
+pub mod otvar;
+/// Represents the font's post (PostScript) table
 pub mod post;

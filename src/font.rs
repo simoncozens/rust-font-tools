@@ -1,12 +1,3 @@
-use otspec::error::Error as OTSpecError;
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::{Deserialize, Deserializer};
-use serde::{Serialize, Serializer};
-use std::collections::BTreeMap;
-use std::convert::{TryFrom, TryInto};
-use std::num::Wrapping;
-extern crate otspec;
 use crate::avar::avar;
 use crate::cmap::cmap;
 use crate::fvar::fvar;
@@ -21,10 +12,18 @@ use crate::maxp::maxp;
 use crate::name::name;
 use crate::os2::os2;
 use crate::post::post;
+use otspec::error::Error as OTSpecError;
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_field};
+use serde::de::SeqAccess;
+use serde::de::Visitor;
+use serde::{Deserialize, Deserializer};
+use serde::{Serialize, Serializer};
 use std::cmp;
+use std::collections::BTreeMap;
+use std::convert::{TryFrom, TryInto};
 use std::io::Write;
+use std::num::Wrapping;
 
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(untagged)]

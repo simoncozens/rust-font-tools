@@ -33,11 +33,15 @@ tables!(
     }
 );
 
+/// Struct representing a named instance within the variable font's design space
 #[derive(Debug, PartialEq)]
 pub struct InstanceRecord {
-    subfamilyNameID: uint16,
-    coordinates: Tuple,
-    postscriptNameID: Option<uint16>,
+    /// The name ID for entries in the 'name' table that provide subfamily names for this instance.
+    pub subfamilyNameID: uint16,
+    /// Location of this instance in the design space.
+    pub coordinates: Tuple,
+    /// The name ID for entries in the 'name' table that provide PostScript names for this instance.
+    pub postscriptNameID: Option<uint16>,
 }
 
 stateful_deserializer!(
@@ -82,10 +86,13 @@ fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Vec<InstanceRecord>, A:
         }
 );
 
+/// Represents a font's fvar (Font Variations) table
 #[derive(Debug, PartialEq)]
 pub struct fvar {
-    axes: Vec<VariationAxisRecord>,
-    instances: Vec<InstanceRecord>,
+    /// The font's axes of variation
+    pub axes: Vec<VariationAxisRecord>,
+    /// Any named instances within the design space
+    pub instances: Vec<InstanceRecord>,
 }
 
 deserialize_visitor!(

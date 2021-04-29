@@ -425,10 +425,12 @@ macro_rules! stateful_deserializer {
      $visit_seq_implementation:item
      ) => {
 
+#[allow(missing_docs)]
 pub struct $deserializer_name {
     $( pub $element: $ty, )+
 }
 
+#[allow(missing_docs)]
 impl<'de> DeserializeSeed<'de> for $deserializer_name {
     type Value = $struct_name;
 
