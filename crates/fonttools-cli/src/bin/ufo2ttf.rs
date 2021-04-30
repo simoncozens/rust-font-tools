@@ -192,10 +192,9 @@ fn compile_os2(
 
     os2 {
         version: 4,
-        xAvgCharWidth: metrics
-            .iter()
-            .map(|m| m.advanceWidth as f32 / metrics.len() as f32)
-            .sum::<f32>() as i16,
+        xAvgCharWidth: (
+            metrics.iter().map(|m| m.advanceWidth as f32).sum::<f32>() / metrics.iter().filter(|m| m.advanceWidth != 0).count() as f32
+        ).round() as i16,
         usWeightClass: info.open_type_os2_weight_class.unwrap_or(400) as u16,
         usWidthClass: info.open_type_os2_width_class.map_or(5, |f| f as u16),
         fsType: int_list_to_num(&info.open_type_os2_type.as_ref().unwrap_or(&vec![2])) as u16,
