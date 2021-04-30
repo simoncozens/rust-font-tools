@@ -156,7 +156,7 @@ where
     if angle == 0.0 {
         return 0;
     }
-    (offset.into() as f64 * (-angle).to_radians().tan()) as i32
+    (offset.into() as f64 * (-angle).to_radians().tan()).round() as i32
 }
 
 fn compile_os2(
@@ -170,7 +170,7 @@ fn compile_os2(
     let xHeight = info.x_height.map_or(upm * 0.5, |f| f.get());
     let subscript_y_offset = info
         .open_type_os2_subscript_y_offset
-        .unwrap_or((upm * 0.075) as i32) as i16;
+        .unwrap_or((upm * 0.075).round() as i32) as i16;
     let font_ascender = ascender(info);
     let font_descender = descender(info);
     let sTypoAscender = info
@@ -184,11 +184,11 @@ fn compile_os2(
             .unwrap_or((upm * 1.2) as i32 + (font_ascender - font_descender) as i32) as i16;
     let superscript_y_offset = info
         .open_type_os2_superscript_y_offset
-        .unwrap_or((upm * 0.35) as i32) as i16;
+        .unwrap_or((upm * 0.35).round() as i32) as i16;
 
     let subscript_x_size = info
         .open_type_os2_subscript_x_size
-        .unwrap_or((upm * 0.65) as i32) as i16;
+        .unwrap_or((upm * 0.65).round()  as i32)as i16;
 
     os2 {
         version: 4,
@@ -202,7 +202,7 @@ fn compile_os2(
         ySubscriptXSize: subscript_x_size,
         ySubscriptYSize: info
             .open_type_os2_subscript_y_size
-            .unwrap_or((upm * 0.6) as i32) as i16,
+            .unwrap_or((upm * 0.6).round()  as i32) as i16,
         ySubscriptYOffset: subscript_y_offset,
         ySubscriptXOffset: info
             .open_type_os2_subscript_x_offset
@@ -211,10 +211,10 @@ fn compile_os2(
 
         ySuperscriptXSize: info
             .open_type_os2_superscript_x_size
-            .unwrap_or((upm * 0.65) as i32) as i16,
+            .unwrap_or((upm * 0.65).round()  as i32) as i16,
         ySuperscriptYSize: info
             .open_type_os2_superscript_y_size
-            .unwrap_or((upm * 0.6) as i32) as i16,
+            .unwrap_or((upm * 0.6).round()  as i32) as i16,
         ySuperscriptYOffset: superscript_y_offset,
         ySuperscriptXOffset: info
             .open_type_os2_superscript_x_offset
