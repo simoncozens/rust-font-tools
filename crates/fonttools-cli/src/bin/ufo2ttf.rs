@@ -156,7 +156,7 @@ where
     if angle == 0.0 {
         return 0;
     }
-    (offset.into() as f64 * (-angle).to_radians().tan()) as i32
+    (offset.into() as f64 * (-angle).to_radians().tan()).round() as i32
 }
 
 fn compile_os2(
@@ -170,7 +170,7 @@ fn compile_os2(
     let xHeight = info.x_height.map_or(upm * 0.5, |f| f.get());
     let subscript_y_offset = info
         .open_type_os2_subscript_y_offset
-        .unwrap_or((upm * 0.075) as i32) as i16;
+        .unwrap_or((upm * 0.075).round() as i32) as i16;
     let font_ascender = ascender(info);
     let font_descender = descender(info);
     let sTypoAscender = info
@@ -184,25 +184,24 @@ fn compile_os2(
             .unwrap_or((upm * 1.2) as i32 + (font_ascender - font_descender) as i32) as i16;
     let superscript_y_offset = info
         .open_type_os2_superscript_y_offset
-        .unwrap_or((upm * 0.35) as i32) as i16;
+        .unwrap_or((upm * 0.35).round() as i32) as i16;
 
     let subscript_x_size = info
         .open_type_os2_subscript_x_size
-        .unwrap_or((upm * 0.65) as i32) as i16;
+        .unwrap_or((upm * 0.65).round()  as i32)as i16;
 
     os2 {
         version: 4,
-        xAvgCharWidth: metrics
-            .iter()
-            .map(|m| m.advanceWidth as f32 / metrics.len() as f32)
-            .sum::<f32>() as i16,
+        xAvgCharWidth: (
+            metrics.iter().map(|m| m.advanceWidth as f32).sum::<f32>() / metrics.iter().filter(|m| m.advanceWidth != 0).count() as f32
+        ).round() as i16,
         usWeightClass: info.open_type_os2_weight_class.unwrap_or(400) as u16,
         usWidthClass: info.open_type_os2_width_class.map_or(5, |f| f as u16),
         fsType: int_list_to_num(&info.open_type_os2_type.as_ref().unwrap_or(&vec![2])) as u16,
         ySubscriptXSize: subscript_x_size,
         ySubscriptYSize: info
             .open_type_os2_subscript_y_size
-            .unwrap_or((upm * 0.6) as i32) as i16,
+            .unwrap_or((upm * 0.6).round()  as i32) as i16,
         ySubscriptYOffset: subscript_y_offset,
         ySubscriptXOffset: info
             .open_type_os2_subscript_x_offset
@@ -211,10 +210,10 @@ fn compile_os2(
 
         ySuperscriptXSize: info
             .open_type_os2_superscript_x_size
-            .unwrap_or((upm * 0.65) as i32) as i16,
+            .unwrap_or((upm * 0.65).round()  as i32) as i16,
         ySuperscriptYSize: info
             .open_type_os2_superscript_y_size
-            .unwrap_or((upm * 0.6) as i32) as i16,
+            .unwrap_or((upm * 0.6).round()  as i32) as i16,
         ySuperscriptYOffset: superscript_y_offset,
         ySuperscriptXOffset: info
             .open_type_os2_superscript_x_offset
