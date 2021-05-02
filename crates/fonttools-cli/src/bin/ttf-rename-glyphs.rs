@@ -20,7 +20,7 @@ fn main() {
     env_logger::init();
     let matches = App::new("ttf-rename-glyphs")
         .about("Renames glyphs to production")
-        .arg(Arg::with_name("drop-names"))
+        .arg(Arg::with_name("drop-names").short("d").required(false))
         .arg(
             Arg::with_name("INPUT")
                 .help("Sets the input file to use")
