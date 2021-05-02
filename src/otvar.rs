@@ -2,6 +2,8 @@
 
 /// Item Variation Store (used in `MVAR`, etc.)
 mod itemvariationstore;
+/// Structs to store locations (user and normalized)
+mod locations;
 /// Structs for storing packed deltas within a tuple variation store
 mod packeddeltas;
 /// Structs for storing packed points
