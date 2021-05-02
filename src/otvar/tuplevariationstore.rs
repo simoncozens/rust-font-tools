@@ -180,11 +180,14 @@ stateful_deserializer!(
     where
         A: SeqAccess<'de>,
     {
+        // Begin with the "GlyphVariationData header"
         let packed_count = read_field!(seq, uint16, "a packed count");
         let count = packed_count & 0x0FFF;
         let points_are_shared = (packed_count & 0x8000) != 0;
         let mut shared_points = vec![];
         let _data_offset = read_field!(seq, uint16, "a data offset");
+
+        // Read the headers
         let mut headers: Vec<TupleVariationHeader> = vec![];
         let mut variations: Vec<TupleVariation> = vec![];
         for _ in 0..count {
@@ -195,6 +198,9 @@ stateful_deserializer!(
                 .unwrap(),
             );
         }
+
+        // Now we are into the "serialized data block"
+        // ...which begins with Shared "point" numbers (optional per flag in the header)
         if points_are_shared {
             shared_points = match read_field!(seq, PackedPoints, "packed points").points {
                 Some(pts) => pts,
@@ -202,6 +208,7 @@ stateful_deserializer!(
             };
         }
 
+        // And finally per-tuple variation data
         for header in headers {
             let mut points_for_this_header: VecDeque<u16>;
             /* Private points? */

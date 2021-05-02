@@ -1,4 +1,5 @@
 use crate::otvar::*;
+use counter::Counter;
 use otspec::de::CountedDeserializer;
 use otspec::de::Deserializer as OTDeserializer;
 use otspec::types::*;
@@ -8,6 +9,7 @@ use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize, Serializer};
+use std::collections::HashMap;
 use std::convert::TryInto;
 
 tables!( gvarcore {
@@ -22,12 +24,70 @@ tables!( gvarcore {
 }
 );
 
+/// How a glyph's points vary at one region of the design space.
+///
+/// (This is the user-friendly version of what is serialized as a TupleVariation)
 #[derive(Debug, PartialEq)]
 pub struct DeltaSet {
     pub peak: Tuple,
     pub start: Tuple,
     pub end: Tuple,
     pub deltas: Vec<(i16, i16)>,
+}
+
+impl DeltaSet {
+    fn to_tuple_variation(
+        &self,
+        shared_tuples: &[Tuple],
+        has_private_points: bool,
+    ) -> TupleVariation {
+        let index = shared_tuples.iter().position(|t| *t == self.peak);
+        let mut flags = TupleIndexFlags::empty();
+        let shared_tuple_index: uint16;
+        if let Some(sti) = index {
+            shared_tuple_index = sti as u16;
+            flags |= TupleIndexFlags::EMBEDDED_PEAK_TUPLE;
+        } else {
+            shared_tuple_index = 0;
+        }
+        // This check is wrong. See Python compileIntermediateCoord
+        if self.peak != self.start || self.peak != self.end {
+            flags |= TupleIndexFlags::INTERMEDIATE_REGION;
+        }
+
+        if has_private_points {
+            flags |= TupleIndexFlags::PRIVATE_POINT_NUMBERS;
+        }
+
+        let tvh = TupleVariationHeader {
+            size: 0, // This will be filled in when serializing the TVS
+            flags,
+            sharedTupleIndex: shared_tuple_index,
+            peakTuple: if flags.contains(TupleIndexFlags::EMBEDDED_PEAK_TUPLE) {
+                Some(self.peak.clone())
+            } else {
+                None
+            },
+            startTuple: if flags.contains(TupleIndexFlags::INTERMEDIATE_REGION) {
+                Some(self.start.clone())
+            } else {
+                None
+            },
+            endTuple: if flags.contains(TupleIndexFlags::INTERMEDIATE_REGION) {
+                Some(self.end.clone())
+            } else {
+                None
+            },
+        };
+
+        let deltas = self
+            .deltas
+            .iter()
+            .map(|(x, y)| Some(Delta::Delta2D((*x, *y))))
+            .collect();
+        // Do IUP optimization here.
+        TupleVariation(tvh, deltas)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -70,7 +130,7 @@ stateful_deserializer!(
             // println!("Start {:?}", shared_tuple_start);
             let bytes = &remainder[shared_tuple_start..shared_tuple_start + 2 * axis_count];
             let mut de = OTDeserializer::from_bytes(bytes);
-            // println!("Trying to deserialize shared tuple array {:?}", bytes);
+            println!("Trying to deserialize shared tuple array {:?}", bytes);
             let cs: CountedDeserializer<i16> = CountedDeserializer::with_len(axis_count);
             let tuple: Vec<f32> = cs
                 .deserialize(&mut de)
@@ -78,7 +138,7 @@ stateful_deserializer!(
                 .iter()
                 .map(|i| *i as f32 / 16384.0)
                 .collect();
-            // println!("Tuple {:?}", tuple);
+            println!("Tuple {:?}", tuple);
             shared_tuple_start += 2 * axis_count;
             shared_tuples.push(tuple);
         }
@@ -136,6 +196,57 @@ stateful_deserializer!(
     }
 );
 
+impl gvar {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out: Vec<u8> = vec![];
+        // Determine all the shared tuples.
+        let mut shared_tuple_counter: Counter<Vec<u8>> = Counter::new();
+        for var in self.variations.iter().flatten() {
+            for ds in &var.deltasets {
+                println!("Peak: {:?}", ds.peak);
+                shared_tuple_counter[&ds
+                    .peak
+                    .iter()
+                    .map(|x| otspec::ser::to_bytes(&F2DOT14::pack(*x)).unwrap())
+                    .flatten()
+                    .collect::<Vec<u8>>()] += 1;
+            }
+        }
+        shared_tuple_counter.retain(|_, &mut v| v > 1);
+        let most_common_tuples: Vec<(Vec<u8>, usize)> = shared_tuple_counter.most_common();
+        if most_common_tuples.is_empty() {
+            panic!("Some more sensible error checking here for null case");
+        }
+        out.extend(
+            otspec::ser::to_bytes(&gvarcore {
+                majorVersion: 1,
+                minorVersion: 0,
+                axisCount: (most_common_tuples[0].0.len() as u16 / 4),
+                sharedTupleCount: most_common_tuples.len() as u16,
+                sharedTuplesOffset: 30, // XXX
+                glyphCount: self.variations.len() as u16,
+                flags: 0,
+                glyphVariationDataArrayOffset: 38, // XXX
+            })
+            .unwrap(),
+        );
+        for var in &self.variations {
+            if var.is_some() {
+                out.push(0); // XXX
+                out.push(13); // XXX
+            } else {
+                out.push(0); // XXX
+                out.push(0); // XXX
+            }
+        }
+        println!("Most common tuples: {:?}", most_common_tuples);
+        for (a, _) in most_common_tuples {
+            out.extend(otspec::ser::to_bytes(&a).unwrap());
+        }
+        out
+    }
+}
+
 pub fn from_bytes(
     s: &[u8],
     coords_and_ends: Vec<(Vec<(int16, int16)>, Vec<usize>)>,
@@ -144,6 +255,11 @@ pub fn from_bytes(
     let cs = GvarDeserializer { coords_and_ends };
     cs.deserialize(&mut deserializer)
 }
+
+// Serialization plan:
+//  For each glyph, we have: Vec<DeltaSet>. We want TupleVariationStore (Vec<TupleVariation>).
+//      A DeltaSet consists of peak/start/end and (i16,i16) deltas.
+//      Each TupleVariation consists of the TupleVariationHeader and a Vec<Option<Delta>>
 
 impl Serialize for gvar {
     fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
@@ -302,5 +418,54 @@ mod tests {
                 ]
             })
         );
+    }
+
+    #[test]
+    fn gvar_ser() {
+        let binary_gvar = vec![
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00, 0x00, 0x1e, 0x00, 0x04,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x26, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0d,
+            0x00, 0x24, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x80, 0x02, 0x00, 0x0c,
+            0x00, 0x06, 0x00, 0x00, 0x00, 0x06, 0x00, 0x01, 0x00, 0x86, 0x02, 0xd2, 0xd2, 0x2e,
+            0x83, 0x02, 0x52, 0xae, 0xf7, 0x83, 0x86, 0x00, 0x80, 0x03, 0x00, 0x14, 0x00, 0x0a,
+            0x20, 0x00, 0x00, 0x07, 0x00, 0x01, 0x00, 0x07, 0x80, 0x00, 0x40, 0x00, 0x40, 0x00,
+            0x00, 0x02, 0x01, 0x01, 0x02, 0x01, 0x26, 0xda, 0x01, 0x83, 0x7d, 0x03, 0x26, 0x26,
+            0xda, 0xda, 0x83, 0x87, 0x03, 0x13, 0x13, 0xed, 0xed, 0x83, 0x87, 0x00,
+        ];
+        let deserialized: gvar::gvar = gvar::from_bytes(
+            &binary_gvar,
+            vec![
+                (vec![], vec![]), // .notdef
+                (vec![], vec![]), // space
+                (
+                    vec![
+                        (437, 125),
+                        (109, 125),
+                        (254, 308),
+                        (0, 0),
+                        (0, 0),
+                        (0, 0),
+                        (0, 0),
+                    ],
+                    vec![2, 3, 4, 5, 6],
+                ),
+                (
+                    vec![
+                        (261, 611),
+                        (261, 113),
+                        (108, 113),
+                        (108, 611),
+                        (0, 0),
+                        (0, 0),
+                        (0, 0),
+                        (0, 0),
+                    ],
+                    vec![3, 4, 5, 6, 7],
+                ),
+            ],
+        )
+        .unwrap();
+        let serialized = deserialized.to_bytes();
+        assert_eq!(serialized, binary_gvar);
     }
 }
