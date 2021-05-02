@@ -18,6 +18,7 @@ use norad::Font as Ufo;
 use norad::PointType;
 use otf_fea_rs::glyph::{GlyphError, GlyphRef};
 use otf_fea_rs::{compiler, parser, GlyphOrder, IntoGlyphOrder};
+use rayon::prelude::*;
 use std::collections::HashMap;
 use std::collections::{BTreeMap, VecDeque};
 use std::convert::TryInto;
@@ -25,6 +26,7 @@ use std::fs::File;
 use std::io;
 use std::marker::PhantomData;
 use std::path::Path;
+use std::sync::Arc;
 
 type LyonPoint = TypedPoint2D<f32, lyon::geom::euclid::UnknownUnit>;
 
@@ -483,7 +485,9 @@ fn norad_component_to_glyf_component(
     })
 }
 fn main() {
-    env_logger::init();
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "warn"),
+    );
     let matches = App::new("ufo2ttf")
         .about("Build TTF files from UFO")
         .arg(
@@ -521,14 +525,18 @@ fn main() {
         }
         glyph_id += 1;
     }
-    for glyf in layer.iter_contents() {
-        let glyph = glif_to_glyph(&glyf, &name_to_id);
-        metrics.push(hmtx::Metric {
-            advanceWidth: glyf.width as u16,
-            lsb: glyph.xMin,
-        });
-        glyphs.push(glyph);
-    }
+    let glifs: Vec<Arc<norad::Glyph>> = layer.iter_contents().collect();
+    let (mut glyphs, mut metrics): (Vec<glyf::Glyph>, Vec<hmtx::Metric>) = glifs
+        .par_iter()
+        .map({
+            |glyf| {
+                let glyph = glif_to_glyph(&glyf, &name_to_id);
+                let lsb = glyph.xMin;
+                let advanceWidth = glyf.width as u16;
+                (glyph, hmtx::Metric { advanceWidth, lsb })
+            }
+        })
+        .unzip();
 
     // Decompose mixed.
     let mut to_replace: Vec<(usize, glyf::Glyph)> = vec![];
@@ -601,7 +609,7 @@ fn main() {
             .map(|(name, id)| (*id as u16, GlyphRef::from_name(name)))
             .collect_into_glyph_order()
             .unwrap();
-        let compiled = compiler::compile(glyphorder, &res).expect("Could not compile features");
+        // let compiled = compiler::compile(glyphorder, &res).expect("Could not compile features");
         // let tables = compiled.encode_tables().expect("Could not encode tables");
         // for (tag, table) in tables.iter_tables() {
         //     font.tables.insert(
