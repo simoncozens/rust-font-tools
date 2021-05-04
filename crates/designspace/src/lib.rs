@@ -217,7 +217,7 @@ pub struct Instances {
 pub struct Instance {
     pub familyname: String,
     pub stylename: String,
-    pub name: String,
+    pub name: Option<String>,
     pub filename: Option<String>,
     pub postscriptfontname: Option<String>,
     pub stylemapfamilyname: Option<String>,
