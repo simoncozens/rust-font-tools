@@ -30,7 +30,8 @@ bitflags! {
 /// Used to locate a set of deltas within the design space.
 #[derive(Debug, PartialEq)]
 pub struct TupleVariationHeader {
-    /// Size in bytes of the serialized data (the data *after* the header/tuples)
+    /// Size in bytes of the serialized data (the data *after* the header/tuples
+    // including the private points but *not* including the shared points)
     pub size: uint16,
     /// Flags (including the shared tuple index)
     pub flags: TupleIndexFlags,
@@ -103,23 +104,88 @@ impl Serialize for TupleVariationHeader {
         seq.serialize_element::<uint16>(&(self.sharedTupleIndex | self.flags.bits()))?;
         if self.flags.contains(TupleIndexFlags::EMBEDDED_PEAK_TUPLE) {
             if self.peakTuple.is_some() {
-                seq.serialize_element::<Tuple>(&self.peakTuple.as_ref().unwrap())?;
+                seq.serialize_element(
+                    &self
+                        .peakTuple
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .map(|x| otspec::ser::to_bytes(&F2DOT14::pack(*x)).unwrap())
+                        .flatten()
+                        .collect::<Vec<u8>>(),
+                )?;
             } else {
                 panic!("EMBEDDED_PEAK_TUPLE was set, but there wasn't one.");
             }
         }
         if self.flags.contains(TupleIndexFlags::INTERMEDIATE_REGION) {
             if self.startTuple.is_some() {
-                seq.serialize_element::<Tuple>(&self.startTuple.as_ref().unwrap())?;
+                // This is messy. Ideally we should be able to serialize Tuple
+                // directly, but it's a type alias. Maybe investigate another way
+                // to call a serializer on it?
+                seq.serialize_element(
+                    &self
+                        .startTuple
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .map(|x| otspec::ser::to_bytes(&F2DOT14::pack(*x)).unwrap())
+                        .flatten()
+                        .collect::<Vec<u8>>(),
+                )?
             } else {
                 panic!("INTERMEDIATE_REGION was set, but there was no start tuple.");
             }
             if self.endTuple.is_some() {
-                seq.serialize_element::<Tuple>(&self.endTuple.as_ref().unwrap())?;
+                seq.serialize_element(
+                    &self
+                        .endTuple
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .map(|x| otspec::ser::to_bytes(&F2DOT14::pack(*x)).unwrap())
+                        .flatten()
+                        .collect::<Vec<u8>>(),
+                )?
             } else {
                 panic!("INTERMEDIATE_REGION was set, but there was no end tuple.");
             }
         }
         seq.end()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::otvar::tuplevariationheader::TupleVariationHeaderDeserializer;
+    use crate::otvar::{TupleIndexFlags, TupleVariationHeader};
+    use serde::de::DeserializeSeed;
+
+    #[test]
+    fn test_tvh_serde() {
+        let tvh = TupleVariationHeader {
+            size: 33,
+            flags: TupleIndexFlags::EMBEDDED_PEAK_TUPLE,
+            sharedTupleIndex: 0,
+            peakTuple: Some(vec![0.5]),
+            startTuple: None,
+            endTuple: None,
+        };
+        let serialized = otspec::ser::to_bytes(&tvh).unwrap();
+        let mut de = otspec::de::Deserializer::from_bytes(&serialized);
+        let cs = TupleVariationHeaderDeserializer { axis_count: 1 };
+        let deserialized = cs.deserialize(&mut de).unwrap();
+
+        assert_eq!(deserialized, tvh);
+    }
+
+    #[test]
+    fn test_tvh_deser() {
+        let binary_tvh: Vec<u8> = vec![0, 33, 128, 0, 32, 0];
+        let mut de = otspec::de::Deserializer::from_bytes(&binary_tvh);
+        let cs = TupleVariationHeaderDeserializer { axis_count: 1 };
+        let deserialized = cs.deserialize(&mut de).unwrap();
+        let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
+        assert_eq!(serialized, binary_tvh);
     }
 }
