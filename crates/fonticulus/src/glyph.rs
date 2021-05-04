@@ -93,6 +93,7 @@ fn compute_deltas(
     let mut deltasets: Vec<DeltaSet> = vec![];
     let (mut base_x_coords, mut base_y_coords): (Vec<i16>, Vec<i16>) =
         base.iter().flatten().map(|pt| (pt.x, pt.y)).unzip();
+    // Sure, this is bogus, don't @ me.
     base_x_coords.extend(vec![0, 0, 0, 0]);
     base_y_coords.extend(vec![0, 0, 0, 0]);
     for (master, location) in others.iter().zip(locations.iter()) {
@@ -116,6 +117,7 @@ fn compute_deltas(
             .map(|(a, b)| (*a, *b))
             .collect();
         let peak = (*location).0.clone();
+        // This is also terrible
         let bad_start = std::iter::repeat(0_f32).take(peak.len()).collect();
         let bad_end = std::iter::repeat(1_f32).take(peak.len()).collect();
         deltasets.push(DeltaSet {

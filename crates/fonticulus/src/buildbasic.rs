@@ -68,7 +68,7 @@ pub fn build_font(ufo: norad::Font) -> font::Font {
 }
 
 pub fn build_fonts(
-    default_master: norad::Font,
+    default_master: &norad::Font,
     other_masters: Vec<(NormalizedLocation, &norad::Layer)>,
 ) -> font::Font {
     let layer = default_master.default_layer();
