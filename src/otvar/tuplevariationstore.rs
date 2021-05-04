@@ -1,12 +1,14 @@
 use crate::otvar::{
-    Delta, PackedDeltasDeserializer, PackedPoints, TupleIndexFlags, TupleVariationHeader,
-    TupleVariationHeaderDeserializer,
+    Delta, PackedDeltas, PackedDeltasDeserializer, PackedPoints, TupleIndexFlags,
+    TupleVariationHeader, TupleVariationHeaderDeserializer,
 };
 use otspec::types::*;
 use otspec::{read_field, stateful_deserializer};
 use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
+use serde::ser::SerializeSeq;
+use serde::{Serialize, Serializer};
 use std::collections::VecDeque;
 
 /// A record within a tuple variation store
@@ -248,3 +250,176 @@ stateful_deserializer!(
         Ok(TupleVariationStore(variations))
     }
 );
+
+impl Serialize for TupleVariationStore {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut ser = serializer.serialize_seq(None)?;
+        let packed_count: uint16 = self.0.len() as uint16 | 0x8000; // Shared points only!
+        ser.serialize_element(&packed_count)?;
+        let mut serialized_headers = vec![];
+        let mut serialized_data_block: Vec<u8> = vec![];
+
+        // Shared points go here
+
+        #[allow(clippy::vec_init_then_push)]
+        let _ = serialized_data_block.push(0); // This is dummy code
+
+        let mut last_delta_len = serialized_data_block.len();
+        for var in &self.0 {
+            // For each glyph
+            let header = &var.0;
+            // We need to set .flags here
+            let deltas = &var.1;
+
+            // Private point numbers go here
+            // println!("Last length was {:?}", last_delta_len);
+
+            let mut dx = vec![];
+            let mut dy = vec![];
+            for d in deltas.iter().flatten() {
+                match d {
+                    Delta::Delta1D(d) => {
+                        dx.push(*d);
+                    }
+                    Delta::Delta2D((x, y)) => {
+                        dx.push(*x);
+                        dy.push(*y);
+                    }
+                }
+            }
+            // Remove the .clones here when things are fixed, they're only needed for a later println
+            serialized_data_block.extend(otspec::ser::to_bytes(&PackedDeltas(dx.clone())).unwrap());
+            if !dy.is_empty() {
+                serialized_data_block
+                    .extend(otspec::ser::to_bytes(&PackedDeltas(dy.clone())).unwrap());
+            }
+            // println!("Serializing a TVH (will fix size later): {:?}", header);
+            let mut serialized_header = otspec::ser::to_bytes(&header).unwrap();
+            // println!("Current data block {:?}", serialized_data_block);
+            // println!("Current length is {:?}", serialized_data_block.len());
+            let data_size = (serialized_data_block.len() - last_delta_len) as u16;
+            // println!("Data size is {:?}", data_size);
+            let size: Vec<u8> = otspec::ser::to_bytes(&data_size).unwrap();
+            // Set header size
+            serialized_header[0] = size[0];
+            serialized_header[1] = size[1];
+            // println!("    header as bytes {:?}", serialized_header);
+            // println!("    X deltas {:?}", dx);
+            // println!("    Y deltas {:?}", dy);
+            // println!(
+            // "    data for this header: {:?}",
+            // serialized_data_block[last_delta_len..serialized_data_block.len()].to_vec()
+            // );
+            last_delta_len = serialized_data_block.len();
+            serialized_headers.extend(serialized_header);
+        }
+        let data_offset: uint16 = 4 + (serialized_headers.len() as uint16);
+        ser.serialize_element(&data_offset)?;
+        ser.serialize_element(&serialized_headers)?;
+        ser.serialize_element(&serialized_data_block)?;
+        ser.end()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::otvar::Delta::Delta2D;
+    use crate::otvar::TupleVariation;
+    use crate::otvar::TupleVariationHeader;
+    use crate::otvar::{TupleIndexFlags, TupleVariationStore, TupleVariationStoreDeserializer};
+    use serde::de::DeserializeSeed;
+
+    #[test]
+    fn test_tvs_de() {
+        let binary_tvs: Vec<u8> = vec![
+            0x80, 0x01, 0x00, 0x0a, 0x00, 0x21, 0x80, 0x00, 0x20, 0x00, 0x00, 0x06, 0xcb, 0xd0,
+            0xb7, 0xbb, 0x00, 0xf0, 0x8c, 0x40, 0xff, 0x7c, 0x03, 0xb5, 0xd2, 0xc3, 0x00, 0x40,
+            0xfe, 0xe0, 0x81, 0x0a, 0x08, 0xfd, 0xfd, 0x08, 0x08, 0xe4, 0xe4, 0x08, 0xc5, 0xc5,
+            0xeb, 0x83,
+        ];
+        let mut de = otspec::de::Deserializer::from_bytes(&binary_tvs);
+        let cs = TupleVariationStoreDeserializer {
+            axis_count: 1,
+            point_count: 15,
+            is_gvar: true,
+        };
+        let tvs = cs.deserialize(&mut de).unwrap();
+        let expected = TupleVariationStore(vec![TupleVariation(
+            TupleVariationHeader {
+                size: 33,
+                flags: TupleIndexFlags::EMBEDDED_PEAK_TUPLE,
+                sharedTupleIndex: 0,
+                peakTuple: Some(vec![0.5]),
+                startTuple: None,
+                endTuple: None,
+            },
+            vec![
+                Some(Delta2D((-53, 8))),
+                Some(Delta2D((-48, -3))),
+                Some(Delta2D((-73, -3))),
+                Some(Delta2D((-69, 8))),
+                Some(Delta2D((0, 8))),
+                Some(Delta2D((-16, -28))),
+                Some(Delta2D((-116, -28))),
+                Some(Delta2D((-132, 8))),
+                Some(Delta2D((-75, -59))),
+                Some(Delta2D((-46, -59))),
+                Some(Delta2D((-61, -21))),
+                Some(Delta2D((0, 0))),
+                Some(Delta2D((-288, 0))),
+                Some(Delta2D((0, 0))),
+                Some(Delta2D((0, 0))),
+            ],
+        )]);
+        assert_eq!(tvs, expected);
+    }
+
+    #[test]
+    fn test_tvs_ser() {
+        let expected: Vec<u8> = vec![
+            0x80, 0x01, /* tupleVariationCount. SHARED_POINT_NUMBERS */
+            0x00, 0x0a, /* dataOffset */
+            /* TVH */
+            0x00, 0x21, /* variationDataSize: 33 bytes */
+            0x80, 0x00, /* tuple index. EMBEDDED_PEAK_TUPLE */
+            0x20, 0x00, /* Peak tuple record */
+            0x00, /* Shared point numbers */
+            /* per-tuple variation data */
+            0x06, 0xcb, 0xd0, 0xb7, 0xbb, 0x00, 0xf0, 0x8c, 0x40, 0xff, 0x7c, 0x03, 0xb5, 0xd2,
+            0xc3, 0x00, 0x40, 0xfe, 0xe0, 0x81, 0x0a, 0x08, 0xfd, 0xfd, 0x08, 0x08, 0xe4, 0xe4,
+            0x08, 0xc5, 0xc5, 0xeb, 0x83,
+        ];
+        let tvs = TupleVariationStore(vec![TupleVariation(
+            TupleVariationHeader {
+                size: 33,
+                flags: TupleIndexFlags::EMBEDDED_PEAK_TUPLE,
+                sharedTupleIndex: 0,
+                peakTuple: Some(vec![0.5]),
+                startTuple: None,
+                endTuple: None,
+            },
+            vec![
+                Some(Delta2D((-53, 8))),
+                Some(Delta2D((-48, -3))),
+                Some(Delta2D((-73, -3))),
+                Some(Delta2D((-69, 8))),
+                Some(Delta2D((0, 8))),
+                Some(Delta2D((-16, -28))),
+                Some(Delta2D((-116, -28))),
+                Some(Delta2D((-132, 8))),
+                Some(Delta2D((-75, -59))),
+                Some(Delta2D((-46, -59))),
+                Some(Delta2D((-61, -21))),
+                Some(Delta2D((0, 0))),
+                Some(Delta2D((-288, 0))),
+                Some(Delta2D((0, 0))),
+                Some(Delta2D((0, 0))),
+            ],
+        )]);
+        let binary_tvs = otspec::ser::to_bytes(&tvs).unwrap();
+        assert_eq!(binary_tvs, expected);
+    }
+}
