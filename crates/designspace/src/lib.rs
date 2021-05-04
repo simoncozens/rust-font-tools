@@ -1,6 +1,13 @@
 extern crate serde;
 extern crate serde_xml_rs;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::convert::TryInto;
+extern crate fonttools;
+extern crate norad;
+use fonttools::font::{Font, Table};
+use fonttools::fvar::{fvar, InstanceRecord, VariationAxisRecord};
+use otspec::types::Tag;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename = "designspace")]
@@ -10,6 +17,81 @@ pub struct Designspace {
     pub sources: Sources,
     pub instances: Option<Instances>,
     // pub rules: Rules,
+}
+
+impl Designspace {
+    /// Add information to a font (fvar and avar tables) expressed by this
+    /// design space.
+    pub fn add_to_font(&self, font: &mut Font) -> Result<(), &'static str> {
+        let mut axes: Vec<VariationAxisRecord> = vec![];
+        for axis in &self.axes.axis {
+            axes.push(axis.to_variation_axis_record()?);
+        }
+        let mut instances: Vec<InstanceRecord> = vec![];
+        // if let Some(i) = self.instances {
+        //     for instance in i.instance {
+        //         instances.push(instance.to_instance_record()?);
+        //     }
+        // }
+        let fvar_table = Table::Fvar(fvar { axes, instances });
+        font.tables.insert(*b"fvar", fvar_table);
+
+        // Handle avar here
+
+        Ok(())
+    }
+
+    pub fn tag_to_name(&self) -> HashMap<Tag, String> {
+        let mut hm = HashMap::new();
+        for axis in &self.axes.axis {
+            hm.insert(
+                axis.tag.as_bytes()[0..4].try_into().unwrap(),
+                axis.name.clone(),
+            );
+        }
+        hm
+    }
+
+    /// Returns the axis order. Requires the tags to be validated; will panic
+    /// if they are not four-byte tags.
+    pub fn axis_order(&self) -> Vec<Tag> {
+        self.axes
+            .axis
+            .iter()
+            .map(|ax| ax.tag.as_bytes()[0..4].try_into().unwrap())
+            .collect()
+    }
+
+    pub fn default_location(&self) -> Vec<i32> {
+        self.axes.axis.iter().map(|ax| ax.default).collect()
+    }
+
+    // Returns the location of a given source object in design space coordinates
+    pub fn source_location(&self, source: &Source) -> Vec<i32> {
+        let tag_to_name = self.tag_to_name();
+        let mut location = vec![];
+        for (tag, default) in self.axis_order().iter().zip(self.default_location().iter()) {
+            let name = tag_to_name.get(tag).unwrap();
+            // Find this in the source
+            let dim = source.location.dimension.iter().find(|d| d.name == *name);
+            if let Some(dim) = dim {
+                location.push(dim.xvalue as i32);
+            } else {
+                location.push(*default);
+            }
+        }
+        location
+    }
+
+    /// Returns the Source object for the master at default axis coordinates,
+    /// if one can be found
+    pub fn default_master(&self) -> Option<&Source> {
+        let expected = self.default_location();
+        self.sources
+            .source
+            .iter()
+            .find(|s| self.source_location(s) == expected)
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -29,6 +111,26 @@ pub struct Axis {
     pub hidden: Option<bool>,
     pub labelname: Option<Vec<LabelName>>,
     pub map: Option<Vec<Mapping>>,
+}
+
+impl Axis {
+    fn to_variation_axis_record(&self) -> Result<VariationAxisRecord, &'static str> {
+        if self.tag.len() != 4 {
+            return Err("Badly formatted axis tag");
+        }
+        Ok(VariationAxisRecord {
+            axisTag: self.tag.as_bytes()[0..4].try_into().unwrap(),
+            defaultValue: self.default as f32,
+            maxValue: self.maximum as f32,
+            minValue: self.minimum as f32,
+            flags: if self.hidden.unwrap_or(false) {
+                0x0001
+            } else {
+                0x0000
+            },
+            axisNameID: 255, /* XXX */
+        })
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -56,7 +158,13 @@ pub struct Source {
     pub name: String,
     pub filename: String,
     pub layer: Option<String>,
-    pub location: Vec<Location>,
+    pub location: Location,
+}
+
+impl Source {
+    pub fn ufo(&self) -> Result<norad::Font, norad::Error> {
+        norad::Font::load(&self.filename)
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -115,8 +223,13 @@ mod tests {
     <glyph mute="1" name="A" />
     <glyph mute="1" name="Z" />
     <location>
-        <dimension name="width" xvalue="0.000000" />
-        <dimension name="weight" xvalue="0.000000" />
+        <dimension name="width" xvalue="150" />
+    </location>
+    </source>
+    <source familyname="MasterFamilyName" filename="masters/default.ufo" name="default.ufo" stylename="MasterStyleNameOne">
+    <location>
+        <dimension name="weight" xvalue="1" />
+        <dimension name="width" xvalue="100" />
     </location>
     </source>
 </sources>
@@ -140,6 +253,13 @@ mod tests {
     "##;
         let designspace: Designspace = from_reader(s.as_bytes()).unwrap();
         println!("{:#?}", designspace);
-        assert!(false);
+        assert_eq!(designspace.default_location(), vec![1, 100]);
+        assert_eq!(
+            designspace.source_location(&designspace.sources.source[0]),
+            vec![1, 150]
+        );
+        let dm = designspace.default_master();
+        assert!(dm.is_some());
+        assert_eq!(dm.unwrap().filename, "masters/default.ufo");
     }
 }
