@@ -103,7 +103,7 @@ pub struct GlyphVariationData {
 
 #[derive(Debug, PartialEq)]
 pub struct gvar {
-    variations: Vec<Option<GlyphVariationData>>,
+    pub variations: Vec<Option<GlyphVariationData>>,
 }
 
 stateful_deserializer!(
@@ -223,7 +223,7 @@ impl gvar {
                     .collect::<Vec<u8>>()] += 1;
             }
         }
-        shared_tuple_counter.retain(|_, &mut v| v > 1);
+        // shared_tuple_counter.retain(|_, &mut v| v > 1);
         let most_common_tuples: Vec<(Vec<u8>, usize)> = shared_tuple_counter.most_common();
         if most_common_tuples.is_empty() {
             panic!("Some more sensible error checking here for null case");
