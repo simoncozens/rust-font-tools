@@ -210,8 +210,10 @@ impl gvar {
         let mut out: Vec<u8> = vec![];
         // Determine all the shared tuples.
         let mut shared_tuple_counter: Counter<Vec<u8>> = Counter::new();
+        let mut axisCount: uint16 = 0;
         for var in self.variations.iter().flatten() {
             for ds in &var.deltasets {
+                axisCount = ds.peak.len() as uint16;
                 // println!("Peak: {:?}", ds.peak);
                 shared_tuple_counter[&ds
                     .peak
@@ -226,20 +228,11 @@ impl gvar {
         if most_common_tuples.is_empty() {
             panic!("Some more sensible error checking here for null case");
         }
+        let sharedTupleCount = most_common_tuples.len() as u16;
         let flags = 0; // XXX
-        out.extend(
-            otspec::ser::to_bytes(&gvarcore {
-                majorVersion: 1,
-                minorVersion: 0,
-                axisCount: (most_common_tuples[0].0.len() as u16 / 2),
-                sharedTupleCount: most_common_tuples.len() as u16,
-                sharedTuplesOffset: 30, // XXX
-                glyphCount: self.variations.len() as u16,
-                flags,
-                glyphVariationDataArrayOffset: 38, // XXX
-            })
-            .unwrap(),
-        );
+
+        let mut glyphVariationDataOffsets: Vec<u8> = vec![];
+
         // println!("Most common tuples: {:?}", most_common_tuples);
         let mut shared_tuples = vec![];
         let mut serialized_tuples = vec![];
@@ -252,9 +245,11 @@ impl gvar {
         for var in self.variations.iter() {
             // Data offset
             if flags != 0 {
-                out.extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u32)).unwrap());
+                glyphVariationDataOffsets
+                    .extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u32)).unwrap());
             } else {
-                out.extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u16 / 2)).unwrap());
+                glyphVariationDataOffsets
+                    .extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u16 / 2)).unwrap());
             }
 
             if let Some(var) = var {
@@ -273,11 +268,29 @@ impl gvar {
         }
         // Final data offset
         if flags != 0 {
-            out.extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u32)).unwrap());
+            glyphVariationDataOffsets
+                .extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u32)).unwrap());
         } else {
-            out.extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u16 / 2)).unwrap());
+            glyphVariationDataOffsets
+                .extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u16 / 2)).unwrap());
         }
+        out.extend(
+            otspec::ser::to_bytes(&gvarcore {
+                majorVersion: 1,
+                minorVersion: 0,
+                axisCount,
+                sharedTupleCount,
+                sharedTuplesOffset: 20 + glyphVariationDataOffsets.len() as u32,
+                glyphCount: self.variations.len() as u16,
+                flags,
+                glyphVariationDataArrayOffset: 20
+                    + glyphVariationDataOffsets.len() as u32
+                    + serialized_tuples.len() as u32,
+            })
+            .unwrap(),
+        );
 
+        out.extend(glyphVariationDataOffsets);
         out.extend(serialized_tuples);
         out.extend(serialized_tvs);
 
