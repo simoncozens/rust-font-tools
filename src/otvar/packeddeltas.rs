@@ -59,7 +59,7 @@ impl Serialize for PackedDeltas {
             let mut value = deltas[pos];
             if value == 0 {
                 let mut run_length = 0;
-                while deltas[pos] == 0 && pos < deltas.len() {
+                while pos < deltas.len() && deltas[pos] == 0 {
                     run_length += 1;
                     pos += 1;
                 }
