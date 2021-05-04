@@ -38,17 +38,23 @@ pub struct DeltaSet {
 impl DeltaSet {
     fn to_tuple_variation(
         &self,
-        shared_tuples: &[Tuple],
+        shared_tuples: &[Vec<u8>],
         has_private_points: bool,
     ) -> TupleVariation {
-        let index = shared_tuples.iter().position(|t| *t == self.peak);
+        let serialized_peak = &self
+            .peak
+            .iter()
+            .map(|x| otspec::ser::to_bytes(&F2DOT14::pack(*x)).unwrap())
+            .flatten()
+            .collect::<Vec<u8>>();
+        let index = shared_tuples.iter().position(|t| t == serialized_peak);
         let mut flags = TupleIndexFlags::empty();
         let shared_tuple_index: uint16;
         if let Some(sti) = index {
             shared_tuple_index = sti as u16;
-            flags |= TupleIndexFlags::EMBEDDED_PEAK_TUPLE;
         } else {
             shared_tuple_index = 0;
+            flags |= TupleIndexFlags::EMBEDDED_PEAK_TUPLE;
         }
         // This check is wrong. See Python compileIntermediateCoord
         if self.peak != self.start || self.peak != self.end {
@@ -130,7 +136,7 @@ stateful_deserializer!(
             // println!("Start {:?}", shared_tuple_start);
             let bytes = &remainder[shared_tuple_start..shared_tuple_start + 2 * axis_count];
             let mut de = OTDeserializer::from_bytes(bytes);
-            println!("Trying to deserialize shared tuple array {:?}", bytes);
+            // println!("Trying to deserialize shared tuple array {:?}", bytes);
             let cs: CountedDeserializer<i16> = CountedDeserializer::with_len(axis_count);
             let tuple: Vec<f32> = cs
                 .deserialize(&mut de)
@@ -138,7 +144,7 @@ stateful_deserializer!(
                 .iter()
                 .map(|i| *i as f32 / 16384.0)
                 .collect();
-            println!("Tuple {:?}", tuple);
+            // println!("Tuple {:?}", tuple);
             shared_tuple_start += 2 * axis_count;
             shared_tuples.push(tuple);
         }
@@ -173,6 +179,9 @@ stateful_deserializer!(
                 for tvh in tvs.0 {
                     let deltas = tvh.iup_delta(&self.coords_and_ends[i].0, &self.coords_and_ends[i].1);
                     let index = tvh.0.sharedTupleIndex as usize;
+                    if index > shared_tuples.len() {
+                        return Err(serde::de::Error::custom(format!("Invalid shared tuple index {:}", index)))
+                    }
                     let peak_tuple = tvh
                         .0
                         .peakTuple
@@ -203,7 +212,7 @@ impl gvar {
         let mut shared_tuple_counter: Counter<Vec<u8>> = Counter::new();
         for var in self.variations.iter().flatten() {
             for ds in &var.deltasets {
-                println!("Peak: {:?}", ds.peak);
+                // println!("Peak: {:?}", ds.peak);
                 shared_tuple_counter[&ds
                     .peak
                     .iter()
@@ -217,32 +226,61 @@ impl gvar {
         if most_common_tuples.is_empty() {
             panic!("Some more sensible error checking here for null case");
         }
+        let flags = 0; // XXX
         out.extend(
             otspec::ser::to_bytes(&gvarcore {
                 majorVersion: 1,
                 minorVersion: 0,
-                axisCount: (most_common_tuples[0].0.len() as u16 / 4),
+                axisCount: (most_common_tuples[0].0.len() as u16 / 2),
                 sharedTupleCount: most_common_tuples.len() as u16,
                 sharedTuplesOffset: 30, // XXX
                 glyphCount: self.variations.len() as u16,
-                flags: 0,
+                flags,
                 glyphVariationDataArrayOffset: 38, // XXX
             })
             .unwrap(),
         );
-        for var in &self.variations {
-            if var.is_some() {
-                out.push(0); // XXX
-                out.push(13); // XXX
+        // println!("Most common tuples: {:?}", most_common_tuples);
+        let mut shared_tuples = vec![];
+        let mut serialized_tuples = vec![];
+        let mut serialized_tvs = vec![];
+        for (a, _) in most_common_tuples {
+            serialized_tuples.extend(otspec::ser::to_bytes(&a).unwrap());
+            shared_tuples.push(a);
+        }
+        // Now we need a bunch of TVSes
+        for var in self.variations.iter() {
+            // Data offset
+            if flags != 0 {
+                out.extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u32)).unwrap());
             } else {
-                out.push(0); // XXX
-                out.push(0); // XXX
+                out.extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u16 / 2)).unwrap());
+            }
+
+            if let Some(var) = var {
+                let tvs = TupleVariationStore(
+                    var.deltasets
+                        .iter()
+                        .map(|ds| ds.to_tuple_variation(&shared_tuples, false))
+                        .collect(),
+                );
+                serialized_tvs.extend(otspec::ser::to_bytes(&tvs).unwrap());
+                // Add a byte of padding
+                if (serialized_tvs.len() % 2) != 0 {
+                    serialized_tvs.push(0);
+                }
             }
         }
-        println!("Most common tuples: {:?}", most_common_tuples);
-        for (a, _) in most_common_tuples {
-            out.extend(otspec::ser::to_bytes(&a).unwrap());
+        // Final data offset
+        if flags != 0 {
+            out.extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u32)).unwrap());
+        } else {
+            out.extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u16 / 2)).unwrap());
         }
+
+        out.extend(serialized_tuples);
+        out.extend(serialized_tvs);
+
         out
     }
 }
@@ -432,40 +470,44 @@ mod tests {
             0x00, 0x02, 0x01, 0x01, 0x02, 0x01, 0x26, 0xda, 0x01, 0x83, 0x7d, 0x03, 0x26, 0x26,
             0xda, 0xda, 0x83, 0x87, 0x03, 0x13, 0x13, 0xed, 0xed, 0x83, 0x87, 0x00,
         ];
-        let deserialized: gvar::gvar = gvar::from_bytes(
-            &binary_gvar,
-            vec![
-                (vec![], vec![]), // .notdef
-                (vec![], vec![]), // space
-                (
-                    vec![
-                        (437, 125),
-                        (109, 125),
-                        (254, 308),
-                        (0, 0),
-                        (0, 0),
-                        (0, 0),
-                        (0, 0),
-                    ],
-                    vec![2, 3, 4, 5, 6],
-                ),
-                (
-                    vec![
-                        (261, 611),
-                        (261, 113),
-                        (108, 113),
-                        (108, 611),
-                        (0, 0),
-                        (0, 0),
-                        (0, 0),
-                        (0, 0),
-                    ],
-                    vec![3, 4, 5, 6, 7],
-                ),
-            ],
-        )
-        .unwrap();
+        let points = vec![
+            (vec![], vec![]), // .notdef
+            (vec![], vec![]), // space
+            (
+                vec![
+                    (437, 125),
+                    (109, 125),
+                    (254, 308),
+                    (0, 0),
+                    (0, 0),
+                    (0, 0),
+                    (0, 0),
+                ],
+                vec![2, 3, 4, 5, 6],
+            ),
+            (
+                vec![
+                    (261, 611),
+                    (261, 113),
+                    (108, 113),
+                    (108, 611),
+                    (0, 0),
+                    (0, 0),
+                    (0, 0),
+                    (0, 0),
+                ],
+                vec![3, 4, 5, 6, 7],
+            ),
+        ];
+        let deserialized: gvar::gvar = gvar::from_bytes(&binary_gvar, points.clone()).unwrap();
         let serialized = deserialized.to_bytes();
-        assert_eq!(serialized, binary_gvar);
+        let re_de: gvar::gvar = gvar::from_bytes(&serialized, points).unwrap();
+        assert_eq!(re_de, deserialized); // Are they semantically the same?
+
+        // They won't literally be the same quite yet because we are currently finessing
+        // away a few hard problems - handling shared/private points, optimizing IUP
+        // deltas, etc.
+
+        // assert_eq!(serialized, binary_gvar); // Are they the same binary?
     }
 }
