@@ -1,0 +1,21 @@
+[package]
+name = "fonticulus"
+version = "0.1.0"
+authors = ["Simon Cozens <simon@simon-cozens.org>"]
+edition = "2018"
+
+[dependencies]
+fonttools = { path = "../.." }
+otspec = { path = "../otspec" }
+designspace = { path = "../designspace" }
+clap = "2.33.3"
+itertools = "0.10.0"
+skia-safe = "0"
+norad = {  git = "https://github.com/linebender/norad", features = ["rayon", "kurbo"] }
+lyon = "0.11.0"
+kurbo = { version = "0.8.1" }
+chrono = { version = "0.4.3" }
+log = "0.4.14"
+env_logger = "0.8"
+otf-fea-rs = {  git = "https://github.com/wrl/otf-fea-rs" }
+rayon = "1.0.1"
