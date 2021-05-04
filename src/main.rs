@@ -31,16 +31,17 @@ fn main() {
 
     let ds = designspace::from_file(filename).expect("Couldn't parse designspace");
     let dm = ds.default_master().expect("Couldn't find default master");
-    let dm_ufo = dm.ufo().expect("Couldn't open default master file");
+    let mut dm_ufo = None;
     let mut other_masters: Vec<(NormalizedLocation, &norad::Layer)> = vec![];
     let all_sources: Vec<(&designspace::Source, norad::Font)> = ds
         .sources
         .source
         .iter()
-        .map(|s| (s, s.ufo().unwrap()))
+        .map(|s| (s, s.ufo().expect("Couldn't open master file")))
         .collect();
     for (source, ufo) in &all_sources {
         if source.filename == dm.filename {
+            dm_ufo = Some(ufo);
             continue;
         }
         other_masters.push((
@@ -49,7 +50,7 @@ fn main() {
         ));
     }
 
-    let mut font = build_fonts(dm_ufo, other_masters);
+    let mut font = build_fonts(dm_ufo.unwrap(), other_masters);
 
     ds.add_to_font(&mut font)
         .expect("Couldn't add variation tables");
