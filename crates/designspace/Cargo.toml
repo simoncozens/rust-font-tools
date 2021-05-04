@@ -10,3 +10,4 @@ serde = { version = "1.0", features = ["derive"] }
 fonttools = { path = "../.." }
 otspec = { path = "../otspec" }
 norad = {  git = "https://github.com/linebender/norad", features = ["rayon", "kurbo"] }
+log = "0.4.14"

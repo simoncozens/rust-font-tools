@@ -3,16 +3,23 @@ extern crate serde_xml_rs;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::fs::File;
 extern crate fonttools;
 extern crate norad;
 use fonttools::font::{Font, Table};
 use fonttools::fvar::{fvar, InstanceRecord, VariationAxisRecord};
+use fonttools::otvar::NormalizedLocation;
 use otspec::types::Tag;
+use serde_xml_rs::from_reader;
+
+pub fn from_file(filename: &str) -> Result<Designspace, serde_xml_rs::Error> {
+    from_reader(File::open(filename).unwrap())
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename = "designspace")]
 pub struct Designspace {
-    pub format: i32,
+    pub format: f32,
     pub axes: Axes,
     pub sources: Sources,
     pub instances: Option<Instances>,
@@ -92,6 +99,27 @@ impl Designspace {
             .iter()
             .find(|s| self.source_location(s) == expected)
     }
+
+    pub fn normalize_location(&self, loc: Vec<i32>) -> NormalizedLocation {
+        let mut v: Vec<f32> = vec![];
+        for (ax, iter_l) in self.axes.axis.iter().zip(loc.iter()) {
+            let mut l = *iter_l;
+            if l < ax.minimum {
+                l = ax.minimum;
+            }
+            if l > ax.maximum {
+                l = ax.maximum;
+            }
+            if l < ax.default {
+                v.push(-(ax.default - l) as f32 / (ax.default - ax.minimum) as f32);
+            } else if l > ax.default {
+                v.push((l - ax.default) as f32 / (ax.maximum - ax.default) as f32);
+            } else {
+                v.push(0_f32);
+            }
+        }
+        NormalizedLocation(v)
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -155,7 +183,7 @@ pub struct Sources {
 pub struct Source {
     pub familyname: Option<String>,
     pub stylename: Option<String>,
-    pub name: String,
+    pub name: Option<String>,
     pub filename: String,
     pub layer: Option<String>,
     pub location: Location,
@@ -163,6 +191,7 @@ pub struct Source {
 
 impl Source {
     pub fn ufo(&self) -> Result<norad::Font, norad::Error> {
+        log::info!("Loading {:}", self.filename);
         norad::Font::load(&self.filename)
     }
 }
