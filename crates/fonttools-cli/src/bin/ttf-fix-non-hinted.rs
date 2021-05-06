@@ -26,18 +26,12 @@ fn main() {
                 rangeGaspBehavior: gasp::RangeGaspBehaviorFlags::GASP_SYMMETRIC_SMOOTHING
                     | gasp::RangeGaspBehaviorFlags::GASP_DOGRAY
                     | gasp::RangeGaspBehaviorFlags::GASP_GRIDFIT
-                    | gasp::RangeGaspBehaviorFlags::GASP_SYMMETRIC_GRIDFIT
+                    | gasp::RangeGaspBehaviorFlags::GASP_SYMMETRIC_GRIDFIT,
             }],
         };
-        infont.tables.insert(
-            *b"gasp",
-            Table::Gasp(gasp_table),
-        );
+        infont.tables.insert(*b"gasp", Table::Gasp(gasp_table));
     }
     let prep_table = Table::Unknown(vec![0xb8, 0x01, 0xff, 0x85, 0xb0, 0x04, 0x8d]);
-    infont.tables.insert(
-        *b"prep",
-        prep_table
-    );
+    infont.tables.insert(*b"prep", prep_table);
     save_font(infont, &matches);
 }
