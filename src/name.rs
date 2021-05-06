@@ -137,18 +137,20 @@ pub struct NameRecord {
 
 impl NameRecord {
     /// Create a new name record for the Windows platform in Unicode encoding
-    /// (3,10,0x409)
+    /// (3,1,0x409) if all characters are in the Basic Multilingual Plane (BMP)
+    /// otherwise use (3,10,0x409)
     pub fn windows_unicode<T, U>(n: T, s: U) -> NameRecord
     where
         T: Into<u16>,
         U: Into<String>,
     {
+        let record_string = s.into();
         NameRecord {
             platformID: 3,
-            encodingID: 10,
+            encodingID: if record_string.chars().any(|c| c as u32 > 0xffff) { 10 } else { 1 },
             languageID: 0x409,
             nameID: n.into(),
-            string: s.into(),
+            string: record_string,
         }
     }
 }
