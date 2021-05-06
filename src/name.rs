@@ -137,7 +137,8 @@ pub struct NameRecord {
 
 impl NameRecord {
     /// Create a new name record for the Windows platform in Unicode encoding
-    /// (3,1,0x409)
+    /// (3,1,0x409) if all characters are in the Basic Multilingual Plane (BMP)
+    /// otherwise use (3,10,0x409)
     pub fn windows_unicode<T, U>(n: T, s: U) -> NameRecord
     where
         T: Into<u16>,
