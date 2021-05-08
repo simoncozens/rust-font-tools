@@ -48,15 +48,14 @@ pub fn glifs_to_glyph(
 
     let mut locations: Vec<&NormalizedLocation> = vec![];
     let mut other_glifs: Vec<&std::sync::Arc<norad::Glyph>> = vec![];
+    let mut contours: Vec<Vec<glyf::Point>> = vec![];
+    let mut widths: Vec<f32> = vec![];
+    let mut other_contours: Vec<Vec<Vec<glyf::Point>>> = vec![];
     for (l, o) in &variations {
         locations.push(l);
         other_glifs.push(o);
-    }
-
-    let mut contours: Vec<Vec<glyf::Point>> = vec![];
-    let mut other_contours: Vec<Vec<Vec<glyf::Point>>> = vec![];
-    for master_id in 0..variations.len() {
         other_contours.push(vec![]);
+        widths.push(o.width);
     }
 
     for (index, contour) in glif.contours.iter().enumerate() {
@@ -77,7 +76,7 @@ pub fn glifs_to_glyph(
         }
     }
     if !contours.is_empty() {
-        let deltas = compute_deltas(&contours, other_contours, locations);
+        let deltas = compute_deltas(&contours, other_contours, glif.width, widths, locations);
         glyph.contours = contours;
         return (glyph, Some(deltas));
     }
@@ -88,18 +87,23 @@ pub fn glifs_to_glyph(
 fn compute_deltas(
     base: &Vec<Vec<glyf::Point>>,
     others: Vec<Vec<Vec<glyf::Point>>>,
+    base_width: f32,
+    other_widths: Vec<f32>,
     locations: Vec<&NormalizedLocation>,
 ) -> GlyphVariationData {
     let mut deltasets: Vec<DeltaSet> = vec![];
     let (mut base_x_coords, mut base_y_coords): (Vec<i16>, Vec<i16>) =
         base.iter().flatten().map(|pt| (pt.x, pt.y)).unzip();
     // Sure, this is bogus, don't @ me.
-    base_x_coords.extend(vec![0, 0, 0, 0]);
+    base_x_coords.extend(vec![0, base_width as i16, 0, 0]);
     base_y_coords.extend(vec![0, 0, 0, 0]);
-    for (master, location) in others.iter().zip(locations.iter()) {
+    for (ix, master) in others.iter().enumerate() {
+        let location = locations[ix];
+        let width = other_widths[ix];
         let (mut master_x_coords, mut master_y_coords): (Vec<i16>, Vec<i16>) =
             master.iter().flatten().map(|pt| (pt.x, pt.y)).unzip();
-        master_x_coords.extend(vec![0, 0, 0, 0]);
+        // Putting width in here should work! But it doesn't!
+        master_x_coords.extend(vec![0, base_width as i16, 0, 0]);
         master_y_coords.extend(vec![0, 0, 0, 0]);
         let x_delta: Vec<i16> = base_x_coords
             .iter()
