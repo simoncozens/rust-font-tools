@@ -27,6 +27,27 @@ pub struct Designspace {
     // pub rules: Rules,
 }
 
+fn piecewise_linear_map(mapping: HashMap<i32, f32>, value: i32) -> f32 {
+    if mapping.contains_key(&value) {
+        return *mapping.get(&value).unwrap();
+    }
+    if mapping.keys().len() == 0 {
+        return value as f32;
+    }
+    let min = *mapping.keys().min().unwrap();
+    if value < min {
+        return value as f32 + *mapping.get(&min).unwrap() - (min as f32);
+    }
+    let max = *mapping.keys().max().unwrap();
+    if value > max {
+        return value as f32 + mapping.get(&max).unwrap() - (max as f32);
+    }
+    let a = mapping.keys().filter(|k| *k < &value).max().unwrap();
+    let b = mapping.keys().filter(|k| *k > &value).min().unwrap();
+    let va = mapping.get(a).unwrap();
+    let vb = mapping.get(b).unwrap();
+    va + (vb - va) * (value - a) as f32 / (*b - *a) as f32
+}
 impl Designspace {
     /// Add information to a font (fvar and avar tables) expressed by this
     /// design space.
@@ -55,7 +76,6 @@ impl Designspace {
                 maps.push(SegmentMap::new(vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)]));
             }
         }
-        println!("{:?}", maps);
         let mut instances: Vec<InstanceRecord> = vec![];
         // if let Some(i) = self.instances {
         //     for instance in i.instance {
@@ -165,9 +185,9 @@ impl Axis {
         }
         Ok(VariationAxisRecord {
             axisTag: self.tag.as_bytes()[0..4].try_into().unwrap(),
-            defaultValue: self.default as f32,
-            maxValue: self.maximum as f32,
-            minValue: self.minimum as f32,
+            defaultValue: self.designspace_to_userspace(self.default),
+            maxValue: self.designspace_to_userspace(self.maximum),
+            minValue: self.designspace_to_userspace(self.minimum),
             flags: if self.hidden.unwrap_or(false) {
                 0x0001
             } else {
@@ -177,6 +197,20 @@ impl Axis {
         })
     }
 
+    fn designspace_to_userspace(&self, l: i32) -> f32 {
+        let mut mapping: HashMap<i32, f32> = HashMap::new();
+        if self.map.is_some() {
+            for m in self.map.as_ref().unwrap().iter() {
+                mapping.insert(m.output as i32, m.input);
+            }
+        } else {
+            mapping.insert(self.minimum, self.minimum as f32);
+            mapping.insert(self.default, self.default as f32);
+            mapping.insert(self.maximum, self.maximum as f32);
+        }
+
+        piecewise_linear_map(mapping, l)
+    }
     fn normalize_designspace_value(&self, mut l: f32) -> f32 {
         if l < self.minimum as f32 {
             l = self.minimum as f32;
