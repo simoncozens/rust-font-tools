@@ -122,8 +122,14 @@ fn compute_deltas(
             .collect();
         let peak = (*location).0.clone();
         // This is also terrible
-        let bad_start = std::iter::repeat(0_f32).take(peak.len()).collect();
-        let bad_end = std::iter::repeat(1_f32).take(peak.len()).collect();
+        let bad_start = peak
+            .iter()
+            .map(|l| if *l > 0.0 { 0_f32 } else { -1_f32 })
+            .collect();
+        let bad_end = peak
+            .iter()
+            .map(|l| if *l > 0.0 { 1_f32 } else { 0_f32 })
+            .collect();
         deltasets.push(DeltaSet {
             deltas,
             peak,
