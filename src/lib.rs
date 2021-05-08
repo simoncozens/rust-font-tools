@@ -2,7 +2,7 @@
 #![allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms)]
 
 /// The `avar` (Axis variations) table
-mod avar;
+pub mod avar;
 /// The `fvar` (Font variations) table
 pub mod cmap;
 /// The main font object. Start here.

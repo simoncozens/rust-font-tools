@@ -6,6 +6,7 @@ use std::convert::TryInto;
 use std::fs::File;
 extern crate fonttools;
 extern crate norad;
+use fonttools::avar::{avar, SegmentMap};
 use fonttools::font::{Font, Table};
 use fonttools::fvar::{fvar, InstanceRecord, VariationAxisRecord};
 use fonttools::otvar::NormalizedLocation;
@@ -31,9 +32,30 @@ impl Designspace {
     /// design space.
     pub fn add_to_font(&self, font: &mut Font) -> Result<(), &'static str> {
         let mut axes: Vec<VariationAxisRecord> = vec![];
+        let mut maps: Vec<SegmentMap> = vec![];
         for axis in &self.axes.axis {
             axes.push(axis.to_variation_axis_record()?);
+            if axis.map.is_some() {
+                let mut sm: Vec<(f32, f32)> = vec![(-1.0, -1.0)];
+                sm.extend(
+                    axis.map
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .map(|x| {
+                            (
+                                axis.normalize_userspace_value(x.input),
+                                axis.normalize_designspace_value(x.output),
+                            )
+                        })
+                        .collect::<Vec<(f32, f32)>>(),
+                );
+                maps.push(SegmentMap::new(sm));
+            } else {
+                maps.push(SegmentMap::new(vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)]));
+            }
         }
+        println!("{:?}", maps);
         let mut instances: Vec<InstanceRecord> = vec![];
         // if let Some(i) = self.instances {
         //     for instance in i.instance {
@@ -44,6 +66,13 @@ impl Designspace {
         font.tables.insert(*b"fvar", fvar_table);
 
         // Handle avar here
+        let avar_table = avar {
+            majorVersion: 1,
+            minorVersion: 0,
+            reserved: 0,
+            axisSegmentMaps: maps,
+        };
+        font.tables.insert(*b"avar", Table::Avar(avar_table));
 
         Ok(())
     }
@@ -103,20 +132,8 @@ impl Designspace {
     pub fn normalize_location(&self, loc: Vec<i32>) -> NormalizedLocation {
         let mut v: Vec<f32> = vec![];
         for (ax, iter_l) in self.axes.axis.iter().zip(loc.iter()) {
-            let mut l = *iter_l;
-            if l < ax.minimum {
-                l = ax.minimum;
-            }
-            if l > ax.maximum {
-                l = ax.maximum;
-            }
-            if l < ax.default {
-                v.push(-(ax.default - l) as f32 / (ax.default - ax.minimum) as f32);
-            } else if l > ax.default {
-                v.push((l - ax.default) as f32 / (ax.maximum - ax.default) as f32);
-            } else {
-                v.push(0_f32);
-            }
+            let l = *iter_l;
+            v.push(ax.normalize_designspace_value(l as f32));
         }
         NormalizedLocation(v)
     }
@@ -158,6 +175,50 @@ impl Axis {
             },
             axisNameID: 255, /* XXX */
         })
+    }
+
+    fn normalize_designspace_value(&self, mut l: f32) -> f32 {
+        if l < self.minimum as f32 {
+            l = self.minimum as f32;
+        }
+        if l > self.maximum as f32 {
+            l = self.maximum as f32;
+        }
+        if l < self.default as f32 {
+            -(self.default as f32 - l) / (self.default - self.minimum) as f32
+        } else if l > self.default as f32 {
+            (l - self.default as f32) / (self.maximum - self.default) as f32
+        } else {
+            0_f32
+        }
+    }
+
+    fn normalize_userspace_value(&self, mut l: f32) -> f32 {
+        if self.map.is_none() || self.map.as_ref().unwrap().is_empty() {
+            return self.normalize_designspace_value(l);
+        }
+        let userspace_minimum = self
+            .map
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|m| m.input)
+            .fold(1. / 0., f32::min);
+        let userspace_maximum = self
+            .map
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|m| m.input)
+            .fold(-1. / 0., f32::max);
+        if l < userspace_minimum {
+            l = userspace_minimum;
+        }
+        if l > userspace_maximum {
+            l = userspace_maximum;
+        }
+        let v = (l - userspace_minimum) / (userspace_maximum - userspace_minimum);
+        v
     }
 }
 
