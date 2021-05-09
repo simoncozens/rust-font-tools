@@ -4,7 +4,7 @@ mod fontinfo;
 mod glyph;
 mod utils;
 
-use buildbasic::build_fonts;
+use buildbasic::{build_font, build_fonts};
 use clap::{App, Arg};
 use fonttools::otvar::NormalizedLocation;
 use std::fs::File;
@@ -28,32 +28,40 @@ fn main() {
         )
         .get_matches();
     let filename = matches.value_of("INPUT").unwrap();
+    let mut font;
 
-    let ds = designspace::from_file(filename).expect("Couldn't parse designspace");
-    let dm = ds.default_master().expect("Couldn't find default master");
-    let mut dm_ufo = None;
-    let mut other_masters: Vec<(NormalizedLocation, &norad::Layer)> = vec![];
-    let all_sources: Vec<(&designspace::Source, norad::Font)> = ds
-        .sources
-        .source
-        .iter()
-        .map(|s| (s, s.ufo().expect("Couldn't open master file")))
-        .collect();
-    for (source, ufo) in &all_sources {
-        if source.filename == dm.filename {
-            dm_ufo = Some(ufo);
-            continue;
+    if filename.ends_with(".designspace") {
+        let ds = designspace::from_file(filename).expect("Couldn't parse designspace");
+        let dm = ds.default_master().expect("Couldn't find default master");
+        let mut dm_ufo = None;
+        let mut other_masters: Vec<(NormalizedLocation, &norad::Layer)> = vec![];
+        let all_sources: Vec<(&designspace::Source, norad::Font)> = ds
+            .sources
+            .source
+            .iter()
+            .map(|s| (s, s.ufo().expect("Couldn't open master file")))
+            .collect();
+        for (source, ufo) in &all_sources {
+            if source.filename == dm.filename {
+                dm_ufo = Some(ufo);
+                continue;
+            }
+            other_masters.push((
+                ds.normalize_location(ds.source_location(&source)),
+                ufo.default_layer(),
+            ));
         }
-        other_masters.push((
-            ds.normalize_location(ds.source_location(&source)),
-            ufo.default_layer(),
-        ));
+
+        font = build_fonts(dm_ufo.unwrap(), other_masters);
+
+        ds.add_to_font(&mut font)
+            .expect("Couldn't add variation tables");
+    } else if filename.ends_with(".ufo") {
+        let ufo = norad::Font::load(filename).expect("Can't load UFO file");
+        font = build_font(ufo);
+    } else {
+        panic!("Unknown file type {:?}", filename);
     }
-
-    let mut font = build_fonts(dm_ufo.unwrap(), other_masters);
-
-    ds.add_to_font(&mut font)
-        .expect("Couldn't add variation tables");
 
     if matches.is_present("OUTPUT") {
         let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())
