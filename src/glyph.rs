@@ -3,16 +3,9 @@ use fonttools::glyf;
 use fonttools::gvar::DeltaSet;
 use fonttools::gvar::GlyphVariationData;
 use fonttools::otvar::NormalizedLocation;
-use lyon::geom::cubic_bezier::CubicBezierSegment;
-use lyon::geom::euclid::TypedPoint2D;
-use lyon::path::geom::cubic_to_quadratic::cubic_to_quadratics;
-use norad::PointType;
+use kurbo::{PathEl, PathSeg};
 use otspec::types::Tuple;
 use std::collections::BTreeMap;
-use std::collections::VecDeque;
-use std::marker::PhantomData;
-
-type LyonPoint = TypedPoint2D<f32, lyon::geom::euclid::UnknownUnit>;
 
 pub fn glifs_to_glyph(
     glif: &norad::Glyph,
@@ -152,77 +145,56 @@ fn norad_contours_to_glyf_contour(contours: Vec<&norad::Contour>) -> Vec<Vec<gly
         if is_all_same(&lengths) {
             return glyf_contours;
         }
-        error = error + 1.0;
+        error += 1.0;
     }
     panic!("Couldn't compatibly interpolate contours");
 }
 
 fn norad_contour_to_glyf_contour(contour: &norad::Contour, error: f32) -> Vec<glyf::Point> {
-    let mut cp: VecDeque<norad::ContourPoint> = contour.points.clone().into();
-    while cp[0].typ == PointType::OffCurve {
-        cp.rotate_left(1);
+    let kurbo_path = contour.to_kurbo().expect("Bad contour construction");
+    let mut points: Vec<glyf::Point> = vec![];
+    if let PathEl::MoveTo(pt) = kurbo_path.elements()[0] {
+        points.push(glyf::Point {
+            x: pt.x as i16,
+            y: pt.y as i16,
+            on_curve: true,
+        });
     }
-    let mut points: Vec<glyf::Point> = vec![glyf::Point {
-        x: cp[0].x as i16,
-        y: cp[0].y as i16,
-        on_curve: true, // I think?
-    }];
-    let mut i = 0;
-    while i < cp.len() - 1 {
-        i += 1;
-        if cp[i].typ != PointType::OffCurve {
-            points.push(glyf::Point {
-                x: cp[i].x as i16,
-                y: cp[i].y as i16,
+    for seg in kurbo_path.segments() {
+        match seg {
+            PathSeg::Line(l) => points.push(glyf::Point {
+                x: l.p1.x as i16,
+                y: l.p1.y as i16,
                 on_curve: true,
-            });
-            continue;
-        } else {
-            // Gonna assume cubic...
-            let before_pt = &cp[i - 1];
-            let this_pt = &cp[i];
-            let next_handle = &cp[(i + 1) % cp.len()];
-            let to_pt = &cp[(i + 2) % cp.len()];
-            let seg = CubicBezierSegment {
-                from: LyonPoint {
-                    x: before_pt.x,
-                    y: before_pt.y,
-                    _unit: PhantomData,
-                },
-                ctrl1: LyonPoint {
-                    x: this_pt.x,
-                    y: this_pt.y,
-                    _unit: PhantomData,
-                },
-                ctrl2: LyonPoint {
-                    x: next_handle.x,
-                    y: next_handle.y,
-                    _unit: PhantomData,
-                },
-                to: LyonPoint {
-                    x: to_pt.x,
-                    y: to_pt.y,
-                    _unit: PhantomData,
-                },
-            };
-            cubic_to_quadratics(&seg, error, &mut |quad| {
-                // points.push(glyf::Point {
-                //     x: quad.from.x as i16,
-                //     y: quad.from.y as i16,
-                //     on_curve: true,
-                // });
-                points.push(glyf::Point {
-                    x: quad.ctrl.x as i16,
-                    y: quad.ctrl.y as i16,
+            }),
+            PathSeg::Quad(q) => points.extend(vec![
+                glyf::Point {
+                    x: q.p1.x as i16,
+                    y: q.p1.y as i16,
                     on_curve: false,
-                });
-                points.push(glyf::Point {
-                    x: quad.to.x as i16,
-                    y: quad.to.y as i16,
+                },
+                glyf::Point {
+                    x: q.p2.x as i16,
+                    y: q.p2.y as i16,
                     on_curve: true,
-                });
-            });
-            i += 2;
+                },
+            ]),
+            PathSeg::Cubic(c) => {
+                for (_, _, q) in c.to_quads(error.into()) {
+                    points.extend(vec![
+                        glyf::Point {
+                            x: q.p1.x as i16,
+                            y: q.p1.y as i16,
+                            on_curve: false,
+                        },
+                        glyf::Point {
+                            x: q.p2.x as i16,
+                            y: q.p2.y as i16,
+                            on_curve: true,
+                        },
+                    ]);
+                }
+            }
         }
     }
 
