@@ -6,7 +6,7 @@ use fonttools::glyf;
 use fonttools::gvar::GlyphVariationData;
 use fonttools::hmtx;
 use fonttools::otvar::NormalizedLocation;
-use otspec::types::Tuple;
+
 use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -16,11 +16,9 @@ pub fn build_font(ufo: norad::Font) -> font::Font {
     let info = ufo.font_info.as_ref().unwrap();
 
     let mut names: Vec<String> = vec![];
-    let mut metrics: Vec<hmtx::Metric> = vec![];
     let mut glyph_id = 0;
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
-    let mut glyphs: Vec<glyf::Glyph> = vec![];
 
     for glyf in layer.iter_contents() {
         let name = glyf.name.to_string();
@@ -34,7 +32,7 @@ pub fn build_font(ufo: norad::Font) -> font::Font {
     }
     let glifs: Vec<Arc<norad::Glyph>> = layer.iter_contents().collect();
     let (mut glyphs, mut metrics): (Vec<glyf::Glyph>, Vec<hmtx::Metric>) = glifs
-        .par_iter()
+        .iter()
         .map({
             |glyf| {
                 let (glyph, _) = glifs_to_glyph(&glyf, &name_to_id, vec![]);
@@ -75,11 +73,9 @@ pub fn build_fonts(
     let info = default_master.font_info.as_ref().unwrap();
 
     let mut names: Vec<String> = vec![];
-    let mut metrics: Vec<hmtx::Metric> = vec![];
     let mut glyph_id = 0;
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
-    let mut glyphs: Vec<glyf::Glyph> = vec![];
 
     for glyf in layer.iter_contents() {
         let name = glyf.name.to_string();
