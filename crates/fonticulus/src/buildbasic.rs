@@ -6,30 +6,63 @@ use fonttools::glyf;
 use fonttools::gvar::GlyphVariationData;
 use fonttools::hmtx;
 use fonttools::otvar::NormalizedLocation;
-
-use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::sync::Arc;
+
+fn decompose_mixed_glyphs(glyphs: &mut Vec<glyf::Glyph>, names: &[String]) {
+    // Decompose mixed.
+    let mut to_replace: Vec<(usize, glyf::Glyph)> = vec![];
+    for (id, glyph) in glyphs.iter().enumerate() {
+        if !glyph.components.is_empty() && !glyph.contours.is_empty() {
+            log::info!("Decomposed mixed glyph {:?}", names[id]);
+            to_replace.push((id, glyph.decompose(&glyphs)));
+        }
+    }
+    for (id, glyph) in to_replace {
+        glyphs[id] = glyph;
+    }
+}
+
+fn form_glyf_and_fix_bounds(
+    glyphs: Vec<glyf::Glyph>,
+    metrics: &mut Vec<hmtx::Metric>,
+) -> glyf::glyf {
+    let mut glyf_table = glyf::glyf { glyphs };
+    glyf_table.recalc_bounds();
+
+    // Do LSBs again
+    for (id, glyph) in glyf_table.glyphs.iter().enumerate() {
+        metrics[id].lsb = glyph.xMin;
+    }
+    glyf_table
+}
+
+fn get_glyph_names_and_mapping(
+    layer: &norad::Layer,
+    mapping: &mut BTreeMap<u32, u16>,
+    name_to_id: &mut BTreeMap<String, u16>,
+) -> Vec<String> {
+    let mut names: Vec<String> = vec![];
+    for (glyph_id, glyf) in layer.iter_contents().enumerate() {
+        let name = glyf.name.to_string();
+        names.push(name.clone());
+        name_to_id.insert(name, glyph_id as u16);
+        let cp = &glyf.codepoints;
+        if !cp.is_empty() {
+            mapping.insert(cp[0] as u32, glyph_id as u16);
+        }
+    }
+    names
+}
 
 pub fn build_font(ufo: norad::Font) -> font::Font {
     let layer = ufo.default_layer();
     let info = ufo.font_info.as_ref().unwrap();
 
-    let mut names: Vec<String> = vec![];
-    let mut glyph_id = 0;
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
 
-    for glyf in layer.iter_contents() {
-        let name = glyf.name.to_string();
-        names.push(name.clone());
-        name_to_id.insert(name, glyph_id);
-        let cp = &glyf.codepoints;
-        if !cp.is_empty() {
-            mapping.insert(cp[0] as u32, glyph_id);
-        }
-        glyph_id += 1;
-    }
+    let names = get_glyph_names_and_mapping(&layer, &mut mapping, &mut name_to_id);
     let glifs: Vec<Arc<norad::Glyph>> = layer.iter_contents().collect();
     let (mut glyphs, mut metrics): (Vec<glyf::Glyph>, Vec<hmtx::Metric>) = glifs
         .iter()
@@ -42,26 +75,8 @@ pub fn build_font(ufo: norad::Font) -> font::Font {
             }
         })
         .unzip();
-
-    // Decompose mixed.
-    let mut to_replace: Vec<(usize, glyf::Glyph)> = vec![];
-    for (id, glyph) in glyphs.iter().enumerate() {
-        if !glyph.components.is_empty() && !glyph.contours.is_empty() {
-            log::info!("Decomposed mixed glyph {:?}", names[id]);
-            to_replace.push((id, glyph.decompose(&glyphs)));
-        }
-    }
-    for (id, glyph) in to_replace {
-        glyphs[id] = glyph;
-    }
-
-    let mut glyf_table = glyf::glyf { glyphs };
-    glyf_table.recalc_bounds();
-
-    // Do LSBs again
-    for (id, glyph) in glyf_table.glyphs.iter().enumerate() {
-        metrics[id].lsb = glyph.xMin;
-    }
+    decompose_mixed_glyphs(&mut glyphs, &names);
+    let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
     fill_tables(info, glyf_table, metrics, names, mapping)
 }
 
@@ -71,22 +86,11 @@ pub fn build_fonts(
 ) -> font::Font {
     let layer = default_master.default_layer();
     let info = default_master.font_info.as_ref().unwrap();
-
-    let mut names: Vec<String> = vec![];
-    let mut glyph_id = 0;
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
 
-    for glyf in layer.iter_contents() {
-        let name = glyf.name.to_string();
-        names.push(name.clone());
-        name_to_id.insert(name, glyph_id);
-        let cp = &glyf.codepoints;
-        if !cp.is_empty() {
-            mapping.insert(cp[0] as u32, glyph_id);
-        }
-        glyph_id += 1;
-    }
+    let names = get_glyph_names_and_mapping(&layer, &mut mapping, &mut name_to_id);
+
     let glifs: Vec<Arc<norad::Glyph>> = layer.iter_contents().collect();
 
     let mut glyphs: Vec<glyf::Glyph> = vec![];
@@ -108,25 +112,8 @@ pub fn build_fonts(
         variations.push(variation);
     }
 
-    // Decompose mixed.
-    let mut to_replace: Vec<(usize, glyf::Glyph)> = vec![];
-    for (id, glyph) in glyphs.iter().enumerate() {
-        if !glyph.components.is_empty() && !glyph.contours.is_empty() {
-            log::info!("Decomposed mixed glyph {:?}", names[id]);
-            to_replace.push((id, glyph.decompose(&glyphs)));
-        }
-    }
-    for (id, glyph) in to_replace {
-        glyphs[id] = glyph;
-    }
-
-    let mut glyf_table = glyf::glyf { glyphs };
-    glyf_table.recalc_bounds();
-
-    // Do LSBs again
-    for (id, glyph) in glyf_table.glyphs.iter().enumerate() {
-        metrics[id].lsb = glyph.xMin;
-    }
+    decompose_mixed_glyphs(&mut glyphs, &names);
+    let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
     let mut font = fill_tables(info, glyf_table, metrics, names, mapping);
     let gvar_table = fonttools::gvar::gvar { variations };
     font.tables
