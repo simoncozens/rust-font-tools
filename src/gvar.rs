@@ -229,7 +229,7 @@ impl gvar {
             panic!("Some more sensible error checking here for null case");
         }
         let sharedTupleCount = most_common_tuples.len() as u16;
-        let flags = 0; // XXX
+        let flags = 1; // XXX
 
         let mut glyphVariationDataOffsets: Vec<u8> = vec![];
 
