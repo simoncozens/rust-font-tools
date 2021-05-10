@@ -262,6 +262,8 @@ impl cmap4 {
             let end = self.endCode[i];
             let delta = self.idDelta[i];
             let range_offset = self.idRangeOffsets[i];
+            let partial = ((range_offset / 2) as i16 - (start as i16) + (i as i16)
+                - (self.idRangeOffsets.len() as i16)) as i16;
             if end == 0xffff {
                 break;
             }
@@ -270,17 +272,7 @@ impl cmap4 {
                 if range_offset == 0 {
                     map.insert(char_code as u32, (char_code as i16 + delta) as u16);
                 } else {
-                    // println!("Range offset/2: {:?}", range_offset / 2);
-                    // println!("start: {:?}", start);
-                    // println!("i: {:?}", i);
-                    // println!("Range of idRangeOffsets: {:?}", self.idRangeOffsets.len());
-                    let partial = (range_offset / 2) as i16
-                        - (start as i16 + i as i16 - self.idRangeOffsets.len() as i16) as i16;
-                    // println!("Partial: {:?}", partial);
                     let index = (char_code as i16 + partial) as usize;
-                    // println!("Index: {:?}", index);
-                    // println!("GlyphIdArray: {:?}", self.glyphIdArray.len());
-                    // XXX
                     if index >= self.glyphIdArray.len() {
                         break;
                     }
