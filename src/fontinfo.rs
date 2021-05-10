@@ -1,3 +1,5 @@
+use crate::utils::int_list_to_num;
+use norad::fontinfo::StyleMapStyle;
 
 pub fn ascender(info: &norad::FontInfo) -> i16 {
     let upm = info.units_per_em.map_or(1000.0, |f| f.get()) as f64;
@@ -63,16 +65,21 @@ pub fn style_map_family_name(info: &norad::FontInfo) -> String {
 }
 
 pub fn style_map_style_name(info: &norad::FontInfo) -> String {
-    match info
-            .style_map_style_name
-            .as_ref()
-            .map_or(1, |x| x.clone() as u16) // Tricks we have to pull to use private fields
-        {
-            2 => "bold",
-            3 => "italic",
-            4 => "bold italic",
-            _ => "regular",
+    match info.style_map_style_name {
+        Some(StyleMapStyle::BoldItalic) => "bold italic",
+        Some(StyleMapStyle::Bold) => "bold",
+        Some(StyleMapStyle::Italic) => "italic",
+        Some(StyleMapStyle::Regular) => "regular",
+        None => {
+            let preferred_style_name = preferred_subfamily_name(&info);
+            match preferred_style_name.to_lowercase().as_str() {
+                "bold italic" => "bold italic",
+                "bold" => "bold",
+                "italic" => "italic",
+                _ => "regular"
+            }
         }
+    }
     .to_string()
 }
 
@@ -130,4 +137,21 @@ pub fn get_panose(_info: &norad::FontInfo) -> fonttools::os2::Panose {
         panose8: 0,
         panose9: 0,
     }
+}
+pub fn get_selection(info: &norad::FontInfo) -> u16 {
+    let mut selection = info.open_type_os2_selection
+        .clone()
+        .unwrap_or(vec![]);
+    let style_map = style_map_style_name(info);
+    match style_map.as_str() {
+        "regular" => selection.push(6),
+        "bold" => selection.push(5),
+        "italic" => selection.push(0),
+        "bold italic" => {
+            selection.push(0);
+            selection.push(5);
+        }
+        _ => {}
+    };
+    int_list_to_num(&selection) as u16
 }
