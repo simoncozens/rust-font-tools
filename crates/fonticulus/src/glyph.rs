@@ -95,8 +95,7 @@ fn compute_deltas(
         let width = other_widths[ix];
         let (mut master_x_coords, mut master_y_coords): (Vec<i16>, Vec<i16>) =
             master.iter().flatten().map(|pt| (pt.x, pt.y)).unzip();
-        // Putting width in here should work! But it doesn't!
-        master_x_coords.extend(vec![0, base_width as i16, 0, 0]);
+        master_x_coords.extend(vec![0, width as i16, 0, 0]);
         master_y_coords.extend(vec![0, 0, 0, 0]);
         let x_delta: Vec<i16> = base_x_coords
             .iter()
