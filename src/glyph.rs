@@ -69,6 +69,14 @@ pub fn glifs_to_glyph(
         }
     }
     if !contours.is_empty() {
+        if !glyph.components.is_empty() {
+            log::warn!(
+                "Can't create gvar deltas for mixed glyph {:}",
+                glif.name.to_string()
+            );
+            return (glyph, None);
+        }
+
         let deltas = compute_deltas(&contours, other_contours, glif.width, widths, locations);
         glyph.contours = contours;
         return (glyph, Some(deltas));
