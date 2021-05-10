@@ -112,6 +112,7 @@ pub fn build_fonts(
         variations.push(variation);
     }
 
+    // XXX, you can't do this here.
     decompose_mixed_glyphs(&mut glyphs, &names);
     let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
     let mut font = fill_tables(info, glyf_table, metrics, names, mapping);
