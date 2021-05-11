@@ -21,6 +21,8 @@ pub mod head;
 pub mod hhea;
 /// The `hmtx` (Horizontal metrics) table
 pub mod hmtx;
+/// OpenType Layout common tables
+pub mod layout;
 mod loca;
 /// The `maxp` (Maximum profile) table
 pub mod maxp;
