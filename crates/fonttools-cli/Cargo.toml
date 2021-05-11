@@ -5,7 +5,7 @@ authors = ["Simon Cozens <simon@simon-cozens.org>"]
 edition = "2018"
 
 [dependencies]
-fonttools = { path = "../.." }
+fonttools = { path = "../..", features = ["rayon"] }
 clap = "2.33.3"
 itertools = "0.10.0"
 skia-safe = "0"
