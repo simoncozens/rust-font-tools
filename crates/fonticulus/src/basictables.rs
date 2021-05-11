@@ -234,7 +234,7 @@ pub fn compile_os2(
         usLastCharIndex: *mapping.keys().max().unwrap_or(&0xFFFF) as u16,
         usLowerOpticalPointSize: None,
         usUpperOpticalPointSize: None,
-        fsSelection: 0b11000000, // XXX
+        fsSelection: get_selection(info),
     }
 }
 
