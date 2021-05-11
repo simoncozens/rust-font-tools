@@ -11,7 +11,6 @@ use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize, Serializer};
-use std::collections::HashMap;
 use std::convert::TryInto;
 
 #[cfg(feature = "rayon")]
@@ -280,19 +279,21 @@ impl gvar {
 
             if let Some(var) = var {
                 let maybe_glyph = glyf.map(|g| &g.glyphs[ix]);
-                let tuple_variations = if cfg!(feature = "rayon") {
-                    var.deltasets
-                        .par_iter()
-                        .map(|ds| ds.to_tuple_variation(&shared_tuples, maybe_glyph))
-                        .filter(|tv| tv.has_effect())
-                        .collect()
-                } else {
-                    var.deltasets
-                        .iter()
-                        .map(|ds| ds.to_tuple_variation(&shared_tuples, maybe_glyph))
-                        .filter(|tv| tv.has_effect())
-                        .collect()
-                };
+                #[cfg(feature = "rayon")]
+                let tuple_variations = var
+                    .deltasets
+                    .par_iter()
+                    .map(|ds| ds.to_tuple_variation(&shared_tuples, maybe_glyph))
+                    .filter(|tv| tv.has_effect())
+                    .collect();
+
+                #[cfg(not(feature = "rayon"))]
+                let tuple_variations = var
+                    .deltasets
+                    .iter()
+                    .map(|ds| ds.to_tuple_variation(&shared_tuples, maybe_glyph))
+                    .filter(|tv| tv.has_effect())
+                    .collect();
 
                 let tvs = TupleVariationStore(tuple_variations);
                 serialized_tvs.extend(otspec::ser::to_bytes(&tvs).unwrap());
