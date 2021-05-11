@@ -2,6 +2,8 @@
 
 /// Item Variation Store (used in `MVAR`, etc.)
 mod itemvariationstore;
+/// Utilities for Interpolation of Unreferenced Points
+pub mod iup;
 /// Structs to store locations (user and normalized)
 mod locations;
 /// Structs for storing packed deltas within a tuple variation store
@@ -16,7 +18,7 @@ mod tuplevariationstore;
 use otspec::types::int16;
 
 /// Represents either a two-dimensional (`gvar`) or one-dimensional (`cvt`) delta value
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Delta {
     /// A one-dimensional delta (used in the `cvt` table)
     Delta1D(int16),

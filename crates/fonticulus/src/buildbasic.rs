@@ -118,7 +118,8 @@ pub fn build_fonts(
     let mut font = fill_tables(info, glyf_table, metrics, names, mapping);
     let gvar_table = fonttools::gvar::gvar { variations };
     font.tables
-        .insert(*b"gvar", Table::Unknown(gvar_table.to_bytes()));
+        .insert(*b"gvar", Table::Unknown(gvar_table.to_bytes(None)));
+    // No optimization by default
 
     font
 }

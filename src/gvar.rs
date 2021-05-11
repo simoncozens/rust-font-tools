@@ -1,3 +1,5 @@
+use crate::glyf::{glyf, Glyph};
+use crate::otvar::iup::optimize_deltas;
 use crate::otvar::*;
 use counter::Counter;
 use otspec::de::CountedDeserializer;
@@ -27,7 +29,7 @@ tables!( gvarcore {
 /// How a glyph's points vary at one region of the design space.
 ///
 /// (This is the user-friendly version of what is serialized as a TupleVariation)
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct DeltaSet {
     pub peak: Tuple,
     pub start: Tuple,
@@ -39,7 +41,7 @@ impl DeltaSet {
     fn to_tuple_variation(
         &self,
         shared_tuples: &[Vec<u8>],
-        has_private_points: bool,
+        original_glyph: Option<&Glyph>,
     ) -> TupleVariation {
         let serialized_peak = &self
             .peak
@@ -59,10 +61,6 @@ impl DeltaSet {
         // This check is wrong. See Python compileIntermediateCoord
         if self.peak != self.start || self.peak != self.end {
             flags |= TupleIndexFlags::INTERMEDIATE_REGION;
-        }
-
-        if has_private_points {
-            flags |= TupleIndexFlags::PRIVATE_POINT_NUMBERS;
         }
 
         let tvh = TupleVariationHeader {
@@ -86,22 +84,47 @@ impl DeltaSet {
             },
         };
 
-        let deltas = self
+        let mut deltas: Vec<Option<Delta>> = self
             .deltas
             .iter()
             .map(|(x, y)| Some(Delta::Delta2D((*x, *y))))
             .collect();
-        // Do IUP optimization here.
+        if let Some(glyph) = original_glyph {
+            let optimized_deltas = optimize_deltas(deltas.clone(), &glyph);
+            if optimized_deltas.iter().flatten().count() == 0 {
+                // Zero private points goes bad
+                return TupleVariation(tvh, deltas);
+            }
+            /* Disgusting amounts of cloning here to check length. :-/ */
+            let deltas_copy = deltas.clone();
+            let tv_unoptimized = TupleVariation(tvh.clone(), deltas_copy);
+            let original_length = otspec::ser::to_bytes(&TupleVariationStore(vec![tv_unoptimized]))
+                .unwrap()
+                .len();
+
+            let optimized_length =
+                otspec::ser::to_bytes(&TupleVariationStore(vec![TupleVariation(
+                    tvh.clone(),
+                    optimized_deltas.clone(),
+                )]))
+                .unwrap()
+                .len();
+            if optimized_length < original_length {
+                return TupleVariation(tvh, optimized_deltas);
+            } else {
+                return TupleVariation(tvh, deltas);
+            }
+        }
         TupleVariation(tvh, deltas)
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct GlyphVariationData {
     pub deltasets: Vec<DeltaSet>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct gvar {
     pub variations: Vec<Option<GlyphVariationData>>,
 }
@@ -206,7 +229,7 @@ stateful_deserializer!(
 );
 
 impl gvar {
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self, glyf: Option<&glyf>) -> Vec<u8> {
         let mut out: Vec<u8> = vec![];
         // Determine all the shared tuples.
         let mut shared_tuple_counter: Counter<Vec<u8>> = Counter::new();
@@ -242,7 +265,7 @@ impl gvar {
             shared_tuples.push(a);
         }
         // Now we need a bunch of TVSes
-        for var in self.variations.iter() {
+        for (ix, var) in self.variations.iter().enumerate() {
             // Data offset
             if flags != 0 {
                 glyphVariationDataOffsets
@@ -253,10 +276,11 @@ impl gvar {
             }
 
             if let Some(var) = var {
+                let maybe_glyph = glyf.map(|g| &g.glyphs[ix]);
                 let tvs = TupleVariationStore(
                     var.deltasets
                         .iter()
-                        .map(|ds| ds.to_tuple_variation(&shared_tuples, false))
+                        .map(|ds| ds.to_tuple_variation(&shared_tuples, maybe_glyph))
                         .collect(),
                 );
                 serialized_tvs.extend(otspec::ser::to_bytes(&tvs).unwrap());
@@ -513,7 +537,7 @@ mod tests {
             ),
         ];
         let deserialized: gvar::gvar = gvar::from_bytes(&binary_gvar, points.clone()).unwrap();
-        let serialized = deserialized.to_bytes();
+        let serialized = deserialized.to_bytes(None);
         let re_de: gvar::gvar = gvar::from_bytes(&serialized, points).unwrap();
         assert_eq!(re_de, deserialized); // Are they semantically the same?
 

@@ -28,7 +28,7 @@ bitflags! {
 /// A tuple variation header
 ///
 /// Used to locate a set of deltas within the design space.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct TupleVariationHeader {
     /// Size in bytes of the serialized data (the data *after* the header/tuples
     // including the private points but *not* including the shared points)

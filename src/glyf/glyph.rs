@@ -32,7 +32,7 @@ bitflags! {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Glyph {
     pub xMin: int16,
     pub xMax: int16,
@@ -345,7 +345,7 @@ impl Glyph {
             .map(|c| c.len())
             .scan(0, |acc, x| {
                 *acc += x;
-                Some(*acc)
+                Some(*acc - 1)
             })
             .collect();
 
@@ -358,7 +358,7 @@ impl Glyph {
         for comp in &self.components {
             let [_, _, _, _, translateX, translateY] = comp.transformation.as_coeffs();
             coords.push((translateX as i16, translateY as i16));
-            ends.push(ends.len());
+            ends.push(ends.iter().max().unwrap_or(&0) + 1);
         }
 
         // Phantom points
@@ -367,13 +367,13 @@ impl Glyph {
         let top_side_y = 0;
         let bottom_side_y = 0;
         coords.push((left_side_x, 0));
-        ends.push(ends.len());
+        ends.push(ends.iter().max().unwrap_or(&0) + 1);
         coords.push((right_side_x, 0));
-        ends.push(ends.len());
+        ends.push(ends.iter().max().unwrap() + 1);
         coords.push((0, top_side_y));
-        ends.push(ends.len());
+        ends.push(ends.iter().max().unwrap() + 1);
         coords.push((0, bottom_side_y));
-        ends.push(ends.len());
+        ends.push(ends.iter().max().unwrap() + 1);
         (coords, ends)
     }
 }

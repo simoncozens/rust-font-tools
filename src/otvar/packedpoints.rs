@@ -139,4 +139,14 @@ mod tests {
         let serialized = otspec::ser::to_bytes(&object).unwrap();
         assert_eq!(serialized, expected);
     }
+
+    #[test]
+    fn test_packed_point_zero_ser() {
+        let expected = vec![0x01, 0x00, 0x00];
+        let object = PackedPoints {
+            points: Some(vec![0]),
+        };
+        let serialized = otspec::ser::to_bytes(&object).unwrap();
+        assert_eq!(serialized, expected);
+    }
 }
