@@ -2,6 +2,8 @@
 #![allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms)]
 #![feature(is_sorted)]
 
+/// The `GSUB` (Glyph substitution) table
+pub mod GSUB;
 /// The `avar` (Axis variations) table
 pub mod avar;
 /// The `fvar` (Font variations) table

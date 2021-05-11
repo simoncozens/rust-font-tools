@@ -43,4 +43,30 @@ tables!(
             Counted(uint16)	subtableOffsets
             // Optional markFilteringSet
     }
+
+    cvFeatureParams {
+        uint16 format
+        uint16  featUiLabelNameId
+        uint16  featUiTooltipTextNameId
+        uint16  sampleTextNameId
+        uint16  numNamedParameters
+        uint16  firstParamUiLabelNameId
+        // everything is horrible
+        // Counted(uint24) character
+    }
+    sizeFeatureParams {
+        uint16 designSize
+        uint16 subfamilyIdentifier
+        uint16 subfamilyNameID
+        uint16 smallest
+        uint16 largest
+    }
+
 );
+
+#[derive(Debug, PartialEq)]
+pub enum FeatureParams {
+    StylisticSet(uint16, uint16),
+    SizeFeature(sizeFeatureParams),
+    CharacterVariant(cvFeatureParams),
+}
