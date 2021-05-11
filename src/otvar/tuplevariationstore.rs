@@ -50,6 +50,16 @@ impl TupleVariation {
         }
         newdeltas
     }
+
+    /// Determines if any deltas in this variation are non-zero
+    pub fn has_effect(&self) -> bool {
+        self.1.iter().any(|maybe_delta| {
+            maybe_delta.is_some() && {
+                let d2d = maybe_delta.as_ref().unwrap().get_2d();
+                d2d.0 != 0 || d2d.1 != 0
+            }
+        })
+    }
 }
 
 /// A Tuple Variation Store

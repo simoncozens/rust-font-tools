@@ -84,7 +84,7 @@ impl DeltaSet {
             },
         };
 
-        let mut deltas: Vec<Option<Delta>> = self
+        let deltas: Vec<Option<Delta>> = self
             .deltas
             .iter()
             .map(|(x, y)| Some(Delta::Delta2D((*x, *y))))
@@ -281,6 +281,7 @@ impl gvar {
                     var.deltasets
                         .iter()
                         .map(|ds| ds.to_tuple_variation(&shared_tuples, maybe_glyph))
+                        .filter(|tv| tv.has_effect())
                         .collect(),
                 );
                 serialized_tvs.extend(otspec::ser::to_bytes(&tvs).unwrap());
