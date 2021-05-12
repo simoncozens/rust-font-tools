@@ -12,7 +12,7 @@ use serde::Deserializer;
 use serde::Serializer;
 use serde::{Deserialize, Serialize};
 use std::array::TryFromSliceError;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::convert::TryInto;
 
 tables!(
@@ -31,6 +31,14 @@ tables!(
     uint16  coverageOffset  // Offset to Coverage table, from beginning of substitution subtable
     Counted(uint16)  substituteGlyphIDs // Array of substitute glyph IDs — ordered by Coverage index
   }
+  MultipleSubstFormat1 {
+    uint16 substFormat
+    uint16  coverageOffset
+    Counted(uint16)  sequenceOffsets
+  }
+  Sequence {
+    Counted(uint16) substituteGlyphIDs
+  }
 );
 
 #[derive(Debug, PartialEq)]
@@ -42,14 +50,24 @@ pub struct SubstLookup {
 
 #[derive(Debug, PartialEq)]
 pub struct SingleSubst {
-    pub mapping: HashMap<uint16, uint16>,
+    pub mapping: BTreeMap<uint16, uint16>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct MultipleSubst {
+    pub mapping: BTreeMap<uint16, Vec<uint16>>,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct AlternateSubst {
+    pub mapping: BTreeMap<uint16, Vec<uint16>>,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Substitution {
     Single(SingleSubst),
-    Multiple,
-    Alternate,
+    Multiple(MultipleSubst),
+    Alternate(AlternateSubst),
     Ligature,
     Contextual,
     ChainedContextual,
@@ -60,7 +78,7 @@ pub enum Substitution {
 #[derive(Debug, PartialEq)]
 pub struct GSUB {
     pub lookups: Vec<SubstLookup>,
-    pub features: HashMap<Tag, (Vec<usize>, Option<FeatureParams>)>,
+    pub features: BTreeMap<Tag, (Vec<usize>, Option<FeatureParams>)>,
 }
 
 deserialize_visitor!(
@@ -77,7 +95,7 @@ deserialize_visitor!(
         let remainder = read_remainder!(seq, "a GSUB table");
 
         // Feature list
-        let mut features = HashMap::new();
+        let mut features = BTreeMap::new();
         let beginning_of_featurelist = core.featureListOffset as usize - header_size;
         let featurelist: FeatureList =
             otspec::de::from_bytes(&remainder[beginning_of_featurelist..]).unwrap();
@@ -143,12 +161,13 @@ deserialize_visitor!(
             .collect();
 
         let mut de = otspec::de::Deserializer::from_bytes(&remainder);
-        let cs = match lookup.lookupType {
-            1 => SingleSubstDeserializer { subtable_offsets },
+        let substitution = match lookup.lookupType {
+            1 => SingleSubstDeserializer { subtable_offsets }.deserialize(&mut de),
+            2 => MultipleSubstDeserializer { subtable_offsets }.deserialize(&mut de),
+            3 => AlternateSubstDeserializer { subtable_offsets }.deserialize(&mut de),
             _ => unimplemented!(),
-        };
-
-        let substitution = cs.deserialize(&mut de).unwrap();
+        }
+        .unwrap();
 
         Ok(SubstLookup {
             substitution,
@@ -168,7 +187,7 @@ fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Substitution, A::Error>
 where
     A: SeqAccess<'de>,
 {
-    let mut mapping = HashMap::new();
+    let mut mapping = BTreeMap::new();
     let remainder = read_remainder!(seq, "a single substitution table");
     for off in self.subtable_offsets {
         match peek_format(&remainder, off) {
@@ -198,39 +217,137 @@ where
     Ok(Substitution::Single(SingleSubst { mapping }))
 });
 
+stateful_deserializer!(
+Substitution,
+MultipleSubstDeserializer,
+{
+    subtable_offsets: Vec<usize>
+},
+fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Substitution, A::Error>
+where
+    A: SeqAccess<'de>,
+{
+    let mut mapping = BTreeMap::new();
+    let remainder = read_remainder!(seq, "a multiple substitution table");
+    for off in self.subtable_offsets {
+        let sub: MultipleSubstFormat1 = otspec::de::from_bytes(&remainder[off..]).unwrap();
+        let coverage: Coverage =
+            otspec::de::from_bytes(&remainder[off + sub.coverageOffset as usize..])
+                .unwrap();
+        for (input, seq_offset) in coverage.glyphs.iter().zip(sub.sequenceOffsets.iter()) {
+            let sequence: Sequence =
+              otspec::de::from_bytes(&remainder[off + *seq_offset as usize..]).unwrap();
+            mapping.insert(*input, sequence.substituteGlyphIDs);
+        }
+    }
+    Ok(Substitution::Multiple(MultipleSubst { mapping }))
+});
+
+stateful_deserializer!(
+Substitution,
+AlternateSubstDeserializer,
+{
+    subtable_offsets: Vec<usize>
+},
+fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Substitution, A::Error>
+where
+    A: SeqAccess<'de>,
+{
+    let mut mapping = BTreeMap::new();
+    let remainder = read_remainder!(seq, "a multiple substitution table");
+    for off in self.subtable_offsets {
+        // Slightly naughty here, repurposing the fact that mult subst and
+        // alt subst have the same layout, just differ in lookupType
+        let sub: MultipleSubstFormat1 = otspec::de::from_bytes(&remainder[off..]).unwrap();
+        let coverage: Coverage =
+            otspec::de::from_bytes(&remainder[off + sub.coverageOffset as usize..])
+                .unwrap();
+        for (input, seq_offset) in coverage.glyphs.iter().zip(sub.sequenceOffsets.iter()) {
+            let sequence: Sequence =
+              otspec::de::from_bytes(&remainder[off + *seq_offset as usize..]).unwrap();
+            mapping.insert(*input, sequence.substituteGlyphIDs);
+        }
+    }
+    Ok(Substitution::Alternate(AlternateSubst { mapping }))
+});
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use pretty_assertions::assert_eq;
     use std::iter::FromIterator;
 
     macro_rules! hashmap {
         ($($k:expr => $v:expr),* $(,)?) => {
-            std::collections::HashMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
         };
     }
 
     #[test]
     fn test_simple_gsub_de() {
         /* languagesystem DFLT dflt;
-          feature liga { sub a by b; } liga;
+           lookup ssf1 { sub a by b; sub c by d; } ssf1;
+           lookup ssf2 { sub A by a; sub B by a; sub C by a; } ssf2;
+           lookup mult { sub i by f i; sub l by f l; } mult;
+           lookup aalt {sub a from [b c d]; } aalt;
+
+           feature sing { lookup ssf1; lookup ssf2; } sing;
+           feature mult { lookup mult; } mult;
+           feature alte { lookup aalt; } alte;
         */
         let binary_gsub = vec![
-            0x00, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x1e, 0x00, 0x2c, 0x00, 0x01, 0x44, 0x46,
-            0x4c, 0x54, 0x00, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x01,
-            0x00, 0x00, 0x00, 0x01, 0x6c, 0x69, 0x67, 0x61, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01,
-            0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08,
-            0x00, 0x01, 0x00, 0x06, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x42,
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x22, 0x00, 0x4a, 0x00, 0x01, 0x44, 0x46,
+            0x4c, 0x54, 0x00, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x03,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x61, 0x6c, 0x74, 0x65, 0x00, 0x14,
+            0x6d, 0x75, 0x6c, 0x74, 0x00, 0x1a, 0x73, 0x69, 0x6e, 0x67, 0x00, 0x20, 0x00, 0x00,
+            0x00, 0x01, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x00, 0x0a, 0x00, 0x12, 0x00, 0x1a, 0x00, 0x22,
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x00, 0x20, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+            0x00, 0x1e, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x22, 0x00, 0x03, 0x00, 0x00,
+            0x00, 0x01, 0x00, 0x30, 0x00, 0x01, 0x00, 0x38, 0x00, 0x01, 0x00, 0x02, 0x00, 0x3a,
+            0x00, 0x03, 0x00, 0x42, 0x00, 0x42, 0x00, 0x42, 0x00, 0x01, 0x00, 0x38, 0x00, 0x02,
+            0x00, 0x0a, 0x00, 0x10, 0x00, 0x02, 0x00, 0x47, 0x00, 0x4a, 0x00, 0x02, 0x00, 0x47,
+            0x00, 0x4d, 0x00, 0x01, 0x00, 0x2a, 0x00, 0x01, 0x00, 0x08, 0x00, 0x03, 0x00, 0x43,
+            0x00, 0x44, 0x00, 0x45, 0x00, 0x01, 0x00, 0x02, 0x00, 0x42, 0x00, 0x44, 0x00, 0x02,
+            0x00, 0x01, 0x00, 0x22, 0x00, 0x24, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x4a,
+            0x00, 0x4d, 0x00, 0x01, 0x00, 0x01, 0x00, 0x42,
         ];
         let expected = GSUB {
-            lookups: vec![SubstLookup {
-                flags: LookupFlags::empty(),
-                mark_filtering_set: None,
-                substitution: Substitution::Single(SingleSubst {
-                    mapping: hashmap!(66 => 67),
-                }),
-            }],
-            features: hashmap!(*b"liga" => (vec![0],None)),
+            lookups: vec![
+                SubstLookup {
+                    flags: LookupFlags::empty(),
+                    mark_filtering_set: None,
+                    substitution: Substitution::Single(SingleSubst {
+                        mapping: hashmap!(66 => 67, 68 => 69),
+                    }),
+                },
+                SubstLookup {
+                    flags: LookupFlags::empty(),
+                    mark_filtering_set: None,
+                    substitution: Substitution::Single(SingleSubst {
+                        mapping: hashmap!(34 => 66, 35 => 66, 36  => 66),
+                    }),
+                },
+                SubstLookup {
+                    flags: LookupFlags::empty(),
+                    mark_filtering_set: None,
+                    substitution: Substitution::Multiple(MultipleSubst {
+                        mapping: hashmap!(77 => vec![71,77], 74 => vec![71,74]),
+                    }),
+                },
+                SubstLookup {
+                    flags: LookupFlags::empty(),
+                    mark_filtering_set: None,
+                    substitution: Substitution::Alternate(AlternateSubst {
+                        mapping: hashmap!(66 => vec![67,68,69]),
+                    }),
+                },
+            ],
+            features: hashmap!(
+              *b"sing" => (vec![0, 1],None),
+              *b"mult" => (vec![2],None),
+              *b"alte" => (vec![3],None)
+            ),
         };
         let deserialized: GSUB = otspec::de::from_bytes(&binary_gsub).unwrap();
         assert_eq!(deserialized, expected);
