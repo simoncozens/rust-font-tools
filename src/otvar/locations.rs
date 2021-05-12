@@ -1,3 +1,4 @@
+use core::ops::{Mul, SubAssign};
 use otspec::types::{Tag, Tuple, F2DOT14};
 use permutation::Permutation;
 use std::array::IntoIter;
@@ -98,7 +99,7 @@ impl VariationModel {
             .collect();
         let indices: Vec<usize> = (0..locations.len()).collect();
         let mut axis_points = AxisPoints::new();
-        for loc in locations.iter().filter(|l| l.len() != 1) {
+        for loc in locations.iter().filter(|l| l.len() == 1) {
             if let Some((axis, value)) = loc.iter().next() {
                 let entry = axis_points
                     .entry(*axis)
@@ -106,38 +107,86 @@ impl VariationModel {
                 entry.insert(F2DOT14::pack(*value));
             }
         }
-
+        let on_point_count = |loc: &Location| {
+            loc.iter()
+                .filter(|(&axis, &value)| {
+                    axis_points.contains_key(&axis)
+                        && axis_points
+                            .get(&axis)
+                            .unwrap()
+                            .contains(&F2DOT14::pack(value))
+                })
+                .count()
+        };
         let sort_order = permutation::sort_by(&indices[..], |a_ix, b_ix| {
             let a = &locations[*a_ix];
             let b = &locations[*b_ix];
             if a.keys().len() != b.keys().len() {
                 return a.keys().len().cmp(&b.keys().len());
             }
-            let a_on_point = a
-                .iter()
-                .filter(|(&axis, &value)| {
-                    axis_points.contains_key(&axis)
-                        && axis_points
-                            .get(&axis)
-                            .unwrap()
-                            .contains(&F2DOT14::pack(value))
-                })
-                .count();
-            let b_on_point = b
-                .iter()
-                .filter(|(&axis, &value)| {
-                    axis_points.contains_key(&axis)
-                        && axis_points
-                            .get(&axis)
-                            .unwrap()
-                            .contains(&F2DOT14::pack(value))
-                })
-                .count();
+
+            let a_on_point = on_point_count(a);
+            let b_on_point = on_point_count(b);
             if a_on_point != b_on_point {
                 return b_on_point.cmp(&a_on_point);
             }
-            // This is wrong
-            unimplemented!()
+
+            let mut a_ordered_axes: Vec<Tag> = a.keys().copied().collect();
+            let mut b_ordered_axes: Vec<Tag> = b.keys().copied().collect();
+            a_ordered_axes.sort_by(|ka, kb| {
+                if axis_order.contains(ka) && !axis_order.contains(kb) {
+                    return Ordering::Less;
+                }
+                if axis_order.contains(kb) && !axis_order.contains(ka) {
+                    return Ordering::Greater;
+                }
+                ka.cmp(kb)
+            });
+            b_ordered_axes.sort_by(|ka, kb| {
+                if axis_order.contains(ka) && !axis_order.contains(kb) {
+                    return Ordering::Less;
+                }
+                if axis_order.contains(kb) && !axis_order.contains(ka) {
+                    return Ordering::Greater;
+                }
+                ka.cmp(kb)
+            });
+            for (left, right) in a_ordered_axes.iter().zip(b_ordered_axes.iter()) {
+                let l_index = axis_order.iter().position(|ax| ax == left);
+                let r_index = axis_order.iter().position(|ax| ax == right);
+
+                if l_index.is_some() && r_index.is_none() {
+                    return Ordering::Less;
+                }
+                if r_index.is_some() && l_index.is_none() {
+                    return Ordering::Greater;
+                }
+                if l_index != r_index {
+                    return l_index.cmp(&r_index);
+                }
+            }
+
+            if let Some(axes_order) = a_ordered_axes.iter().partial_cmp(b_ordered_axes.iter()) {
+                if axes_order != Ordering::Equal {
+                    return axes_order;
+                }
+            }
+
+            for (left, _) in a_ordered_axes.iter().zip(b_ordered_axes.iter()) {
+                let a_sign = a.get(left).unwrap().signum();
+                let b_sign = b.get(left).unwrap().signum();
+                if (a_sign - b_sign).abs() > f32::EPSILON {
+                    return a_sign.partial_cmp(&b_sign).unwrap();
+                }
+            }
+            for (left, _) in a_ordered_axes.iter().zip(b_ordered_axes.iter()) {
+                let a_abs = a.get(left).unwrap().abs();
+                let b_abs = b.get(left).unwrap().abs();
+                if (a_abs - b_abs).abs() > f32::EPSILON {
+                    return a_abs.partial_cmp(&b_abs).unwrap();
+                }
+            }
+            Ordering::Equal
         });
 
         let mut vm = VariationModel {
@@ -226,7 +275,10 @@ impl VariationModel {
         }
     }
 
-    pub fn get_deltas(&self, master_values: &[f32]) -> Vec<f32> {
+    pub fn get_deltas<T>(&self, master_values: &[T]) -> Vec<T>
+    where
+        T: Copy + SubAssign + Mul<f32, Output = T>,
+    {
         assert_eq!(master_values.len(), self.delta_weights.len());
         let mut out = vec![];
         let reordered_masters = self.sort_order.apply_inv_slice(master_values);
@@ -238,5 +290,94 @@ impl VariationModel {
             out.push(delta);
         }
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assert_approx_eq::assert_approx_eq;
+    use std::iter::FromIterator;
+
+    macro_rules! hashmap {
+        ($($k:expr => $v:expr),* $(,)?) => {
+            std::collections::HashMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+        };
+    }
+    #[test]
+    fn test_support_scalar() {
+        assert_approx_eq!(support_scalar(&Location::new(), &Support::new()), 1.0);
+        assert_approx_eq!(
+            support_scalar(&hashmap!( *b"wght" => 0.2), &Support::new()),
+            1.0
+        );
+        assert_approx_eq!(
+            support_scalar(
+                &hashmap!( *b"wght" => 0.2),
+                &hashmap!( *b"wght" => (0_f32,2_f32,3_f32))
+            ),
+            0.1
+        );
+        assert_approx_eq!(
+            support_scalar(
+                &hashmap!( *b"wght" => 2.5),
+                &hashmap!( *b"wght" => (0_f32,2_f32,4_f32))
+            ),
+            0.75
+        );
+    }
+
+    #[test]
+    fn test_variation_model() {
+        let locations = vec![
+            hashmap!(*b"wght" => 0.55, *b"wdth" => 0.0),
+            hashmap!(*b"wght" => -0.55, *b"wdth" => 0.0),
+            hashmap!(*b"wght" => -1.0, *b"wdth" => 0.0),
+            hashmap!(*b"wght" => 0.0, *b"wdth" => 1.0),
+            hashmap!(*b"wght" => 0.66, *b"wdth" => 1.0),
+            hashmap!(*b"wght" => 0.66, *b"wdth" => 0.66),
+            hashmap!(*b"wght" => 0.0, *b"wdth" => 0.0),
+            hashmap!(*b"wght" => 1.0, *b"wdth" => 1.0),
+            hashmap!(*b"wght" => 1.0, *b"wdth" => 0.0),
+        ];
+        let axis_order = vec![*b"wght"];
+        let vm = VariationModel::new(locations, axis_order);
+        let expected_locations = vec![
+            hashmap!(),
+            hashmap!(*b"wght" => -0.55),
+            hashmap!(*b"wght" => -1.0),
+            hashmap!(*b"wght" => 0.55),
+            hashmap!(*b"wght" => 1.0),
+            hashmap!(*b"wdth" => 1.0),
+            hashmap!(*b"wdth" => 1.0, *b"wght" => 1.0),
+            hashmap!(*b"wdth" => 1.0, *b"wght" => 0.66),
+            hashmap!(*b"wdth" => 0.66, *b"wght" => 0.66),
+        ];
+        assert_eq!(vm.locations, expected_locations);
+
+        let expected_supports = vec![
+            hashmap!(),
+            hashmap!(*b"wght" => (-1.0, -0.55, 0.0)),
+            hashmap!(*b"wght" => (-1.0, -1.0, -0.55)),
+            hashmap!(*b"wght" => (0.0, 0.55, 1.0)),
+            hashmap!(*b"wght" => (0.55, 1.0, 1.0)),
+            hashmap!(*b"wdth" => (0.0, 1.0, 1.0)),
+            hashmap!(*b"wdth" => (0.0, 1.0, 1.0), *b"wght" => (0.0, 1.0, 1.0)),
+            hashmap!(*b"wdth" => (0.0, 1.0, 1.0), *b"wght" => (0.0, 0.66, 1.0)),
+            hashmap!(*b"wdth" => (0.0, 0.66, 1.0), *b"wght" => (0.0, 0.66, 1.0)),
+        ];
+        assert_eq!(vm.supports, expected_supports);
+
+        assert_eq!(vm.delta_weights[0], hashmap!());
+        assert_eq!(vm.delta_weights[1], hashmap!(0 => 1.0));
+        assert_eq!(vm.delta_weights[2], hashmap!(0 => 1.0));
+        assert_eq!(vm.delta_weights[3], hashmap!(0 => 1.0));
+        assert_eq!(vm.delta_weights[4], hashmap!(0 => 1.0));
+        assert_eq!(vm.delta_weights[5], hashmap!(0 => 1.0));
+        assert_eq!(vm.delta_weights[6], hashmap!(0 => 1.0, 4 => 1.0, 5 => 1.0));
+        assert_approx_eq!(vm.delta_weights[7].get(&3).unwrap(), 0.755_555_57);
+        assert_approx_eq!(vm.delta_weights[7].get(&4).unwrap(), 0.244_444_49);
+        assert_approx_eq!(vm.delta_weights[7].get(&5).unwrap(), 1.0);
+        assert_approx_eq!(vm.delta_weights[7].get(&6).unwrap(), 0.66);
     }
 }
