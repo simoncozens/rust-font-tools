@@ -52,7 +52,7 @@ fn main() {
             ));
         }
 
-        font = build_fonts(dm_ufo.unwrap(), other_masters);
+        font = build_fonts(dm_ufo.unwrap(), other_masters, ds.variation_model());
 
         ds.add_to_font(&mut font)
             .expect("Couldn't add variation tables");
