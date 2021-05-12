@@ -5,7 +5,7 @@ use fonttools::font::Table;
 use fonttools::glyf;
 use fonttools::gvar::GlyphVariationData;
 use fonttools::hmtx;
-use fonttools::otvar::NormalizedLocation;
+use fonttools::otvar::{NormalizedLocation, VariationModel};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -83,6 +83,7 @@ pub fn build_font(ufo: norad::Font) -> font::Font {
 pub fn build_fonts(
     default_master: &norad::Font,
     other_masters: Vec<(NormalizedLocation, &norad::Layer)>,
+    variation_model: VariationModel,
 ) -> font::Font {
     let layer = default_master.default_layer();
     let info = default_master.font_info.as_ref().unwrap();
