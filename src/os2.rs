@@ -207,7 +207,7 @@ impl Serialize for os2 {
         if self.version > 0 {
             seq.serialize_element(&os2v1 {
                 ulCodePageRange1: self.ulCodePageRange1.unwrap_or(0),
-                ulCodePageRange2: self.ulCodePageRange1.unwrap_or(0),
+                ulCodePageRange2: self.ulCodePageRange2.unwrap_or(0),
             })?;
         }
         if self.version > 1 {

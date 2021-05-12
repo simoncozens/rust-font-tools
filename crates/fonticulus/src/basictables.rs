@@ -13,7 +13,8 @@ use fonttools::maxp::maxp;
 use fonttools::name::{name, NameRecord, NameRecordID};
 use fonttools::os2::os2;
 use fonttools::post::post;
-use std::collections::BTreeMap;
+use otspec::types::Tuple;
+use std::collections::{BTreeMap, HashSet};
 use std::convert::TryInto;
 
 pub fn compile_head(info: &norad::FontInfo, glyf: &glyf::glyf) -> head {
@@ -164,6 +165,15 @@ pub fn compile_os2(
         .open_type_os2_subscript_x_size
         .unwrap_or((upm * 0.65).round() as i32) as i16;
 
+    let unicodes:HashSet<u32> = mapping.keys().cloned().collect();
+    let code_pages:Vec<u8> = info.open_type_os2_code_page_ranges.as_ref()
+        .unwrap_or(&calc_code_page_ranges(&unicodes))
+        .iter()
+        .cloned()
+        .collect();
+    let code_pages1: Vec<u8> = code_pages.iter().filter(|&x| *x < 32).cloned().collect();
+    let code_pages2: Vec<u8> = code_pages.iter().filter(|&x| *x >= 32).map(|&x|x - 32).collect();
+
     os2 {
         version: 4,
         xAvgCharWidth: (metrics.iter().map(|m| m.advanceWidth as f32).sum::<f32>()
@@ -223,8 +233,8 @@ pub fn compile_os2(
         // sFamilyClass: info.open_type_os2_family_class... (not public)
         sFamilyClass: 0,
         panose: get_panose(info),
-        ulCodePageRange1: Some(0b01100000000000000000000110010011), // XXX
-        ulCodePageRange2: Some(0),                                  // XXX
+        ulCodePageRange1: Some(int_list_to_num(&code_pages1) as u32),
+        ulCodePageRange2: Some(int_list_to_num(&code_pages2) as u32),
         ulUnicodeRange1: 0b10100001000000000000000011111111,        // XXX
         ulUnicodeRange2: 0,                                         // XXX
         ulUnicodeRange3: 0,                                         // XXX
