@@ -9,7 +9,8 @@ extern crate norad;
 use fonttools::avar::{avar, SegmentMap};
 use fonttools::font::{Font, Table};
 use fonttools::fvar::{fvar, InstanceRecord, VariationAxisRecord};
-use fonttools::otvar::NormalizedLocation;
+use fonttools::otvar::Location as OTVarLocation;
+use fonttools::otvar::{NormalizedLocation, VariationModel};
 use otspec::types::Tag;
 use serde_xml_rs::from_reader;
 
@@ -100,10 +101,7 @@ impl Designspace {
     pub fn tag_to_name(&self) -> HashMap<Tag, String> {
         let mut hm = HashMap::new();
         for axis in &self.axes.axis {
-            hm.insert(
-                axis.tag.as_bytes()[0..4].try_into().unwrap(),
-                axis.name.clone(),
-            );
+            hm.insert(axis.tag_as_tag(), axis.name.clone());
         }
         hm
     }
@@ -111,11 +109,7 @@ impl Designspace {
     /// Returns the axis order. Requires the tags to be validated; will panic
     /// if they are not four-byte tags.
     pub fn axis_order(&self) -> Vec<Tag> {
-        self.axes
-            .axis
-            .iter()
-            .map(|ax| ax.tag.as_bytes()[0..4].try_into().unwrap())
-            .collect()
+        self.axes.axis.iter().map(|ax| ax.tag_as_tag()).collect()
     }
 
     pub fn default_location(&self) -> Vec<i32> {
@@ -156,6 +150,19 @@ impl Designspace {
             v.push(ax.normalize_designspace_value(l as f32));
         }
         NormalizedLocation(v)
+    }
+
+    pub fn variation_model(&self) -> VariationModel {
+        let mut locations: Vec<OTVarLocation> = vec![];
+        for source in self.sources.source.iter() {
+            let source_loc = self.normalize_location(self.source_location(source));
+            let mut loc = OTVarLocation::new();
+            for (ax, iter_l) in self.axes.axis.iter().zip(source_loc.0.iter()) {
+                loc.insert(ax.tag_as_tag(), *iter_l);
+            }
+            locations.push(loc);
+        }
+        VariationModel::new(locations, self.axis_order())
     }
 }
 
@@ -225,6 +232,10 @@ impl Axis {
         } else {
             0_f32
         }
+    }
+
+    fn tag_as_tag(&self) -> Tag {
+        self.tag.as_bytes()[0..4].try_into().unwrap()
     }
 
     fn normalize_userspace_value(&self, mut l: f32) -> f32 {

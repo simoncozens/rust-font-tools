@@ -14,9 +14,10 @@ pub struct UserLocation(pub Tuple);
 pub struct NormalizedLocation(pub Tuple);
 
 type Support = HashMap<Tag, (f32, f32, f32)>;
-type Location = HashMap<Tag, f32>;
+pub type Location = HashMap<Tag, f32>;
 type AxisPoints = HashMap<Tag, HashSet<i16>>;
 
+#[derive(Debug)]
 pub struct VariationModel {
     locations: Vec<Location>,
     sort_order: Permutation,

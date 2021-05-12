@@ -39,7 +39,7 @@ impl Delta {
 pub use crate::otvar::itemvariationstore::{
     ItemVariationData, ItemVariationStore, RegionAxisCoordinates,
 };
-pub use crate::otvar::locations::NormalizedLocation;
+pub use crate::otvar::locations::{Location, NormalizedLocation, VariationModel};
 pub use crate::otvar::packeddeltas::{PackedDeltas, PackedDeltasDeserializer};
 pub use crate::otvar::packedpoints::PackedPoints;
 pub use crate::otvar::tuplevariationheader::{
