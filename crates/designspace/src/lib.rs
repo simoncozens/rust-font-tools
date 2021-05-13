@@ -9,6 +9,7 @@ extern crate norad;
 use fonttools::avar::{avar, SegmentMap};
 use fonttools::font::{Font, Table};
 use fonttools::fvar::{fvar, InstanceRecord, VariationAxisRecord};
+use fonttools::name::NameRecord;
 use fonttools::otvar::Location as OTVarLocation;
 use fonttools::otvar::{NormalizedLocation, VariationModel};
 use otspec::types::Tag;
@@ -55,8 +56,19 @@ impl Designspace {
     pub fn add_to_font(&self, font: &mut Font) -> Result<(), &'static str> {
         let mut axes: Vec<VariationAxisRecord> = vec![];
         let mut maps: Vec<SegmentMap> = vec![];
-        for axis in &self.axes.axis {
-            axes.push(axis.to_variation_axis_record()?);
+
+        for (ix, axis) in self.axes.axis.iter().enumerate() {
+            axes.push(axis.to_variation_axis_record(255 + ix as u16)?);
+            if let Table::Name(name) = font
+                .get_table(b"name")
+                .expect("No name table?")
+                .expect("Couldn't open name table")
+            {
+                name.records.push(NameRecord::windows_unicode(
+                    255 + ix as u16,
+                    axis.name.clone(),
+                ));
+            }
             if axis.map.is_some() {
                 let mut sm: Vec<(f32, f32)> = vec![(-1.0, -1.0)];
                 sm.extend(
@@ -186,7 +198,7 @@ pub struct Axis {
 }
 
 impl Axis {
-    fn to_variation_axis_record(&self) -> Result<VariationAxisRecord, &'static str> {
+    fn to_variation_axis_record(&self, name_id: u16) -> Result<VariationAxisRecord, &'static str> {
         if self.tag.len() != 4 {
             return Err("Badly formatted axis tag");
         }
@@ -200,7 +212,7 @@ impl Axis {
             } else {
                 0x0000
             },
-            axisNameID: 255, /* XXX */
+            axisNameID: name_id,
         })
     }
 
