@@ -68,7 +68,7 @@ pub fn build_font(ufo: norad::Font) -> font::Font {
         .iter()
         .map({
             |glyf| {
-                let (glyph, _) = glifs_to_glyph(&glyf, &name_to_id, vec![]);
+                let (glyph, _) = glifs_to_glyph(0, &name_to_id, &[&glyf], None);
                 let lsb = glyph.xMin;
                 let advanceWidth = glyf.width as u16;
                 (glyph, hmtx::Metric { advanceWidth, lsb })
@@ -81,12 +81,12 @@ pub fn build_font(ufo: norad::Font) -> font::Font {
 }
 
 pub fn build_fonts(
-    default_master: &norad::Font,
-    other_masters: Vec<(NormalizedLocation, &norad::Layer)>,
+    default_master: usize,
+    fonts: Vec<norad::Font>,
     variation_model: VariationModel,
 ) -> font::Font {
-    let layer = default_master.default_layer();
-    let info = default_master.font_info.as_ref().unwrap();
+    let layer = fonts[default_master].default_layer();
+    let info = fonts[default_master].font_info.as_ref().unwrap();
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
 
@@ -100,12 +100,19 @@ pub fn build_fonts(
     for glif in glifs {
         // Find other glyphs in designspace
         let mut glif_variations = vec![];
-        for (location, layer) in &other_masters {
-            if let Some(other_glif) = layer.get_glyph(&glif.name) {
-                glif_variations.push((location, other_glif));
+        for font in &fonts {
+            if let Some(other_glif) = font.default_layer().get_glyph(&glif.name) {
+                glif_variations.push(other_glif);
+            } else {
+                panic!("Sparse masters not implemented yet");
             }
         }
-        let (glyph, variation) = glifs_to_glyph(&glif, &name_to_id, glif_variations);
+        let (glyph, variation) = glifs_to_glyph(
+            default_master,
+            &name_to_id,
+            &glif_variations,
+            Some(&variation_model),
+        );
         let lsb = glyph.xMin;
         let advanceWidth = glif.width as u16;
         glyphs.push(glyph);
