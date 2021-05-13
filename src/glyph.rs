@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 pub fn glifs_to_glyph(
     default_master: usize,
     mapping: &BTreeMap<String, u16>,
-    glifs: &[&std::sync::Arc<norad::Glyph>],
+    glifs: &[Option<&std::sync::Arc<norad::Glyph>>],
     model: Option<&VariationModel>,
 ) -> (glyf::Glyph, Option<GlyphVariationData>) {
     let mut glyph = glyf::Glyph {
@@ -23,7 +23,7 @@ pub fn glifs_to_glyph(
         components: vec![],
         overlap: false,
     };
-    let glif = glifs[default_master];
+    let glif = glifs[default_master].expect("No glif in default master!");
     if glif.components.is_empty() && glif.contours.is_empty() {
         return (glyph, None);
     }
@@ -37,14 +37,12 @@ pub fn glifs_to_glyph(
 
     /* Do outlines */
 
-    let mut locations: Vec<&NormalizedLocation> = vec![];
-    let mut other_glifs: Vec<&std::sync::Arc<norad::Glyph>> = vec![];
-    let mut widths: Vec<f32> = vec![];
-    let mut contours: Vec<Vec<Vec<glyf::Point>>> = vec![];
+    let mut widths: Vec<Option<f32>> = vec![];
+    let mut contours: Vec<Option<Vec<Vec<glyf::Point>>>> = vec![];
 
     /* Base case */
     if model.is_none() {
-        for (index, contour) in glif.contours.iter().enumerate() {
+        for contour in glif.contours.iter() {
             glyph
                 .contours
                 .push(norad_contour_to_glyf_contour(contour, 1.0));
@@ -53,25 +51,41 @@ pub fn glifs_to_glyph(
     }
 
     for o in glifs {
-        contours.push(vec![]);
-        widths.push(o.width);
+        if o.is_some() {
+            contours.push(Some(vec![]));
+            widths.push(Some(o.unwrap().width));
+        } else {
+            widths.push(None);
+            contours.push(None);
+        }
     }
 
-    for (index, contour) in glif.contours.iter().enumerate() {
+    for (index, _) in glif.contours.iter().enumerate() {
         for o in glifs {
-            if index > o.contours.len() {
+            if o.is_some() && index > o.unwrap().contours.len() {
                 // Let's assume we've done some interpolatability checks before this point
                 panic!("Incompatible contour in glyph {:?}", o);
             }
         }
-        let mut all_contours: Vec<&norad::Contour> =
-            glifs.iter().map(|x| &x.contours[index]).collect();
+        // A vector of masters: each master is either sparse (None) or has a
+        // matching contour for this contour. (Some(&norad::Contour))
+        let all_contours: Vec<Option<&norad::Contour>> = glifs
+            .iter()
+            .map(|x| x.map(|y| &y.contours[index]))
+            .collect();
+        // Same, but with glyf Contour objects.
         let all_glyf_contours = norad_contours_to_glyf_contour(all_contours);
+        // Now we put them into their respective master
         for master_id in 0..glifs.len() {
-            contours[master_id].push(all_glyf_contours[master_id].clone());
+            if contours[master_id].is_some() {
+                contours[master_id]
+                    .as_mut()
+                    .unwrap()
+                    .push(all_glyf_contours[master_id].as_ref().unwrap().clone());
+            }
         }
     }
-    if !contours.is_empty() && !contours[default_master].is_empty() {
+    if !contours.is_empty() && !contours[default_master].as_ref().unwrap().is_empty() {
         if !glyph.components.is_empty() {
             log::warn!(
                 "Can't create gvar deltas for mixed glyph {:}",
@@ -81,7 +95,7 @@ pub fn glifs_to_glyph(
         }
 
         let deltas = compute_deltas(&contours, widths, model.unwrap());
-        glyph.contours = contours[default_master].clone();
+        glyph.contours = contours[default_master].as_ref().unwrap().clone();
         return (glyph, Some(deltas));
     }
 
@@ -89,31 +103,35 @@ pub fn glifs_to_glyph(
 }
 
 fn compute_deltas(
-    contours: &[Vec<Vec<glyf::Point>>],
-    widths: Vec<f32>,
+    contours: &[Option<Vec<Vec<glyf::Point>>>],
+    widths: Vec<Option<f32>>,
     model: &VariationModel,
 ) -> GlyphVariationData {
     let mut deltasets: Vec<DeltaSet> = vec![];
     let mut all_coords = vec![];
     for (ix, master) in contours.iter().enumerate() {
-        let width = widths[ix];
-        let (mut master_x_coords, mut master_y_coords): (Vec<f32>, Vec<f32>) = master
-            .iter()
-            .flatten()
-            .map(|pt| (pt.x as f32, pt.y as f32))
-            .unzip();
-        master_x_coords.extend(vec![0_f32, width as f32, 0.0, 0.0]);
-        let len = master_x_coords.len();
-        master_y_coords.extend(vec![0.0, 0.0, 0.0, 0.0]);
-        master_x_coords.extend(master_y_coords);
-        all_coords.push(
-            ndarray::Array2::from_shape_vec((2, len), master_x_coords)
-                .unwrap()
-                .reversed_axes(),
-        );
+        if let Some(master) = master {
+            let width = widths[ix].unwrap();
+            let (mut master_x_coords, mut master_y_coords): (Vec<f32>, Vec<f32>) = master
+                .iter()
+                .flatten()
+                .map(|pt| (pt.x as f32, pt.y as f32))
+                .unzip();
+            master_x_coords.extend(vec![0_f32, width as f32, 0.0, 0.0]);
+            let len = master_x_coords.len();
+            master_y_coords.extend(vec![0.0, 0.0, 0.0, 0.0]);
+            master_x_coords.extend(master_y_coords);
+            all_coords.push(Some(
+                ndarray::Array2::from_shape_vec((2, len), master_x_coords)
+                    .unwrap()
+                    .reversed_axes(),
+            ));
+        } else {
+            all_coords.push(None);
+        }
     }
-    let deltas = model.get_deltas(&all_coords);
-    for (delta, support) in deltas.iter().zip(model.supports.iter()) {
+    let deltas_and_supports = model.get_deltas_and_supports(&all_coords);
+    for (delta, support) in deltas_and_supports.iter() {
         if support.is_empty() {
             continue;
         }
@@ -140,15 +158,17 @@ fn compute_deltas(
     GlyphVariationData { deltasets }
 }
 
-fn norad_contours_to_glyf_contour(contours: Vec<&norad::Contour>) -> Vec<Vec<glyf::Point>> {
+fn norad_contours_to_glyf_contour(
+    contours: Vec<Option<&norad::Contour>>,
+) -> Vec<Option<Vec<glyf::Point>>> {
     let mut error = 1.0;
     while error < 100.0 {
         // This is dirty
-        let glyf_contours: Vec<Vec<glyf::Point>> = contours
+        let glyf_contours: Vec<Option<Vec<glyf::Point>>> = contours
             .iter()
-            .map(|x| norad_contour_to_glyf_contour(x, error))
+            .map(|x| x.map(|y| norad_contour_to_glyf_contour(y, error)))
             .collect();
-        let lengths: Vec<usize> = glyf_contours.iter().map(|x| x.len()).collect();
+        let lengths: Vec<usize> = glyf_contours.iter().flatten().map(|x| x.len()).collect();
         if is_all_same(&lengths) {
             return glyf_contours;
         }
