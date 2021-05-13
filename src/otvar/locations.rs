@@ -11,6 +11,7 @@ use std::collections::{HashMap, HashSet};
 pub struct UserLocation(pub Tuple);
 
 /// A location in the internal -1 <= 0 => 1 representation
+#[derive(Debug)]
 pub struct NormalizedLocation(pub Tuple);
 
 type Support = HashMap<Tag, (f32, f32, f32)>;

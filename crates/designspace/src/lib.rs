@@ -124,8 +124,18 @@ impl Designspace {
         self.axes.axis.iter().map(|ax| ax.tag_as_tag()).collect()
     }
 
+    /// Returns the default master location in userspace coordinates
     pub fn default_location(&self) -> Vec<i32> {
         self.axes.axis.iter().map(|ax| ax.default).collect()
+    }
+
+    /// Returns the default master location in designspace coordinates
+    pub fn default_designspace_location(&self) -> Vec<i32> {
+        self.axes
+            .axis
+            .iter()
+            .map(|ax| ax.userspace_to_designspace(ax.default) as i32)
+            .collect()
     }
 
     // Returns the location of a given source object in design space coordinates
@@ -148,7 +158,7 @@ impl Designspace {
     /// Returns the Source object for the master at default axis coordinates,
     /// if one can be found
     pub fn default_master(&self) -> Option<&Source> {
-        let expected = self.default_location();
+        let expected = self.default_designspace_location();
         self.sources
             .source
             .iter()
@@ -204,9 +214,9 @@ impl Axis {
         }
         Ok(VariationAxisRecord {
             axisTag: self.tag.as_bytes()[0..4].try_into().unwrap(),
-            defaultValue: self.designspace_to_userspace(self.default),
-            maxValue: self.designspace_to_userspace(self.maximum),
-            minValue: self.designspace_to_userspace(self.minimum),
+            defaultValue: self.default as f32,
+            maxValue: self.maximum as f32,
+            minValue: self.minimum as f32,
             flags: if self.hidden.unwrap_or(false) {
                 0x0001
             } else {
@@ -214,6 +224,21 @@ impl Axis {
             },
             axisNameID: name_id,
         })
+    }
+
+    pub fn userspace_to_designspace(&self, l: i32) -> f32 {
+        let mut mapping: HashMap<i32, f32> = HashMap::new();
+        if self.map.is_some() {
+            for m in self.map.as_ref().unwrap().iter() {
+                mapping.insert(m.input as i32, m.output);
+            }
+        } else {
+            mapping.insert(self.minimum, self.minimum as f32);
+            mapping.insert(self.default, self.default as f32);
+            mapping.insert(self.maximum, self.maximum as f32);
+        }
+
+        piecewise_linear_map(mapping, l)
     }
 
     fn designspace_to_userspace(&self, l: i32) -> f32 {
@@ -230,7 +255,7 @@ impl Axis {
 
         piecewise_linear_map(mapping, l)
     }
-    fn normalize_designspace_value(&self, mut l: f32) -> f32 {
+    fn normalize_userspace_value(&self, mut l: f32) -> f32 {
         if l < self.minimum as f32 {
             l = self.minimum as f32;
         }
@@ -250,31 +275,31 @@ impl Axis {
         self.tag.as_bytes()[0..4].try_into().unwrap()
     }
 
-    fn normalize_userspace_value(&self, mut l: f32) -> f32 {
+    fn normalize_designspace_value(&self, mut l: f32) -> f32 {
         if self.map.is_none() || self.map.as_ref().unwrap().is_empty() {
-            return self.normalize_designspace_value(l);
+            return self.normalize_userspace_value(l);
         }
-        let userspace_minimum = self
+        let designspace_minimum = self
             .map
             .as_ref()
             .unwrap()
             .iter()
-            .map(|m| m.input)
+            .map(|m| m.output)
             .fold(1. / 0., f32::min);
-        let userspace_maximum = self
+        let designspace_maximum = self
             .map
             .as_ref()
             .unwrap()
             .iter()
-            .map(|m| m.input)
+            .map(|m| m.output)
             .fold(-1. / 0., f32::max);
-        if l < userspace_minimum {
-            l = userspace_minimum;
+        if l < designspace_minimum {
+            l = designspace_minimum;
         }
-        if l > userspace_maximum {
-            l = userspace_maximum;
+        if l > designspace_maximum {
+            l = designspace_maximum;
         }
-        let v = (l - userspace_minimum) / (userspace_maximum - userspace_minimum);
+        let v = (l - designspace_minimum) / (designspace_maximum - designspace_minimum);
         v
     }
 }
