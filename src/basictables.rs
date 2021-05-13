@@ -13,7 +13,6 @@ use fonttools::maxp::maxp;
 use fonttools::name::{name, NameRecord, NameRecordID};
 use fonttools::os2::os2;
 use fonttools::post::post;
-use otspec::types::Tuple;
 use std::collections::BTreeMap;
 use std::convert::TryInto;
 

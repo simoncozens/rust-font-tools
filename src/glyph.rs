@@ -2,9 +2,8 @@ use crate::utils::is_all_same;
 use fonttools::glyf;
 use fonttools::gvar::DeltaSet;
 use fonttools::gvar::GlyphVariationData;
-use fonttools::otvar::{NormalizedLocation, VariationModel};
+use fonttools::otvar::VariationModel;
 use kurbo::{PathEl, PathSeg};
-use otspec::types::Tuple;
 use std::collections::BTreeMap;
 
 pub fn glifs_to_glyph(

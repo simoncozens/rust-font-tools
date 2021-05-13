@@ -5,7 +5,7 @@ use fonttools::font::Table;
 use fonttools::glyf;
 use fonttools::gvar::GlyphVariationData;
 use fonttools::hmtx;
-use fonttools::otvar::{NormalizedLocation, VariationModel};
+use fonttools::otvar::VariationModel;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 

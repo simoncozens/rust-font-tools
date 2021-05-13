@@ -6,7 +6,6 @@ mod utils;
 
 use buildbasic::{build_font, build_fonts};
 use clap::{App, Arg};
-use fonttools::otvar::NormalizedLocation;
 use rayon::prelude::*;
 use std::fs::File;
 use std::io;
