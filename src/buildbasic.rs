@@ -6,7 +6,7 @@ use fonttools::glyf;
 use fonttools::gvar::GlyphVariationData;
 use fonttools::hmtx;
 use fonttools::otvar::VariationModel;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 
 fn decompose_mixed_glyphs(glyphs: &mut Vec<glyf::Glyph>, names: &[String]) {
@@ -41,10 +41,14 @@ fn get_glyph_names_and_mapping(
     layer: &norad::Layer,
     mapping: &mut BTreeMap<u32, u16>,
     name_to_id: &mut BTreeMap<String, u16>,
+    subset: &Option<HashSet<String>>,
 ) -> Vec<String> {
     let mut names: Vec<String> = vec![];
     for (glyph_id, glyf) in layer.iter_contents().enumerate() {
         let name = glyf.name.to_string();
+        if subset.is_some() && !subset.as_ref().unwrap().contains(&name) {
+            continue;
+        }
         names.push(name.clone());
         name_to_id.insert(name, glyph_id as u16);
         let cp = &glyf.codepoints;
@@ -55,17 +59,18 @@ fn get_glyph_names_and_mapping(
     names
 }
 
-pub fn build_font(ufo: norad::Font) -> font::Font {
+pub fn build_font(ufo: norad::Font, include: Option<HashSet<String>>) -> font::Font {
     let layer = ufo.default_layer();
     let info = ufo.font_info.as_ref().unwrap();
 
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
 
-    let names = get_glyph_names_and_mapping(&layer, &mut mapping, &mut name_to_id);
+    let names = get_glyph_names_and_mapping(&layer, &mut mapping, &mut name_to_id, &include);
     let glifs: Vec<Arc<norad::Glyph>> = layer.iter_contents().collect();
     let (mut glyphs, mut metrics): (Vec<glyf::Glyph>, Vec<hmtx::Metric>) = glifs
         .iter()
+        .filter(|g| include.is_none() || include.as_ref().unwrap().contains(&g.name.to_string()))
         .map({
             |glyf| {
                 let (glyph, _) = glifs_to_glyph(0, &name_to_id, &[Some(&glyf)], None);
@@ -84,13 +89,14 @@ pub fn build_fonts(
     default_master: usize,
     fonts: Vec<norad::Font>,
     variation_model: VariationModel,
+    include: Option<HashSet<String>>,
 ) -> font::Font {
     let layer = fonts[default_master].default_layer();
     let info = fonts[default_master].font_info.as_ref().unwrap();
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
 
-    let names = get_glyph_names_and_mapping(&layer, &mut mapping, &mut name_to_id);
+    let names = get_glyph_names_and_mapping(&layer, &mut mapping, &mut name_to_id, &include);
 
     let glifs: Vec<Arc<norad::Glyph>> = layer.iter_contents().collect();
 
@@ -98,6 +104,9 @@ pub fn build_fonts(
     let mut metrics: Vec<hmtx::Metric> = vec![];
     let mut variations: Vec<Option<GlyphVariationData>> = vec![];
     for glif in glifs {
+        if include.is_some() && !include.as_ref().unwrap().contains(&glif.name.to_string()) {
+            continue;
+        }
         // Find other glyphs in designspace
         let mut glif_variations = vec![];
         for font in &fonts {

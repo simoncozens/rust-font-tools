@@ -8,6 +8,7 @@ use buildbasic::{build_font, build_fonts};
 use clap::{App, Arg};
 use designspace::Designspace;
 use rayon::prelude::*;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io;
 
@@ -17,6 +18,13 @@ fn main() {
     );
     let matches = App::new("fonticulous")
         .about("A variable font builder")
+        .arg(
+            Arg::with_name("subset")
+                .help("Only convert the given glyphs (for testing only)")
+                .required(false)
+                .takes_value(true)
+                .long("subset"),
+        )
         .arg(
             Arg::with_name("INPUT")
                 .help("Sets the input file to use")
@@ -29,6 +37,13 @@ fn main() {
         )
         .get_matches();
     let filename = matches.value_of("INPUT").unwrap();
+    let subset = matches.value_of("subset").and_then(|x| {
+        Some(
+            x.split(",")
+                .map(|y| y.to_string())
+                .collect::<HashSet<String>>(),
+        )
+    });
     let mut font;
 
     if filename.ends_with(".designspace") {
@@ -48,12 +63,12 @@ fn main() {
             .par_iter()
             .map(|s| s.ufo().expect("Couldn't open master file"))
             .collect();
-        font = build_fonts(dm_index.unwrap(), masters, ds.variation_model());
+        font = build_fonts(dm_index.unwrap(), masters, ds.variation_model(), subset);
         ds.add_to_font(&mut font)
             .expect("Couldn't add variation tables");
     } else if filename.ends_with(".ufo") {
         let ufo = norad::Font::load(filename).expect("Can't load UFO file");
-        font = build_font(ufo);
+        font = build_font(ufo, subset);
     } else {
         panic!("Unknown file type {:?}", filename);
     }
