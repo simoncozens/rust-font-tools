@@ -7,6 +7,7 @@ mod utils;
 use buildbasic::{build_font, build_fonts};
 use clap::{App, Arg};
 use fonttools::otvar::NormalizedLocation;
+use rayon::prelude::*;
 use std::fs::File;
 use std::io;
 
@@ -38,10 +39,10 @@ fn main() {
             .iter()
             .position(|s| ds.source_location(s) == ds.default_location())
             .expect("Couldn't find default master");
-        let mut masters: Vec<norad::Font> = ds
+        let masters: Vec<norad::Font> = ds
             .sources
             .source
-            .iter()
+            .par_iter()
             .map(|s| s.ufo().expect("Couldn't open master file"))
             .collect();
         font = build_fonts(dm_index, masters, ds.variation_model());
