@@ -1,4 +1,4 @@
-use core::ops::{Mul, SubAssign};
+use core::ops::{Mul, Sub};
 use otspec::types::{Tag, Tuple, F2DOT14};
 use permutation::Permutation;
 use std::array::IntoIter;
@@ -19,10 +19,10 @@ type AxisPoints = HashMap<Tag, HashSet<i16>>;
 
 #[derive(Debug)]
 pub struct VariationModel {
-    locations: Vec<Location>,
+    pub locations: Vec<Location>,
     sort_order: Permutation,
-    supports: Vec<Support>,
-    axis_order: Vec<Tag>,
+    pub supports: Vec<Support>,
+    pub axis_order: Vec<Tag>,
     // submodels: HashMap<[usize],
     delta_weights: Vec<HashMap<usize, f32>>,
 }
@@ -104,7 +104,7 @@ impl VariationModel {
             if let Some((axis, value)) = loc.iter().next() {
                 let entry = axis_points
                     .entry(*axis)
-                    .or_insert(IntoIter::new([F2DOT14::pack(0.0)]).collect());
+                    .or_insert_with(|| IntoIter::new([F2DOT14::pack(0.0)]).collect());
                 entry.insert(F2DOT14::pack(*value));
             }
         }
@@ -278,15 +278,14 @@ impl VariationModel {
 
     pub fn get_deltas<T>(&self, master_values: &[T]) -> Vec<T>
     where
-        T: Copy + SubAssign + Mul<f32, Output = T>,
+        T: Sub<Output = T> + Mul<f32, Output = T> + Clone,
     {
         assert_eq!(master_values.len(), self.delta_weights.len());
-        let mut out = vec![];
-        let reordered_masters = self.sort_order.apply_inv_slice(master_values);
-        for (weights, &delta) in self.delta_weights.iter().zip(reordered_masters.iter()) {
-            let mut delta = delta;
+        let mut out: Vec<T> = vec![];
+        for (ix, weights) in self.delta_weights.iter().enumerate() {
+            let mut delta = master_values[self.sort_order.apply_inv_idx(ix)].clone();
             for (&j, &weight) in weights.iter() {
-                delta -= out[j] * weight;
+                delta = delta - out[j].clone() * weight;
             }
             out.push(delta);
         }
