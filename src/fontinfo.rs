@@ -164,9 +164,6 @@ pub fn calc_code_page_ranges(unicodes: &HashSet<u32>) -> Vec<u8> {
     let has_ascii = ascii_range.is_subset(&unicodes);
     let has_lineart = unicodes.contains(&0x2524); // contains '┤'
 
-    // Don't loop through each char in the ufo implementation. Let's just
-    // check if each char exists in the unicode hashset. Drops runtime from
-    // O(n) to O(1)
     let unicodes_contains = | char | {
         unicodes.contains(&(char as u32))
     };
@@ -286,6 +283,6 @@ mod tests {
     fn test_calc_code_page_ranges() {
         let unicodes: HashSet<u32> = (0x20..0xFFFF).collect();
         let ranges = calc_code_page_ranges(&unicodes);
-        println!("{:?}", ranges);
+        assert_eq!(ranges.iter().count(), 32);
     }
 }
