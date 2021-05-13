@@ -68,7 +68,7 @@ pub fn build_font(ufo: norad::Font) -> font::Font {
         .iter()
         .map({
             |glyf| {
-                let (glyph, _) = glifs_to_glyph(0, &name_to_id, &[&glyf], None);
+                let (glyph, _) = glifs_to_glyph(0, &name_to_id, &[Some(&glyf)], None);
                 let lsb = glyph.xMin;
                 let advanceWidth = glyf.width as u16;
                 (glyph, hmtx::Metric { advanceWidth, lsb })
@@ -102,9 +102,9 @@ pub fn build_fonts(
         let mut glif_variations = vec![];
         for font in &fonts {
             if let Some(other_glif) = font.default_layer().get_glyph(&glif.name) {
-                glif_variations.push(other_glif);
+                glif_variations.push(Some(other_glif));
             } else {
-                panic!("Sparse masters not implemented yet");
+                glif_variations.push(None);
             }
         }
         let (glyph, variation) = glifs_to_glyph(

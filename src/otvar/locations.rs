@@ -24,6 +24,7 @@ pub struct VariationModel {
     pub supports: Vec<Support>,
     pub axis_order: Vec<Tag>,
     // submodels: HashMap<[usize],
+    pub original_locations: Vec<Location>,
     delta_weights: Vec<HashMap<usize, f32>>,
 }
 
@@ -90,6 +91,7 @@ fn locations_to_regions(locations: &[Location]) -> Vec<Support> {
 
 impl VariationModel {
     pub fn new(locations: Vec<Location>, axis_order: Vec<Tag>) -> Self {
+        let original_locations = locations.clone();
         let locations: Vec<Location> = locations
             .iter()
             .map(|l| {
@@ -194,6 +196,7 @@ impl VariationModel {
             locations: sort_order.apply_slice(&locations[..]),
             sort_order,
             axis_order,
+            original_locations,
             supports: vec![],
             delta_weights: vec![],
         };
@@ -276,18 +279,28 @@ impl VariationModel {
         }
     }
 
-    pub fn get_deltas<T>(&self, master_values: &[T]) -> Vec<T>
+    pub fn get_deltas_and_supports<T>(&self, master_values: &[Option<T>]) -> Vec<(T, Support)>
     where
         T: Sub<Output = T> + Mul<f32, Output = T> + Clone,
     {
-        assert_eq!(master_values.len(), self.delta_weights.len());
-        let mut out: Vec<T> = vec![];
-        for (ix, weights) in self.delta_weights.iter().enumerate() {
-            let mut delta = master_values[self.sort_order.apply_inv_idx(ix)].clone();
+        let mut out: Vec<(T, Support)> = vec![];
+        let submodel = &VariationModel::new(
+            self.original_locations
+                .iter()
+                .zip(master_values.iter())
+                .filter_map(|(loc, value)| value.as_ref().map(|_| loc.clone()))
+                .collect(),
+            self.axis_order.clone(),
+        );
+        let master_values: Vec<&T> = master_values.iter().flatten().collect();
+        assert_eq!(master_values.len(), submodel.delta_weights.len());
+        for (ix, weights) in submodel.delta_weights.iter().enumerate() {
+            let support = &submodel.supports[ix];
+            let mut delta = master_values[submodel.sort_order.apply_inv_idx(ix)].clone();
             for (&j, &weight) in weights.iter() {
-                delta = delta - out[j].clone() * weight;
+                delta = delta - out[j].0.clone() * weight;
             }
-            out.push(delta);
+            out.push((delta, support.clone()));
         }
         out
     }
