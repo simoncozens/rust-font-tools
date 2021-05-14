@@ -94,7 +94,16 @@ pub fn glifs_to_glyph(
             );
             return (glyph, None);
         }
-
+        let lengths: Vec<usize> = contours
+            .iter()
+            .filter(|x| x.is_some())
+            .map(|g| g.as_ref().unwrap().iter().flatten().count())
+            .collect();
+        if !is_all_same(&lengths) {
+            log::warn!("Incompatible glyph: {:}, lengths: {:?}", glif.name, lengths);
+            glyph.contours = contours[default_master].as_ref().unwrap().clone();
+            return (glyph, None);
+        }
         let deltas = compute_deltas(&contours, widths, model.unwrap());
         glyph.contours = contours[default_master].as_ref().unwrap().clone();
         return (glyph, Some(deltas));
