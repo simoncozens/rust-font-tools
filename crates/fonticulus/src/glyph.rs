@@ -5,6 +5,7 @@ use fonttools::gvar::GlyphVariationData;
 use fonttools::otvar::VariationModel;
 use kurbo::{BezPath, PathEl, PathSeg};
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 type GlyphContour = Vec<Vec<glyf::Point>>;
 
@@ -44,7 +45,7 @@ pub fn glifs_to_glyph(
     /* Base case */
     if model.is_none() {
         for contour in glif.contours.iter() {
-            let glyph_contour = norad_contours_to_glyf_contours(vec![contour], 0)
+            let glyph_contour = norad_contours_to_glyf_contours(vec![contour], 0, &glif.name)
                 .first()
                 .unwrap()
                 .clone();
@@ -73,7 +74,8 @@ pub fn glifs_to_glyph(
             .filter(|g| g.is_some())
             .map(|x| &x.unwrap().contours[index])
             .collect();
-        let all_glyf_contours = norad_contours_to_glyf_contours(all_contours, default_master);
+        let all_glyf_contours =
+            norad_contours_to_glyf_contours(all_contours, default_master, &glif.name);
         // Now we put them into their respective master
         for (finished_contour, master_id) in all_glyf_contours
             .iter()
@@ -171,6 +173,7 @@ fn compute_deltas(
 fn norad_contours_to_glyf_contours(
     contours: Vec<&norad::Contour>,
     default_master: usize,
+    glif_name: &Arc<str>,
 ) -> Vec<Vec<glyf::Point>> {
     // let's first get them all to kurbo elements
     let kurbo_paths: Vec<BezPath> = contours
@@ -188,7 +191,7 @@ fn norad_contours_to_glyf_contours(
                     .iter()
                     .map(|x| x.get_seg(el_ix).unwrap())
                     .collect();
-                let all_quadratics = cubics_to_quadratics(all_curves);
+                let all_quadratics = cubics_to_quadratics(all_curves, glif_name);
                 for (c_ix, contour) in returned_contours.iter_mut().enumerate() {
                     for quad in &all_quadratics[c_ix] {
                         contour.push(quad.clone());
@@ -209,9 +212,9 @@ fn norad_contours_to_glyf_contours(
         .collect()
 }
 
-fn cubics_to_quadratics(cubics: Vec<PathSeg>) -> Vec<Vec<PathEl>> {
-    let mut error = 0.1;
-    while error < 20.0 {
+fn cubics_to_quadratics(cubics: Vec<PathSeg>, glif_name: &Arc<str>) -> Vec<Vec<PathEl>> {
+    let mut error = 0.05;
+    while error < 50.0 {
         let mut quads: Vec<Vec<kurbo::PathEl>> = vec![];
         for pathseg in &cubics {
             if let PathSeg::Cubic(cubic) = pathseg {
@@ -230,7 +233,13 @@ fn cubics_to_quadratics(cubics: Vec<PathSeg>) -> Vec<Vec<PathEl>> {
         if is_all_same(&lengths) {
             return quads;
         }
-        error *= 1.2; // Exponential backoff
+        error *= 1.5; // Exponential backoff
+        if error > 20.0 {
+            log::warn!(
+                "{:} is proving difficult to interpolate - consider redesigning?",
+                glif_name
+            )
+        }
     }
     panic!("Couldn't compatibly interpolate contours");
 }
