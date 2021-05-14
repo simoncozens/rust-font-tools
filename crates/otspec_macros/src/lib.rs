@@ -1,10 +1,10 @@
-#![feature(proc_macro_diagnostic)]
-#![feature(proc_macro_quote)]
+#![cfg_attr(nightly, feature(proc_macro_diagnostic))]
 
 use proc_macro::Delimiter;
 use proc_macro::TokenStream;
 use proc_macro::TokenTree;
 
+#[cfg(nightly)]
 fn expect_group(item: Option<TokenTree>, delimiter: Delimiter) -> TokenStream {
     match item {
         Some(TokenTree::Group(i)) => {
@@ -30,6 +30,33 @@ fn expect_group(item: Option<TokenTree>, delimiter: Delimiter) -> TokenStream {
     }
 }
 
+#[cfg(not(nightly))]
+fn expect_group(item: Option<TokenTree>, delimiter: Delimiter) -> TokenStream {
+    match item {
+        Some(TokenTree::Group(i)) => {
+            if i.delimiter() == delimiter {
+                i.stream()
+            } else {
+                let tokens =
+                    quote::quote_spanned!(i.span().into()=>compile_error!("expected bool"));
+                tokens.into()
+            }
+        }
+        None => {
+            let tokens = quote::quote! {
+                compile_error!("Expected delimiter, found end of macro")
+            };
+            tokens.into()
+        }
+        Some(i) => {
+            let tokens =
+                quote::quote_spanned!(i.span().into()=>compile_error!("expected an ident"));
+            tokens.into()
+        }
+    }
+}
+
+#[cfg(nightly)]
 fn expect_ident(item: Option<TokenTree>) -> String {
     match item {
         Some(TokenTree::Ident(i)) => i.to_string(),
@@ -40,6 +67,19 @@ fn expect_ident(item: Option<TokenTree>) -> String {
             let err = i.span().error("Expected an ident");
             err.emit();
             panic!("Syntax error");
+        }
+    }
+}
+
+#[cfg(not(nightly))]
+fn expect_ident(item: Option<TokenTree>) -> String {
+    match item {
+        Some(TokenTree::Ident(i)) => i.to_string(),
+        None => {
+            panic!("Expected identifier, found end of macro")
+        }
+        Some(i) => {
+            panic!("Syntax error: expected ident, found tokens: '{:?}'", i);
         }
     }
 }

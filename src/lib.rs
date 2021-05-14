@@ -1,6 +1,5 @@
 #![warn(missing_docs, missing_crate_level_docs)]
 #![allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms)]
-#![feature(is_sorted)]
 
 /// The `GSUB` (Glyph substitution) table
 pub mod GSUB;

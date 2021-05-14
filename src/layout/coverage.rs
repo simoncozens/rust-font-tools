@@ -62,6 +62,23 @@ fn consecutive_slices(data: &[uint16]) -> Vec<&[uint16]> {
     result
 }
 
+// TODO: delete when `is_sorted` stablizes: https://github.com/rust-lang/rust/issues/53485
+// copied from stdlib
+fn is_sorted<T: Ord>(slice: &[T]) -> bool {
+    let mut iter = slice.iter();
+    let mut prev = match iter.next() {
+        Some(x) => x,
+        None => return true,
+    };
+    while let Some(next) = iter.next() {
+        if next < prev {
+            return false;
+        }
+        prev = next;
+    }
+    true
+}
+
 impl Serialize for Coverage {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -70,7 +87,7 @@ impl Serialize for Coverage {
         let mut seq = serializer.serialize_seq(None)?;
         let as_consecutive = consecutive_slices(&self.glyphs);
         if self.glyphs.is_empty()
-            || !self.glyphs.is_sorted()
+            || !is_sorted(&self.glyphs)
             || as_consecutive.len() * 3 > self.glyphs.len()
         {
             seq.serialize_element::<uint16>(&1)?;
