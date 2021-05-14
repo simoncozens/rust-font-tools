@@ -3,8 +3,10 @@ use fonttools::glyf;
 use fonttools::gvar::DeltaSet;
 use fonttools::gvar::GlyphVariationData;
 use fonttools::otvar::VariationModel;
-use kurbo::{PathEl, PathSeg};
+use kurbo::{BezPath, PathEl, PathSeg};
 use std::collections::BTreeMap;
+
+type GlyphContour = Vec<Vec<glyf::Point>>;
 
 pub fn glifs_to_glyph(
     default_master: usize,
@@ -37,26 +39,26 @@ pub fn glifs_to_glyph(
     /* Do outlines */
 
     let mut widths: Vec<Option<f32>> = vec![];
-    let mut contours: Vec<Option<Vec<Vec<glyf::Point>>>> = vec![];
+    let mut contours: Vec<Option<GlyphContour>> = vec![];
 
     /* Base case */
     if model.is_none() {
         for contour in glif.contours.iter() {
-            glyph
-                .contours
-                .push(norad_contour_to_glyf_contour(contour, 1.0));
+            let glyph_contour = norad_contours_to_glyf_contours(vec![contour], 0)
+                .first()
+                .unwrap()
+                .clone();
+            glyph.contours.push(glyph_contour);
         }
         return (glyph, None);
     }
 
+    let indexes_of_nonsparse_masters: Vec<usize> =
+        (0..glifs.len()).filter(|x| glifs[*x].is_some()).collect();
+
     for o in glifs {
-        if o.is_some() {
-            contours.push(Some(vec![]));
-            widths.push(Some(o.unwrap().width));
-        } else {
-            widths.push(None);
-            contours.push(None);
-        }
+        widths.push(o.and_then(|x| Some(x.width)));
+        contours.push(o.and_then(|_| Some(vec![])));
     }
 
     for (index, _) in glif.contours.iter().enumerate() {
@@ -66,22 +68,22 @@ pub fn glifs_to_glyph(
                 panic!("Incompatible contour in glyph {:?}", o);
             }
         }
-        // A vector of masters: each master is either sparse (None) or has a
-        // matching contour for this contour. (Some(&norad::Contour))
-        let all_contours: Vec<Option<&norad::Contour>> = glifs
+        let all_contours: Vec<&norad::Contour> = glifs
             .iter()
-            .map(|x| x.map(|y| &y.contours[index]))
+            .filter(|g| g.is_some())
+            .map(|x| &x.unwrap().contours[index])
             .collect();
-        // Same, but with glyf Contour objects.
-        let all_glyf_contours = norad_contours_to_glyf_contour(all_contours);
+        let all_glyf_contours = norad_contours_to_glyf_contours(all_contours, default_master);
         // Now we put them into their respective master
-        for master_id in 0..glifs.len() {
-            if contours[master_id].is_some() {
-                contours[master_id]
-                    .as_mut()
-                    .unwrap()
-                    .push(all_glyf_contours[master_id].as_ref().unwrap().clone());
-            }
+        for (finished_contour, master_id) in all_glyf_contours
+            .iter()
+            .zip(indexes_of_nonsparse_masters.iter())
+        {
+            assert!(contours[*master_id].is_some());
+            contours[*master_id]
+                .as_mut()
+                .unwrap()
+                .push(finished_contour.clone());
         }
     }
     if !contours.is_empty() && !contours[default_master].as_ref().unwrap().is_empty() {
@@ -102,7 +104,7 @@ pub fn glifs_to_glyph(
 }
 
 fn compute_deltas(
-    contours: &[Option<Vec<Vec<glyf::Point>>>],
+    contours: &[Option<GlyphContour>],
     widths: Vec<Option<f32>>,
     model: &VariationModel,
 ) -> GlyphVariationData {
@@ -157,27 +159,74 @@ fn compute_deltas(
     GlyphVariationData { deltasets }
 }
 
-fn norad_contours_to_glyf_contour(
-    contours: Vec<Option<&norad::Contour>>,
-) -> Vec<Option<Vec<glyf::Point>>> {
+fn norad_contours_to_glyf_contours(
+    contours: Vec<&norad::Contour>,
+    default_master: usize,
+) -> Vec<Vec<glyf::Point>> {
+    // let's first get them all to kurbo elements
+    let kurbo_paths: Vec<BezPath> = contours
+        .iter()
+        .map(|x| x.to_kurbo().expect("Bad contour construction"))
+        .collect();
+    let mut returned_contours: Vec<kurbo::BezPath> =
+        contours.iter().map(|_| BezPath::new()).collect();
+    let default_elements: &[PathEl] = kurbo_paths[default_master].elements();
+
+    for (el_ix, el) in default_elements.iter().enumerate() {
+        match el {
+            PathEl::CurveTo(_, _, _) => {
+                let all_curves: Vec<PathSeg> = kurbo_paths
+                    .iter()
+                    .map(|x| x.get_seg(el_ix).unwrap())
+                    .collect();
+                let all_quadratics = cubics_to_quadratics(all_curves);
+                for (c_ix, contour) in returned_contours.iter_mut().enumerate() {
+                    for quad in &all_quadratics[c_ix] {
+                        contour.push(quad.clone());
+                    }
+                }
+            }
+            _ => {
+                for (c_ix, contour) in returned_contours.iter_mut().enumerate() {
+                    contour.push(kurbo_paths[c_ix].elements()[el_ix]);
+                }
+            }
+        }
+    }
+
+    returned_contours
+        .iter()
+        .map(|x| kurbo_contour_to_glyf_contour(x, 0.5))
+        .collect()
+}
+
+fn cubics_to_quadratics(cubics: Vec<PathSeg>) -> Vec<Vec<PathEl>> {
     let mut error = 1.0;
     while error < 100.0 {
-        // This is dirty
-        let glyf_contours: Vec<Option<Vec<glyf::Point>>> = contours
-            .iter()
-            .map(|x| x.map(|y| norad_contour_to_glyf_contour(y, error)))
-            .collect();
-        let lengths: Vec<usize> = glyf_contours.iter().flatten().map(|x| x.len()).collect();
+        let mut quads: Vec<Vec<kurbo::PathEl>> = vec![];
+        for pathseg in &cubics {
+            if let PathSeg::Cubic(cubic) = pathseg {
+                quads.push(
+                    cubic
+                        .to_quads(error)
+                        .map(|(_, _, x)| PathEl::QuadTo(x.p1, x.p2))
+                        .collect(),
+                )
+            } else {
+                panic!("Incompatible contours");
+            }
+        }
+
+        let lengths: Vec<usize> = quads.iter().map(|x| x.len()).collect();
         if is_all_same(&lengths) {
-            return glyf_contours;
+            return quads;
         }
         error += 1.0;
     }
     panic!("Couldn't compatibly interpolate contours");
 }
 
-fn norad_contour_to_glyf_contour(contour: &norad::Contour, error: f32) -> Vec<glyf::Point> {
-    let kurbo_path = contour.to_kurbo().expect("Bad contour construction");
+fn kurbo_contour_to_glyf_contour(kurbo_path: &kurbo::BezPath, error: f32) -> Vec<glyf::Point> {
     let mut points: Vec<glyf::Point> = vec![];
     if let PathEl::MoveTo(pt) = kurbo_path.elements()[0] {
         points.push(glyf::Point {
