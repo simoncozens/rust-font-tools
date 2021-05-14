@@ -201,8 +201,8 @@ fn norad_contours_to_glyf_contours(
 }
 
 fn cubics_to_quadratics(cubics: Vec<PathSeg>) -> Vec<Vec<PathEl>> {
-    let mut error = 1.0;
-    while error < 100.0 {
+    let mut error = 0.1;
+    while error < 20.0 {
         let mut quads: Vec<Vec<kurbo::PathEl>> = vec![];
         for pathseg in &cubics {
             if let PathSeg::Cubic(cubic) = pathseg {
@@ -221,7 +221,7 @@ fn cubics_to_quadratics(cubics: Vec<PathSeg>) -> Vec<Vec<PathEl>> {
         if is_all_same(&lengths) {
             return quads;
         }
-        error += 1.0;
+        error *= 1.2; // Exponential backoff
     }
     panic!("Couldn't compatibly interpolate contours");
 }
