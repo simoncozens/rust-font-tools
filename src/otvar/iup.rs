@@ -344,20 +344,17 @@ fn _iup_contour_bound_forced_set(
                         if (dj - d1).abs() > tolerance {
                             force = true;
                         }
-                    } else {
-                        if dj.abs() > tolerance {
-                            // Not forced, surprisingly.
-                        }
+                    } else if dj.abs() > tolerance {
+                        // Not forced, surprisingly.
                     }
                 } else if (d1 - d2).abs() > f32::EPSILON {
                     if cj < c1 {
-                        if dj != d1 && ((dj - tolerance < d1) != (d1 < d2)) {
+                        if (dj - d1).abs() > f32::EPSILON && ((dj - tolerance < d1) != (d1 < d2)) {
                             force = true;
                         }
-                    } else {
-                        if d2 != dj && ((d2 < dj + tolerance) != (d1 < d2)) {
-                            force = true;
-                        }
+                    } else if (d2 - dj).abs() > f32::EPSILON && ((d2 < dj + tolerance) != (d1 < d2))
+                    {
+                        force = true;
                     }
                 }
             }
