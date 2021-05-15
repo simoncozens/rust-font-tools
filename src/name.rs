@@ -147,7 +147,11 @@ impl NameRecord {
         let record_string = s.into();
         NameRecord {
             platformID: 3,
-            encodingID: if record_string.chars().any(|c| c as u32 > 0xffff) { 10 } else { 1 },
+            encodingID: if record_string.chars().any(|c| c as u32 > 0xffff) {
+                10
+            } else {
+                1
+            },
             languageID: 0x409,
             nameID: n.into(),
             string: record_string,
