@@ -9,6 +9,5 @@ fonttools = { path = "../..", features = ["rayon"] }
 clap = "2.33.3"
 itertools = "0.10.0"
 skia-safe = "0"
-norad = {  git = "https://github.com/linebender/norad", features = ["rayon", "kurbo"] }
 log = "0.4.14"
 env_logger = "0.8"
