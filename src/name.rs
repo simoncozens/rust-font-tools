@@ -205,7 +205,7 @@ impl Serialize for name {
         let mut string_pool: Vec<u8> = Vec::new();
         let mut seq = serializer.serialize_seq(None)?;
         let offset = 6 + 12 * self.records.len() as uint16;
-        seq.serialize_element(&(0 as uint16))?;
+        seq.serialize_element(&0_u16)?;
         seq.serialize_element(&(self.records.len() as uint16))?;
         seq.serialize_element(&offset)?;
         for record in &self.records {

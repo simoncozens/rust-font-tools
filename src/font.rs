@@ -166,7 +166,7 @@ impl Font {
         panic!("Can't happen - hhea not a hhea table?!")
     }
 
-    fn _gvar_coords_and_ends(&self) -> Option<Vec<(Vec<(int16, int16)>, Vec<usize>)>> {
+    fn _gvar_coords_and_ends(&self) -> Option<gvar::CoordsAndEndsVec> {
         let glyf = self.get_table_simple(b"glyf")?;
         if self._table_needs_deserializing(glyf) {
             return None;

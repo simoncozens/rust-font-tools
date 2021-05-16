@@ -43,12 +43,14 @@ bitflags! {
     }
 }
 
+/*
 #[derive(Debug, PartialEq)]
 enum ComponentScalingMode {
     ScaledOffset,
     UnscaledOffset,
     Default,
 }
+*/
 
 /// A high-level representation of a component within a glyph
 #[derive(Debug, PartialEq, Clone)]

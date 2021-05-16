@@ -119,10 +119,10 @@ deserialize_visitor!(
             let mut y_coords: Vec<int16> = Vec::with_capacity(num_points);
             let mut last_x = 0_i16;
             let mut last_y = 0_i16;
-            for i in 0..num_points {
-                if flags[i].contains(SimpleGlyphFlags::X_SHORT_VECTOR) {
+            for flag in &flags {
+                if flag.contains(SimpleGlyphFlags::X_SHORT_VECTOR) {
                     let coord = read_field!(seq, u8, "an X coordinate") as i16;
-                    if flags[i].contains(SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR) {
+                    if flag.contains(SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR) {
                         last_x += coord;
                     } else {
                         last_x -= coord;
@@ -130,8 +130,7 @@ deserialize_visitor!(
                     x_coords.push(last_x);
                     // println!("Read short X coordinate {:?}", coord);
                     // println!("X is now {:?}", last_x);
-                } else if flags[i].contains(SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR)
-                {
+                } else if flag.contains(SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR) {
                     x_coords.push(last_x);
                     // println!("Elided X coordinate");
                     // println!("X is still {:?}", last_x);
@@ -143,10 +142,10 @@ deserialize_visitor!(
                     x_coords.push(last_x);
                 }
             }
-            for i in 0..num_points {
-                if flags[i].contains(SimpleGlyphFlags::Y_SHORT_VECTOR) {
+            for flag in &flags {
+                if flag.contains(SimpleGlyphFlags::Y_SHORT_VECTOR) {
                     let coord = read_field!(seq, u8, "a Y coordinate") as i16;
-                    if flags[i].contains(SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR) {
+                    if flag.contains(SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR) {
                         last_y += coord;
                     } else {
                         last_y -= coord;
@@ -154,8 +153,7 @@ deserialize_visitor!(
                     // println!("Read short Y coordinate {:?}", coord);
                     // println!("Y is now {:?}", last_y);
                     y_coords.push(last_y);
-                } else if flags[i].contains(SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR)
-                {
+                } else if flag.contains(SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR) {
                     y_coords.push(last_y);
                     // println!("Elided Y coordinate");
                     // println!("Y is still {:?}", last_y);
@@ -166,7 +164,7 @@ deserialize_visitor!(
                     // println!("Y is now {:?}", last_y);
                     y_coords.push(last_y);
                 }
-                if flags[i].contains(SimpleGlyphFlags::OVERLAP_SIMPLE) {
+                if flag.contains(SimpleGlyphFlags::OVERLAP_SIMPLE) {
                     overlap = true;
                 }
             }

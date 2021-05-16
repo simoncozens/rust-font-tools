@@ -7,9 +7,6 @@ use std::collections::{HashMap, HashSet};
 
 /// Structs to store locations (user and normalized)
 
-/// A location in the user's coordinate space (e.g. wdth=200,wght=15)
-pub struct UserLocation(pub Tuple);
-
 /// A location in the internal -1 <= 0 => 1 representation
 #[derive(Debug)]
 pub struct NormalizedLocation(pub Tuple);
@@ -24,7 +21,6 @@ pub struct VariationModel {
     sort_order: Permutation,
     pub supports: Vec<Support>,
     pub axis_order: Vec<Tag>,
-    // submodels: HashMap<[usize],
     pub original_locations: Vec<Location>,
     delta_weights: Vec<HashMap<usize, f32>>,
 }

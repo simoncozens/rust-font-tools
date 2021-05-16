@@ -14,7 +14,7 @@ fn iup_segment(
     let rd1 = rd1.as_ref().unwrap().get_2d();
     let rd2 = rd2.as_ref().unwrap().get_2d();
     let mut out_arrays: Vec<Vec<i16>> = vec![vec![], vec![]];
-    for j in 0..2 {
+    for (j, out_array) in out_arrays.iter_mut().enumerate() {
         let (mut x1, mut x2, mut d1, mut d2) = if j == 0 {
             (rc1.0, rc2.0, rd1.0, rd2.0)
         } else {
@@ -22,7 +22,7 @@ fn iup_segment(
         };
         if x1 == x2 {
             let n = coords.len();
-            out_arrays[j].extend(std::iter::repeat(if d1 == d2 { d1 } else { 0 }).take(n));
+            out_array.extend(std::iter::repeat(if d1 == d2 { d1 } else { 0 }).take(n));
             continue;
         }
         if x1 > x2 {
@@ -41,7 +41,7 @@ fn iup_segment(
             } else {
                 d1 + ((x - x1) as f32 * scale) as i16
             };
-            out_arrays[j].push(d);
+            out_array.push(d);
         }
     }
     newdeltas.extend(
@@ -241,8 +241,8 @@ fn iup_contour_optimize(
             while i > (start as i16) - (n as i16) {
                 solution.insert(i.rem_euclid(n as i16) as usize);
                 let next = chain.get(&(i as i16));
-                if next.is_some() {
-                    i = *next.unwrap()
+                if let Some(n) = next {
+                    i = *n;
                 } else {
                     break;
                 }
@@ -334,6 +334,9 @@ fn _iup_contour_bound_forced_set(
                 d2 = ldj;
             }
             let mut force = false;
+            // This nested if statement is a mess, but it's a mess ported from Python.
+            // Keeping it a mess for ease of comparison.
+            #[allow(clippy::collapsible_else_if)]
             if c1 <= cj && cj <= c2 {
                 if !(d1.min(d2) - tolerance <= dj && dj <= d1.max(d2) + tolerance) {
                     force = true;

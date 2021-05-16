@@ -26,7 +26,6 @@ tables!(hhea {
 #[cfg(test)]
 mod tests {
     use crate::hhea::hhea;
-    use otspec::de;
     use otspec::ser;
 
     #[test]

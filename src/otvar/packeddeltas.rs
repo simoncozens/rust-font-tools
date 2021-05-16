@@ -142,6 +142,7 @@ impl Serialize for PackedDeltas {
 
 /// Deserialize the packed deltas array from a binary buffer.
 /// The number of points must be provided.
+#[allow(dead_code)] // We *do* use it, I promise. Like, just a few lines below.
 pub fn from_bytes(s: &[u8], num_points: usize) -> otspec::error::Result<PackedDeltas> {
     let mut deserializer = otspec::de::Deserializer::from_bytes(s);
     let cs = PackedDeltasDeserializer { num_points };

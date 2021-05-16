@@ -484,7 +484,6 @@ mod tests {
         );
 
         let component1_bytes = otspec::ser::to_bytes(&aacute).unwrap();
-        let rede: glyf::Glyph = otspec::de::from_bytes(&component1_bytes).unwrap();
         assert_eq!(
             component1_bytes,
             vec![

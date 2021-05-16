@@ -1,6 +1,5 @@
 use crate::layout::common::*;
 use crate::layout::coverage::Coverage;
-use otspec::error::Error;
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_field, read_remainder, stateful_deserializer};
 use otspec_macros::tables;

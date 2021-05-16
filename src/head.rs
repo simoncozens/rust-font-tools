@@ -58,7 +58,6 @@ impl head {
 #[cfg(test)]
 mod tests {
     use crate::head::head;
-    use otspec::de;
     use otspec::ser;
 
     #[test]

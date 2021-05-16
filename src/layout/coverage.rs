@@ -70,7 +70,7 @@ fn is_sorted<T: Ord>(slice: &[T]) -> bool {
         Some(x) => x,
         None => return true,
     };
-    while let Some(next) = iter.next() {
+    for next in iter {
         if next < prev {
             return false;
         }

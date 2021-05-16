@@ -16,6 +16,9 @@ use std::convert::TryInto;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
+type Coords = Vec<(int16, int16)>;
+pub type CoordsAndEndsVec = Vec<(Coords, Vec<usize>)>;
+
 tables!( gvarcore {
     uint16  majorVersion
     uint16  minorVersion
@@ -134,7 +137,7 @@ pub struct gvar {
 stateful_deserializer!(
     gvar,
     GvarDeserializer,
-    { coords_and_ends: Vec<(Vec<(int16,int16)>,Vec<usize>)> },
+    { coords_and_ends: CoordsAndEndsVec },
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
         let core = read_field!(seq, gvarcore, "a gvar table header");
         let dataOffsets: Vec<u32> = if core.flags & 0x1 == 0 {
@@ -202,10 +205,14 @@ stateful_deserializer!(
                 let tvs = cs.deserialize(&mut de).unwrap();
                 // println!("TVS {:?}", tvs);
                 for tvh in tvs.0 {
-                    let deltas = tvh.iup_delta(&self.coords_and_ends[i].0, &self.coords_and_ends[i].1);
+                    let deltas =
+                        tvh.iup_delta(&self.coords_and_ends[i].0, &self.coords_and_ends[i].1);
                     let index = tvh.0.sharedTupleIndex as usize;
                     if index > shared_tuples.len() {
-                        return Err(serde::de::Error::custom(format!("Invalid shared tuple index {:}", index)))
+                        return Err(serde::de::Error::custom(format!(
+                            "Invalid shared tuple index {:}",
+                            index
+                        )));
                     }
                     let peak_tuple = tvh
                         .0
@@ -335,10 +342,7 @@ impl gvar {
     }
 }
 
-pub fn from_bytes(
-    s: &[u8],
-    coords_and_ends: Vec<(Vec<(int16, int16)>, Vec<usize>)>,
-) -> otspec::error::Result<gvar> {
+pub fn from_bytes(s: &[u8], coords_and_ends: CoordsAndEndsVec) -> otspec::error::Result<gvar> {
     let mut deserializer = otspec::de::Deserializer::from_bytes(s);
     let cs = GvarDeserializer { coords_and_ends };
     cs.deserialize(&mut deserializer)

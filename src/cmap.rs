@@ -117,12 +117,10 @@ fn split_range(
                 in_order = Some(1);
                 ordered_begin = Some(last_code);
             }
-        } else {
-            if in_order == Some(1) {
-                in_order = Some(0);
-                subranges.push((ordered_begin, last_code));
-                ordered_begin = None;
-            }
+        } else if in_order == Some(1) {
+            in_order = Some(0);
+            subranges.push((ordered_begin, last_code));
+            ordered_begin = None;
         }
         last_id = glyph_id;
         last_code = code;
@@ -385,15 +383,15 @@ impl Serialize for cmap {
             let mut hash = DefaultHasher::new();
             st.mapping.hash(&mut hash);
             let hash_value = hash.finish();
-            if !offsets.contains_key(&hash_value) {
+            let entry = offsets.entry(hash_value).or_insert_with(|| {
                 let offset = offset_base + output.len() as u32;
                 output.extend(ser::to_bytes(&st).unwrap());
-                offsets.insert(hash_value, offset);
-            }
+                offset
+            });
             encoding_records.push(EncodingRecord {
                 platformID: st.platformID,
                 encodingID: st.encodingID,
-                subtableOffset: *offsets.get(&hash_value).unwrap(),
+                subtableOffset: *entry,
             });
         }
         let header = CmapHeader {
@@ -498,7 +496,7 @@ impl cmap {
 #[cfg(test)]
 mod tests {
     use crate::cmap;
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::assert_eq;
     use std::iter::FromIterator;
 
     macro_rules! btreemap {
