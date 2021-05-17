@@ -165,14 +165,20 @@ pub fn compile_os2(
         .open_type_os2_subscript_x_size
         .unwrap_or((upm * 0.65).round() as i32) as i16;
 
-    let unicodes:HashSet<u32> = mapping.keys().cloned().collect();
-    let code_pages:Vec<u8> = info.open_type_os2_code_page_ranges.as_ref()
-        .unwrap_or(&calc_code_page_ranges(&unicodes))
+    let mut code_pages:Vec<u8> = info.open_type_os2_code_page_ranges
+        .clone()
+        .unwrap_or_else(|| {
+            let unicodes = mapping.keys().copied().collect::<HashSet<_>>();
+            calc_code_page_ranges(&unicodes)
+        });
+    code_pages.sort_unstable();
+    let split_at = code_pages
         .iter()
-        .cloned()
-        .collect();
-    let code_pages1: Vec<u8> = code_pages.iter().filter(|&x| *x < 32).cloned().collect();
-    let code_pages2: Vec<u8> = code_pages.iter().filter(|&x| *x >= 32).map(|&x|x - 32).collect();
+        .position(|&x| x >= 32)
+        .unwrap_or_else(|| code_pages.len());
+    let mut code_pages2 = code_pages.split_off(split_at);
+    let code_pages1 = code_pages;
+    code_pages2.iter_mut().for_each(|x| *x -= 32);
 
     os2 {
         version: 4,
