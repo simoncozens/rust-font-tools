@@ -50,6 +50,7 @@ fn piecewise_linear_map(mapping: HashMap<i32, f32>, value: i32) -> f32 {
     let vb = mapping.get(b).unwrap();
     va + (vb - va) * (value - a) as f32 / (*b - *a) as f32
 }
+
 impl Designspace {
     /// Add information to a font (fvar and avar tables) expressed by this
     /// design space.
@@ -57,8 +58,11 @@ impl Designspace {
         let mut axes: Vec<VariationAxisRecord> = vec![];
         let mut maps: Vec<SegmentMap> = vec![];
 
-        for (ix, axis) in self.axes.axis.iter().enumerate() {
-            axes.push(axis.to_variation_axis_record(255 + ix as u16)?);
+        let mut ix = 255;
+
+        for axis in self.axes.axis.iter() {
+            axes.push(axis.to_variation_axis_record(ix as u16)?);
+            ix += 1;
             if let Table::Name(name) = font
                 .get_table(b"name")
                 .expect("No name table?")
@@ -90,11 +94,37 @@ impl Designspace {
             }
         }
         let mut instances: Vec<InstanceRecord> = vec![];
-        // if let Some(i) = self.instances {
-        //     for instance in i.instance {
-        //         instances.push(instance.to_instance_record()?);
-        //     }
-        // }
+        if let Some(i) = &self.instances {
+            for instance in &i.instance {
+                if let Table::Name(name) = font
+                    .get_table(b"name")
+                    .expect("No name table?")
+                    .expect("Couldn't open name table")
+                {
+                    name.records
+                        .push(NameRecord::windows_unicode(ix, instance.stylename.clone()));
+                }
+                let mut ir = InstanceRecord {
+                    subfamilyNameID: ix,
+                    coordinates: self.location_to_tuple(&instance.location),
+                    postscriptNameID: None,
+                };
+                ix += 1;
+                if let Some(psname) = &instance.postscriptfontname {
+                    if let Table::Name(name) = font
+                        .get_table(b"name")
+                        .expect("No name table?")
+                        .expect("Couldn't open name table")
+                    {
+                        name.records
+                            .push(NameRecord::windows_unicode(ix, psname.clone()));
+                    }
+                    ir.postscriptNameID = Some(ix);
+                    ix += 1;
+                }
+                instances.push(ir)
+            }
+        }
         let fvar_table = Table::Fvar(fvar { axes, instances });
         font.tables.insert(*b"fvar", fvar_table);
 
@@ -140,19 +170,26 @@ impl Designspace {
 
     // Returns the location of a given source object in design space coordinates
     pub fn source_location(&self, source: &Source) -> Vec<i32> {
+        self.location_to_tuple(&source.location)
+            .iter()
+            .map(|x| *x as i32)
+            .collect()
+    }
+
+    // Converts a location to a tuple
+    pub fn location_to_tuple(&self, loc: &Location) -> Vec<f32> {
+        let mut tuple = vec![];
         let tag_to_name = self.tag_to_name();
-        let mut location = vec![];
         for (tag, default) in self.axis_order().iter().zip(self.default_location().iter()) {
             let name = tag_to_name.get(tag).unwrap();
-            // Find this in the source
-            let dim = source.location.dimension.iter().find(|d| d.name == *name);
+            let dim = loc.dimension.iter().find(|d| d.name == *name);
             if let Some(dim) = dim {
-                location.push(dim.xvalue as i32);
+                tuple.push(dim.xvalue);
             } else {
-                location.push(*default);
+                tuple.push(*default as f32);
             }
         }
-        location
+        tuple
     }
 
     /// Returns the Source object for the master at default axis coordinates,
@@ -365,7 +402,7 @@ pub struct Instance {
     pub postscriptfontname: Option<String>,
     pub stylemapfamilyname: Option<String>,
     pub stylemapstylename: Option<String>,
-    pub location: Vec<Location>,
+    pub location: Location,
 }
 
 #[cfg(test)]
