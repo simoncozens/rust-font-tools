@@ -64,9 +64,9 @@ pub fn glifs_to_glyph(
 
     for (index, _) in glif.contours.iter().enumerate() {
         for o in glifs {
-            if o.is_some() && index > o.unwrap().contours.len() {
-                // Let's assume we've done some interpolatability checks before this point
-                panic!("Incompatible contour in glyph {:?}", o);
+            if o.is_some() && index >= o.unwrap().contours.len() {
+                log::error!("Incompatible contour count in glyph {:}", o.unwrap().name);
+                return (glyph, None);
             }
         }
         let all_contours: Vec<&norad::Contour> = glifs
