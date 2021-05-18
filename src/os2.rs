@@ -1,7 +1,6 @@
 #![allow(non_camel_case_types, non_snake_case)]
 
 use crate::utils::int_list_to_num;
-use std::collections::{BTreeMap, HashSet};
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_field};
 use otspec_macros::tables;
@@ -9,6 +8,7 @@ use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::Serializer;
 use serde::{Deserialize, Deserializer, Serialize};
+use std::collections::{BTreeMap, HashSet};
 
 tables!(
     Panose {
@@ -321,9 +321,7 @@ impl os2 {
         let unicodes = mapping.keys().copied().collect::<HashSet<_>>();
         let mut code_page_ranges: Vec<u8> = vec![];
 
-        let unicodes_contains = | char | {
-            unicodes.contains(&(char as u32))
-        };
+        let unicodes_contains = |char| unicodes.contains(&(char as u32));
 
         let has_ascii = (0x20..0x7E).all(|x| unicodes.contains(&x));
         let has_lineart = unicodes_contains('┤');
@@ -353,76 +351,76 @@ impl os2 {
             }
         }
         if unicodes_contains('İ') && has_ascii {
-            code_page_ranges.push(4);  //  Turkish
+            code_page_ranges.push(4); //  Turkish
             if has_lineart {
-                code_page_ranges.push(56);  //  IBM turkish
+                code_page_ranges.push(56); //  IBM turkish
             }
         }
         if unicodes_contains('א') {
-            code_page_ranges.push(5);  //  Hebrew
+            code_page_ranges.push(5); //  Hebrew
             if has_lineart && unicodes_contains('√') {
-                code_page_ranges.push(53);  //  Hebrew
+                code_page_ranges.push(53); //  Hebrew
             }
         }
         if unicodes_contains('ر') {
-            code_page_ranges.push(6);  //  Arabic
+            code_page_ranges.push(6); //  Arabic
             if unicodes_contains('√') {
-                code_page_ranges.push(51);  //  Arabic
+                code_page_ranges.push(51); //  Arabic
             }
             if has_lineart {
-                code_page_ranges.push(61);  //  Arabic; ASMO 708
+                code_page_ranges.push(61); //  Arabic; ASMO 708
             }
         }
         if unicodes_contains('ŗ') && has_ascii {
-            code_page_ranges.push(7);  //  Windows Baltic
+            code_page_ranges.push(7); //  Windows Baltic
             if has_lineart {
-                code_page_ranges.push(59);  //  MS-DOS Baltic
+                code_page_ranges.push(59); //  MS-DOS Baltic
             }
         }
         if unicodes_contains('₫') && has_ascii {
-            code_page_ranges.push(8);  //  Vietnamese
+            code_page_ranges.push(8); //  Vietnamese
         }
         if unicodes_contains('ๅ') {
-            code_page_ranges.push(16);  //  Thai
+            code_page_ranges.push(16); //  Thai
         }
         if unicodes_contains('エ') {
-            code_page_ranges.push(17);  //  JIS/Japan
+            code_page_ranges.push(17); //  JIS/Japan
         }
         if unicodes_contains('ㄅ') {
-            code_page_ranges.push(18);  //  Chinese: Simplified chars
+            code_page_ranges.push(18); //  Chinese: Simplified chars
         }
         if unicodes_contains('ㄱ') {
-            code_page_ranges.push(19);  //  Korean wansung
+            code_page_ranges.push(19); //  Korean wansung
         }
         if unicodes_contains('央') {
-            code_page_ranges.push(20);  //  Chinese: Traditional chars
+            code_page_ranges.push(20); //  Chinese: Traditional chars
         }
         if unicodes_contains('곴') {
-            code_page_ranges.push(21);  //  Korean Johab
+            code_page_ranges.push(21); //  Korean Johab
         }
         if unicodes_contains('♥') && has_ascii {
-            code_page_ranges.push(30);  //  OEM Character Set
-        //  TODO: Symbol bit has a special meaning (check the spec), we need
-        //  to confirm if this is wanted by default.
-        //  elif chr(0xF000) <= char <= chr(0xF0FF):
-        //     code_page_ranges.push(31)          //  Symbol Character Set
+            code_page_ranges.push(30); //  OEM Character Set
+                                       //  TODO: Symbol bit has a special meaning (check the spec), we need
+                                       //  to confirm if this is wanted by default.
+                                       //  elif chr(0xF000) <= char <= chr(0xF0FF):
+                                       //     code_page_ranges.push(31)          //  Symbol Character Set
         }
         if unicodes_contains('þ') && has_ascii && has_lineart {
-            code_page_ranges.push(54);  //  MS-DOS Icelandic
+            code_page_ranges.push(54); //  MS-DOS Icelandic
         }
         if unicodes_contains('╚') && has_ascii {
-            code_page_ranges.push(62);  //  WE/Latin 1
-            code_page_ranges.push(63);  //  US
+            code_page_ranges.push(62); //  WE/Latin 1
+            code_page_ranges.push(63); //  US
         }
         if has_ascii && has_lineart && unicodes_contains('√') {
             if unicodes_contains('Å') {
-                code_page_ranges.push(50);  //  MS-DOS Nordic
+                code_page_ranges.push(50); //  MS-DOS Nordic
             }
             if unicodes_contains('é') {
-                code_page_ranges.push(52);  //  MS-DOS Canadian French
+                code_page_ranges.push(52); //  MS-DOS Canadian French
             }
             if unicodes_contains('õ') {
-                code_page_ranges.push(55);  //  MS-DOS Portuguese
+                code_page_ranges.push(55); //  MS-DOS Portuguese
             }
         }
         if has_ascii && unicodes_contains('‰') && unicodes_contains('∑') {
@@ -435,5 +433,5 @@ impl os2 {
             code_page_ranges.push(0);
         }
         self.int_list_to_code_page_ranges(&mut code_page_ranges);
-        }
+    }
 }
