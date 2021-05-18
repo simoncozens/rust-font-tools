@@ -1,6 +1,5 @@
 use crate::fontinfo::*;
 use crate::utils::adjust_offset;
-use fonttools::utils::int_list_to_num;
 use fonttools::cmap;
 use fonttools::font;
 use fonttools::font::Font;
@@ -13,6 +12,7 @@ use fonttools::maxp::maxp;
 use fonttools::name::{name, NameRecord, NameRecordID};
 use fonttools::os2::os2;
 use fonttools::post::post;
+use fonttools::utils::int_list_to_num;
 use otspec::types::Tuple;
 use std::collections::{BTreeMap, HashSet};
 use std::convert::TryInto;
@@ -165,7 +165,6 @@ pub fn compile_os2(
         .open_type_os2_subscript_x_size
         .unwrap_or((upm * 0.65).round() as i32) as i16;
 
-
     let mut table = os2 {
         version: 4,
         xAvgCharWidth: (metrics.iter().map(|m| m.advanceWidth as f32).sum::<f32>()
@@ -227,10 +226,10 @@ pub fn compile_os2(
         panose: get_panose(info),
         ulCodePageRange1: Some(0),
         ulCodePageRange2: Some(0),
-        ulUnicodeRange1: 0b10100001000000000000000011111111,        // XXX
-        ulUnicodeRange2: 0,                                         // XXX
-        ulUnicodeRange3: 0,                                         // XXX
-        ulUnicodeRange4: 0,                                         // XXX
+        ulUnicodeRange1: 0b10100001000000000000000011111111, // XXX
+        ulUnicodeRange2: 0,                                  // XXX
+        ulUnicodeRange3: 0,                                  // XXX
+        ulUnicodeRange4: 0,                                  // XXX
         usFirstCharIndex: *mapping.keys().min().unwrap_or(&0xFFFF) as u16,
         usLastCharIndex: *mapping.keys().max().unwrap_or(&0xFFFF) as u16,
         usLowerOpticalPointSize: None,
