@@ -1,6 +1,6 @@
 use crate::fontinfo::*;
 use crate::utils::adjust_offset;
-use crate::utils::int_list_to_num;
+use fonttools::utils::int_list_to_num;
 use fonttools::cmap;
 use fonttools::font;
 use fonttools::font::Font;
@@ -165,22 +165,8 @@ pub fn compile_os2(
         .open_type_os2_subscript_x_size
         .unwrap_or((upm * 0.65).round() as i32) as i16;
 
-    let mut code_pages:Vec<u8> = info.open_type_os2_code_page_ranges
-        .clone()
-        .unwrap_or_else(|| {
-            let unicodes = mapping.keys().copied().collect::<HashSet<_>>();
-            calc_code_page_ranges(&unicodes)
-        });
-    code_pages.sort_unstable();
-    let split_at = code_pages
-        .iter()
-        .position(|&x| x >= 32)
-        .unwrap_or_else(|| code_pages.len());
-    let mut code_pages2 = code_pages.split_off(split_at);
-    let code_pages1 = code_pages;
-    code_pages2.iter_mut().for_each(|x| *x -= 32);
 
-    os2 {
+    let mut table = os2 {
         version: 4,
         xAvgCharWidth: (metrics.iter().map(|m| m.advanceWidth as f32).sum::<f32>()
             / metrics.iter().filter(|m| m.advanceWidth != 0).count() as f32)
@@ -239,8 +225,8 @@ pub fn compile_os2(
         // sFamilyClass: info.open_type_os2_family_class... (not public)
         sFamilyClass: 0,
         panose: get_panose(info),
-        ulCodePageRange1: Some(int_list_to_num(&code_pages1) as u32),
-        ulCodePageRange2: Some(int_list_to_num(&code_pages2) as u32),
+        ulCodePageRange1: Some(0),
+        ulCodePageRange2: Some(0),
         ulUnicodeRange1: 0b10100001000000000000000011111111,        // XXX
         ulUnicodeRange2: 0,                                         // XXX
         ulUnicodeRange3: 0,                                         // XXX
@@ -250,7 +236,13 @@ pub fn compile_os2(
         usLowerOpticalPointSize: None,
         usUpperOpticalPointSize: None,
         fsSelection: get_selection(info),
+    };
+    if info.open_type_os2_code_page_ranges.is_none() {
+        table.calc_code_page_ranges(&mapping);
+    } else {
+        table.int_list_to_code_page_ranges(info.open_type_os2_code_page_ranges.as_ref().unwrap());
     }
+    table
 }
 
 pub fn compile_name(info: &norad::FontInfo) -> name {

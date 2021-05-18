@@ -36,3 +36,5 @@ pub mod os2;
 pub mod otvar;
 /// The `post` (PostScript) table
 pub mod post;
+/// Useful utilities
+pub mod utils;
