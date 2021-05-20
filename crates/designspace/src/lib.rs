@@ -62,17 +62,15 @@ impl Designspace {
 
         for axis in self.axes.axis.iter() {
             axes.push(axis.to_variation_axis_record(ix as u16)?);
-            ix += 1;
             if let Table::Name(name) = font
                 .get_table(b"name")
                 .expect("No name table?")
                 .expect("Couldn't open name table")
             {
-                name.records.push(NameRecord::windows_unicode(
-                    255 + ix as u16,
-                    axis.name.clone(),
-                ));
+                name.records
+                    .push(NameRecord::windows_unicode(ix as u16, axis.name.clone()));
             }
+            ix += 1;
             if axis.map.is_some() {
                 let mut sm: Vec<(f32, f32)> = vec![(-1.0, -1.0)];
                 sm.extend(
