@@ -93,6 +93,11 @@ deserialize_visitor!(
         }
         let remainder = read_remainder!(seq, "a GSUB table");
 
+        // Script list
+        let beginning_of_scriptlist = core.scriptListOffset as usize - header_size;
+        let scriptlist: ScriptList =
+            otspec::de::from_bytes(&remainder[beginning_of_scriptlist..]).unwrap();
+
         // Feature list
         let mut features = BTreeMap::new();
         let beginning_of_featurelist = core.featureListOffset as usize - header_size;

@@ -1,17 +1,22 @@
 use bitflags::bitflags;
 use otspec::types::*;
+use otspec::{deserialize_visitor, read_field, read_remainder, stateful_deserializer};
 use otspec_macros::tables;
+use serde::de::SeqAccess;
+use serde::de::Visitor;
+use serde::Deserializer;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 tables!(
-    ScriptList {
+    ScriptListInternal {
         Counted(ScriptRecord) scriptRecords
     }
     ScriptRecord {
         Tag scriptTag
         uint16 scriptOffset
     }
-    Script {
+    ScriptInternal {
         uint16 defaultLangSysOffset
         Counted(LangSysRecord) langSysRecords
     }
@@ -90,3 +95,43 @@ bitflags! {
         const MARK_ATTACHMENT_TYPE_MASK = 0xFF00;
     }
 }
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ScriptList {
+    scripts: HashMap<Tag, Script>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Script {
+    default_language_system: Option<LanguageSystem>,
+    language_systems: HashMap<Tag, LanguageSystem>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct LanguageSystem {
+    required_feature: Option<usize>,
+    feature_indices: Vec<usize>,
+}
+
+deserialize_visitor!(
+    ScriptList,
+    ScriptListVisitor,
+    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<ScriptList, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let sl = read_field!(seq, ScriptListInternal, "A script list");
+        let remainder = read_remainder!(seq, "Script records");
+        let base = 2 + (4 * sl.scriptRecords.len());
+        let mut scripts = HashMap::new();
+        for rec in sl.scriptRecords {
+            let script_base = rec.scriptOffset as usize - base;
+            let si: ScriptInternal = otspec::de::from_bytes(&remainder[script_base..]).unwrap();
+            if si.defaultLangSysOffset > 0 {
+                //
+            }
+            // XXX
+        }
+        Ok(ScriptList { scripts })
+    }
+);
