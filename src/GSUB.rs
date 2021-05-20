@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use std::array::TryFromSliceError;
 use std::collections::BTreeMap;
 use std::convert::TryInto;
+use std::num::Wrapping;
 
 tables!(
   gsubcore {
@@ -221,6 +222,48 @@ where
     Ok(Substitution::Single(SingleSubst { mapping }))
 });
 
+impl Serialize for SingleSubst {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Determine format
+        let mut delta = 0_u16;
+        let mut map = self.mapping.iter();
+        let format: u16 = if let Some((&first_left, &first_right)) = map.next() {
+            delta = first_right.wrapping_sub(first_left);
+            let mut format = 1;
+            for (&left, &right) in map {
+                if left.wrapping_add(delta) != right {
+                    format = 2;
+                    break;
+                }
+            }
+            format
+        } else {
+            2
+        };
+
+        let mut seq = serializer.serialize_seq(None)?;
+        seq.serialize_element(&format)?;
+        if format == 1 {
+            seq.serialize_element(&6_u16)?;
+            seq.serialize_element(&delta)?;
+        } else {
+            let len = self.mapping.len() as u16;
+            seq.serialize_element(&(6 + 2 * len))?;
+            seq.serialize_element(&len)?;
+            for k in self.mapping.values() {
+                seq.serialize_element(k)?;
+            }
+        }
+        seq.serialize_element(&Coverage {
+            glyphs: self.mapping.keys().copied().collect(),
+        })?;
+        seq.end()
+    }
+}
+
 stateful_deserializer!(
 Substitution,
 MultipleSubstDeserializer,
@@ -355,5 +398,17 @@ mod tests {
         };
         let deserialized: GSUB = otspec::de::from_bytes(&binary_gsub).unwrap();
         assert_eq!(deserialized, expected);
+    }
+
+    #[test]
+    fn test_single_subst_1_ser() {
+        let subst = SingleSubst {
+            mapping: hashmap!(66 => 67, 68 => 69),
+        };
+        let serialized = otspec::ser::to_bytes(&subst).unwrap();
+        assert_eq!(
+            serialized,
+            vec![0x00, 0x01, 0x00, 0x06, 0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 66, 0x00, 68]
+        );
     }
 }
