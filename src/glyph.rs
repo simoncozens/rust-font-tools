@@ -214,6 +214,7 @@ fn norad_contours_to_glyf_contours(
 
 fn cubics_to_quadratics(cubics: Vec<PathSeg>, glif_name: &Arc<str>) -> Vec<Vec<PathEl>> {
     let mut error = 0.05;
+    let mut warned = false;
     while error < 50.0 {
         let mut quads: Vec<Vec<kurbo::PathEl>> = vec![];
         for pathseg in &cubics {
@@ -234,11 +235,12 @@ fn cubics_to_quadratics(cubics: Vec<PathSeg>, glif_name: &Arc<str>) -> Vec<Vec<P
             return quads;
         }
         error *= 1.5; // Exponential backoff
-        if error > 20.0 {
+        if error > 20.0 && !warned {
             log::warn!(
                 "{:} is proving difficult to interpolate - consider redesigning?",
                 glif_name
-            )
+            );
+            warned = true;
         }
     }
     panic!("Couldn't compatibly interpolate contours");
