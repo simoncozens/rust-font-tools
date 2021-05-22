@@ -37,12 +37,10 @@ fn main() {
         )
         .get_matches();
     let filename = matches.value_of("INPUT").unwrap();
-    let subset = matches.value_of("subset").and_then(|x| {
-        Some(
-            x.split(",")
-                .map(|y| y.to_string())
-                .collect::<HashSet<String>>(),
-        )
+    let subset = matches.value_of("subset").map(|x| {
+        x.split(',')
+            .map(|y| y.to_string())
+            .collect::<HashSet<String>>()
     });
     let mut font;
 

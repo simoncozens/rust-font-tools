@@ -139,7 +139,7 @@ pub fn get_panose(_info: &norad::FontInfo) -> fonttools::os2::Panose {
     }
 }
 pub fn get_selection(info: &norad::FontInfo) -> u16 {
-    let mut selection = info.open_type_os2_selection.clone().unwrap_or(vec![]);
+    let mut selection = info.open_type_os2_selection.clone().unwrap_or_default();
     let style_map = style_map_style_name(info);
     match style_map.as_str() {
         "regular" => selection.push(6),

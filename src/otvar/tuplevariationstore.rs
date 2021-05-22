@@ -126,6 +126,7 @@ stateful_deserializer!(
             } else {
                 points_for_this_header = shared_points.clone().into();
             }
+            #[allow(clippy::branches_sharing_code)] // Just easier to understand this way
             let mut deltas:VecDeque<Delta> = if self.is_gvar {
                 let packed_x = seq.next_element_seed(PackedDeltasDeserializer { num_points: points_for_this_header.len() })?.unwrap().0;
                 let packed_y = seq.next_element_seed(PackedDeltasDeserializer { num_points: points_for_this_header.len() })?.unwrap().0;

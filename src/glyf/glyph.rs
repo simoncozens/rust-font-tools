@@ -138,11 +138,9 @@ deserialize_visitor!(
                     } else {
                         last_x -= coord;
                     }
-                    x_coords.push(last_x);
                     // println!("Read short X coordinate {:?}", coord);
                     // println!("X is now {:?}", last_x);
                 } else if flag.contains(SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR) {
-                    x_coords.push(last_x);
                     // println!("Elided X coordinate");
                     // println!("X is still {:?}", last_x);
                 } else {
@@ -150,8 +148,8 @@ deserialize_visitor!(
                     // println!("Read long X coordinate {:?}", coord);
                     last_x += coord;
                     // println!("X is now {:?}", last_x);
-                    x_coords.push(last_x);
                 }
+                x_coords.push(last_x);
             }
             for flag in &flags {
                 if flag.contains(SimpleGlyphFlags::Y_SHORT_VECTOR) {
@@ -163,9 +161,7 @@ deserialize_visitor!(
                     }
                     // println!("Read short Y coordinate {:?}", coord);
                     // println!("Y is now {:?}", last_y);
-                    y_coords.push(last_y);
                 } else if flag.contains(SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR) {
-                    y_coords.push(last_y);
                     // println!("Elided Y coordinate");
                     // println!("Y is still {:?}", last_y);
                 } else {
@@ -173,8 +169,8 @@ deserialize_visitor!(
                     last_y += coord;
                     // println!("Read long Y coordinate {:?}", coord);
                     // println!("Y is now {:?}", last_y);
-                    y_coords.push(last_y);
                 }
+                y_coords.push(last_y);
                 if flag.contains(SimpleGlyphFlags::OVERLAP_SIMPLE) {
                     overlap = true;
                 }

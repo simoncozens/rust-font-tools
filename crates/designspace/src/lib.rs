@@ -334,8 +334,7 @@ impl Axis {
         if l > designspace_maximum {
             l = designspace_maximum;
         }
-        let v = (l - designspace_minimum) / (designspace_maximum - designspace_minimum);
-        v
+        (l - designspace_minimum) / (designspace_maximum - designspace_minimum)
     }
 }
 

@@ -2,7 +2,7 @@
     unused_must_use,
     non_snake_case,
     non_camel_case_types,
-    clippy::clippy::upper_case_acronyms
+    clippy::upper_case_acronyms
 )]
 
 use serde::de::{self, Visitor};

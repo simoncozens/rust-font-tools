@@ -69,20 +69,8 @@ fn skia_to_glyf(p: Path) -> Vec<Vec<Point>> {
             new_contour = vec![];
             continue;
         }
-        if verb < 2 {
-            new_contour.push(Point {
-                x: points[cur_pt].x as i16,
-                y: points[cur_pt].y as i16,
-                on_curve: true,
-            });
-            cur_pt += 1;
-        } else {
-            new_contour.push(Point {
-                x: points[cur_pt].x as i16,
-                y: points[cur_pt].y as i16,
-                on_curve: false,
-            });
-            cur_pt += 1;
+        let point_count = if verb < 2 { 1 } else { 2 };
+        for _ in 0..point_count {
             new_contour.push(Point {
                 x: points[cur_pt].x as i16,
                 y: points[cur_pt].y as i16,

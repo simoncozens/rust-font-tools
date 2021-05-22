@@ -194,7 +194,7 @@ fn norad_contours_to_glyf_contours(
                 let all_quadratics = cubics_to_quadratics(all_curves, glif_name);
                 for (c_ix, contour) in returned_contours.iter_mut().enumerate() {
                     for quad in &all_quadratics[c_ix] {
-                        contour.push(quad.clone());
+                        contour.push(*quad);
                     }
                 }
             }
