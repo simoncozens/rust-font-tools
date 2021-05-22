@@ -136,24 +136,24 @@ pub fn compile_hhea(
 pub fn compile_os2(
     info: &norad::FontInfo,
     metrics: &[hmtx::Metric],
-    glyf: &glyf::glyf,
+    _glyf: &glyf::glyf,
     mapping: &BTreeMap<u32, u16>,
 ) -> os2 {
     let upm = info.units_per_em.map_or(1000.0, |f| f.get());
     let italic_angle = info.italic_angle.map_or(0.0, |f| f.get());
-    let xHeight = info.x_height.map_or(upm * 0.5, |f| f.get());
+    let x_height = info.x_height.map_or(upm * 0.5, |f| f.get());
     let subscript_y_offset = info
         .open_type_os2_subscript_y_offset
         .unwrap_or((upm * 0.075).round() as i32) as i16;
     let font_ascender = ascender(info);
     let font_descender = descender(info);
-    let sTypoAscender = info
+    let s_typo_ascender = info
         .open_type_os2_typo_ascender
-        .unwrap_or(font_ascender.into()) as i16;
-    let sTypoDescender = info
+        .unwrap_or_else(|| font_ascender.into()) as i16;
+    let s_typo_descender = info
         .open_type_os2_typo_descender
-        .unwrap_or(font_descender.into()) as i16;
-    let sTypoLineGap =
+        .unwrap_or_else(|| font_descender.into()) as i16;
+    let s_typo_line_gap =
         info.open_type_hhea_line_gap
             .unwrap_or((upm * 1.2) as i32 + (font_ascender - font_descender) as i32) as i16;
     let superscript_y_offset = info
@@ -179,7 +179,7 @@ pub fn compile_os2(
         ySubscriptYOffset: subscript_y_offset,
         ySubscriptXOffset: info
             .open_type_os2_subscript_x_offset
-            .unwrap_or(adjust_offset(-subscript_y_offset, italic_angle))
+            .unwrap_or_else(|| adjust_offset(-subscript_y_offset, italic_angle))
             as i16,
 
         ySuperscriptXSize: info
@@ -191,28 +191,29 @@ pub fn compile_os2(
         ySuperscriptYOffset: superscript_y_offset,
         ySuperscriptXOffset: info
             .open_type_os2_superscript_x_offset
-            .unwrap_or(adjust_offset(-superscript_y_offset, italic_angle))
+            .unwrap_or_else(|| adjust_offset(-superscript_y_offset, italic_angle))
             as i16,
 
         yStrikeoutSize: info
             .open_type_os2_strikeout_size
-            .unwrap_or(postscript_underline_thickness(info).into()) as i16,
+            .unwrap_or_else(|| postscript_underline_thickness(info).into())
+            as i16,
         yStrikeoutPosition: info
             .open_type_os2_strikeout_position
-            .unwrap_or((xHeight * 0.22) as i32) as i16,
+            .unwrap_or((x_height * 0.22) as i32) as i16,
 
-        sxHeight: Some(xHeight as i16),
+        sxHeight: Some(x_height as i16),
         achVendID: info
             .open_type_os2_vendor_id
             .as_ref()
             .map_or(*b"NONE", |x| x.as_bytes().try_into().unwrap()),
         sCapHeight: Some(info.cap_height.map_or(upm * 0.7, |f| f.get()) as i16),
-        sTypoAscender,
-        sTypoDescender,
-        sTypoLineGap,
+        sTypoAscender: s_typo_ascender,
+        sTypoDescender: s_typo_descender,
+        sTypoLineGap: s_typo_line_gap,
         usWinAscent: info
             .open_type_os2_win_ascent
-            .unwrap_or((font_ascender + sTypoLineGap).try_into().unwrap())
+            .unwrap_or_else(|| (font_ascender + s_typo_line_gap).try_into().unwrap())
             as u16,
         usWinDescent: info
             .open_type_os2_win_descent
