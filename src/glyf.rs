@@ -465,7 +465,7 @@ mod tests {
             glyf::Component {
                 glyph_index: 0,
                 transformation: kurbo::Affine::new([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]),
-                matchPoints: None,
+                match_points: None,
                 flags: ComponentFlags::ROUND_XY_TO_GRID
                     | ComponentFlags::ARGS_ARE_XY_VALUES
                     | ComponentFlags::MORE_COMPONENTS /* ttx hides these */
@@ -478,7 +478,7 @@ mod tests {
             glyf::Component {
                 glyph_index: 7,
                 transformation: kurbo::Affine::new([1.0, 0.0, 0.0, 1.0, 402.0, 130.0]),
-                matchPoints: None,
+                match_points: None,
                 flags: glyf::ComponentFlags::ROUND_XY_TO_GRID
                     | ComponentFlags::ARGS_ARE_XY_VALUES
                     | ComponentFlags::ARG_1_AND_2_ARE_WORDS

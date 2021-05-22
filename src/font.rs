@@ -620,7 +620,7 @@ mod tests {
             reserved2: 0,
             reserved3: 0,
             metricDataFormat: 0,
-            number_of_hmetrics: 1117,
+            numberOfHMetrics: 1117,
         };
         let fmaxp = maxp::maxp {
             version: U16F16::from_num(1.0),
