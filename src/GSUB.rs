@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 use std::array::TryFromSliceError;
 use std::collections::BTreeMap;
 use std::convert::TryInto;
-use std::num::Wrapping;
 
 tables!(
   gsubcore {
@@ -41,25 +40,35 @@ tables!(
   }
 );
 
+/// A general substitution lookup rule, of whatever type
 #[derive(Debug, PartialEq)]
 pub struct SubstLookup {
+    /// Lookup flags
     pub flags: LookupFlags,
+    /// The mark filtering set index in the `GDEF` table.
     pub mark_filtering_set: Option<uint16>,
+    /// The concrete substitution rule.
     pub substitution: Substitution,
 }
 
 #[derive(Debug, PartialEq)]
+/// A single substitution rule.
 pub struct SingleSubst {
+    /// The mapping of input glyph IDs to replacement glyph IDs.
     pub mapping: BTreeMap<uint16, uint16>,
 }
 
 #[derive(Debug, PartialEq)]
+/// A multiple substitution (one-to-many) rule.
 pub struct MultipleSubst {
+    /// The mapping of input glyph IDs to sequence of replacement glyph IDs.
     pub mapping: BTreeMap<uint16, Vec<uint16>>,
 }
 
 #[derive(Debug, PartialEq)]
+/// A alternate substitution (`sub ... from ...`) rule.
 pub struct AlternateSubst {
+    /// The mapping of input glyph IDs to array of possible glyph IDs.
     pub mapping: BTreeMap<uint16, Vec<uint16>>,
 }
 
@@ -86,8 +95,12 @@ pub enum Substitution {
 
 #[derive(Debug, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
+/// The Glyph Substitution table
 pub struct GSUB {
+    /// A list of substitution lookups
     pub lookups: Vec<SubstLookup>,
+    /// The association between feature tags and the list of indices into the
+    /// lookup table used to process this feature, together with any feature parameters.
     pub features: BTreeMap<Tag, (Vec<usize>, Option<FeatureParams>)>,
 }
 
@@ -98,7 +111,7 @@ deserialize_visitor!(
         let core = read_field!(seq, gsubcore, "a GSUB table header");
         let mut header_size = 10;
         if core.minorVersion == 1 {
-            let featureVariationsOffset =
+            let _featureVariationsOffset =
                 read_field!(seq, uint16, "A feature variations table offset");
             header_size += 2;
         }
@@ -106,7 +119,7 @@ deserialize_visitor!(
 
         // Script list
         let beginning_of_scriptlist = core.scriptListOffset as usize - header_size;
-        let scriptlist: ScriptList =
+        let _scriptlist: ScriptList =
             otspec::de::from_bytes(&remainder[beginning_of_scriptlist..]).unwrap();
 
         // Feature list

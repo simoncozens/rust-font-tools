@@ -17,10 +17,15 @@ gasp {
 
 bitflags! {
     #[derive(Serialize, Deserialize)]
+    /// Flags which determine how grid-fitting should be carried out
     pub struct RangeGaspBehaviorFlags: u16 {
+        /// Use gridfitting
         const GASP_GRIDFIT = 0x0001;
+        /// Use grayscale rendering
         const GASP_DOGRAY = 0x0002;
+        /// Use gridfitting with ClearType symmetric smoothing
         const GASP_SYMMETRIC_GRIDFIT = 0x0004;
+        /// Use smoothing along multiple axes with ClearType®
         const GASP_SYMMETRIC_SMOOTHING = 0x0008;
     }
 }

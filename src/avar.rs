@@ -23,6 +23,10 @@ tables!(
 );
 
 impl SegmentMap {
+    /// Creates a new segment map from an array of tuples. These tuples
+    /// must be in normalized coordinates, and *must* include entries for
+    /// `-1.0,-1.0`, `0.0,0.0` and `1.0,1.0`.
+    // XXX we should probably check this and insert them if not.
     pub fn new(items: Vec<(f32, f32)>) -> Self {
         let maps = items
             .iter()

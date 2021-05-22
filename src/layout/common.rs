@@ -71,9 +71,22 @@ tables!(
 );
 
 #[derive(Debug, PartialEq)]
+/// Feature parameter data.
+///
+/// Certain OpenType features may have various ancillary data attached to them.
+/// The format of this data varies from feature to feature, so this container
+/// wraps the general concept of feature parameter data.
 pub enum FeatureParams {
+    /// The stylistic set features (`ss01`-`ss20`) may provide two parameters: a
+    /// parameter data version, currently set to zero, and a name table ID
+    /// which is used to display the stylistic set name to the user.
     StylisticSet(uint16, uint16),
+    /// Feature parameter information for the `size` feature, including the
+    /// design size, subfamily identifier and name ID, and largest and smallest
+    /// intended sizes. This has been superseded by the `STAT` table.
     SizeFeature(sizeFeatureParams),
+    /// The character variant features (`cv01`-`cv99`) provide various name
+    /// parameters to display information to the user.
     CharacterVariant(cvFeatureParams),
 }
 
@@ -96,20 +109,32 @@ bitflags! {
     }
 }
 
+/// A script list
 #[derive(Debug, PartialEq, Clone)]
 pub struct ScriptList {
-    scripts: HashMap<Tag, Script>,
+    /// A mapping between script tags and `Script` tables.
+    pub scripts: HashMap<Tag, Script>,
 }
 
+/// A Script table, containing information about language systems for a certain script.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Script {
-    default_language_system: Option<LanguageSystem>,
+    /// Optionally, a default language system to be used when no specific
+    /// language is selected.
+    pub default_language_system: Option<LanguageSystem>,
+    /// A mapping between language tags and `LanguageSystem` records.
     language_systems: HashMap<Tag, LanguageSystem>,
 }
 
+/// A LanguageSystem table, selecting which features should be applied in the
+/// current script/language combination.
 #[derive(Debug, PartialEq, Clone)]
 pub struct LanguageSystem {
+    /// Each language system can define a required feature which must be processed
+    /// for this script/language combination.
     required_feature: Option<usize>,
+    /// A list of indices into the feature table to be processed for this
+    /// script language combination.
     feature_indices: Vec<usize>,
 }
 

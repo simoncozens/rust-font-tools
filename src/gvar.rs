@@ -36,9 +36,13 @@ tables!( gvarcore {
 /// (This is the user-friendly version of what is serialized as a TupleVariation)
 #[derive(Debug, PartialEq, Clone)]
 pub struct DeltaSet {
+    /// The peak location at which this region is active.
     pub peak: Tuple,
+    /// The location at which this region begins to be active.
     pub start: Tuple,
+    /// The location at which this region is no longer active.
     pub end: Tuple,
+    /// A list of deltas to be applied to the glyph's coordinates at the peak of this region.
     pub deltas: Vec<(i16, i16)>,
 }
 
@@ -125,13 +129,18 @@ impl DeltaSet {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+/// A description of how an individual glyph's outline varies across the designspace.
 pub struct GlyphVariationData {
+    /// A list of designsets, containing deltas at particular designspace regions.
     pub deltasets: Vec<DeltaSet>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 #[allow(non_camel_case_types)]
+/// A Glyph Variations table, describing how glyph outlines vary across the
+/// designspace.
 pub struct gvar {
+    /// An array of variation data, one for each glyph in the `glyf` table.
     pub variations: Vec<Option<GlyphVariationData>>,
 }
 
@@ -239,6 +248,7 @@ stateful_deserializer!(
 );
 
 impl gvar {
+    /// Serializes this table to binary, given a reference to the `glyf` table.
     pub fn to_bytes(&self, glyf: Option<&glyf>) -> Vec<u8> {
         let mut out: Vec<u8> = vec![];
         // Determine all the shared tuples.
@@ -343,6 +353,9 @@ impl gvar {
     }
 }
 
+/// Constructs a `gvar` object from a binary table, given a set of coordinates
+/// and end-of-contour indices. These can be extracted from the `glyf` table by
+/// calling the `gvar_coords_and_ends` method on each glyph.
 pub fn from_bytes(s: &[u8], coords_and_ends: CoordsAndEndsVec) -> otspec::error::Result<gvar> {
     let mut deserializer = otspec::de::Deserializer::from_bytes(s);
     let cs = GvarDeserializer { coords_and_ends };

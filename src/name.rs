@@ -162,6 +162,7 @@ impl NameRecord {
 /// Represents a font's name (Naming) table
 #[derive(Debug, PartialEq)]
 pub struct name {
+    /// A set of name records.
     pub records: Vec<NameRecord>,
 }
 

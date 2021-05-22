@@ -461,6 +461,14 @@ fn checksum(x: &[u8]) -> u32 {
     sum.0
 }
 
+/// Returns B-tree search range parameters.
+///
+/// Various OpenType tables (the font table header, `cmap` format 4 subtables)
+/// contain fields which are intended to be used to optimize B-tree search
+/// algorithms. These are generally not used by implementations in practice, as
+/// trusting user-supplied data to determine the algorithm's activity is unwise.
+/// However, we still want to correctly generate these values to produce
+/// specification-compliant fonts.
 pub fn get_search_range(n: u16, itemsize: u16) -> (u16, u16, u16) {
     let mut max_pow2: u16 = 0;
     while 1u16 << (max_pow2 + 1) <= n {

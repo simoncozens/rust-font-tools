@@ -23,7 +23,12 @@ tables!(
 );
 
 #[derive(Debug, PartialEq, Clone)]
+/// A coverage table.
+///
+/// OpenType lookups store information about which glyphs are affected by the
+/// lookup, as a way to optimize the shaper's operation.
 pub struct Coverage {
+    /// The glyphs (usually the first glyph in a sequence) affected by this lookup.
     pub glyphs: Vec<uint16>,
 }
 

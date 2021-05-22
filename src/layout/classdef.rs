@@ -25,7 +25,12 @@ tables!(
 );
 
 #[derive(Debug, PartialEq, Clone)]
+/// A class definition table.
+///
+/// Class definitions, used to define glyph contexts in the GSUB and GPOS tables,
+/// map a glyph ID to a glyph class integer.
 pub struct ClassDef {
+    /// Stores the mapping between glyph IDs and classes.
     pub classes: BTreeMap<uint16, uint16>,
 }
 

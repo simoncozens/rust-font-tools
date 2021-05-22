@@ -208,12 +208,17 @@ deserialize_visitor!(
 );
 
 impl Glyph {
+    /// Returns true if this glyph has any components
     pub fn has_components(&self) -> bool {
         !self.components.is_empty()
     }
+
+    /// Returns true if this glyph has neither components nor contours
     pub fn is_empty(&self) -> bool {
         self.components.is_empty() && self.contours.is_empty()
     }
+
+    /// Returns a bounding box rectangle for this glyph as a `kurbo::Rect`.
     pub fn bounds_rect(&self) -> kurbo::Rect {
         kurbo::Rect::new(
             self.xMin.into(),
@@ -222,6 +227,7 @@ impl Glyph {
             self.yMax.into(),
         )
     }
+    /// Sets the bounding box rectangle for this glyph from a `kurbo::Rect`.
     pub fn set_bounds_rect(&mut self, r: kurbo::Rect) {
         self.xMin = r.min_x() as i16;
         self.xMax = r.max_x() as i16;
@@ -229,6 +235,9 @@ impl Glyph {
         self.yMax = r.max_y() as i16;
     }
 
+    /// Assuming that the contour list has been expanded into a flat list of
+    /// points, returns an array of indices representing the final points of
+    /// each contour.
     fn end_points(&self) -> Vec<u16> {
         assert!(!self.has_components());
         let mut count: i16 = -1;
@@ -239,6 +248,12 @@ impl Glyph {
         }
         end_points
     }
+    /// Inserts explicit on-curve points.
+    ///
+    /// As a space-saving optimization, TrueType outlines may omit on-curve
+    /// points if they lay directly at the midpoint of the two surrounding
+    /// off-curve points. This function reinserts the implict on-curve points
+    /// to allow for simpler processing of the glyph contours.
     pub fn insert_explicit_oncurves(&mut self) {
         if self.contours.is_empty() {
             return;
@@ -308,6 +323,7 @@ impl Glyph {
         (compressed_flags, compressed_xs, compressed_ys)
     }
 
+    /// Decomposes components in this glyph (but not recursively)
     pub fn decompose(&self, glyphs: &[Glyph]) -> Glyph {
         let mut newglyph = Glyph {
             xMin: 0,
@@ -347,6 +363,9 @@ impl Glyph {
         newglyph
     }
 
+    /// Produces a tuple made up of a list of X/Y coordinates and a list
+    /// of ends-of-contour indices, suitable for use when constructing a
+    /// `gvar` table.
     pub fn gvar_coords_and_ends(&self) -> (Vec<(int16, int16)>, Vec<usize>) {
         let mut ends: Vec<usize> = self
             .contours
