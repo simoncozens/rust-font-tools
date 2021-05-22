@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_remainder, stateful_deserializer};
+use otspec::{deserialize_visitor, read_field, read_remainder};
 use otspec_macros::tables;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
@@ -123,7 +123,7 @@ deserialize_visitor!(
         let sl = read_field!(seq, ScriptListInternal, "A script list");
         let remainder = read_remainder!(seq, "Script records");
         let base = 2 + (4 * sl.scriptRecords.len());
-        let mut scripts = HashMap::new();
+        let scripts = HashMap::new();
         for rec in sl.scriptRecords {
             let script_base = rec.scriptOffset as usize - base;
             let si: ScriptInternal = otspec::de::from_bytes(&remainder[script_base..]).unwrap();

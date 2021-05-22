@@ -17,7 +17,7 @@ use std::convert::TryInto;
 use rayon::prelude::*;
 
 type Coords = Vec<(int16, int16)>;
-pub type CoordsAndEndsVec = Vec<(Coords, Vec<usize>)>;
+pub(crate) type CoordsAndEndsVec = Vec<(Coords, Vec<usize>)>;
 
 tables!( gvarcore {
     uint16  majorVersion
@@ -130,6 +130,7 @@ pub struct GlyphVariationData {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[allow(non_camel_case_types)]
 pub struct gvar {
     pub variations: Vec<Option<GlyphVariationData>>,
 }
@@ -260,10 +261,10 @@ impl gvar {
         if most_common_tuples.is_empty() {
             panic!("Some more sensible error checking here for null case");
         }
-        let sharedTupleCount = most_common_tuples.len() as u16;
+        let shared_tuple_count = most_common_tuples.len() as u16;
         let flags = 1; // XXX
 
-        let mut glyphVariationDataOffsets: Vec<u8> = vec![];
+        let mut glyph_variation_data_offsets: Vec<u8> = vec![];
 
         // println!("Most common tuples: {:?}", most_common_tuples);
         let mut shared_tuples = vec![];
@@ -277,10 +278,10 @@ impl gvar {
         for (ix, var) in self.variations.iter().enumerate() {
             // Data offset
             if flags != 0 {
-                glyphVariationDataOffsets
+                glyph_variation_data_offsets
                     .extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u32)).unwrap());
             } else {
-                glyphVariationDataOffsets
+                glyph_variation_data_offsets
                     .extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u16 / 2)).unwrap());
             }
 
@@ -312,10 +313,10 @@ impl gvar {
         }
         // Final data offset
         if flags != 0 {
-            glyphVariationDataOffsets
+            glyph_variation_data_offsets
                 .extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u32)).unwrap());
         } else {
-            glyphVariationDataOffsets
+            glyph_variation_data_offsets
                 .extend(&otspec::ser::to_bytes(&(serialized_tvs.len() as u16 / 2)).unwrap());
         }
         out.extend(
@@ -323,18 +324,18 @@ impl gvar {
                 majorVersion: 1,
                 minorVersion: 0,
                 axisCount,
-                sharedTupleCount,
-                sharedTuplesOffset: 20 + glyphVariationDataOffsets.len() as u32,
+                sharedTupleCount: shared_tuple_count,
+                sharedTuplesOffset: 20 + glyph_variation_data_offsets.len() as u32,
                 glyphCount: self.variations.len() as u16,
                 flags,
                 glyphVariationDataArrayOffset: 20
-                    + glyphVariationDataOffsets.len() as u32
+                    + glyph_variation_data_offsets.len() as u32
                     + serialized_tuples.len() as u32,
             })
             .unwrap(),
         );
 
-        out.extend(glyphVariationDataOffsets);
+        out.extend(glyph_variation_data_offsets);
         out.extend(serialized_tuples);
         out.extend(serialized_tvs);
 

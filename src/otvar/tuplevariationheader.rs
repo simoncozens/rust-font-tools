@@ -28,6 +28,7 @@ bitflags! {
 /// A tuple variation header
 ///
 /// Used to locate a set of deltas within the design space.
+#[allow(non_snake_case, non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]
 pub struct TupleVariationHeader {
     /// Size in bytes of the serialized data (the data *after* the header/tuples

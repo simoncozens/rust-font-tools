@@ -284,6 +284,7 @@ tables!( postcore {
 });
 
 /// Represents the font's post (PostScript) table
+#[allow(non_snake_case, non_camel_case_types)]
 #[derive(Debug, PartialEq)]
 pub struct post {
     /// version of the post table (either 0.5 or 1.0), expressed as a Fixed::U16F16.
@@ -311,6 +312,7 @@ pub struct post {
 impl post {
     /// Creates a new table with a given version.
     /// The glyph names are optional, and only written out if version==2
+    #[allow(non_snake_case)]
     pub fn new(
         version: f32,
         italicAngle: f32,
@@ -390,9 +392,9 @@ deserialize_visitor!(
         let core = read_field!(seq, postcore, "a post table");
         let mut glyphnames = None;
         if core.version == U16F16::from_num(2.0) {
-            let numGlyphs = read_field!(seq, uint16, "a number of glyphs");
-            let glyph_offsets: Vec<u16> = read_field_counted!(seq, numGlyphs, "glyph offsets");
-            let mut glyphnames_vec = Vec::with_capacity(numGlyphs as usize);
+            let num_glyphs = read_field!(seq, uint16, "a number of glyphs");
+            let glyph_offsets: Vec<u16> = read_field_counted!(seq, num_glyphs, "glyph offsets");
+            let mut glyphnames_vec = Vec::with_capacity(num_glyphs as usize);
             let mut glyph_name_table: Vec<String> = Vec::new();
             loop {
                 let byte_count = seq.next_element::<u8>();
@@ -407,7 +409,7 @@ deserialize_visitor!(
                 let name: Vec<u8> = read_field_counted!(seq, byte_count, "glyph name");
                 glyph_name_table.push(String::from_utf8(name).unwrap());
             }
-            for i in 0..numGlyphs {
+            for i in 0..num_glyphs {
                 let offset = glyph_offsets[i as usize] as usize;
                 if offset < 258 {
                     glyphnames_vec.push(String::from(APPLE_NAMES[offset]));

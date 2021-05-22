@@ -4,17 +4,26 @@ use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 use serde::{Serialize, Serializer};
 
 #[derive(Debug, PartialEq, Serialize)]
+#[allow(non_snake_case)]
+/// A single horizontal metric
 pub struct Metric {
+    /// The full horizontal advance width of the glyph
     pub advanceWidth: u16,
+    /// The left side bearing of the glyph
     pub lsb: int16,
 }
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq)]
+/// The horizontal metrics table
 pub struct hmtx {
+    /// The list of metrics, corresponding to the glyph order
     pub metrics: Vec<Metric>,
 }
 
 impl hmtx {
+    /// Serialize the horizontal metrics table to a binary vector and a corresponding
+    /// number of horizontal metrics (to be stored in the `hhea` table)
     pub fn to_bytes(&self) -> (Vec<u8>, uint16) {
         let mut end_index_h_metrics = self.metrics.len() - 1;
         while end_index_h_metrics > 0
@@ -40,7 +49,7 @@ impl hmtx {
 stateful_deserializer!(
     hmtx,
     HmtxDeserializer,
-    { numberOfHMetrics: uint16 },
+    { number_of_h_metrics: uint16 },
     fn visit_seq<A>(self, mut seq: A) -> std::result::Result<hmtx, A::Error>
     where
         A: SeqAccess<'de>,
@@ -48,18 +57,21 @@ stateful_deserializer!(
         let mut res = hmtx {
             metrics: Vec::new(),
         };
-        for _ in 0..self.numberOfHMetrics {
-            let advanceWidth = read_field!(seq, uint16, "an advance width");
+        for _ in 0..self.number_of_h_metrics {
+            let advance_width = read_field!(seq, uint16, "an advance width");
             let lsb = read_field!(seq, int16, "a LSB");
-            res.metrics.push(Metric { advanceWidth, lsb })
+            res.metrics.push(Metric {
+                advanceWidth: advance_width,
+                lsb,
+            })
         }
-        if let Some(otherMetrics) = seq.next_element::<Vec<int16>>()? {
+        if let Some(other_metrics) = seq.next_element::<Vec<int16>>()? {
             let last = res
                 .metrics
                 .last()
                 .expect("Must be one advance width in hmtx!")
                 .advanceWidth;
-            res.metrics.extend(otherMetrics.iter().map(|x| Metric {
+            res.metrics.extend(other_metrics.iter().map(|x| Metric {
                 lsb: *x,
                 advanceWidth: last,
             }))
@@ -80,9 +92,13 @@ impl Serialize for hmtx {
     }
 }
 
-pub fn from_bytes(s: &[u8], numberOfHMetrics: uint16) -> otspec::error::Result<hmtx> {
+/// Deserializes a Horizontal Metrics Table given a binary vector and the
+/// `numberOfHMetrics` field of the `hhea` table.
+pub fn from_bytes(s: &[u8], number_of_h_metrics: uint16) -> otspec::error::Result<hmtx> {
     let mut deserializer = otspec::de::Deserializer::from_bytes(s);
-    let cs: HmtxDeserializer = HmtxDeserializer { numberOfHMetrics };
+    let cs: HmtxDeserializer = HmtxDeserializer {
+        number_of_h_metrics,
+    };
     cs.deserialize(&mut deserializer)
 }
 

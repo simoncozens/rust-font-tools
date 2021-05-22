@@ -29,21 +29,36 @@ use std::num::Wrapping;
 #[derive(Debug, Serialize, PartialEq)]
 #[serde(untagged)]
 pub enum Table {
+    /// Contains an unknown or unparsed table stored as a binary byte array.
     Unknown(Vec<u8>),
+    /// Contains an axis variations table.
     Avar(avar),
+    /// Contains a character to glyph index mapping table.
     Cmap(cmap),
+    /// Contains a font variations table.
     Fvar(fvar),
+    /// Contains a grid-fitting and scan-conversion procedure table.
     Gasp(gasp),
+    /// Contains a glyph data table.
     Glyf(glyf::glyf),
-    Head(head),
-    Hhea(hhea),
-    Hmtx(hmtx::hmtx),
-    Loca(loca::loca),
-    Maxp(maxp),
-    Name(name),
-    Os2(os2),
-    Post(post),
+    /// Contains a glyph variations table.
     Gvar(gvar::gvar),
+    /// Contains a header table.
+    Head(head),
+    /// Contains a horizontal header table.
+    Hhea(hhea),
+    /// Contains a horizontal metrics table.
+    Hmtx(hmtx::hmtx),
+    /// Contains an index-to-location table.
+    Loca(loca::loca),
+    /// Contains a maximum profile table.
+    Maxp(maxp),
+    /// Contains a naming table.
+    Name(name),
+    /// Contains an OS/2 and Windows metrics table.
+    Os2(os2),
+    /// Contains a postscript table.
+    Post(post),
 }
 
 macro_rules! table_unchecked {
@@ -109,6 +124,7 @@ struct TableRecord {
 }
 /// The header of the font's table directory
 #[derive(Deserialize)]
+#[allow(non_snake_case)]
 struct TableHeader {
     sfntVersion: u32,
     numTables: u16,
@@ -119,6 +135,7 @@ struct TableHeader {
 
 /// An OpenType font object
 #[derive(Debug)]
+#[allow(non_snake_case)]
 pub struct Font {
     /// Font version (TrueType/OpenType)
     sfntVersion: SfntVersion,
@@ -130,7 +147,7 @@ pub struct Font {
 use otspec::ser;
 
 impl Font {
-    fn _locaIs32Bit(&self) -> Option<bool> {
+    fn _loca_is32bit(&self) -> Option<bool> {
         let head = self.get_table_simple(b"head")?;
         if self._table_needs_deserializing(head) {
             return None;
@@ -142,7 +159,7 @@ impl Font {
         panic!("Can't happen - head not a head table?!")
     }
 
-    fn _locaOffsets(&self) -> Option<Vec<Option<u32>>> {
+    fn _loc_offsets(&self) -> Option<Vec<Option<u32>>> {
         let loca = self.get_table_simple(b"loca")?;
         if self._table_needs_deserializing(loca) {
             return None;
@@ -154,7 +171,7 @@ impl Font {
         panic!("Can't happen - loca not a loca table?!")
     }
 
-    fn _numberOfHMetrics(&self) -> Option<u16> {
+    fn _number_of_hmetrics(&self) -> Option<u16> {
         let hhea = self.get_table_simple(b"hhea")?;
         if self._table_needs_deserializing(hhea) {
             return None;
@@ -192,28 +209,34 @@ impl Font {
             b"post" => Ok(Table::Post(otspec::de::from_bytes(binary)?)),
             b"OS/2" => Ok(Table::Os2(otspec::de::from_bytes(binary)?)),
             b"hmtx" => {
-                let numberOfHMetrics = self._numberOfHMetrics();
-                if numberOfHMetrics.is_none() {
+                let number_of_hmetrics = self._number_of_hmetrics();
+                if number_of_hmetrics.is_none() {
                     return Err(OTSpecError::DeserializedInWrongOrder);
                 }
                 Ok(Table::Hmtx(hmtx::from_bytes(
                     binary,
-                    numberOfHMetrics.unwrap(),
+                    number_of_hmetrics.unwrap(),
                 )?))
             }
             b"loca" => {
-                let locaIs32bit = self._locaIs32Bit();
-                if locaIs32bit.is_none() {
+                let loca_is32bit = self._loca_is32bit();
+                if loca_is32bit.is_none() {
                     return Err(OTSpecError::DeserializedInWrongOrder);
                 }
-                Ok(Table::Loca(loca::from_bytes(binary, locaIs32bit.unwrap())?))
+                Ok(Table::Loca(loca::from_bytes(
+                    binary,
+                    loca_is32bit.unwrap(),
+                )?))
             }
             b"glyf" => {
-                let locaOffsets = self._locaOffsets();
-                if locaOffsets.is_none() {
+                let loca_offsets = self._loc_offsets();
+                if loca_offsets.is_none() {
                     return Err(OTSpecError::DeserializedInWrongOrder);
                 }
-                Ok(Table::Glyf(glyf::from_bytes(binary, locaOffsets.unwrap())?))
+                Ok(Table::Glyf(glyf::from_bytes(
+                    binary,
+                    loca_offsets.unwrap(),
+                )?))
             }
             b"gvar" => {
                 let gvar_coords_and_ends = self._gvar_coords_and_ends();
@@ -230,9 +253,9 @@ impl Font {
     }
 
     /// Create a new font, empty of a given version (TrueType/OpenType)
-    pub fn new(sfntVersion: SfntVersion) -> Self {
+    pub fn new(sfnt_version: SfntVersion) -> Self {
         Self {
-            sfntVersion,
+            sfntVersion: sfnt_version,
             tables: BTreeMap::new(),
             _numGlyphs: None,
         }
@@ -597,7 +620,7 @@ mod tests {
             reserved2: 0,
             reserved3: 0,
             metricDataFormat: 0,
-            numberOfHMetrics: 1117,
+            number_of_hmetrics: 1117,
         };
         let fmaxp = maxp::maxp {
             version: U16F16::from_num(1.0),

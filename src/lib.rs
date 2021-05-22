@@ -3,11 +3,13 @@
 //!
 //! # Example usage
 //! ```no_run
-//! use fonttools::{font, Table};
-//! use fonttools::name::{name, NameRecordID};
+//! use fonttools::font::{self, Font, Table};
+//! use fonttools::name::{name, NameRecord, NameRecordID};
 //!
 //! // Load a font (tables are lazy-loaded)
-//! let myfont = font::load("Test.otf");
+//! let fontfile = File::open("Test.otf").unwrap();
+//! use std::fs::File;
+//! let mut myfont = font::load(fontfile).expect("Could not load font");
 //!
 //! // Access an existing table
 //! if let Table::Name(name_table) = myfont.get_table(b"name")
@@ -17,9 +19,10 @@
 //!         name_table.records.push(NameRecord::windows_unicode(
 //!             NameRecordID::LicenseURL,
 //!             "http://opensource.org/licenses/OFL-1.1"
-//!         );
+//!         ));
 //! }
-//! myfont.save("Test-with-OFL.otf");
+//! let mut outfile = File::create("Test-with-OFL.otf").expect("Could not create file");
+//! myfont.save(&mut outfile);
 //! ```
 //! For information about creating and manipulating structures for
 //! each specific OpenType table, see the modules below. See
@@ -31,7 +34,7 @@
 pub mod GSUB;
 /// The `avar` (Axis variations) table
 pub mod avar;
-/// The `fvar` (Font variations) table
+/// The `cmap` (Character To Glyph Index Mapping) table
 pub mod cmap;
 /// The main font object. Start here.
 pub mod font;

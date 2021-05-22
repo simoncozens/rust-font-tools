@@ -22,8 +22,8 @@ tables!(
 
 #[derive(Debug, PartialEq)]
 pub struct ItemVariationData {
-    pub regionIndexes: Vec<uint16>,
-    pub deltaValues: Vec<Vec<int16>>,
+    pub region_indexes: Vec<uint16>,
+    pub delta_values: Vec<Vec<int16>>,
 }
 
 deserialize_visitor!(
@@ -31,26 +31,27 @@ deserialize_visitor!(
     ItemVariationDataVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
         let header = read_field!(seq, ItemVariationDataHeader, "a header");
-        let regionIndexCount = header.regionIndexes.len();
-        let mut deltaValues = vec![];
+        let region_index_count = header.regionIndexes.len();
+        let mut delta_values = vec![];
         for _ in 0..header.itemCount {
             let mut v: Vec<i16> = Vec::new();
-            for col in 0..regionIndexCount {
+            for col in 0..region_index_count {
                 if col <= header.shortDeltaCount as usize {
                     v.push(read_field!(seq, i16, "a delta"));
                 } else {
                     v.push(read_field!(seq, i8, "a delta").into());
                 }
             }
-            deltaValues.push(v);
+            delta_values.push(v);
         }
         Ok(ItemVariationData {
-            regionIndexes: header.regionIndexes,
-            deltaValues,
+            region_indexes: header.regionIndexes,
+            delta_values,
         })
     }
 );
 
+#[allow(non_snake_case, non_camel_case_types)]
 pub struct VariationRegionList {
     pub axisCount: uint16,
     pub regionCount: uint16,
@@ -60,22 +61,23 @@ deserialize_visitor!(
     VariationRegionList,
     VariationRegionListVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let axisCount = read_field!(seq, uint16, "an axis count");
-        let regionCount = read_field!(seq, uint16, "a region count");
-        let mut variationRegions = Vec::with_capacity(regionCount.into());
-        for _ in 0..regionCount {
+        let axis_count = read_field!(seq, uint16, "an axis count");
+        let region_count = read_field!(seq, uint16, "a region count");
+        let mut variation_regions = Vec::with_capacity(region_count.into());
+        for _ in 0..region_count {
             let v: Vec<RegionAxisCoordinates> =
-                read_field_counted!(seq, axisCount, "a VariationRegion record");
-            variationRegions.push(v)
+                read_field_counted!(seq, axis_count, "a VariationRegion record");
+            variation_regions.push(v)
         }
         Ok(VariationRegionList {
-            axisCount,
-            regionCount,
-            variationRegions,
+            axisCount: axis_count,
+            regionCount: region_count,
+            variationRegions: variation_regions,
         })
     }
 );
 
+#[allow(non_snake_case, non_camel_case_types)]
 #[derive(Debug, PartialEq)]
 pub struct ItemVariationStore {
     pub format: uint16,
@@ -91,28 +93,28 @@ deserialize_visitor!(
         let format = read_field!(seq, uint16, "a header");
         let offset = read_field!(seq, uint32, "an offset");
         let vardatacount = read_field!(seq, uint16, "a count") as usize;
-        let variationDataOffsets: Vec<uint32> =
+        let variation_data_offsets: Vec<uint32> =
             read_field_counted!(seq, vardatacount, "item variation data offsets");
         let remainder = read_remainder!(seq, "an item variation store");
         let binary_variation_region_list =
             &remainder[offset as usize - (8 + 4 * vardatacount as usize)..];
-        let variationRegions: VariationRegionList =
+        let variation_regions: VariationRegionList =
             otspec::de::from_bytes(binary_variation_region_list).map_err(|e| {
                 serde::de::Error::custom(format!("Expecting a variation region list: {:?}", e))
             })?;
-        let mut variationData = Vec::with_capacity(vardatacount);
+        let mut variation_data = Vec::with_capacity(vardatacount);
         for i in 0..vardatacount {
             let vardata_binary =
-                &remainder[variationDataOffsets[i] as usize - (8 + 4 * vardatacount as usize)..];
-            variationData.push(otspec::de::from_bytes(vardata_binary).map_err(|e| {
+                &remainder[variation_data_offsets[i] as usize - (8 + 4 * vardatacount as usize)..];
+            variation_data.push(otspec::de::from_bytes(vardata_binary).map_err(|e| {
                 serde::de::Error::custom(format!("Expecting variation data: {:?}", e))
             })?);
         }
         Ok(ItemVariationStore {
             format,
-            axisCount: variationRegions.axisCount,
-            variationRegions: variationRegions.variationRegions,
-            variationData,
+            axisCount: variation_regions.axisCount,
+            variationRegions: variation_regions.variationRegions,
+            variationData: variation_data,
         })
     }
 );

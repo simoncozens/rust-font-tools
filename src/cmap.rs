@@ -30,6 +30,7 @@ CmapHeader {
 );
 
 #[derive(Debug, PartialEq, Serialize)]
+#[allow(non_camel_case_types, non_snake_case)]
 struct cmap0 {
     format: uint16,
     length: uint16,
@@ -38,7 +39,7 @@ struct cmap0 {
 }
 
 impl cmap0 {
-    fn from_mapping(_languageID: uint16, _map: &BTreeMap<uint32, uint16>) -> Self {
+    fn from_mapping(_language_id: uint16, _map: &BTreeMap<uint32, uint16>) -> Self {
         unimplemented!();
         // Self {
         //     format: 0,
@@ -59,17 +60,20 @@ deserialize_visitor!(
         let format = read_field!(seq, uint16, "a cmap0 table format");
         let length = read_field!(seq, uint16, "a cmap0 table length");
         let language = read_field!(seq, uint16, "a cmap0 table language");
-        let glyphIdArray = read_field_counted!(seq, length, "a cmap0 glyph array");
+        let glyph_ids = read_field_counted!(seq, length, "a cmap0 glyph array");
         Ok(cmap0 {
             format,
             length,
             language,
-            glyphIdArray,
+            glyphIdArray: glyph_ids,
         })
     }
 );
 
+#[allow(non_camel_case_types, non_snake_case)]
 #[derive(Debug, PartialEq, Serialize)]
+/// A format 4 cmap subtable, used for mapping Unicode characters in the
+/// basic mutilingual plane.
 pub struct cmap4 {
     format: uint16,
     length: uint16,
@@ -177,79 +181,81 @@ fn split_range(
 }
 
 impl cmap4 {
-    pub fn from_mapping(languageID: uint16, map: &BTreeMap<uint32, uint16>) -> Self {
+    /// Creates a new cmap4 subtable for a given language ID, from a mapping of
+    /// Unicode codepoints to glyph IDs
+    pub fn from_mapping(language_id: uint16, map: &BTreeMap<uint32, uint16>) -> Self {
         let mut char_codes: Vec<uint32> = map.keys().cloned().collect();
         char_codes.sort_unstable();
         let mut last_code = char_codes[0];
-        let mut startCode: Vec<u16> = vec![last_code.try_into().unwrap()];
-        let mut endCode: Vec<u16> = Vec::new();
+        let mut start_code: Vec<u16> = vec![last_code.try_into().unwrap()];
+        let mut end_code: Vec<u16> = Vec::new();
         for char_code in &char_codes[1..] {
             if *char_code == last_code + 1 {
                 last_code = *char_code;
                 continue;
             }
             let (mut start, mut end) = split_range(
-                *startCode.last().unwrap(),
+                *start_code.last().unwrap(),
                 last_code.try_into().unwrap(),
                 map,
             );
             // println!("Split_range called, returned {:?} {:?}", start, end);
-            startCode.append(&mut start);
-            endCode.append(&mut end);
-            startCode.push((*char_code).try_into().unwrap());
+            start_code.append(&mut start);
+            end_code.append(&mut end);
+            start_code.push((*char_code).try_into().unwrap());
             last_code = *char_code;
         }
         let (mut start, mut end) = split_range(
-            *startCode.last().unwrap(),
+            *start_code.last().unwrap(),
             last_code.try_into().unwrap(),
             map,
         );
-        startCode.append(&mut start);
-        endCode.append(&mut end);
-        startCode.push(0xffff);
-        endCode.push(0xffff);
+        start_code.append(&mut start);
+        end_code.append(&mut end);
+        start_code.push(0xffff);
+        end_code.push(0xffff);
         // println!("Start code array: {:?} ", startCode);
-        // println!("End code array: {:?}", endCode);
-        let mut idDelta: Vec<i16> = Vec::new();
-        let mut idRangeOffsets = Vec::new();
-        let mut glyphIndexArray = Vec::new();
-        for i in 0..(endCode.len() - 1) {
+        // println!("End code array: {:?}", end_code);
+        let mut id_delta: Vec<i16> = Vec::new();
+        let mut id_range_offsets = Vec::new();
+        let mut glyph_index_array = Vec::new();
+        for i in 0..(end_code.len() - 1) {
             let mut indices: Vec<u16> = Vec::new();
-            for char_code in startCode[i]..endCode[i] + 1 {
+            for char_code in start_code[i]..end_code[i] + 1 {
                 let gid = *map.get(&(char_code as u32)).unwrap_or(&0);
                 indices.push(gid);
             }
             if is_contiguous_list(&indices) {
                 // println!("Contiguous list {:?}", indices);
-                idDelta.push((indices[0] as i16 - startCode[i] as i16) as i16);
-                idRangeOffsets.push(0);
+                id_delta.push((indices[0] as i16 - start_code[i] as i16) as i16);
+                id_range_offsets.push(0);
             } else {
                 // println!("Non contiguous list {:?}", indices);
-                idDelta.push(0);
-                idRangeOffsets.push(2 * (endCode.len() + glyphIndexArray.len() - i) as u16);
-                glyphIndexArray.append(&mut indices);
+                id_delta.push(0);
+                id_range_offsets.push(2 * (end_code.len() + glyph_index_array.len() - i) as u16);
+                glyph_index_array.append(&mut indices);
             }
         }
-        // println!("ID Delta array: {:?}", idDelta);
-        // println!("ID Range Offset array: {:?}", idRangeOffsets);
-        idDelta.push(1);
-        idRangeOffsets.push(0);
-        let segcount = endCode.len() as u16;
-        let (searchRange, entrySelector, rangeShift) = get_search_range(segcount, 2);
+        // println!("ID Delta array: {:?}", id_delta);
+        // println!("ID Range Offset array: {:?}", id_range_offsets);
+        id_delta.push(1);
+        id_range_offsets.push(0);
+        let segcount = end_code.len() as u16;
+        let range_parameters = get_search_range(segcount, 2);
         Self {
             format: 4,
-            length: (glyphIndexArray.len() * 2 + 16 + 2 * 4 * segcount as usize) as u16,
-            language: languageID,
+            length: (glyph_index_array.len() * 2 + 16 + 2 * 4 * segcount as usize) as u16,
+            language: language_id,
             segCountX2: segcount * 2,
-            searchRange,
-            entrySelector,
-            rangeShift,
-            endCode,
+            searchRange: range_parameters.0,
+            entrySelector: range_parameters.1,
+            rangeShift: range_parameters.2,
+            endCode: end_code,
             reservedPad: 0,
-            startCode,
-            idDelta,
-            idRangeOffsets,
-            glyphIdArray: glyphIndexArray,
+            startCode: start_code,
+            idDelta: id_delta,
+            idRangeOffsets: id_range_offsets,
+            glyphIdArray: glyph_index_array,
         }
     }
 
@@ -295,21 +301,23 @@ deserialize_visitor!(
         let length = read_field!(seq, uint16, "a cmap4 table length");
         let language = read_field!(seq, uint16, "a cmap4 table language");
         let segcount = read_field!(seq, uint16, "a cmap4 table segcount") / 2;
-        let _searchRange = read_field!(seq, uint16, "a cmap4 table search range");
-        let _entrySelector = read_field!(seq, uint16, "a cmap4 table entry selector");
-        let _rangeShift = read_field!(seq, uint16, "a cmap4 table entry range shift");
-        let endCode: Vec<uint16> = read_field_counted!(seq, segcount, "a cmap4 table endcode");
-        let _reservedPad = read_field!(seq, uint16, "padding");
-        let startCode: Vec<uint16> = read_field_counted!(seq, segcount, "a cmap4 table startcode");
-        let idDelta: Vec<int16> = read_field_counted!(seq, segcount, "a cmap4 table idDelta");
-        let idRangeOffsets: Vec<uint16> =
+        let _search_range = read_field!(seq, uint16, "a cmap4 table search range");
+        let _entry_selector = read_field!(seq, uint16, "a cmap4 table entry selector");
+        let _range_shift = read_field!(seq, uint16, "a cmap4 table entry range shift");
+        let end_code: Vec<uint16> = read_field_counted!(seq, segcount, "a cmap4 table endcode");
+        let _reserved_pad = read_field!(seq, uint16, "padding");
+        let start_code: Vec<uint16> = read_field_counted!(seq, segcount, "a cmap4 table startcode");
+        let id_delta: Vec<int16> = read_field_counted!(seq, segcount, "a cmap4 table idDelta");
+        let id_range_offsets: Vec<uint16> =
             read_field_counted!(seq, segcount, "a cmap4 table idRangeOffsets");
 
-        let lenSoFar = 16 + (segcount * 2 * 4);
+        let len_so_far = 16 + (segcount * 2 * 4);
 
         // This one is optional, hence unwrap_or_default
-        let glyphIdArray: Vec<u16> = seq
-            .next_element_seed(CountedDeserializer::with_len((length - lenSoFar) as usize))?
+        let glyph_id_array: Vec<u16> = seq
+            .next_element_seed(CountedDeserializer::with_len(
+                (length - len_so_far) as usize,
+            ))?
             .unwrap_or_default();
 
         Ok(cmap4 {
@@ -320,31 +328,51 @@ deserialize_visitor!(
             searchRange: 0,
             entrySelector: 0,
             rangeShift: 0,
-            endCode,
+            endCode: end_code,
             reservedPad: 0,
-            startCode,
-            idDelta,
-            idRangeOffsets,
-            glyphIdArray,
+            startCode: start_code,
+            idDelta: id_delta,
+            idRangeOffsets: id_range_offsets,
+            glyphIdArray: glyph_id_array,
         })
     }
 );
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[allow(non_snake_case)]
+/// A cmap subtable.
+///
+/// A cmap table can contain multiple mappings of characters
+/// to glyphs, both because of differences in mapping based on platform,
+/// encoding and language, but also because the mapping may best be expressed
+/// by splitting it up into subtables in different formats. This struct
+/// represents a mapping in a given format at a relatively high, format-independent
+/// level. This subtable is converted to a format-specific subtable on serialize.
 pub struct CmapSubtable {
+    /// The format to be used to serialize this table. Generally speaking, you
+    /// want format 4 or 6 for mappings within the BMP, 10 for higher Unicode
+    /// planes, and 14 for Unicode Variation Sequences.
     pub format: uint16,
+    /// The platform ID: Unicode = 0, Macintosh = 1, Windows = 3.
     pub platformID: uint16,
+    /// The encoding ID; interpretation varies dependent on platform.
     pub encodingID: uint16,
+    /// The language ID; interpretation varies dependent on platform and encoding.
     pub languageID: uint16,
+    /// A mapping between Unicode codepoints and glyph IDs.
     pub mapping: BTreeMap<uint32, uint16>,
 }
 
 impl CmapSubtable {
+    /// Returns true if this subtable contains a mapping targetted at the
+    /// Unicode platform or a Unicode encoding of the Windows platform.
     pub fn is_unicode(&self) -> bool {
         self.platformID == 0
             || (self.platformID == 3
                 && (self.encodingID == 0 || self.encodingID == 1 || self.encodingID == 10))
     }
+    /// Returns true if this subtable contains a mapping targetted at the
+    /// Windows Symbol encoding.
     pub fn is_symbol(&self) -> bool {
         self.platformID == 3 && self.encodingID == 0
     }
@@ -366,7 +394,10 @@ impl Serialize for CmapSubtable {
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(non_camel_case_types)]
+/// cmap table. The cmap table is a collection of subtables, as described above.
 pub struct cmap {
+    /// The list of subtables
     pub subtables: Vec<CmapSubtable>,
 }
 
@@ -446,19 +477,25 @@ deserialize_visitor!(
 );
 
 impl cmap {
-    pub fn getMapping(
+    /// Tries to find a mapping targetted at the the given platform and
+    /// encoding. Returns a `Some<map>` if one is found, or `None` otherwise.
+    pub fn get_mapping(
         &self,
-        platformID: u16,
-        encodingID: u16,
+        platform_id: u16,
+        encoding_id: u16,
     ) -> Option<&BTreeMap<uint32, uint16>> {
         for st in &self.subtables {
-            if st.platformID == platformID && st.encodingID == encodingID {
+            if st.platformID == platform_id && st.encodingID == encoding_id {
                 return Some(&st.mapping);
             }
         }
         None
     }
-    pub fn getBestMapping(&self) -> Option<&BTreeMap<uint32, uint16>> {
+
+    /// Tries to return a "good" mapping by searching for common combinations
+    /// of platform and encoding. Returns `None` if no such good mapping could
+    /// be found.
+    pub fn get_best_mapping(&self) -> Option<&BTreeMap<uint32, uint16>> {
         for (p, e) in &[
             (3, 10),
             (0, 6),
@@ -469,7 +506,7 @@ impl cmap {
             (0, 1),
             (0, 0),
         ] {
-            let maybe_map = self.getMapping(*p, *e);
+            let maybe_map = self.get_mapping(*p, *e);
             if maybe_map.is_some() {
                 return maybe_map;
             }
@@ -477,6 +514,7 @@ impl cmap {
         None
     }
 
+    /// Returns a reverse map, mapping a glyph ID to a set of Unicode codepoints.
     pub fn reversed(&self) -> BTreeMap<u16, HashSet<u32>> {
         let mut res = BTreeMap::new();
         for subtable in &self.subtables {

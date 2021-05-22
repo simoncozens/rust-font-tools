@@ -24,6 +24,9 @@ tables!(head {
 });
 
 impl head {
+    /// Create a new `head` table, given a float font revision, units-per-em
+    /// value and the global glyph coordinate maxima/minima.
+    #[allow(non_snake_case)]
     pub fn new(
         fontRevision: f32,
         upm: uint16,

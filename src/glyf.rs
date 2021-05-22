@@ -16,6 +16,7 @@ pub use glyph::Glyph;
 pub use point::Point;
 
 /// The glyf table
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Deserialize)]
 pub struct glyf {
     /// A list of glyph objects in the font
@@ -25,14 +26,14 @@ pub struct glyf {
 stateful_deserializer!(
     glyf,
     GlyfDeserializer,
-    { locaOffsets: Vec<Option<u32>> },
+    { loca_offsets: Vec<Option<u32>> },
     fn visit_seq<A>(self, mut seq: A) -> std::result::Result<glyf, A::Error>
     where
         A: SeqAccess<'de>,
     {
         let mut res = glyf { glyphs: Vec::new() };
         let remainder = read_remainder!(seq, "a glyph table");
-        for item in self.locaOffsets {
+        for item in self.loca_offsets {
             match item {
                 None => res.glyphs.push(Glyph {
                     contours: vec![],
@@ -71,10 +72,10 @@ impl Serialize for glyf {
 
 /// Deserialize the font from a binary buffer.
 ///
-/// locaOffsets must be obtained from the `loca` table.
-pub fn from_bytes(s: &[u8], locaOffsets: Vec<Option<u32>>) -> otspec::error::Result<glyf> {
+/// loca_offsets must be obtained from the `loca` table.
+pub fn from_bytes(s: &[u8], loca_offsets: Vec<Option<u32>>) -> otspec::error::Result<glyf> {
     let mut deserializer = otspec::de::Deserializer::from_bytes(s);
-    let cs: GlyfDeserializer = GlyfDeserializer { locaOffsets };
+    let cs: GlyfDeserializer = GlyfDeserializer { loca_offsets };
     cs.deserialize(&mut deserializer)
 }
 
@@ -92,7 +93,7 @@ impl glyf {
             return new_components;
         }
         for comp in &g.components {
-            let component_glyph = &self.glyphs[comp.glyphIndex as usize];
+            let component_glyph = &self.glyphs[comp.glyph_index as usize];
             if component_glyph.has_components() {
                 let mut flattened = self.flat_components(&component_glyph, depth + 1);
                 for f in flattened.iter_mut() {
@@ -151,7 +152,7 @@ impl glyf {
             }
             for comp in &g.components {
                 if comp.flags.contains(ComponentFlags::USE_MY_METRICS) {
-                    let component_bounds = boxes[comp.glyphIndex as usize];
+                    let component_bounds = boxes[comp.glyph_index as usize];
                     g.set_bounds_rect(component_bounds);
                     done = true;
                     break;
@@ -163,7 +164,7 @@ impl glyf {
                     .iter()
                     .map({
                         |comp| {
-                            let component_bounds = boxes[comp.glyphIndex as usize];
+                            let component_bounds = boxes[comp.glyph_index as usize];
                             comp.transformation.transform_rect_bbox(component_bounds)
                         }
                     })
@@ -174,39 +175,40 @@ impl glyf {
         }
     }
     /// Gathers statistics to be used in the `maxp` table, returning a tuple of
-    /// `(numGlyphs, maxPoints, maxContours, maxCompositePoints, maxCompositeContours, maxComponentElements, maxComponentDepth)
+    /// `(num_glyphs, max_points, max_contours, max_composite_points,
+    /// max_composite_contours, max_component_elements, max_component_depth)`
     pub fn maxp_statistics(&self) -> (u16, u16, u16, u16, u16, u16, u16) {
-        let numGlyphs = self.glyphs.len() as u16;
-        let maxPoints = self
+        let num_glyphs = self.glyphs.len() as u16;
+        let max_points = self
             .glyphs
             .iter()
             .map(|x| x.contours.iter().map(|c| c.len()).sum())
             .max()
             .unwrap_or(0) as u16;
 
-        let maxContours = self
+        let max_contours = self
             .glyphs
             .iter()
             .map(|x| x.contours.len())
             .max()
             .unwrap_or(0) as u16;
-        let maxCompositePoints = 0;
-        let maxCompositeContours = 0;
-        let maxComponentElements = self
+        let max_composite_points = 0;
+        let max_composite_contours = 0;
+        let max_component_elements = self
             .glyphs
             .iter()
             .map(|x| x.components.len())
             .max()
             .unwrap_or(0) as u16;
-        let maxComponentDepth = 1; // XXX
+        let max_component_depth = 1; // XXX
         (
-            numGlyphs,
-            maxPoints,
-            maxContours,
-            maxCompositePoints,
-            maxCompositeContours,
-            maxComponentElements,
-            maxComponentDepth,
+            num_glyphs,
+            max_points,
+            max_contours,
+            max_composite_points,
+            max_composite_contours,
+            max_component_elements,
+            max_component_depth,
         )
     }
 }
@@ -461,7 +463,7 @@ mod tests {
         assert_eq!(
             aacute.components[0],
             glyf::Component {
-                glyphIndex: 0,
+                glyph_index: 0,
                 transformation: kurbo::Affine::new([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]),
                 matchPoints: None,
                 flags: ComponentFlags::ROUND_XY_TO_GRID
@@ -474,7 +476,7 @@ mod tests {
         assert_eq!(
             aacute.components[1],
             glyf::Component {
-                glyphIndex: 7,
+                glyph_index: 7,
                 transformation: kurbo::Affine::new([1.0, 0.0, 0.0, 1.0, 402.0, 130.0]),
                 matchPoints: None,
                 flags: glyf::ComponentFlags::ROUND_XY_TO_GRID

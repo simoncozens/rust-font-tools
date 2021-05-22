@@ -12,15 +12,22 @@ use std::collections::{HashMap, HashSet};
 pub struct NormalizedLocation(pub Tuple);
 
 type Support = HashMap<Tag, (f32, f32, f32)>;
+/// A location as a mapping of tags to user-space values
 pub type Location = HashMap<Tag, f32>;
 type AxisPoints = HashMap<Tag, HashSet<i16>>;
 
+/// An OpenType variation model helps to determine and interpolate the correct
+/// supports and deltasets when there are intermediate masters.
 #[derive(Debug)]
 pub struct VariationModel {
+    /// The rearranged list of master locations
     pub locations: Vec<Location>,
     sort_order: Permutation,
+    /// The supports computed for each master
     pub supports: Vec<Support>,
+    /// The axis order provided by the user
     pub axis_order: Vec<Tag>,
+    /// The original, unordered list of locations
     pub original_locations: Vec<Location>,
     delta_weights: Vec<HashMap<usize, f32>>,
 }
@@ -71,13 +78,13 @@ fn locations_to_regions(locations: &[Location]) -> Vec<Support> {
         .iter()
         .map(|loc| {
             loc.iter()
-                .map(|(axis, locV)| {
+                .map(|(axis, loc_v)| {
                     (
                         *axis,
-                        if *locV > 0.0 {
-                            (0.0, *locV, *axis_maximum.get(axis).unwrap())
+                        if *loc_v > 0.0 {
+                            (0.0, *loc_v, *axis_maximum.get(axis).unwrap())
                         } else {
-                            (*axis_minimum.get(axis).unwrap(), *locV, 0.0)
+                            (*axis_minimum.get(axis).unwrap(), *loc_v, 0.0)
                         },
                     )
                 })
@@ -87,6 +94,8 @@ fn locations_to_regions(locations: &[Location]) -> Vec<Support> {
 }
 
 impl VariationModel {
+    /// Create a new OpenType variation model for the given list of master
+    /// locations. Locations must be provided in normalized coordinates (-1..1)
     pub fn new(locations: Vec<Location>, axis_order: Vec<Tag>) -> Self {
         let original_locations = locations.clone();
         let locations: Vec<Location> = locations
@@ -276,6 +285,9 @@ impl VariationModel {
         }
     }
 
+    /// Retrieve the deltas, together with their support regions, for a given
+    /// set of master values. Values may be provided for a subset of the model's
+    /// locations, although a value must be provided for the default location.
     pub fn get_deltas_and_supports<T>(&self, master_values: &[Option<T>]) -> Vec<(T, Support)>
     where
         T: Sub<Output = T> + Mul<f32, Output = T> + Clone,

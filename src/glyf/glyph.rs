@@ -33,14 +33,25 @@ bitflags! {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+#[allow(non_snake_case)]
+/// A higher-level representation of a TrueType outline glyph.
 pub struct Glyph {
+    /// The minimum X coordinate of points (including transformed component points) within this glyph
     pub xMin: int16,
+    /// The maximum X coordinate of points (including transformed component points) within this glyph
     pub xMax: int16,
+    /// The minimum Y coordinate of points (including transformed component points) within this glyph
     pub yMin: int16,
+    /// The maximum Y coordinate of points (including transformed component points) within this glyph
     pub yMax: int16,
+    /// A list of contours, each contour represented as a list of `Point` objects.
     pub contours: Vec<Vec<Point>>,
+    /// Truetype instructions (binary)
     pub instructions: Vec<u8>,
+    /// A vector of components
     pub components: Vec<Component>,
+    /// A flag used in the low-level glyph representation to determine if this
+    /// glyph has overlaps. This *appears* to be unused in OpenType implementations.
     pub overlap: bool,
 }
 
@@ -311,7 +322,7 @@ impl Glyph {
         let mut new_contours = vec![];
         new_contours.extend(self.contours.clone());
         for comp in &self.components {
-            let ix = comp.glyphIndex;
+            let ix = comp.glyph_index;
             match glyphs.get(ix as usize) {
                 None => {
                     log::error!("Component not found for ID={:?}", ix);
@@ -354,8 +365,8 @@ impl Glyph {
             .map(|pt| (pt.x, pt.y))
             .collect();
         for comp in &self.components {
-            let [_, _, _, _, translateX, translateY] = comp.transformation.as_coeffs();
-            coords.push((translateX as i16, translateY as i16));
+            let [_, _, _, _, translate_x, translate_y] = comp.transformation.as_coeffs();
+            coords.push((translate_x as i16, translate_y as i16));
             ends.push(ends.iter().max().unwrap_or(&0) + 1);
         }
 
@@ -404,19 +415,19 @@ impl Serialize for Glyph {
                 let flags = comp
                     .recompute_flags(i < self.components.len() - 1, !self.instructions.is_empty());
                 seq.serialize_element::<uint16>(&flags.bits())?;
-                seq.serialize_element::<uint16>(&comp.glyphIndex)?;
-                let [x_scale, scale01, scale10, scale_y, translateX, translateY] =
+                seq.serialize_element::<uint16>(&comp.glyph_index)?;
+                let [x_scale, scale01, scale10, scale_y, translate_x, translate_y] =
                     comp.transformation.as_coeffs();
                 if flags.contains(ComponentFlags::ARGS_ARE_XY_VALUES) {
                     if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
-                        seq.serialize_element::<i16>(&(translateX.round() as i16))?;
-                        seq.serialize_element::<i16>(&(translateY as i16))?;
+                        seq.serialize_element::<i16>(&(translate_x.round() as i16))?;
+                        seq.serialize_element::<i16>(&(translate_y as i16))?;
                     } else {
-                        seq.serialize_element::<i8>(&(translateX.round() as i8))?;
-                        seq.serialize_element::<i8>(&(translateY as i8))?;
+                        seq.serialize_element::<i8>(&(translate_x.round() as i8))?;
+                        seq.serialize_element::<i8>(&(translate_y as i8))?;
                     }
                 } else {
-                    let (x, y) = comp.matchPoints.unwrap();
+                    let (x, y) = comp.match_points.unwrap();
                     if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
                         seq.serialize_element::<i16>(&(x as i16))?;
                         seq.serialize_element::<i16>(&(y as i16))?;

@@ -42,6 +42,7 @@ pub enum MaxpVariant {
 }
 
 /// A maxp table, regardless of version.
+#[allow(non_snake_case, non_camel_case_types)]
 #[derive(Debug, Serialize, PartialEq)]
 pub struct maxp {
     /// The version number as a fixed U16F16 value (for ease of serialization)
@@ -62,6 +63,11 @@ impl maxp {
             }),
         }
     }
+
+    #[allow(non_snake_case, non_camel_case_types)]
+    /// Creates a new `maxp` table with version=1.0, given a set of
+    /// statistics. These statistics can be gathered from the `glyf` table
+    /// using the `maxp_statistics` method.
     pub fn new10(
         numGlyphs: u16,
         maxPoints: u16,
@@ -91,12 +97,14 @@ impl maxp {
             }),
         }
     }
+    /// Returns the number of glyphs from the subtable variant.
     pub fn num_glyphs(&self) -> u16 {
         match &self.table {
             MaxpVariant::Maxp05(s) => s.numGlyphs,
             MaxpVariant::Maxp10(s) => s.numGlyphs,
         }
     }
+    /// Sets the number of glyphs in the subtable variant.
     pub fn set_num_glyphs(&mut self, num: u16) {
         match &mut self.table {
             MaxpVariant::Maxp05(s) => s.numGlyphs = num,

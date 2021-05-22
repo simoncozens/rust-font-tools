@@ -56,11 +56,11 @@ enum ComponentScalingMode {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Component {
     /// The glyph ID that this component references.
-    pub glyphIndex: uint16,
+    pub glyph_index: uint16,
     /// An affine transformation applied to the component's contours.
     pub transformation: Affine,
     /// Alternate, and rarely used, method of positioning components using contour point numbers.
-    pub matchPoints: Option<(uint16, uint16)>,
+    pub match_points: Option<(uint16, uint16)>,
     /// Flags.
     /// Most of these are calculated automatically on serialization. Those which can be
     /// meaningfully manually set are `ROUND_XY_TO_GRID`, `USE_MY_METRICS`,
@@ -85,16 +85,16 @@ impl Component {
         } else if instructions {
             flags |= ComponentFlags::WE_HAVE_INSTRUCTIONS;
         }
-        let [x_scale, scale01, scale10, scale_y, translateX, translateY] =
+        let [x_scale, scale01, scale10, scale_y, translate_x, translate_y] =
             self.transformation.as_coeffs();
-        if self.matchPoints.is_some() {
-            let (x, y) = self.matchPoints.unwrap();
+        if self.match_points.is_some() {
+            let (x, y) = self.match_points.unwrap();
             if !(x <= 255 && y <= 255) {
                 flags |= ComponentFlags::ARG_1_AND_2_ARE_WORDS;
             }
         } else {
             flags |= ComponentFlags::ARGS_ARE_XY_VALUES;
-            let (x, y) = (translateX, translateY);
+            let (x, y) = (translate_x, translate_y);
             if !((-128.0..=127.0).contains(&x) && (-128.0..=127.0).contains(&y)) {
                 flags |= ComponentFlags::ARG_1_AND_2_ARE_WORDS;
             }
@@ -115,20 +115,20 @@ deserialize_visitor!(
     ComponentVisitor,
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
         let flags = read_field!(seq, ComponentFlags, "a component flag field");
-        let glyphIndex = read_field!(seq, uint16, "a component glyph index");
-        let mut matchPoints: Option<(uint16, uint16)> = None;
-        let mut xOffset: i16 = 0;
-        let mut yOffset: i16 = 0;
+        let glyph_index = read_field!(seq, uint16, "a component glyph index");
+        let mut match_points: Option<(uint16, uint16)> = None;
+        let mut x_offset: i16 = 0;
+        let mut y_offset: i16 = 0;
         if !flags.contains(ComponentFlags::ARGS_ARE_XY_VALUES) {
             // unsigned point values
             if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
                 let p1 = read_field!(seq, u16, "a component point value");
                 let p2 = read_field!(seq, u16, "a component point value");
-                matchPoints = Some((p1, p2));
+                match_points = Some((p1, p2));
             } else {
                 let p1 = read_field!(seq, u8, "a component point value");
                 let p2 = read_field!(seq, u8, "a component point value");
-                matchPoints = Some((p1.into(), p2.into()));
+                match_points = Some((p1.into(), p2.into()));
             }
             if flags.contains(
                 ComponentFlags::WE_HAVE_A_SCALE
@@ -140,11 +140,11 @@ deserialize_visitor!(
         } else {
             // signed xy values
             if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
-                xOffset = read_field!(seq, i16, "a component point value");
-                yOffset = read_field!(seq, i16, "a component point value");
+                x_offset = read_field!(seq, i16, "a component point value");
+                y_offset = read_field!(seq, i16, "a component point value");
             } else {
-                xOffset = read_field!(seq, i8, "a component point value").into();
-                yOffset = read_field!(seq, i8, "a component point value").into();
+                x_offset = read_field!(seq, i8, "a component point value").into();
+                y_offset = read_field!(seq, i8, "a component point value").into();
             }
         }
         let mut x_scale = 1.0_f64;
@@ -168,14 +168,14 @@ deserialize_visitor!(
             scale01,
             scale10,
             y_scale,
-            xOffset.into(),
-            yOffset.into(),
+            x_offset.into(),
+            y_offset.into(),
         ]);
 
         Ok(Component {
-            glyphIndex,
+            glyph_index,
             transformation,
-            matchPoints,
+            match_points,
             flags,
         })
     }

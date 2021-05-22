@@ -60,8 +60,8 @@ mod tests {
             0x00, 0xC8,
         ];
         let fivd = otvar::ItemVariationData {
-            regionIndexes: vec![0],
-            deltaValues: vec![vec![-200], vec![-50], vec![100], vec![200]],
+            region_indexes: vec![0],
+            delta_values: vec![vec![-200], vec![-50], vec![100], vec![200]],
         };
         let deserialized: otvar::ItemVariationData = otspec::de::from_bytes(&binary_ivd).unwrap();
         assert_eq!(deserialized, fivd);
@@ -76,8 +76,8 @@ mod tests {
         ];
         let deserialized: otvar::ItemVariationStore = otspec::de::from_bytes(&binary_ivs).unwrap();
         let fivd = otvar::ItemVariationData {
-            regionIndexes: vec![0],
-            deltaValues: vec![vec![-200], vec![-50], vec![100], vec![200]],
+            region_indexes: vec![0],
+            delta_values: vec![vec![-200], vec![-50], vec![100], vec![200]],
         };
         let fivs = otvar::ItemVariationStore {
             format: 1,

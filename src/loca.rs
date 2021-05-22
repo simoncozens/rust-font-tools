@@ -2,6 +2,7 @@ use otspec::{read_field, stateful_deserializer};
 use serde::de::{DeserializeSeed, SeqAccess, Visitor};
 use serde::{Serialize, Serializer};
 
+#[allow(non_snake_case, non_camel_case_types)]
 #[derive(Debug, PartialEq)]
 pub struct loca {
     pub indices: Vec<Option<u32>>,
@@ -10,7 +11,7 @@ pub struct loca {
 stateful_deserializer!(
     loca,
     LocaDeserializer,
-    { locaIs32Bit: bool },
+    { loca_is_32bit: bool },
     fn visit_seq<A>(self, mut seq: A) -> std::result::Result<loca, A::Error>
     where
         A: SeqAccess<'de>,
@@ -18,7 +19,7 @@ stateful_deserializer!(
         let mut res = loca {
             indices: Vec::new(),
         };
-        let raw_indices: Vec<u32> = if self.locaIs32Bit {
+        let raw_indices: Vec<u32> = if self.loca_is_32bit {
             read_field!(seq, Vec<u32>, "a glyph offset")
         } else {
             read_field!(seq, Vec<u16>, "a glyph offset")
@@ -55,9 +56,9 @@ impl Serialize for loca {
     }
 }
 
-pub fn from_bytes(s: &[u8], locaIs32Bit: bool) -> otspec::error::Result<loca> {
+pub fn from_bytes(s: &[u8], loca_is_32bit: bool) -> otspec::error::Result<loca> {
     let mut deserializer = otspec::de::Deserializer::from_bytes(s);
-    let cs: LocaDeserializer = LocaDeserializer { locaIs32Bit };
+    let cs: LocaDeserializer = LocaDeserializer { loca_is_32bit };
     cs.deserialize(&mut deserializer)
 }
 
