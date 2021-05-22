@@ -91,7 +91,7 @@ fn get_glyph_names_and_mapping(
     subset: &Option<HashSet<String>>,
 ) -> Vec<String> {
     let mut names: Vec<String> = vec![];
-    for (glyph_id, glyf) in layer.iter_contents().enumerate() {
+    for (glyph_id, glyf) in layer.iter().enumerate() {
         let name = glyf.name.to_string();
         if subset.is_some() && !subset.as_ref().unwrap().contains(&name) {
             continue;
@@ -123,8 +123,14 @@ pub fn build_font(mut ufo: norad::Font, include: Option<HashSet<String>>) -> fon
             |glyf| {
                 let (glyph, _) = glifs_to_glyph(0, &name_to_id, &[Some(&glyf)], None);
                 let lsb = glyph.xMin;
-                let advanceWidth = glyf.width as u16;
-                (glyph, hmtx::Metric { advanceWidth, lsb })
+                let advance_width = glyf.width as u16;
+                (
+                    glyph,
+                    hmtx::Metric {
+                        advanceWidth: advance_width,
+                        lsb,
+                    },
+                )
             }
         })
         .unzip();
@@ -173,9 +179,12 @@ pub fn build_fonts(
             Some(&variation_model),
         );
         let lsb = glyph.xMin;
-        let advanceWidth = glif.width as u16;
+        let advance_width = glif.width as u16;
         glyphs.push(glyph);
-        metrics.push(hmtx::Metric { advanceWidth, lsb });
+        metrics.push(hmtx::Metric {
+            advanceWidth: advance_width,
+            lsb,
+        });
         variations.push(variation);
     }
 
