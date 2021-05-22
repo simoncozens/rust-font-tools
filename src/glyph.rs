@@ -310,8 +310,8 @@ fn norad_component_to_glyf_component(
     }
 
     Some(glyf::Component {
-        glyphIndex: *maybe_id.unwrap(),
-        matchPoints: None,
+        glyph_index: *maybe_id.unwrap(),
+        match_points: None,
         flags: glyf::ComponentFlags::empty(),
         transformation: component.transform.into(),
     })
