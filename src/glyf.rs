@@ -424,9 +424,9 @@ mod tests {
           <instructions/>
         </TTGlyph>
         */
-        let A = &glyf.glyphs[0];
+        let cap_a = &glyf.glyphs[0];
         #[rustfmt::skip]
-        assert_eq!(A, &glyf::Glyph {
+        assert_eq!(cap_a, &glyf::Glyph {
             xMin:5, yMin:0, xMax: 751, yMax:700,
             contours: vec![
                 vec![

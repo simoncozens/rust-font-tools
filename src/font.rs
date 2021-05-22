@@ -364,7 +364,7 @@ impl Font {
     pub fn compile_glyf_loca_maxp(&mut self) {
         let mut glyf_output: Vec<u8> = vec![];
         let mut loca_indices: Vec<u32> = vec![];
-        let mut locaIs32bit = false;
+        let mut loca_is32bit = false;
         let maybe_glyf = self.get_table(b"glyf").unwrap();
         if maybe_glyf.is_none() {
             println!("Warning: no glyf table");
@@ -375,7 +375,7 @@ impl Font {
         for g in &glyf.glyphs {
             let cur_len: u32 = glyf_output.len().try_into().unwrap();
             if cur_len * 2 > (u16::MAX as u32) {
-                locaIs32bit = true;
+                loca_is32bit = true;
             }
             loca_indices.push(cur_len);
             if g.is_empty() {
@@ -396,12 +396,12 @@ impl Font {
 
         let head_table = self.get_table(b"head").unwrap().unwrap();
         if let Table::Head(head) = head_table {
-            head.indexToLocFormat = if locaIs32bit { 1 } else { 0 };
+            head.indexToLocFormat = if loca_is32bit { 1 } else { 0 };
         }
 
         self.tables.insert(*b"glyf", Table::Unknown(glyf_output));
         let loca_output: Vec<u8>;
-        if locaIs32bit {
+        if loca_is32bit {
             loca_output = otspec::ser::to_bytes(&loca_indices).unwrap();
         } else {
             let converted: Vec<u16> = loca_indices.iter().map(|x| (*x / 2_u32) as u16).collect();
@@ -477,13 +477,13 @@ impl Serialize for Font {
         S: Serializer,
     {
         let lenu16: u16 = self.tables.len().try_into().unwrap();
-        let (searchRange, max_pow2, range_shift) = get_search_range(lenu16, 16);
+        let (search_range, max_pow2, range_shift) = get_search_range(lenu16, 16);
         // let mut seq = serializer.serialize_seq(None)?;
         let mut output: Vec<u8> = vec![];
         let mut output_tables: Vec<u8> = vec![];
         output.extend(&(self.sfntVersion as u32).to_be_bytes());
         output.extend(&lenu16.to_be_bytes());
-        output.extend(&searchRange.to_be_bytes());
+        output.extend(&search_range.to_be_bytes());
         output.extend(&max_pow2.to_be_bytes());
         output.extend(&range_shift.to_be_bytes());
         let mut pos = 16 * self.tables.len() + 12;

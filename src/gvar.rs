@@ -141,7 +141,7 @@ stateful_deserializer!(
     { coords_and_ends: CoordsAndEndsVec },
     fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
         let core = read_field!(seq, gvarcore, "a gvar table header");
-        let dataOffsets: Vec<u32> = if core.flags & 0x1 == 0 {
+        let data_offsets: Vec<u32> = if core.flags & 0x1 == 0 {
             // u16 offsets, need doubling
             let u16_and_halved: Vec<u16> =
                 read_field_counted!(seq, core.glyphCount + 1, "a glyphVariationDataOffset");
@@ -179,14 +179,14 @@ stateful_deserializer!(
         }
 
         /* Glyph variation data */
-        let mut glyphVariations = vec![];
+        let mut glyph_variations = vec![];
         for i in 0..(core.glyphCount as usize) {
             // println!("Reading data for glyph {:?}", i);
-            let offset: usize = (dataOffsets[i] + (core.glyphVariationDataArrayOffset)
+            let offset: usize = (data_offsets[i] + (core.glyphVariationDataArrayOffset)
                 - offset_base as u32)
                 .try_into()
                 .unwrap();
-            let next_offset: usize = (dataOffsets[(i + 1) as usize]
+            let next_offset: usize = (data_offsets[(i + 1) as usize]
                 + (core.glyphVariationDataArrayOffset)
                 - offset_base as u32)
                 .try_into()
@@ -194,7 +194,7 @@ stateful_deserializer!(
             let length = next_offset - offset;
             let bytes = &remainder[offset..];
             if length == 0 {
-                glyphVariations.push(None);
+                glyph_variations.push(None);
             } else {
                 let mut deltasets: Vec<DeltaSet> = vec![];
                 let mut de = otspec::de::Deserializer::from_bytes(bytes);
@@ -228,12 +228,12 @@ stateful_deserializer!(
                         start: start_tuple,
                     })
                 }
-                glyphVariations.push(Some(GlyphVariationData { deltasets }));
+                glyph_variations.push(Some(GlyphVariationData { deltasets }));
             }
         }
 
         Ok(gvar {
-            variations: glyphVariations,
+            variations: glyph_variations,
         })
     }
 );
@@ -243,10 +243,10 @@ impl gvar {
         let mut out: Vec<u8> = vec![];
         // Determine all the shared tuples.
         let mut shared_tuple_counter: Counter<Vec<u8>> = Counter::new();
-        let mut axisCount: uint16 = 0;
+        let mut axis_count: uint16 = 0;
         for var in self.variations.iter().flatten() {
             for ds in &var.deltasets {
-                axisCount = ds.peak.len() as uint16;
+                axis_count = ds.peak.len() as uint16;
                 // println!("Peak: {:?}", ds.peak);
                 shared_tuple_counter[&ds
                     .peak
@@ -323,7 +323,7 @@ impl gvar {
             otspec::ser::to_bytes(&gvarcore {
                 majorVersion: 1,
                 minorVersion: 0,
-                axisCount,
+                axisCount: axis_count,
                 sharedTupleCount: shared_tuple_count,
                 sharedTuplesOffset: 20 + glyph_variation_data_offsets.len() as u32,
                 glyphCount: self.variations.len() as u16,

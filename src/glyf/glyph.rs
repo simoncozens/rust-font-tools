@@ -258,7 +258,7 @@ impl Glyph {
             }
         }
     }
-    fn _compileDeltasGreedy(&self) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+    fn _compile_deltas_greedy(&self) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
         assert!(!self.has_components());
         let mut last_x = 0;
         let mut last_y = 0;
@@ -461,7 +461,7 @@ impl Serialize for Glyph {
             } else {
                 seq.serialize_element::<uint16>(&0)?;
             }
-            let (compressed_flags, compressed_xs, compressed_ys) = self._compileDeltasGreedy();
+            let (compressed_flags, compressed_xs, compressed_ys) = self._compile_deltas_greedy();
             seq.serialize_element::<Vec<u8>>(&compressed_flags)?;
             seq.serialize_element::<Vec<u8>>(&compressed_xs)?;
             seq.serialize_element::<Vec<u8>>(&compressed_ys)?;

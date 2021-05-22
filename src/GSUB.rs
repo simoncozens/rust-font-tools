@@ -63,19 +63,29 @@ pub struct AlternateSubst {
     pub mapping: BTreeMap<uint16, Vec<uint16>>,
 }
 
+/// A container which represents a generic substitution rule
 #[derive(Debug, PartialEq)]
 pub enum Substitution {
+    /// Contains a single substitution rule.
     Single(SingleSubst),
+    /// Contains a multiple substitution rule.
     Multiple(MultipleSubst),
+    /// Contains an alternate substitution rule.
     Alternate(AlternateSubst),
+    /// Contains a ligature substitution rule.
     Ligature,
+    /// Contains a contextual substitution rule.
     Contextual,
+    /// Contains a chained contextual substitution rule.
     ChainedContextual,
+    /// Contains an extension subtable.
     Extension,
+    /// Contains a reverse chaining single substitution rule.
     ReverseChaining,
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct GSUB {
     pub lookups: Vec<SubstLookup>,
     pub features: BTreeMap<Tag, (Vec<usize>, Option<FeatureParams>)>,
