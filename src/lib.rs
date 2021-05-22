@@ -1,7 +1,33 @@
 #![warn(missing_docs, missing_crate_level_docs)]
-#![allow(non_camel_case_types, non_snake_case, clippy::upper_case_acronyms)]
+//! A library for parsing, manipulating and writing OpenType fonts
+//!
+//! # Example usage
+//! ```no_run
+//! use fonttools::{font, Table};
+//! use fonttools::name::{name, NameRecordID};
+//!
+//! // Load a font (tables are lazy-loaded)
+//! let myfont = font::load("Test.otf");
+//!
+//! // Access an existing table
+//! if let Table::Name(name_table) = myfont.get_table(b"name")
+//!         .expect("Error reading name table")
+//!         .expect("There was no name table") {
+//!     // Manipulate the table (table-specific)
+//!         name_table.records.push(NameRecord::windows_unicode(
+//!             NameRecordID::LicenseURL,
+//!             "http://opensource.org/licenses/OFL-1.1"
+//!         );
+//! }
+//! myfont.save("Test-with-OFL.otf");
+//! ```
+//! For information about creating and manipulating structures for
+//! each specific OpenType table, see the modules below. See
+//! the `font` module as the entry point to creating, parsing and
+//! saving an OpenType font.
 
 /// The `GSUB` (Glyph substitution) table
+#[allow(non_snake_case)]
 pub mod GSUB;
 /// The `avar` (Axis variations) table
 pub mod avar;
