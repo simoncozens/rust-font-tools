@@ -101,7 +101,7 @@ pub struct GSUB {
     pub lookups: Vec<SubstLookup>,
     /// The association between feature tags and the list of indices into the
     /// lookup table used to process this feature, together with any feature parameters.
-    pub features: BTreeMap<Tag, (Vec<usize>, Option<FeatureParams>)>,
+    pub features: Vec<(Tag, Vec<usize>, Option<FeatureParams>)>,
 }
 
 deserialize_visitor!(
@@ -123,7 +123,7 @@ deserialize_visitor!(
             otspec::de::from_bytes(&remainder[beginning_of_scriptlist..]).unwrap();
 
         // Feature list
-        let mut features = BTreeMap::new();
+        let mut features = vec![];
         let beginning_of_featurelist = core.featureListOffset as usize - header_size;
         let featurelist: FeatureList =
             otspec::de::from_bytes(&remainder[beginning_of_featurelist..]).unwrap();
@@ -140,7 +140,7 @@ deserialize_visitor!(
             if feature_table.featureParamsOffset != 0 {
                 unimplemented!()
             }
-            features.insert(tag, (indices, None));
+            features.push((tag, indices, None));
         }
 
         // Lookup list
@@ -385,7 +385,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use pretty_assertions::assert_eq;
+    use pretty_assertions::assert_eq;
     use std::iter::FromIterator;
 
     macro_rules! hashmap {
@@ -454,11 +454,11 @@ mod tests {
                     }),
                 },
             ],
-            features: hashmap!(
-              *b"sing" => (vec![0, 1],None),
-              *b"mult" => (vec![2],None),
-              *b"alte" => (vec![3],None)
-            ),
+            features: vec![
+                (*b"alte", vec![3], None),
+                (*b"mult", vec![2], None),
+                (*b"sing", vec![0, 1], None),
+            ],
         };
         let deserialized: GSUB = otspec::de::from_bytes(&binary_gsub).unwrap();
         assert_eq!(deserialized, expected);
