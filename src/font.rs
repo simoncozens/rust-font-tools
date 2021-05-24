@@ -66,7 +66,8 @@ macro_rules! table_unchecked {
         /// Forcibly extracts the table object from a generic Table enum
         ///
         /// Panics if the table object contains a different kind of table.
-        /// You are responsible for ensuring that the table is deserialized.
+        /// You are responsible for ensuring that the table is deserialized
+        /// in the correct order (i.e. with any dependencies already deserialized).
         pub fn $name(&self) -> &$t {
             if let Table::$enum(thing) = self {
                 return thing;

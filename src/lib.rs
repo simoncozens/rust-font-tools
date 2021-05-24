@@ -26,7 +26,7 @@
 //! ```
 //! For information about creating and manipulating structures for
 //! each specific OpenType table, see the modules below. See
-//! the `font` module as the entry point to creating, parsing and
+//! the [font] module as the entry point to creating, parsing and
 //! saving an OpenType font.
 
 /// The `GSUB` (Glyph substitution) table
