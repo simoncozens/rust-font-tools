@@ -93,7 +93,7 @@ impl Serialize for Coverage {
         let as_consecutive = consecutive_slices(&self.glyphs);
         if self.glyphs.is_empty()
             || !is_sorted(&self.glyphs)
-            || as_consecutive.len() * 3 > self.glyphs.len()
+            || as_consecutive.len() * 3 >= self.glyphs.len()
         {
             seq.serialize_element::<uint16>(&1)?;
             seq.serialize_element(&CoverageFormat1 {
