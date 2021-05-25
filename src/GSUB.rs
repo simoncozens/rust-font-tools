@@ -1,9 +1,10 @@
 use crate::layout::common::*;
-use crate::layout::coverage::Coverage;
+use crate::layout::gsub1::SingleSubst;
+use crate::layout::gsub2::MultipleSubst;
+use crate::layout::gsub3::AlternateSubst;
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_remainder, stateful_deserializer};
+use otspec::{deserialize_visitor, read_field, read_remainder};
 use otspec_macros::tables;
-use serde::de::DeserializeSeed;
 use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::ser::SerializeSeq;
@@ -11,7 +12,6 @@ use serde::Deserializer;
 use serde::Serializer;
 use serde::{Deserialize, Serialize};
 use std::array::TryFromSliceError;
-use std::collections::BTreeMap;
 use std::convert::TryInto;
 
 tables!(
@@ -21,22 +21,6 @@ tables!(
     uint16  scriptListOffset        // Offset to ScriptList table, from beginning of GSUB table
     uint16  featureListOffset       // Offset to FeatureList table, from beginning of GSUB table
     uint16  lookupListOffset        // Offset to LookupList table, from beginning of GSUB table
-  }
-  SingleSubstFormat1 {
-    uint16 coverageOffset // Offset to Coverage table, from beginning of substitution subtable
-    int16 deltaGlyphID  // Add to original glyph ID to get substitute glyph ID
-  }
-  SingleSubstFormat2 {
-    uint16  coverageOffset  // Offset to Coverage table, from beginning of substitution subtable
-    Counted(uint16)  substituteGlyphIDs // Array of substitute glyph IDs — ordered by Coverage index
-  }
-  MultipleSubstFormat1 {
-    uint16 substFormat
-    uint16  coverageOffset
-    Counted(uint16)  sequenceOffsets
-  }
-  Sequence {
-    Counted(uint16) substituteGlyphIDs
   }
 );
 
@@ -49,27 +33,6 @@ pub struct SubstLookup {
     pub mark_filtering_set: Option<uint16>,
     /// The concrete substitution rule.
     pub substitution: Substitution,
-}
-
-#[derive(Debug, PartialEq)]
-/// A single substitution subtable.
-pub struct SingleSubst {
-    /// The mapping of input glyph IDs to replacement glyph IDs.
-    pub mapping: BTreeMap<uint16, uint16>,
-}
-
-#[derive(Debug, PartialEq)]
-/// A multiple substitution (one-to-many) subtable.
-pub struct MultipleSubst {
-    /// The mapping of input glyph IDs to sequence of replacement glyph IDs.
-    pub mapping: BTreeMap<uint16, Vec<uint16>>,
-}
-
-#[derive(Debug, PartialEq)]
-/// A alternate substitution (`sub ... from ...`) subtable.
-pub struct AlternateSubst {
-    /// The mapping of input glyph IDs to array of possible glyph IDs.
-    pub mapping: BTreeMap<uint16, Vec<uint16>>,
 }
 
 /// A container which represents a generic substitution rule
@@ -167,7 +130,7 @@ deserialize_visitor!(
     }
 );
 
-fn peek_format(d: &[u8], off: usize) -> Result<uint16, TryFromSliceError> {
+pub fn peek_format(d: &[u8], off: usize) -> Result<uint16, TryFromSliceError> {
     Ok(u16::from_be_bytes(d[off..off + 2].try_into()?))
 }
 
@@ -228,165 +191,6 @@ deserialize_visitor!(
             flags: lookup.lookupFlag,
             mark_filtering_set,
         })
-    }
-);
-
-deserialize_visitor!(
-    SingleSubst,
-    SingleSubstDeserializer,
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<SingleSubst, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut mapping = BTreeMap::new();
-        let remainder = read_remainder!(seq, "a single substitution table");
-        match peek_format(&remainder, 0) {
-            Ok(1) => {
-                let sub: SingleSubstFormat1 = otspec::de::from_bytes(&remainder[2..]).unwrap();
-                let coverage: Coverage =
-                    otspec::de::from_bytes(&remainder[sub.coverageOffset as usize..]).unwrap();
-                for gid in &coverage.glyphs {
-                    mapping.insert(*gid, (*gid as i16 + sub.deltaGlyphID) as u16);
-                }
-            }
-            Ok(2) => {
-                let sub: SingleSubstFormat2 = otspec::de::from_bytes(&remainder[2..]).unwrap();
-                let coverage: Coverage =
-                    otspec::de::from_bytes(&remainder[sub.coverageOffset as usize..]).unwrap();
-                for (gid, newgid) in coverage.glyphs.iter().zip(sub.substituteGlyphIDs.iter()) {
-                    mapping.insert(*gid, *newgid);
-                }
-            }
-            _ => panic!("Better error handling needed"),
-        }
-        Ok(SingleSubst { mapping })
-    }
-);
-
-impl Serialize for SingleSubst {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // Determine format
-        let mut delta = 0_u16;
-        let mut map = self.mapping.iter();
-        let format: u16 = if let Some((&first_left, &first_right)) = map.next() {
-            delta = first_right.wrapping_sub(first_left);
-            let mut format = 1;
-            for (&left, &right) in map {
-                if left.wrapping_add(delta) != right {
-                    format = 2;
-                    break;
-                }
-            }
-            format
-        } else {
-            2
-        };
-        let mut seq = serializer.serialize_seq(None)?;
-        seq.serialize_element(&format)?;
-        if format == 1 {
-            seq.serialize_element(&6_u16)?;
-            seq.serialize_element(&delta)?;
-        } else {
-            let len = self.mapping.len() as u16;
-            seq.serialize_element(&(6 + 2 * len))?;
-            seq.serialize_element(&len)?;
-            for k in self.mapping.values() {
-                seq.serialize_element(k)?;
-            }
-        }
-        seq.serialize_element(&Coverage {
-            glyphs: self.mapping.keys().copied().collect(),
-        })?;
-        seq.end()
-    }
-}
-
-deserialize_visitor!(
-    MultipleSubst,
-    MultipleSubstDeserializer,
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<MultipleSubst, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let remainder = read_remainder!(seq, "a multiple substitution table");
-        let mut mapping = BTreeMap::new();
-        let sub: MultipleSubstFormat1 = otspec::de::from_bytes(&remainder).unwrap();
-        let coverage: Coverage =
-            otspec::de::from_bytes(&remainder[sub.coverageOffset as usize..]).unwrap();
-        for (input, seq_offset) in coverage.glyphs.iter().zip(sub.sequenceOffsets.iter()) {
-            let sequence: Sequence =
-                otspec::de::from_bytes(&remainder[*seq_offset as usize..]).unwrap();
-            mapping.insert(*input, sequence.substituteGlyphIDs);
-        }
-        Ok(MultipleSubst { mapping })
-    }
-);
-
-impl Serialize for MultipleSubst {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
-        seq.serialize_element(&1_u16)?;
-
-        let coverage = Coverage {
-            glyphs: self.mapping.keys().copied().collect(),
-        };
-        let sequence_count = self.mapping.len() as uint16;
-        let mut sequences: BTreeMap<Vec<uint16>, uint16> = BTreeMap::new();
-        let mut offsets: Vec<uint16> = vec![];
-        let mut seq_offset = 6 + sequence_count * 2;
-        let serialized_cov = otspec::ser::to_bytes(&coverage).unwrap();
-        seq.serialize_element(&seq_offset)?;
-        seq_offset += serialized_cov.len() as uint16;
-
-        let mut sequences_ser: Vec<u8> = vec![];
-        for right in self.mapping.values() {
-            if sequences.contains_key(right) {
-                offsets.push(*sequences.get(right).unwrap());
-            } else {
-                let sequence = Sequence {
-                    substituteGlyphIDs: right.to_vec(),
-                };
-                let serialized = otspec::ser::to_bytes(&sequence).unwrap();
-                sequences.insert(right.to_vec(), seq_offset);
-                offsets.push(seq_offset);
-                seq_offset += serialized.len() as u16;
-                sequences_ser.extend(serialized);
-            }
-        }
-        seq.serialize_element(&sequence_count)?;
-        seq.serialize_element(&offsets)?;
-        seq.serialize_element(&coverage)?;
-        seq.serialize_element(&sequences_ser)?;
-        seq.end()
-    }
-}
-
-deserialize_visitor!(
-    AlternateSubst,
-    AlternateSubstDeserializer,
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<AlternateSubst, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut mapping = BTreeMap::new();
-        let remainder = read_remainder!(seq, "a multiple substitution table");
-        // Slightly naughty here, repurposing the fact that mult subst and
-        // alt subst have the same layout, just differ in lookupType
-        let sub: MultipleSubstFormat1 = otspec::de::from_bytes(&remainder).unwrap();
-        let coverage: Coverage =
-            otspec::de::from_bytes(&remainder[sub.coverageOffset as usize..]).unwrap();
-        for (input, seq_offset) in coverage.glyphs.iter().zip(sub.sequenceOffsets.iter()) {
-            let sequence: Sequence =
-                otspec::de::from_bytes(&remainder[*seq_offset as usize..]).unwrap();
-            mapping.insert(*input, sequence.substituteGlyphIDs);
-        }
-        Ok(AlternateSubst { mapping })
     }
 );
 
