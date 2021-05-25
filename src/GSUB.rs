@@ -52,35 +52,37 @@ pub struct SubstLookup {
 }
 
 #[derive(Debug, PartialEq)]
-/// A single substitution rule.
+/// A single substitution subtable.
 pub struct SingleSubst {
     /// The mapping of input glyph IDs to replacement glyph IDs.
     pub mapping: BTreeMap<uint16, uint16>,
 }
 
 #[derive(Debug, PartialEq)]
-/// A multiple substitution (one-to-many) rule.
+/// A multiple substitution (one-to-many) subtable.
 pub struct MultipleSubst {
     /// The mapping of input glyph IDs to sequence of replacement glyph IDs.
     pub mapping: BTreeMap<uint16, Vec<uint16>>,
 }
 
 #[derive(Debug, PartialEq)]
-/// A alternate substitution (`sub ... from ...`) rule.
+/// A alternate substitution (`sub ... from ...`) subtable.
 pub struct AlternateSubst {
     /// The mapping of input glyph IDs to array of possible glyph IDs.
     pub mapping: BTreeMap<uint16, Vec<uint16>>,
 }
 
 /// A container which represents a generic substitution rule
+///
+/// Each rule is expressed as a vector of subtables.
 #[derive(Debug, PartialEq)]
 pub enum Substitution {
     /// Contains a single substitution rule.
-    Single(SingleSubst),
+    Single(Vec<SingleSubst>),
     /// Contains a multiple substitution rule.
-    Multiple(MultipleSubst),
+    Multiple(Vec<MultipleSubst>),
     /// Contains an alternate substitution rule.
-    Alternate(AlternateSubst),
+    Alternate(Vec<AlternateSubst>),
     /// Contains a ligature substitution rule.
     Ligature,
     /// Contains a contextual substitution rule.
@@ -188,20 +190,38 @@ deserialize_visitor!(
             None
         };
         let remainder = read_remainder!(seq, "a substitution lookup");
-        let subtable_offsets: Vec<usize> = lookup
+        let subtable_offsets = lookup
             .subtableOffsets
             .iter()
-            .map(|x| *x as usize - header_size)
-            .collect();
+            .map(|x| *x as usize - header_size);
 
-        let mut de = otspec::de::Deserializer::from_bytes(&remainder);
         let substitution = match lookup.lookupType {
-            1 => SingleSubstDeserializer { subtable_offsets }.deserialize(&mut de),
-            2 => MultipleSubstDeserializer { subtable_offsets }.deserialize(&mut de),
-            3 => AlternateSubstDeserializer { subtable_offsets }.deserialize(&mut de),
+            1 => Substitution::Single(
+                subtable_offsets
+                    .map(|off| {
+                        let subtable_bin = &remainder[off..];
+                        otspec::de::from_bytes::<SingleSubst>(subtable_bin).unwrap()
+                    })
+                    .collect(),
+            ),
+            2 => Substitution::Multiple(
+                subtable_offsets
+                    .map(|off| {
+                        let subtable_bin = &remainder[off..];
+                        otspec::de::from_bytes::<MultipleSubst>(subtable_bin).unwrap()
+                    })
+                    .collect(),
+            ),
+            3 => Substitution::Alternate(
+                subtable_offsets
+                    .map(|off| {
+                        let subtable_bin = &remainder[off..];
+                        otspec::de::from_bytes::<AlternateSubst>(subtable_bin).unwrap()
+                    })
+                    .collect(),
+            ),
             _ => unimplemented!(),
-        }
-        .unwrap();
+        };
 
         Ok(SubstLookup {
             substitution,
@@ -211,45 +231,37 @@ deserialize_visitor!(
     }
 );
 
-stateful_deserializer!(
-Substitution,
-SingleSubstDeserializer,
-{
-    subtable_offsets: Vec<usize>
-},
-fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Substitution, A::Error>
-where
-    A: SeqAccess<'de>,
-{
-    let mut mapping = BTreeMap::new();
-    let remainder = read_remainder!(seq, "a single substitution table");
-    for off in self.subtable_offsets {
-        match peek_format(&remainder, off) {
+deserialize_visitor!(
+    SingleSubst,
+    SingleSubstDeserializer,
+    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<SingleSubst, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut mapping = BTreeMap::new();
+        let remainder = read_remainder!(seq, "a single substitution table");
+        match peek_format(&remainder, 0) {
             Ok(1) => {
-                let sub: SingleSubstFormat1 =
-                    otspec::de::from_bytes(&remainder[off + 2..]).unwrap();
+                let sub: SingleSubstFormat1 = otspec::de::from_bytes(&remainder[2..]).unwrap();
                 let coverage: Coverage =
-                    otspec::de::from_bytes(&remainder[off + sub.coverageOffset as usize..])
-                        .unwrap();
+                    otspec::de::from_bytes(&remainder[sub.coverageOffset as usize..]).unwrap();
                 for gid in &coverage.glyphs {
                     mapping.insert(*gid, (*gid as i16 + sub.deltaGlyphID) as u16);
                 }
             }
             Ok(2) => {
-                let sub: SingleSubstFormat2 =
-                    otspec::de::from_bytes(&remainder[off + 2..]).unwrap();
+                let sub: SingleSubstFormat2 = otspec::de::from_bytes(&remainder[2..]).unwrap();
                 let coverage: Coverage =
-                    otspec::de::from_bytes(&remainder[off + sub.coverageOffset as usize..])
-                        .unwrap();
+                    otspec::de::from_bytes(&remainder[sub.coverageOffset as usize..]).unwrap();
                 for (gid, newgid) in coverage.glyphs.iter().zip(sub.substituteGlyphIDs.iter()) {
                     mapping.insert(*gid, *newgid);
                 }
             }
             _ => panic!("Better error handling needed"),
         }
+        Ok(SingleSubst { mapping })
     }
-    Ok(Substitution::Single(SingleSubst { mapping }))
-});
+);
 
 impl Serialize for SingleSubst {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -292,31 +304,26 @@ impl Serialize for SingleSubst {
     }
 }
 
-stateful_deserializer!(
-Substitution,
-MultipleSubstDeserializer,
-{
-    subtable_offsets: Vec<usize>
-},
-fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Substitution, A::Error>
-where
-    A: SeqAccess<'de>,
-{
-    let mut mapping = BTreeMap::new();
-    let remainder = read_remainder!(seq, "a multiple substitution table");
-    for off in self.subtable_offsets {
-        let sub: MultipleSubstFormat1 = otspec::de::from_bytes(&remainder[off..]).unwrap();
+deserialize_visitor!(
+    MultipleSubst,
+    MultipleSubstDeserializer,
+    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<MultipleSubst, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let remainder = read_remainder!(seq, "a multiple substitution table");
+        let mut mapping = BTreeMap::new();
+        let sub: MultipleSubstFormat1 = otspec::de::from_bytes(&remainder).unwrap();
         let coverage: Coverage =
-            otspec::de::from_bytes(&remainder[off + sub.coverageOffset as usize..])
-                .unwrap();
+            otspec::de::from_bytes(&remainder[sub.coverageOffset as usize..]).unwrap();
         for (input, seq_offset) in coverage.glyphs.iter().zip(sub.sequenceOffsets.iter()) {
             let sequence: Sequence =
-              otspec::de::from_bytes(&remainder[off + *seq_offset as usize..]).unwrap();
+                otspec::de::from_bytes(&remainder[*seq_offset as usize..]).unwrap();
             mapping.insert(*input, sequence.substituteGlyphIDs);
         }
+        Ok(MultipleSubst { mapping })
     }
-    Ok(Substitution::Multiple(MultipleSubst { mapping }))
-});
+);
 
 impl Serialize for MultipleSubst {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -360,33 +367,28 @@ impl Serialize for MultipleSubst {
     }
 }
 
-stateful_deserializer!(
-Substitution,
-AlternateSubstDeserializer,
-{
-    subtable_offsets: Vec<usize>
-},
-fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Substitution, A::Error>
-where
-    A: SeqAccess<'de>,
-{
-    let mut mapping = BTreeMap::new();
-    let remainder = read_remainder!(seq, "a multiple substitution table");
-    for off in self.subtable_offsets {
+deserialize_visitor!(
+    AlternateSubst,
+    AlternateSubstDeserializer,
+    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<AlternateSubst, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let mut mapping = BTreeMap::new();
+        let remainder = read_remainder!(seq, "a multiple substitution table");
         // Slightly naughty here, repurposing the fact that mult subst and
         // alt subst have the same layout, just differ in lookupType
-        let sub: MultipleSubstFormat1 = otspec::de::from_bytes(&remainder[off..]).unwrap();
+        let sub: MultipleSubstFormat1 = otspec::de::from_bytes(&remainder).unwrap();
         let coverage: Coverage =
-            otspec::de::from_bytes(&remainder[off + sub.coverageOffset as usize..])
-                .unwrap();
+            otspec::de::from_bytes(&remainder[sub.coverageOffset as usize..]).unwrap();
         for (input, seq_offset) in coverage.glyphs.iter().zip(sub.sequenceOffsets.iter()) {
             let sequence: Sequence =
-              otspec::de::from_bytes(&remainder[off + *seq_offset as usize..]).unwrap();
+                otspec::de::from_bytes(&remainder[*seq_offset as usize..]).unwrap();
             mapping.insert(*input, sequence.substituteGlyphIDs);
         }
+        Ok(AlternateSubst { mapping })
     }
-    Ok(Substitution::Alternate(AlternateSubst { mapping }))
-});
+);
 
 #[cfg(test)]
 mod tests {
@@ -440,30 +442,30 @@ mod tests {
                 SubstLookup {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
-                    substitution: Substitution::Single(SingleSubst {
+                    substitution: Substitution::Single(vec![SingleSubst {
                         mapping: btreemap!(66 => 67, 68 => 69),
-                    }),
+                    }]),
                 },
                 SubstLookup {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
-                    substitution: Substitution::Single(SingleSubst {
+                    substitution: Substitution::Single(vec![SingleSubst {
                         mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
-                    }),
+                    }]),
                 },
                 SubstLookup {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
-                    substitution: Substitution::Multiple(MultipleSubst {
+                    substitution: Substitution::Multiple(vec![MultipleSubst {
                         mapping: btreemap!(77 => vec![71,77], 74 => vec![71,74]),
-                    }),
+                    }]),
                 },
                 SubstLookup {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
-                    substitution: Substitution::Alternate(AlternateSubst {
+                    substitution: Substitution::Alternate(vec![AlternateSubst {
                         mapping: btreemap!(66 => vec![67,68,69]),
-                    }),
+                    }]),
                 },
             ],
             scripts: ScriptList {
