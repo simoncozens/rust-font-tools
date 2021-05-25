@@ -2,6 +2,7 @@ use crate::layout::common::*;
 use crate::layout::gsub1::SingleSubst;
 use crate::layout::gsub2::MultipleSubst;
 use crate::layout::gsub3::AlternateSubst;
+use crate::layout::gsub4::LigatureSubst;
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_field, read_remainder};
 use otspec_macros::tables;
@@ -47,7 +48,7 @@ pub enum Substitution {
     /// Contains an alternate substitution rule.
     Alternate(Vec<AlternateSubst>),
     /// Contains a ligature substitution rule.
-    Ligature,
+    Ligature(Vec<LigatureSubst>),
     /// Contains a contextual substitution rule.
     Contextual,
     /// Contains a chained contextual substitution rule.
@@ -130,7 +131,7 @@ deserialize_visitor!(
     }
 );
 
-pub fn peek_format(d: &[u8], off: usize) -> Result<uint16, TryFromSliceError> {
+pub(crate) fn peek_format(d: &[u8], off: usize) -> Result<uint16, TryFromSliceError> {
     Ok(u16::from_be_bytes(d[off..off + 2].try_into()?))
 }
 
@@ -180,6 +181,14 @@ deserialize_visitor!(
                     .map(|off| {
                         let subtable_bin = &remainder[off..];
                         otspec::de::from_bytes::<AlternateSubst>(subtable_bin).unwrap()
+                    })
+                    .collect(),
+            ),
+            4 => Substitution::Ligature(
+                subtable_offsets
+                    .map(|off| {
+                        let subtable_bin = &remainder[off..];
+                        otspec::de::from_bytes::<LigatureSubst>(subtable_bin).unwrap()
                     })
                     .collect(),
             ),

@@ -10,3 +10,5 @@ pub mod gsub1;
 pub mod gsub2;
 /// GSUB3 alternate substitution
 pub mod gsub3;
+/// GSUB4 ligature substitution
+pub mod gsub4;
