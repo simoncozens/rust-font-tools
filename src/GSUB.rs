@@ -99,6 +99,8 @@ pub enum Substitution {
 pub struct GSUB {
     /// A list of substitution lookups
     pub lookups: Vec<SubstLookup>,
+    /// A mapping between script tags and `Script` tables.
+    pub scripts: ScriptList,
     /// The association between feature tags and the list of indices into the
     /// lookup table used to process this feature, together with any feature parameters.
     pub features: Vec<(Tag, Vec<usize>, Option<FeatureParams>)>,
@@ -119,7 +121,7 @@ deserialize_visitor!(
 
         // Script list
         let beginning_of_scriptlist = core.scriptListOffset as usize - header_size;
-        let _scriptlist: ScriptList =
+        let scripts: ScriptList =
             otspec::de::from_bytes(&remainder[beginning_of_scriptlist..]).unwrap();
 
         // Feature list
@@ -155,7 +157,11 @@ deserialize_visitor!(
             lookups.push(lookup);
         }
 
-        Ok(GSUB { lookups, features })
+        Ok(GSUB {
+            lookups,
+            scripts,
+            features,
+        })
     }
 );
 
@@ -386,14 +392,20 @@ where
 mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
+    use std::collections::HashMap;
     use std::iter::FromIterator;
 
     macro_rules! hashmap {
         ($($k:expr => $v:expr),* $(,)?) => {
-            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+            std::collections::HashMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
         };
     }
 
+    macro_rules! btreemap {
+        ($($k:expr => $v:expr),* $(,)?) => {
+            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+        };
+    }
     #[test]
     fn test_simple_gsub_de() {
         /* languagesystem DFLT dflt;
@@ -429,31 +441,46 @@ mod tests {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
                     substitution: Substitution::Single(SingleSubst {
-                        mapping: hashmap!(66 => 67, 68 => 69),
+                        mapping: btreemap!(66 => 67, 68 => 69),
                     }),
                 },
                 SubstLookup {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
                     substitution: Substitution::Single(SingleSubst {
-                        mapping: hashmap!(34 => 66, 35 => 66, 36  => 66),
+                        mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
                     }),
                 },
                 SubstLookup {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
                     substitution: Substitution::Multiple(MultipleSubst {
-                        mapping: hashmap!(77 => vec![71,77], 74 => vec![71,74]),
+                        mapping: btreemap!(77 => vec![71,77], 74 => vec![71,74]),
                     }),
                 },
                 SubstLookup {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
                     substitution: Substitution::Alternate(AlternateSubst {
-                        mapping: hashmap!(66 => vec![67,68,69]),
+                        mapping: btreemap!(66 => vec![67,68,69]),
                     }),
                 },
             ],
+            scripts: ScriptList {
+                scripts: hashmap!(*b"DFLT" => Script {
+                    default_language_system: Some(
+                        LanguageSystem {
+                            required_feature: None,
+                            feature_indices: vec![
+                                0,
+                                1,
+                                2,
+                           ],
+                        },
+                    ),
+                    language_systems: HashMap::new()
+                }),
+            },
             features: vec![
                 (*b"alte", vec![3], None),
                 (*b"mult", vec![2], None),
@@ -467,7 +494,7 @@ mod tests {
     #[test]
     fn test_single_subst_1_ser() {
         let subst = SingleSubst {
-            mapping: hashmap!(66 => 67, 68 => 69),
+            mapping: btreemap!(66 => 67, 68 => 69),
         };
         let serialized = otspec::ser::to_bytes(&subst).unwrap();
         assert_eq!(
@@ -479,7 +506,7 @@ mod tests {
     #[test]
     fn test_single_subst_2_ser() {
         let subst = SingleSubst {
-            mapping: hashmap!(34 => 66, 35 => 66, 36  => 66),
+            mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
         };
         let serialized = otspec::ser::to_bytes(&subst).unwrap();
         assert_eq!(
@@ -494,7 +521,7 @@ mod tests {
     #[test]
     fn test_mult_subst_ser() {
         let subst = MultipleSubst {
-            mapping: hashmap!(77 => vec![71,77], 74 => vec![71,74]),
+            mapping: btreemap!(77 => vec![71,77], 74 => vec![71,74]),
         };
         let serialized = otspec::ser::to_bytes(&subst).unwrap();
         assert_eq!(

@@ -25,7 +25,7 @@ tables!(
         uint16 langSysOffset
     }
     LangSys {
-        uint16	lookupOrderOffset
+        uint16	lookupOrderOffset // Null, ignore it
         uint16	requiredFeatureIndex
         Counted(uint16) featureIndices
     }
@@ -123,7 +123,7 @@ pub struct Script {
     /// language is selected.
     pub default_language_system: Option<LanguageSystem>,
     /// A mapping between language tags and `LanguageSystem` records.
-    language_systems: HashMap<Tag, LanguageSystem>,
+    pub language_systems: HashMap<Tag, LanguageSystem>,
 }
 
 /// A LanguageSystem table, selecting which features should be applied in the
@@ -132,10 +132,10 @@ pub struct Script {
 pub struct LanguageSystem {
     /// Each language system can define a required feature which must be processed
     /// for this script/language combination.
-    required_feature: Option<usize>,
+    pub required_feature: Option<usize>,
     /// A list of indices into the feature table to be processed for this
     /// script language combination.
-    feature_indices: Vec<usize>,
+    pub feature_indices: Vec<usize>,
 }
 
 deserialize_visitor!(
@@ -147,16 +147,49 @@ deserialize_visitor!(
     {
         let sl = read_field!(seq, ScriptListInternal, "A script list");
         let remainder = read_remainder!(seq, "Script records");
-        let base = 2 + (4 * sl.scriptRecords.len());
-        let scripts = HashMap::new();
+        let base = 2 + (6 * sl.scriptRecords.len());
+        let mut scripts = HashMap::new();
         for rec in sl.scriptRecords {
             let script_base = rec.scriptOffset as usize - base;
             let si: ScriptInternal = otspec::de::from_bytes(&remainder[script_base..]).unwrap();
-            if si.defaultLangSysOffset > 0 {
-                //
+            let mut script = Script {
+                default_language_system: if si.defaultLangSysOffset > 0 {
+                    let offset = script_base + si.defaultLangSysOffset as usize;
+                    let langsys: LangSys = otspec::de::from_bytes(&remainder[offset..]).unwrap();
+                    Some(LanguageSystem {
+                        required_feature: if langsys.requiredFeatureIndex != 0xFFFF {
+                            Some(langsys.requiredFeatureIndex.into())
+                        } else {
+                            None
+                        },
+                        feature_indices: langsys
+                            .featureIndices
+                            .iter()
+                            .map(|x| *x as usize)
+                            .collect(),
+                    })
+                } else {
+                    None
+                },
+                language_systems: HashMap::new(),
+            };
+            for langsysrecord in si.langSysRecords {
+                let lang_tag = langsysrecord.langSysTag;
+                let offset = script_base + langsysrecord.langSysOffset as usize;
+                let langsys: LangSys = otspec::de::from_bytes(&remainder[offset..]).unwrap();
+                let language_system = LanguageSystem {
+                    required_feature: if langsys.requiredFeatureIndex != 0xFFFF {
+                        Some(langsys.requiredFeatureIndex.into())
+                    } else {
+                        None
+                    },
+                    feature_indices: langsys.featureIndices.iter().map(|x| *x as usize).collect(),
+                };
+                script.language_systems.insert(lang_tag, language_system);
             }
-            // XXX
+            scripts.insert(rec.scriptTag, script);
         }
+
         Ok(ScriptList { scripts })
     }
 );
