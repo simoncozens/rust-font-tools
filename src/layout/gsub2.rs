@@ -87,3 +87,30 @@ impl Serialize for MultipleSubst {
         seq.end()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::iter::FromIterator;
+
+    macro_rules! btreemap {
+        ($($k:expr => $v:expr),* $(,)?) => {
+            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+        };
+    }
+    #[test]
+    fn test_mult_subst_ser() {
+        let subst = MultipleSubst {
+            mapping: btreemap!(77 => vec![71,77], 74 => vec![71,74]),
+        };
+        let serialized = otspec::ser::to_bytes(&subst).unwrap();
+        assert_eq!(
+            serialized,
+            vec![
+                0x00, 0x01, 0x00, 0x0A, 0x00, 0x02, 0x00, 0x12, 0x00, 0x18, 0x00, 0x01, 0x00, 0x02,
+                0x00, 0x4A, 0x00, 0x4D, 0x00, 0x02, 0x00, 0x47, 0x00, 0x4A, 0x00, 0x02, 0x00, 0x47,
+                0x00, 0x4D
+            ]
+        );
+    }
+}

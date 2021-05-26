@@ -98,3 +98,42 @@ impl Serialize for SingleSubst {
         seq.end()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::iter::FromIterator;
+
+    macro_rules! btreemap {
+        ($($k:expr => $v:expr),* $(,)?) => {
+            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+        };
+    }
+
+    #[test]
+    fn test_single_subst_1_ser() {
+        let subst = SingleSubst {
+            mapping: btreemap!(66 => 67, 68 => 69),
+        };
+        let serialized = otspec::ser::to_bytes(&subst).unwrap();
+        assert_eq!(
+            serialized,
+            vec![0x00, 0x01, 0x00, 0x06, 0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 66, 0x00, 68]
+        );
+    }
+
+    #[test]
+    fn test_single_subst_2_ser() {
+        let subst = SingleSubst {
+            mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
+        };
+        let serialized = otspec::ser::to_bytes(&subst).unwrap();
+        assert_eq!(
+            serialized,
+            vec![
+                0x00, 0x02, 0x00, 0x0C, 0x00, 0x03, 0x00, 0x42, 0x00, 0x42, 0x00, 0x42, 0x00, 0x01,
+                0x00, 0x03, 0x00, 0x22, 0x00, 0x23, 0x00, 0x24
+            ]
+        );
+    }
+}

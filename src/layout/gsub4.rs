@@ -76,6 +76,7 @@ deserialize_visitor!(
         })
     }
 );
+
 // impl Serialize for LigatureSubst {
 //     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
 //     where
