@@ -4,8 +4,6 @@ use std::convert::TryInto;
 use std::mem;
 
 pub struct Deserializer<'de> {
-    // This string starts with the input data and characters are truncated off
-    // the beginning as data is parsed.
     input: &'de [u8],
     ptr: usize,
 }
