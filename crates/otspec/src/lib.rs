@@ -115,6 +115,7 @@ serde_primitive!(u16);
 serde_primitive!(u32);
 serde_primitive!(i16);
 serde_primitive!(i32);
+serde_primitive!(i64);
 
 impl<T> Serialize for Vec<T>
 where

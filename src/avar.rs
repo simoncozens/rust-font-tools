@@ -35,7 +35,7 @@ impl SegmentMap {
             })
             .collect();
         SegmentMap {
-            axisValueMaps: maps.into(),
+            axisValueMaps: maps,
         }
     }
 }

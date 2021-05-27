@@ -46,8 +46,8 @@ pub mod gasp;
 // pub mod glyf;
 // /// The `gvar` (Glyph variations) table
 // pub mod gvar;
-// /// The `head` (Header) table
-// pub mod head;
+/// The `head` (Header) table
+pub mod head;
 /// The `hhea` (Horizontal header) table
 pub mod hhea;
 // /// The `hmtx` (Horizontal metrics) table

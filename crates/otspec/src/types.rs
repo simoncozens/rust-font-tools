@@ -69,6 +69,17 @@ impl Deserialize for Fixed {
     }
 }
 
+impl From<f32> for Fixed {
+    fn from(num: f32) -> Self {
+        Self(num)
+    }
+}
+impl From<Fixed> for f32 {
+    fn from(num: Fixed) -> Self {
+        num.0
+    }
+}
+
 #[derive(Shrinkwrap, Debug, PartialEq)]
 pub struct F2DOT14(pub f32);
 
@@ -94,6 +105,39 @@ impl From<f32> for F2DOT14 {
 }
 impl From<F2DOT14> for f32 {
     fn from(num: F2DOT14) -> Self {
+        num.0
+    }
+}
+
+#[derive(Shrinkwrap, Debug, PartialEq)]
+pub struct LONGDATETIME(pub chrono::NaiveDateTime);
+
+use chrono::Duration;
+use chrono::NaiveDate;
+
+impl Serialize for LONGDATETIME {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        let now = self.timestamp();
+        let epoch = NaiveDate::from_ymd(1904, 1, 1).and_hms(0, 0, 0).timestamp();
+        (now - epoch).to_bytes(data)
+    }
+}
+impl Deserialize for LONGDATETIME {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let diff: i64 = c.de()?;
+        let epoch = NaiveDate::from_ymd(1904, 1, 1).and_hms(0, 0, 0);
+        let res = epoch + Duration::seconds(diff);
+        Ok(LONGDATETIME(res))
+    }
+}
+
+impl From<chrono::NaiveDateTime> for LONGDATETIME {
+    fn from(num: chrono::NaiveDateTime) -> Self {
+        Self(num)
+    }
+}
+impl From<LONGDATETIME> for chrono::NaiveDateTime {
+    fn from(num: LONGDATETIME) -> Self {
         num.0
     }
 }
