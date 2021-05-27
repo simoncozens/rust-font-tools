@@ -141,3 +141,72 @@ impl From<LONGDATETIME> for chrono::NaiveDateTime {
         num.0
     }
 }
+
+pub struct Offset16<T> {
+    off: Option<u16>,
+    link: Option<T>,
+}
+
+impl<T> Serialize for Offset16<T> {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        match self.off {
+            Some(x) => x.to_bytes(data),
+            None => Err(SerializationError("Offset not set".to_string())),
+        }
+    }
+}
+
+impl<T: Deserialize> Deserialize for Offset16<T> {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let off: uint16 = c.de()?;
+        c.push(c.start_of_struct() + off as usize);
+        let obj: T = c.de()?;
+        c.pop();
+        Ok(Offset16 {
+            off: Some(off),
+            link: Some(obj),
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate as otspec;
+    use otspec_macros::Deserialize;
+
+    #[derive(Deserialize)]
+    struct One {
+        thing: uint16,
+        off: Offset16<Two>,
+        other: uint16,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Two {
+        test1: uint16,
+        test2: uint16,
+    }
+
+    #[test]
+    fn test_de_off16() {
+        let bytes = vec![
+            0x00, 0x01, // thing
+            0x00, 0x08, // off
+            0x00, 0x02, // other
+            0xff, 0xff, // filler
+            0x00, 0x0a, // test1
+            0x00, 0x0b, // test2
+        ];
+        let mut rc = ReaderContext::new(bytes);
+        let one: One = rc.de().unwrap();
+        assert_eq!(one.other, 0x02);
+        assert_eq!(
+            one.off.link,
+            Some(Two {
+                test1: 0x0a,
+                test2: 0x0b
+            })
+        );
+    }
+}

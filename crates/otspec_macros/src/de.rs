@@ -30,7 +30,9 @@ pub fn expand_derive_deserialize(
                 #[automatically_derived]
                 impl #impl_generics otspec::Deserialize for #ident #ty_generics #where_clause {
                     fn from_bytes(c: &mut otspec::ReaderContext) -> Result<Self, otspec::DeserializationError> {
+                        c.push(c.ptr);
                         #(#body)*
+                        c.pop();
                         Ok(#ident { #(#names,)* })
                     }
                 }

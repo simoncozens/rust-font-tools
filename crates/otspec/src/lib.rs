@@ -13,12 +13,17 @@ pub struct DeserializationError(pub String);
 
 pub struct ReaderContext {
     input: Vec<u8>,
-    ptr: usize,
+    pub ptr: usize,
+    ptrs: Vec<usize>,
 }
 
 impl ReaderContext {
     pub fn new(input: Vec<u8>) -> Self {
-        ReaderContext { input, ptr: 0 }
+        ReaderContext {
+            input,
+            ptr: 0,
+            ptrs: vec![],
+        }
     }
 
     fn consume(&mut self, bytes: usize) -> Result<&[u8], DeserializationError> {
@@ -29,6 +34,17 @@ impl ReaderContext {
             self.ptr += bytes;
             Ok(subslice)
         }
+    }
+
+    pub fn push(&mut self, bytes: usize) {
+        self.ptrs.push(self.ptr);
+        self.ptr = bytes;
+    }
+    pub fn pop(&mut self) {
+        self.ptr = self.ptrs.pop().expect("pop with no matching push");
+    }
+    pub fn start_of_struct(&self) -> usize {
+        *self.ptrs.last().expect("not in a struct")
     }
 }
 
