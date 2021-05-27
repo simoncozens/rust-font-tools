@@ -5,6 +5,8 @@
     clippy::upper_case_acronyms
 )]
 
+use crate::types::de::SeqAccess;
+use crate::{read_field, stateful_deserializer};
 use serde::de::{self, Visitor};
 use std::fmt;
 
@@ -246,6 +248,71 @@ pub mod Counted {
         }
     }
 }
+
+/*
+struct Offset<T, U> {
+    link: T,
+    offset: Option<U>,
+}
+
+#[allow(missing_docs)]
+pub struct OffsetDeserializer<T, U> {
+    base: Vec<u8>,
+    _t: std::marker::PhantomData<T>,
+    _u: std::marker::PhantomData<U>,
+}
+
+#[allow(missing_docs)]
+impl<'de, T, U> serde::de::DeserializeSeed<'de> for OffsetDeserializer<T, U>
+where
+    T: serde::de::Deserialize<'de>,
+    U: serde::de::Deserialize<'de> + num_traits::cast::AsPrimitive<usize>,
+{
+    type Value = Offset<T, U>;
+
+    fn deserialize<D>(self, deserializer: D) -> std::result::Result<Self::Value, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        struct MyVisitor<T, U> {
+            _t: std::marker::PhantomData<T>,
+            _u: std::marker::PhantomData<U>,
+            base: Vec<u8>,
+        }
+
+        impl<'de, T, U> Visitor<'de> for MyVisitor<T, U>
+        where
+            T: serde::de::Deserialize<'de>,
+            U: serde::de::Deserialize<'de> + num_traits::cast::AsPrimitive<usize>,
+        {
+            type Value = Offset<T, U>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "a {:?}", stringify!($struct_name))
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Offset<T, U>, A::Error>
+            where
+                A: SeqAccess<'de>,
+            {
+                let off = read_field!(seq, U, "an offset");
+                let stuff = self.base[off.as_()..].to_vec();
+                let object: T = crate::de::from_bytes(&stuff).unwrap();
+                Ok(Offset {
+                    link: object,
+                    offset: Some(off),
+                })
+            }
+        }
+
+        deserializer.deserialize_seq(MyVisitor {
+            base: self.base,
+            _t: std::marker::PhantomData,
+            _u: std::marker::PhantomData,
+        })
+    }
+}
+*/
 
 #[cfg(test)]
 mod tests {
