@@ -1,4 +1,5 @@
 use crate::layout::coverage::Coverage;
+use crate::GSUB::ToBytes;
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_remainder};
 use otspec_macros::tables;
@@ -18,11 +19,17 @@ tables!(
   }
 );
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 /// A multiple substitution (one-to-many) subtable.
 pub struct MultipleSubst {
     /// The mapping of input glyph IDs to sequence of replacement glyph IDs.
     pub mapping: BTreeMap<uint16, Vec<uint16>>,
+}
+
+impl ToBytes for MultipleSubst {
+    fn to_bytes(&self) -> Vec<u8> {
+        otspec::ser::to_bytes(self).unwrap()
+    }
 }
 
 deserialize_visitor!(

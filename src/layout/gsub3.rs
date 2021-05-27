@@ -1,5 +1,6 @@
 use crate::layout::coverage::Coverage;
 use crate::layout::gsub2::{MultipleSubstFormat1, Sequence};
+use crate::GSUB::ToBytes;
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_remainder};
 use serde::de::{SeqAccess, Visitor};
@@ -7,13 +8,18 @@ use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 /// A alternate substitution (`sub ... from ...`) subtable.
 pub struct AlternateSubst {
     /// The mapping of input glyph IDs to array of possible glyph IDs.
     pub mapping: BTreeMap<uint16, Vec<uint16>>,
 }
 
+impl ToBytes for AlternateSubst {
+    fn to_bytes(&self) -> Vec<u8> {
+        otspec::ser::to_bytes(self).unwrap()
+    }
+}
 deserialize_visitor!(
     AlternateSubst,
     AlternateSubstDeserializer,

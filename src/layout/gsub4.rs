@@ -1,4 +1,5 @@
 use crate::layout::coverage::Coverage;
+use crate::GSUB::ToBytes;
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_field, read_field_counted, read_remainder};
 use otspec_macros::tables;
@@ -25,11 +26,17 @@ struct Ligature {
     componentGlyphIDs: Vec<uint16>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 /// A ligature substitution (many-to-one) subtable.
 pub struct LigatureSubst {
     /// The mapping of sequences of input glyphs IDs to replacement glyph IDs.
     pub mapping: BTreeMap<Vec<uint16>, uint16>,
+}
+
+impl ToBytes for LigatureSubst {
+    fn to_bytes(&self) -> Vec<u8> {
+        otspec::ser::to_bytes(self).unwrap()
+    }
 }
 
 deserialize_visitor!(

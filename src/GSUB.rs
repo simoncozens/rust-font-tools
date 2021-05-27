@@ -25,8 +25,12 @@ tables!(
   }
 );
 
+pub(crate) trait ToBytes {
+    fn to_bytes(&self) -> Vec<u8>;
+}
+
 /// A general substitution lookup rule, of whatever type
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct SubstLookup {
     /// Lookup flags
     pub flags: LookupFlags,
@@ -36,10 +40,41 @@ pub struct SubstLookup {
     pub substitution: Substitution,
 }
 
+impl SubstLookup {
+    fn lookup_type(&self) -> u16 {
+        match self.substitution {
+            Substitution::Single(_) => 1,
+            Substitution::Multiple(_) => 2,
+            Substitution::Alternate(_) => 3,
+            Substitution::Ligature(_) => 4,
+            Substitution::Contextual => 5,
+            Substitution::ChainedContextual => 6,
+            Substitution::Extension => 7,
+            Substitution::ReverseChaining => 8,
+        }
+    }
+    fn subtables(self) -> Vec<Box<dyn ToBytes>> {
+        match self.substitution {
+            Substitution::Single(x) => x
+                .into_iter()
+                .map(|st| Box::new(st) as Box<dyn ToBytes>)
+                .collect(),
+            Substitution::Multiple(x) => x
+                .into_iter()
+                .map(|st| Box::new(st) as Box<dyn ToBytes>)
+                .collect(),
+            Substitution::Alternate(x) => x
+                .into_iter()
+                .map(|st| Box::new(st) as Box<dyn ToBytes>)
+                .collect(),
+            _ => unimplemented!(),
+        }
+    }
+}
 /// A container which represents a generic substitution rule
 ///
 /// Each rule is expressed as a vector of subtables.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize, Clone)]
 pub enum Substitution {
     /// Contains a single substitution rule.
     Single(Vec<SingleSubst>),
@@ -202,6 +237,33 @@ deserialize_visitor!(
         })
     }
 );
+
+impl Serialize for SubstLookup {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(None)?;
+        seq.serialize_element(&self.lookup_type())?;
+        seq.serialize_element(&self.flags)?;
+        let subtables: Vec<Box<dyn ToBytes>> = self.clone().subtables();
+        seq.serialize_element(&(subtables.len() as uint16))?;
+        let mut output = vec![];
+        let base =
+            6 + (if self.mark_filtering_set.is_some() {
+                2
+            } else {
+                0
+            }) + 2 * subtables.len();
+        for st in subtables.iter().map(|x| x.to_bytes()) {
+            seq.serialize_element(&((base + output.len()) as uint16))?;
+            output.extend(st);
+        }
+        seq.serialize_element(&output)?;
+
+        seq.end()
+    }
+}
 
 #[cfg(test)]
 mod tests {

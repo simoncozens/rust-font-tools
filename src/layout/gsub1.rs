@@ -1,5 +1,5 @@
 use crate::layout::coverage::Coverage;
-use crate::GSUB::peek_format;
+use crate::GSUB::{peek_format, ToBytes};
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_remainder};
 use otspec_macros::tables;
@@ -19,13 +19,18 @@ tables!(
   }
 );
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 /// A single substitution subtable.
 pub struct SingleSubst {
     /// The mapping of input glyph IDs to replacement glyph IDs.
     pub mapping: BTreeMap<uint16, uint16>,
 }
 
+impl ToBytes for SingleSubst {
+    fn to_bytes(&self) -> Vec<u8> {
+        otspec::ser::to_bytes(self).unwrap()
+    }
+}
 deserialize_visitor!(
     SingleSubst,
     SingleSubstDeserializer,
