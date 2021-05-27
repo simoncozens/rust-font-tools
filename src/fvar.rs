@@ -1,16 +1,8 @@
 #![allow(non_camel_case_types, non_snake_case)]
 
-use otspec::de::CountedDeserializer;
-use otspec::de::Deserializer as OTDeserializer;
 use otspec::types::*;
-use otspec::{
-    deserialize_visitor, read_field, read_field_counted, read_remainder, stateful_deserializer,
-};
+use otspec::*;
 use otspec_macros::tables;
-use serde::de::{DeserializeSeed, SeqAccess, Visitor};
-use serde::ser::SerializeSeq;
-use serde::Serializer;
-use serde::{Deserialize, Deserializer, Serialize};
 
 tables!(
     fvarcore {
@@ -95,6 +87,8 @@ pub struct fvar {
     pub instances: Vec<InstanceRecord>,
 }
 
+impl Deserialize for fvar {}
+
 deserialize_visitor!(
     fvar,
     FvarVisitor,
@@ -129,14 +123,11 @@ deserialize_visitor!(
 );
 
 impl Serialize for fvar {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let has_postscript_name_id = self.instances.iter().any(|x| x.postscriptNameID.is_some());
         if has_postscript_name_id && !self.instances.iter().all(|x| x.postscriptNameID.is_some()) {
-            return Err(serde::ser::Error::custom(
-                "Inconsistent use of postscriptNameID in fvar instances",
+            return Err(SerializationError(
+                "Inconsistent use of postscriptNameID in fvar instances".to_string(),
             ));
         }
         let core = fvarcore {
@@ -150,27 +141,20 @@ impl Serialize for fvar {
             instanceSize: (self.axes.len() * 4 + if has_postscript_name_id { 6 } else { 4 })
                 as uint16,
         };
-        let mut seq = serializer.serialize_seq(None)?;
-        seq.serialize_element(&core)?;
+        core.to_bytes(&mut data)?;
         for axis in &self.axes {
-            seq.serialize_element(&axis)?;
+            axis.to_bytes(&mut data)?;
         }
         for instance in &self.instances {
             // Have to do this by hand
-            seq.serialize_element(&instance.subfamilyNameID)?;
-            seq.serialize_element::<uint16>(&0)?;
-            seq.serialize_element::<Vec<i32>>(
-                &instance
-                    .coordinates
-                    .iter()
-                    .map(|x| Fixed::pack(*x))
-                    .collect(),
-            )?;
+            data.put(instance.subfamilyNameID)?;
+            data.put(0_u16)?;
+            data.put(instance.coordinates.collect::<Vec<i32>>())?;
             if has_postscript_name_id {
-                seq.serialize_element(&instance.postscriptNameID.unwrap())?;
+                data.put(instance.postscriptNameID.unwrap())?;
             }
         }
-        seq.end()
+        Ok(())
     }
 }
 
@@ -178,13 +162,14 @@ impl Serialize for fvar {
 mod tests {
     use crate::fvar;
     use crate::fvar::InstanceRecord;
+    use otspec::tag;
 
     #[test]
     fn fvar_de() {
         let ffvar = fvar::fvar {
             axes: vec![
                 fvar::VariationAxisRecord {
-                    axisTag: *b"wght",
+                    axisTag: tag!("wght"),
                     flags: 0,
                     minValue: 200.0,
                     defaultValue: 200.0,

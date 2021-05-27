@@ -1,15 +1,14 @@
 #![allow(non_camel_case_types, non_snake_case)]
 
 use otspec::types::*;
+use otspec::Deserializer;
 use otspec_macros::tables;
-use serde::{Deserialize, Serialize};
 
 tables!(
     AxisValueMap {
         F2DOT14 fromCoordinate
         F2DOT14 toCoordinate
     }
-
     SegmentMap {
         Counted(AxisValueMap) axisValueMaps
     }
@@ -28,7 +27,7 @@ impl SegmentMap {
     /// `-1.0,-1.0`, `0.0,0.0` and `1.0,1.0`.
     // XXX we should probably check this and insert them if not.
     pub fn new(items: Vec<(f32, f32)>) -> Self {
-        let maps = items
+        let maps: Vec<AxisValueMap> = items
             .iter()
             .map(|i| AxisValueMap {
                 fromCoordinate: i.0,
@@ -36,7 +35,7 @@ impl SegmentMap {
             })
             .collect();
         SegmentMap {
-            axisValueMaps: maps,
+            axisValueMaps: maps.into(),
         }
     }
 }
