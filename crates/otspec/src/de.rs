@@ -429,7 +429,7 @@ pub struct $deserializer_name {
 }
 
 #[allow(missing_docs)]
-impl<'de> DeserializeSeed<'de> for $deserializer_name {
+impl<'de> serde::de::DeserializeSeed<'de> for $deserializer_name {
     type Value = $struct_name;
 
     fn deserialize<D>(self, deserializer: D) ->
