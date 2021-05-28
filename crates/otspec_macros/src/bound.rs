@@ -1,12 +1,10 @@
 use std::collections::HashSet;
 
-use syn::punctuated::{Pair, Punctuated};
+use syn::punctuated::Pair;
 use syn::Token;
 
 use crate::internals::ast::{Container, Data};
 use crate::internals::{attr, ungroup};
-
-use proc_macro2::Span;
 
 // Remove the default from every type parameter because in the generated impls
 // they look like associated types: "error: associated type bindings are not
@@ -50,28 +48,6 @@ pub fn with_where_predicates_from_fields(
         .data
         .all_fields()
         .filter_map(|field| from_field(&field.attrs))
-        .flat_map(|predicates| predicates.to_vec());
-
-    let mut generics = generics.clone();
-    generics.make_where_clause().predicates.extend(predicates);
-    generics
-}
-
-pub fn with_where_predicates_from_variants(
-    cont: &Container,
-    generics: &syn::Generics,
-    from_variant: fn(&attr::Variant) -> Option<&[syn::WherePredicate]>,
-) -> syn::Generics {
-    let variants = match &cont.data {
-        Data::Enum(variants) => variants,
-        Data::Struct(_, _) => {
-            return generics.clone();
-        }
-    };
-
-    let predicates = variants
-        .iter()
-        .filter_map(|variant| from_variant(&variant.attrs))
         .flat_map(|predicates| predicates.to_vec());
 
     let mut generics = generics.clone();
@@ -305,104 +281,4 @@ pub fn with_bound(
         .predicates
         .extend(new_predicates);
     generics
-}
-
-pub fn with_self_bound(
-    cont: &Container,
-    generics: &syn::Generics,
-    bound: &syn::Path,
-) -> syn::Generics {
-    let mut generics = generics.clone();
-    generics
-        .make_where_clause()
-        .predicates
-        .push(syn::WherePredicate::Type(syn::PredicateType {
-            lifetimes: None,
-            // the type that is being bounded e.g. MyStruct<'a, T>
-            bounded_ty: type_of_item(cont),
-            colon_token: <Token![:]>::default(),
-            // the bound e.g. Default
-            bounds: vec![syn::TypeParamBound::Trait(syn::TraitBound {
-                paren_token: None,
-                modifier: syn::TraitBoundModifier::None,
-                lifetimes: None,
-                path: bound.clone(),
-            })]
-            .into_iter()
-            .collect(),
-        }));
-    generics
-}
-
-pub fn with_lifetime_bound(generics: &syn::Generics, lifetime: &str) -> syn::Generics {
-    let bound = syn::Lifetime::new(lifetime, Span::call_site());
-    let def = syn::LifetimeDef {
-        attrs: Vec::new(),
-        lifetime: bound.clone(),
-        colon_token: None,
-        bounds: Punctuated::new(),
-    };
-
-    let params = Some(syn::GenericParam::Lifetime(def))
-        .into_iter()
-        .chain(generics.params.iter().cloned().map(|mut param| {
-            match &mut param {
-                syn::GenericParam::Lifetime(param) => {
-                    param.bounds.push(bound.clone());
-                }
-                syn::GenericParam::Type(param) => {
-                    param
-                        .bounds
-                        .push(syn::TypeParamBound::Lifetime(bound.clone()));
-                }
-                syn::GenericParam::Const(_) => {}
-            }
-            param
-        }))
-        .collect();
-
-    syn::Generics {
-        params,
-        ..generics.clone()
-    }
-}
-
-fn type_of_item(cont: &Container) -> syn::Type {
-    syn::Type::Path(syn::TypePath {
-        qself: None,
-        path: syn::Path {
-            leading_colon: None,
-            segments: vec![syn::PathSegment {
-                ident: cont.ident.clone(),
-                arguments: syn::PathArguments::AngleBracketed(
-                    syn::AngleBracketedGenericArguments {
-                        colon2_token: None,
-                        lt_token: <Token![<]>::default(),
-                        args: cont
-                            .generics
-                            .params
-                            .iter()
-                            .map(|param| match param {
-                                syn::GenericParam::Type(param) => {
-                                    syn::GenericArgument::Type(syn::Type::Path(syn::TypePath {
-                                        qself: None,
-                                        path: param.ident.clone().into(),
-                                    }))
-                                }
-                                syn::GenericParam::Lifetime(param) => {
-                                    syn::GenericArgument::Lifetime(param.lifetime.clone())
-                                }
-                                syn::GenericParam::Const(_) => {
-                                    panic!("Serde does not support const generics yet");
-                                }
-                            })
-                            .collect(),
-                        gt_token: <Token![>]>::default(),
-                    },
-                ),
-            }]
-            .into_iter()
-            .collect(),
-        },
-    })
 }

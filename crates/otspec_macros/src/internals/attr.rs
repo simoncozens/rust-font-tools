@@ -1,13 +1,11 @@
 use crate::internals::respan::respan;
 use crate::internals::symbol::*;
-use crate::internals::{ungroup, Ctxt};
+use crate::internals::Ctxt;
 use proc_macro2::{Spacing, TokenStream, TokenTree};
 use quote::ToTokens;
-use std::borrow::Cow;
 use std::collections::BTreeSet;
 use syn;
 use syn::parse::{self, Parse, ParseStream};
-use syn::parse_quote;
 use syn::punctuated::Punctuated;
 use syn::Ident;
 use syn::Meta::{List, NameValue, Path};
@@ -127,10 +125,6 @@ impl<'c, T> VecAttr<'c, T> {
             Ok(self.values.pop())
         }
     }
-
-    fn get(self) -> Vec<T> {
-        self.values
-    }
 }
 
 #[allow(deprecated)]
@@ -143,15 +137,8 @@ fn unraw(ident: &Ident) -> String {
 
 /// Represents struct or enum attribute information.
 pub struct Container {
-    transparent: bool,
-    deny_unknown_fields: bool,
     default: Default,
     ser_bound: Option<Vec<syn::WherePredicate>>,
-    de_bound: Option<Vec<syn::WherePredicate>>,
-    tag: TagType,
-    type_from: Option<syn::Type>,
-    type_try_from: Option<syn::Type>,
-    type_into: Option<syn::Type>,
     remote: Option<syn::Path>,
     identifier: Identifier,
     has_flatten: bool,
@@ -224,7 +211,6 @@ impl Container {
     pub fn from_ast(cx: &Ctxt, item: &syn::DeriveInput) -> Self {
         let mut ser_name = Attr::none(cx, RENAME);
         let mut de_name = Attr::none(cx, RENAME);
-        let transparent = BoolAttr::none(cx, TRANSPARENT);
         let mut deny_unknown_fields = BoolAttr::none(cx, DENY_UNKNOWN_FIELDS);
         let mut default = Attr::none(cx, DEFAULT);
         let mut ser_bound = Attr::none(cx, BOUND);
@@ -232,9 +218,6 @@ impl Container {
         let mut untagged = BoolAttr::none(cx, UNTAGGED);
         let mut internal_tag = Attr::none(cx, TAG);
         let mut content = Attr::none(cx, CONTENT);
-        let type_from = Attr::none(cx, FROM);
-        let type_try_from = Attr::none(cx, TRY_FROM);
-        let type_into = Attr::none(cx, INTO);
         let remote = Attr::none(cx, REMOTE);
         let field_identifier = BoolAttr::none(cx, FIELD_IDENTIFIER);
         let variant_identifier = BoolAttr::none(cx, VARIANT_IDENTIFIER);
@@ -432,15 +415,8 @@ impl Container {
         }
 
         Container {
-            transparent: transparent.get(),
-            deny_unknown_fields: deny_unknown_fields.get(),
             default: default.get().unwrap_or(Default::None),
             ser_bound: ser_bound.get(),
-            de_bound: de_bound.get(),
-            tag: decide_tag(cx, item, untagged, internal_tag, content),
-            type_from: type_from.get(),
-            type_try_from: type_try_from.get(),
-            type_into: type_into.get(),
             remote: remote.get(),
             identifier: decide_identifier(cx, item, field_identifier, variant_identifier),
             has_flatten: false,

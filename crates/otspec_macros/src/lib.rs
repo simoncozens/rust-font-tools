@@ -14,8 +14,6 @@ use syn::DeriveInput;
 
 #[macro_use]
 mod bound;
-#[macro_use]
-mod fragment;
 
 mod de;
 mod ser;
