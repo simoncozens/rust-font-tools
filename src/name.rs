@@ -5,12 +5,11 @@ use encoding::all::{
 };
 use encoding::{DecoderTrap, EncoderTrap, EncodingRef};
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_field_counted, read_remainder};
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Serializer,
+};
 use otspec_macros::tables;
-use serde::de::{SeqAccess, Visitor};
-use serde::ser::SerializeSeq;
-use serde::Serializer;
-use serde::{Deserialize, Deserializer, Serialize};
 
 fn get_encoding(platform_id: u16, encoding_id: u16) -> EncodingRef {
     if platform_id == 0 {
@@ -166,23 +165,20 @@ pub struct name {
     pub records: Vec<NameRecord>,
 }
 
-deserialize_visitor!(
-    name,
-    NameVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let _version = read_field!(seq, uint16, "a name table version");
-        let count = read_field!(seq, uint16, "a count of name records");
-        let _offset = read_field!(seq, uint16, "an offset");
-        let internal_records: Vec<NameRecordInternal> =
-            read_field_counted!(seq, count, "name records");
-        let remainder = read_remainder!(seq, "a name table string pool");
+impl Deserialize for name {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        c.skip(2);
+        let count: uint16 = c.de()?;
+        c.skip(2);
+        let internal_records: Vec<NameRecordInternal> = c.de_counted(count as usize)?;
         let mut records: Vec<NameRecord> = Vec::with_capacity(count.into());
+        c.push();
         for ir in internal_records {
-            let string_as_bytes =
-                &remainder[ir.stringOffset as usize..(ir.stringOffset + ir.length) as usize];
+            c.ptr = c.top_of_table() + ir.stringOffset as usize;
+            let string_as_bytes: Vec<u8> = c.de_counted(ir.length as usize)?;
             let encoding = get_encoding(ir.platformID, ir.encodingID);
             let string: String = encoding
-                .decode(string_as_bytes, DecoderTrap::Replace)
+                .decode(&string_as_bytes, DecoderTrap::Replace)
                 .unwrap();
 
             records.push(NameRecord {
@@ -193,22 +189,18 @@ deserialize_visitor!(
                 nameID: ir.nameID,
             })
         }
-
+        c.pop();
         Ok(name { records })
     }
-);
+}
 
 impl Serialize for name {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let mut string_pool: Vec<u8> = Vec::new();
-        let mut seq = serializer.serialize_seq(None)?;
         let offset = 6 + 12 * self.records.len() as uint16;
-        seq.serialize_element(&0_u16)?;
-        seq.serialize_element(&(self.records.len() as uint16))?;
-        seq.serialize_element(&offset)?;
+        0_u16.to_bytes(data)?;
+        (self.records.len() as uint16).to_bytes(data)?;
+        offset.to_bytes(data)?;
         for record in &self.records {
             let encoder = get_encoding(record.platformID, record.encodingID);
             let encoded = encoder
@@ -222,11 +214,10 @@ impl Serialize for name {
                 length: encoded.len() as uint16,
                 stringOffset: string_pool.len() as uint16,
             };
-            seq.serialize_element(&nri)?;
+            nri.to_bytes(data)?;
             string_pool.extend(encoded);
         }
-        seq.serialize_element(&string_pool)?;
-        seq.end()
+        string_pool.to_bytes(data)
     }
 }
 

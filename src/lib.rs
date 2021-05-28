@@ -57,8 +57,8 @@ pub mod layout;
 // mod loca;
 // /// The `maxp` (Maximum profile) table
 // pub mod maxp;
-// /// The `name` (Naming) table
-// pub mod name;
+/// The `name` (Naming) table
+pub mod name;
 // /// The `OS/2` (OS/2 and Windows Metrics) table
 // pub mod os2;
 // /// OpenType Variations common tables
