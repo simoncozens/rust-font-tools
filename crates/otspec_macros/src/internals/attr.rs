@@ -83,18 +83,11 @@ impl<'c> BoolAttr<'c> {
 }
 
 /// Represents struct or enum attribute information.
-pub struct Container {
-    default: Default,
-    ser_bound: Option<Vec<syn::WherePredicate>>,
-}
+pub struct Container {}
 
 impl Container {
     /// Extract out the `#[serde(...)]` attributes from an item.
     pub fn from_ast(cx: &Ctxt, item: &syn::DeriveInput) -> Self {
-        let mut default = Attr::none(cx, DEFAULT);
-        let mut ser_bound = Attr::none(cx, BOUND);
-        let mut de_bound = Attr::none(cx, BOUND);
-
         for meta_item in item
             .attrs
             .iter()
@@ -102,66 +95,6 @@ impl Container {
             .flatten()
         {
             match &meta_item {
-                // Parse `#[serde(default)]`
-                Meta(Path(word)) if word == DEFAULT => match &item.data {
-                    syn::Data::Struct(syn::DataStruct { fields, .. }) => match fields {
-                        syn::Fields::Named(_) => {
-                            default.set(word, Default::Default);
-                        }
-                        syn::Fields::Unnamed(_) | syn::Fields::Unit => cx.error_spanned_by(
-                            fields,
-                            "#[serde(default)] can only be used on structs with named fields",
-                        ),
-                    },
-                    syn::Data::Enum(syn::DataEnum { enum_token, .. }) => cx.error_spanned_by(
-                        enum_token,
-                        "#[serde(default)] can only be used on structs with named fields",
-                    ),
-                    syn::Data::Union(syn::DataUnion { union_token, .. }) => cx.error_spanned_by(
-                        union_token,
-                        "#[serde(default)] can only be used on structs with named fields",
-                    ),
-                },
-
-                // Parse `#[serde(default = "...")]`
-                Meta(NameValue(m)) if m.path == DEFAULT => {
-                    if let Ok(path) = parse_lit_into_expr_path(cx, DEFAULT, &m.lit) {
-                        match &item.data {
-                            syn::Data::Struct(syn::DataStruct { fields, .. }) => {
-                                match fields {
-                                    syn::Fields::Named(_) => {
-                                        default.set(&m.path, Default::Path(path));
-                                    }
-                                    syn::Fields::Unnamed(_) | syn::Fields::Unit => cx
-                                        .error_spanned_by(
-                                            fields,
-                                            "#[serde(default = \"...\")] can only be used on structs with named fields",
-                                        ),
-                                }
-                            }
-                            syn::Data::Enum(syn::DataEnum { enum_token, .. }) => cx
-                                .error_spanned_by(
-                                    enum_token,
-                                    "#[serde(default = \"...\")] can only be used on structs with named fields",
-                                ),
-                            syn::Data::Union(syn::DataUnion {
-                                union_token, ..
-                            }) => cx.error_spanned_by(
-                                union_token,
-                                "#[serde(default = \"...\")] can only be used on structs with named fields",
-                            ),
-                        }
-                    }
-                }
-
-                // Parse `#[serde(bound = "T: SomeBound")]`
-                Meta(NameValue(m)) if m.path == BOUND => {
-                    if let Ok(where_predicates) = parse_lit_into_where(cx, BOUND, BOUND, &m.lit) {
-                        ser_bound.set(&m.path, where_predicates.clone());
-                        de_bound.set(&m.path, where_predicates);
-                    }
-                }
-
                 Meta(meta_item) => {
                     let path = meta_item
                         .path()
@@ -194,17 +127,7 @@ impl Container {
             }
         }
 
-        Container {
-            default: default.get().unwrap_or(Default::None),
-            ser_bound: ser_bound.get(),
-        }
-    }
-    pub fn default(&self) -> &Default {
-        &self.default
-    }
-
-    pub fn ser_bound(&self) -> Option<&[syn::WherePredicate]> {
-        self.ser_bound.as_ref().map(|vec| &vec[..])
+        Container {}
     }
 }
 
@@ -238,13 +161,7 @@ pub enum Default {
 
 impl Field {
     /// Extract out the `#[serde(...)]` attributes from a struct field.
-    pub fn from_ast(
-        cx: &Ctxt,
-        _index: usize,
-        field: &syn::Field,
-        attrs: Option<&Variant>,
-        container_default: &Default,
-    ) -> Self {
+    pub fn from_ast(cx: &Ctxt, _index: usize, field: &syn::Field, attrs: Option<&Variant>) -> Self {
         let skip_deserializing = BoolAttr::none(cx, SKIP_DESERIALIZING);
         let mut default = Attr::none(cx, DEFAULT);
         let mut serialize_with = Attr::none(cx, SERIALIZE_WITH);
@@ -303,15 +220,6 @@ impl Field {
                 Lit(lit) => {
                     cx.error_spanned_by(lit, "unexpected literal in serde field attribute");
                 }
-            }
-        }
-
-        // Is skip_deserializing, initialize the field to Default::default() unless a
-        // different default is specified by `#[serde(default = "...")]` on
-        // ourselves or our container (e.g. the struct we are in).
-        if let Default::None = *container_default {
-            if skip_deserializing.0.value.is_some() {
-                default.set_if_none(Default::Default);
             }
         }
 

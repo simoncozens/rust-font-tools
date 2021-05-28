@@ -78,15 +78,12 @@ fn build_generics(cont: &Container) -> syn::Generics {
     let generics =
         bound::with_where_predicates_from_fields(cont, &generics, attr::Field::ser_bound);
 
-    match cont.attrs.ser_bound() {
-        Some(predicates) => bound::with_where_predicates(&generics, predicates),
-        None => bound::with_bound(
-            cont,
-            &generics,
-            needs_serialize_bound,
-            &parse_quote!(_serde::Serialize),
-        ),
-    }
+    bound::with_bound(
+        cont,
+        &generics,
+        needs_serialize_bound,
+        &parse_quote!(_serde::Serialize),
+    )
 }
 fn needs_serialize_bound(field: &attr::Field, _variant: Option<&attr::Variant>) -> bool {
     field.serialize_with().is_none()
