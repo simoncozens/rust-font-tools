@@ -11,25 +11,10 @@ pub type uint32 = u32;
 pub type int16 = i16;
 pub type FWORD = i16;
 pub type UFWORD = u16;
-
-#[derive(Shrinkwrap, Debug, PartialEq)]
-pub struct Tuple(Vec<f32>);
-impl Serialize for Tuple {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        for var in &self.0 {
-            let packed: i32 = ot_round(var * 65536.0);
-            packed.to_bytes(data)?
-        }
-        Ok(())
-    }
-}
-
 pub type Tag = [u8; 4];
-#[macro_export]
-macro_rules! tag {
-    ($e: expr) => {
-        (*$e).as_bytes().try_into().unwrap(): Tag
-    };
+
+pub fn tag(s: &str) -> Tag {
+    (*s).as_bytes().try_into().unwrap()
 }
 
 impl Serialize for Tag {
@@ -48,8 +33,10 @@ impl Deserialize for Tag {
     }
 }
 
-#[derive(Shrinkwrap, Debug, PartialEq)]
+#[derive(Shrinkwrap, Debug, PartialEq, Copy, Clone)]
 pub struct Fixed(pub f32);
+
+pub type Tuple = Vec<f32>;
 
 fn ot_round(value: f32) -> i32 {
     (value + 0.5).floor() as i32
