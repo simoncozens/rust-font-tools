@@ -61,16 +61,14 @@ fn serialize_fields(fields: &[Field]) -> Vec<TokenStream> {
 }
 
 struct Parameters {
-    this: syn::Path,
     generics: syn::Generics,
 }
 
 impl Parameters {
     fn new(cont: &Container) -> Self {
-        let this = cont.ident.clone().into();
         let generics = build_generics(cont);
 
-        Parameters { this, generics }
+        Parameters { generics }
     }
 }
 

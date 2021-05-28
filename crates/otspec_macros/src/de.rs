@@ -1,4 +1,4 @@
-use proc_macro2::{TokenStream};
+use proc_macro2::TokenStream;
 
 use syn::{self};
 
@@ -137,22 +137,14 @@ fn get_vector_arg(path: &syn::TypePath) -> TokenStream {
 // }
 
 struct Parameters {
-    this: syn::Path,
     generics: syn::Generics,
 }
 
 impl Parameters {
     fn new(cont: &Container) -> Self {
-        let this = cont.ident.clone().into();
         let generics = build_generics(cont);
 
-        Parameters { this, generics }
-    }
-
-    /// Type name to use in error messages and `&'static str` arguments to
-    /// various Serializer methods.
-    fn type_name(&self) -> String {
-        self.this.segments.last().unwrap().ident.to_string()
+        Parameters { generics }
     }
 }
 
