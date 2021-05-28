@@ -1,3 +1,4 @@
+#![feature(type_ascription)]
 #![allow(non_snake_case, non_camel_case_types, clippy::upper_case_acronyms)]
 #[macro_use]
 extern crate shrinkwraprs;
@@ -14,7 +15,7 @@ pub struct DeserializationError(pub String);
 pub struct ReaderContext {
     input: Vec<u8>,
     pub ptr: usize,
-    ptrs: Vec<usize>,
+    top_of_table_stack: Vec<usize>,
 }
 
 impl ReaderContext {
@@ -22,29 +23,47 @@ impl ReaderContext {
         ReaderContext {
             input,
             ptr: 0,
-            ptrs: vec![],
+            top_of_table_stack: vec![0],
         }
     }
 
-    fn consume(&mut self, bytes: usize) -> Result<&[u8], DeserializationError> {
+    fn consume_or_peek(
+        &mut self,
+        bytes: usize,
+        consume: bool,
+    ) -> Result<&[u8], DeserializationError> {
         if self.ptr + bytes > self.input.len() {
             Err(DeserializationError("End of file".to_string()))
         } else {
             let subslice = &self.input[self.ptr..self.ptr + bytes];
-            self.ptr += bytes;
+            if consume {
+                self.ptr += bytes;
+            }
             Ok(subslice)
         }
     }
 
-    pub fn push(&mut self, bytes: usize) {
-        self.ptrs.push(self.ptr);
-        self.ptr = bytes;
+    fn consume(&mut self, bytes: usize) -> Result<&[u8], DeserializationError> {
+        self.consume_or_peek(bytes, true)
+    }
+
+    pub fn peek(&mut self, bytes: usize) -> Result<&[u8], DeserializationError> {
+        self.consume_or_peek(bytes, false)
+    }
+
+    pub fn push(&mut self) {
+        self.top_of_table_stack.push(self.ptr);
     }
     pub fn pop(&mut self) {
-        self.ptr = self.ptrs.pop().expect("pop with no matching push");
+        self.top_of_table_stack
+            .pop()
+            .expect("pop with no matching push");
     }
-    pub fn start_of_struct(&self) -> usize {
-        *self.ptrs.last().expect("not in a struct")
+    pub fn top_of_table(&self) -> usize {
+        *self.top_of_table_stack.last().expect("not in a struct")
+    }
+    pub fn skip(&mut self, bytes: usize) {
+        self.ptr += bytes;
     }
 }
 
