@@ -24,28 +24,27 @@ impl Serialize for Tuple {
     }
 }
 
-#[derive(Shrinkwrap, Debug, PartialEq)]
-pub struct Tag(pub [u8; 4]);
+pub type Tag = [u8; 4];
 #[macro_export]
 macro_rules! tag {
     ($e: expr) => {
-        crate::types::Tag((*$e).as_bytes().try_into().unwrap())
+        (*$e).as_bytes().try_into().unwrap(): Tag
     };
 }
 
 impl Serialize for Tag {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        self.0[0].to_bytes(data)?;
-        self.0[1].to_bytes(data)?;
-        self.0[2].to_bytes(data)?;
-        self.0[3].to_bytes(data)?;
+        self[0].to_bytes(data)?;
+        self[1].to_bytes(data)?;
+        self[2].to_bytes(data)?;
+        self[3].to_bytes(data)?;
         Ok(())
     }
 }
 
 impl Deserialize for Tag {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        Ok(Tag(c.consume(4)?.try_into().unwrap()))
+        Ok(c.consume(4)?.try_into().unwrap())
     }
 }
 
