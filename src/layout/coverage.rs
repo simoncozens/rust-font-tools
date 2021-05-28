@@ -1,12 +1,12 @@
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field};
+use otspec::DeserializationError;
+use otspec::Deserialize;
+use otspec::Deserializer;
+use otspec::ReaderContext;
+use otspec::SerializationError;
+use otspec::Serialize;
+use otspec::Serializer;
 use otspec_macros::tables;
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::ser::SerializeSeq;
-use serde::Deserializer;
-use serde::Serializer;
-use serde::{Deserialize, Serialize};
 
 tables!(
     CoverageFormat1 {
@@ -32,17 +32,15 @@ pub struct Coverage {
     pub glyphs: Vec<uint16>,
 }
 
-deserialize_visitor!(
-    Coverage,
-    CoverageVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let format = read_field!(seq, uint16, "a coverage table format field");
+impl Deserialize for Coverage {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let format: uint16 = c.de()?;
         let glyphs: Vec<uint16> = if format == 1 {
-            let cf1 = read_field!(seq, CoverageFormat1, "a coverage table format 1");
+            let cf1: CoverageFormat1 = c.de()?;
             cf1.glyphArray
         } else {
-            let cf1 = read_field!(seq, CoverageFormat2, "a coverage table format 1");
-            cf1.rangeRecords
+            let cf2: CoverageFormat2 = c.de()?;
+            cf2.rangeRecords
                 .iter()
                 .map(|rr| rr.startGlyphID..rr.endGlyphID + 1)
                 .flatten()
@@ -50,7 +48,7 @@ deserialize_visitor!(
         };
         Ok(Coverage { glyphs })
     }
-);
+}
 
 fn consecutive_slices(data: &[uint16]) -> Vec<&[uint16]> {
     let mut slice_start = 0;
@@ -85,34 +83,32 @@ fn is_sorted<T: Ord>(slice: &[T]) -> bool {
 }
 
 impl Serialize for Coverage {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let as_consecutive = consecutive_slices(&self.glyphs);
         if self.glyphs.is_empty()
             || !is_sorted(&self.glyphs)
             || as_consecutive.len() * 3 >= self.glyphs.len()
         {
-            seq.serialize_element::<uint16>(&1)?;
-            seq.serialize_element(&CoverageFormat1 {
+            1_u16.to_bytes(data)?;
+            CoverageFormat1 {
                 glyphArray: self.glyphs.clone(),
-            })?;
+            }
+            .to_bytes(data)?
         } else {
-            seq.serialize_element::<uint16>(&2)?;
+            2_u16.to_bytes(data)?;
             let mut index = 0;
-            seq.serialize_element(&(as_consecutive.len() as uint16))?;
+            (as_consecutive.len() as uint16).to_bytes(data)?;
             for slice in as_consecutive {
-                seq.serialize_element(&RangeRecord {
+                RangeRecord {
                     startGlyphID: *slice.first().unwrap(),
                     endGlyphID: *slice.last().unwrap(),
                     startCoverageIndex: index,
-                })?;
+                }
+                .to_bytes(data)?;
                 index += slice.len() as u16;
             }
         }
-        seq.end()
+        Ok(())
     }
 }
 
