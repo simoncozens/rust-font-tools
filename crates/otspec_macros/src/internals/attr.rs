@@ -6,10 +6,9 @@ use quote::ToTokens;
 
 use syn;
 use syn::parse::{self, Parse, ParseStream};
-use syn::punctuated::Punctuated;
+
 use syn::Meta::{List, NameValue, Path};
 use syn::NestedMeta::{Lit, Meta};
-use syn::Token;
 
 // This module handles parsing of `#[serde(...)]` attributes. The entrypoints
 // are `attr::Container::from_ast`, `attr::Variant::from_ast`, and
@@ -22,7 +21,6 @@ use syn::Token;
 struct Attr<'c, T> {
     cx: &'c Ctxt,
     name: Symbol,
-    tokens: TokenStream,
     value: Option<T>,
 }
 
@@ -31,7 +29,6 @@ impl<'c, T> Attr<'c, T> {
         Attr {
             cx,
             name,
-            tokens: TokenStream::new(),
             value: None,
         }
     }
@@ -43,26 +40,12 @@ impl<'c, T> Attr<'c, T> {
             self.cx
                 .error_spanned_by(tokens, format!("duplicate serde attribute `{}`", self.name));
         } else {
-            self.tokens = tokens;
-            self.value = Some(value);
-        }
-    }
-
-    fn set_if_none(&mut self, value: T) {
-        if self.value.is_none() {
             self.value = Some(value);
         }
     }
 
     fn get(self) -> Option<T> {
         self.value
-    }
-
-    fn get_with_tokens(self) -> Option<(TokenStream, T)> {
-        match self.value {
-            Some(v) => Some((self.tokens, v)),
-            None => None,
-        }
     }
 }
 
@@ -143,30 +126,21 @@ impl Variant {
 /// Represents field attribute information
 pub struct Field {
     pub offset_base: bool,
-    default: Default,
     serialize_with: Option<syn::ExprPath>,
     deserialize_with: Option<syn::ExprPath>,
-    ser_bound: Option<Vec<syn::WherePredicate>>,
-}
-
-/// Represents the default to use for a field when deserializing.
-pub enum Default {
-    /// Field must always be specified because it does not have a default.
-    None,
-    /// The default is given by `std::default::Default::default()`.
-    Default,
-    /// The default is given by this function.
-    Path(syn::ExprPath),
 }
 
 impl Field {
     /// Extract out the `#[serde(...)]` attributes from a struct field.
-    pub fn from_ast(cx: &Ctxt, _index: usize, field: &syn::Field, attrs: Option<&Variant>) -> Self {
-        let skip_deserializing = BoolAttr::none(cx, SKIP_DESERIALIZING);
-        let mut default = Attr::none(cx, DEFAULT);
+    pub fn from_ast(
+        cx: &Ctxt,
+        _index: usize,
+        field: &syn::Field,
+        _attrs: Option<&Variant>,
+    ) -> Self {
+        let _skip_deserializing = BoolAttr::none(cx, SKIP_DESERIALIZING);
         let mut serialize_with = Attr::none(cx, SERIALIZE_WITH);
         let mut deserialize_with = Attr::none(cx, DESERIALIZE_WITH);
-        let ser_bound = Attr::none(cx, BOUND);
         let mut offset_base = BoolAttr::none(cx, OFFSET_BASE);
 
         for meta_item in field
@@ -225,10 +199,8 @@ impl Field {
 
         Field {
             offset_base: offset_base.get(),
-            default: default.get().unwrap_or(Default::None),
             serialize_with: serialize_with.get(),
             deserialize_with: deserialize_with.get(),
-            ser_bound: ser_bound.get(),
         }
     }
 
@@ -238,10 +210,6 @@ impl Field {
 
     pub fn deserialize_with(&self) -> Option<&syn::ExprPath> {
         self.deserialize_with.as_ref()
-    }
-
-    pub fn ser_bound(&self) -> Option<&[syn::WherePredicate]> {
-        self.ser_bound.as_ref().map(|vec| &vec[..])
     }
 }
 
@@ -296,24 +264,6 @@ fn parse_lit_into_expr_path(
     parse_lit_str(string).map_err(|_| {
         cx.error_spanned_by(lit, format!("failed to parse path: {:?}", string.value()))
     })
-}
-
-fn parse_lit_into_where(
-    cx: &Ctxt,
-    attr_name: Symbol,
-    meta_item_name: Symbol,
-    lit: &syn::Lit,
-) -> Result<Vec<syn::WherePredicate>, ()> {
-    let string = get_lit_str2(cx, attr_name, meta_item_name, lit)?;
-    if string.value().is_empty() {
-        return Ok(Vec::new());
-    }
-
-    let where_string = syn::LitStr::new(&format!("where {}", string.value()), string.span());
-
-    parse_lit_str::<syn::WhereClause>(&where_string)
-        .map(|wh| wh.predicates.into_iter().collect())
-        .map_err(|err| cx.error_spanned_by(lit, err))
 }
 
 fn parse_lit_str<T>(s: &syn::LitStr) -> parse::Result<T>

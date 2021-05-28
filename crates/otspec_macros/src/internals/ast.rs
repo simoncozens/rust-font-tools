@@ -90,17 +90,6 @@ impl<'a> Container<'a> {
     }
 }
 
-impl<'a> Data<'a> {
-    pub fn all_fields(&'a self) -> Box<dyn Iterator<Item = &'a Field<'a>> + 'a> {
-        match self {
-            Data::Enum(variants) => {
-                Box::new(variants.iter().flat_map(|variant| variant.fields.iter()))
-            }
-            Data::Struct(_, fields) => Box::new(fields.iter()),
-        }
-    }
-}
-
 fn enum_from_ast<'a>(
     cx: &Ctxt,
     variants: &'a Punctuated<syn::Variant, Token![,]>,
