@@ -1,8 +1,4 @@
-use otspec::{read_remainder, stateful_deserializer};
-use serde::de::DeserializeSeed;
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::{Deserialize, Serialize, Serializer};
+use otspec::{DeserializationError, Deserializer, ReaderContext};
 
 /// Structures for handling components within a composite glyph
 mod component;
@@ -17,66 +13,42 @@ pub use point::Point;
 
 /// The glyf table
 #[allow(non_camel_case_types)]
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, PartialEq)]
 pub struct glyf {
     /// A list of glyph objects in the font
     pub glyphs: Vec<Glyph>,
 }
 
-stateful_deserializer!(
-    glyf,
-    GlyfDeserializer,
-    { loca_offsets: Vec<Option<u32>> },
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<glyf, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut res = glyf { glyphs: Vec::new() };
-        let remainder = read_remainder!(seq, "a glyph table");
-        for item in self.loca_offsets {
-            match item {
-                None => res.glyphs.push(Glyph {
-                    contours: vec![],
-                    components: vec![],
-                    overlap: false,
-                    xMax: 0,
-                    xMin: 0,
-                    yMax: 0,
-                    yMin: 0,
-                    instructions: vec![],
-                }),
-                Some(item) => {
-                    let binary_glyf = &remainder[(item as usize)..];
-                    // println!("Reading glyf at item {:?}", item);
-                    // println!("Reading binary glyf {:?}", binary_glyf);
-                    let glyph: Glyph =
-                        otspec::de::from_bytes(binary_glyf).map_err(|e| {
-                            serde::de::Error::custom(format!("Expecting a glyph: {:?}", e))
-                        })?;
-                    res.glyphs.push(glyph)
-                }
-            }
-        }
-        Ok(res)
-    }
-);
-
-impl Serialize for glyf {
-    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        panic!("Don't call this serializer, call the one in Font instead")
-    }
-}
-
 /// Deserialize the font from a binary buffer.
 ///
 /// loca_offsets must be obtained from the `loca` table.
-pub fn from_bytes(s: &[u8], loca_offsets: Vec<Option<u32>>) -> otspec::error::Result<glyf> {
-    let mut deserializer = otspec::de::Deserializer::from_bytes(s);
-    let cs: GlyfDeserializer = GlyfDeserializer { loca_offsets };
-    cs.deserialize(&mut deserializer)
+pub fn from_bytes(
+    c: &mut ReaderContext,
+    loca_offsets: Vec<Option<u32>>,
+) -> Result<glyf, DeserializationError> {
+    let mut res = glyf { glyphs: Vec::new() };
+    for item in loca_offsets {
+        match item {
+            None => res.glyphs.push(Glyph {
+                contours: vec![],
+                components: vec![],
+                overlap: false,
+                xMax: 0,
+                xMin: 0,
+                yMax: 0,
+                yMin: 0,
+                instructions: vec![],
+            }),
+            Some(item) => {
+                let old = c.ptr;
+                c.ptr = item as usize;
+                let glyph: Glyph = c.de()?;
+                res.glyphs.push(glyph);
+                c.ptr = old;
+            }
+        }
+    }
+    Ok(res)
 }
 
 impl glyf {

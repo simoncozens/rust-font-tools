@@ -1,9 +1,11 @@
 use otspec::types::*;
-use otspec::{read_field, stateful_deserializer};
-use serde::de::{DeserializeSeed, SeqAccess, Visitor};
-use serde::{Serialize, Serializer};
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Serializer,
+};
+use otspec_macros::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 /// A single horizontal metric
 pub struct Metric {
@@ -46,60 +48,43 @@ impl hmtx {
     }
 }
 
-stateful_deserializer!(
-    hmtx,
-    HmtxDeserializer,
-    { number_of_h_metrics: uint16 },
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<hmtx, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let mut res = hmtx {
-            metrics: Vec::new(),
-        };
-        for _ in 0..self.number_of_h_metrics {
-            let advance_width = read_field!(seq, uint16, "an advance width");
-            let lsb = read_field!(seq, int16, "a LSB");
-            res.metrics.push(Metric {
-                advanceWidth: advance_width,
-                lsb,
-            })
-        }
-        if let Some(other_metrics) = seq.next_element::<Vec<int16>>()? {
-            let last = res
-                .metrics
-                .last()
-                .expect("Must be one advance width in hmtx!")
-                .advanceWidth;
-            res.metrics.extend(other_metrics.iter().map(|x| Metric {
-                lsb: *x,
-                advanceWidth: last,
-            }))
-        }
-        Ok(res)
-    }
-);
-
 impl Serialize for hmtx {
-    fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // We'll do this elsewhere
-        panic!(
-            "loca cannot be serialized directly. Call compile_glyf_loca_maxp on the font instead"
-        )
+    fn to_bytes(
+        &self,
+        _: &mut std::vec::Vec<u8>,
+    ) -> std::result::Result<(), otspec::SerializationError> {
+        Err(otspec::SerializationError(
+            "Can't serialize hmtx directly".to_string(),
+        ))
     }
 }
 
 /// Deserializes a Horizontal Metrics Table given a binary vector and the
 /// `numberOfHMetrics` field of the `hhea` table.
-pub fn from_bytes(s: &[u8], number_of_h_metrics: uint16) -> otspec::error::Result<hmtx> {
-    let mut deserializer = otspec::de::Deserializer::from_bytes(s);
-    let cs: HmtxDeserializer = HmtxDeserializer {
-        number_of_h_metrics,
+pub fn from_bytes(
+    c: &mut ReaderContext,
+    number_of_h_metrics: uint16,
+) -> Result<hmtx, DeserializationError> {
+    let mut res = hmtx {
+        metrics: Vec::new(),
     };
-    cs.deserialize(&mut deserializer)
+    for _ in 0..number_of_h_metrics {
+        let metric: Metric = c.de()?;
+        res.metrics.push(metric)
+    }
+    let maybe_other_metrics: Result<Vec<int16>, DeserializationError> = c.de();
+    if let Ok(other_metrics) = maybe_other_metrics {
+        let last = res
+            .metrics
+            .last()
+            .expect("Must be one advance width in hmtx!")
+            .advanceWidth;
+        res.metrics.extend(other_metrics.iter().map(|x| Metric {
+            lsb: *x,
+            advanceWidth: last,
+        }))
+    }
+    Ok(res)
 }
 
 #[cfg(test)]
@@ -108,12 +93,12 @@ mod tests {
 
     #[test]
     fn hmtx_de_16bit() {
-        let binary_hmtx = vec![
+        let mut binary_hmtx = otspec::ReaderContext::new(vec![
             0x02, 0xf4, 0x00, 0x05, 0x02, 0xf4, 0x00, 0x05, 0x02, 0x98, 0x00, 0x1e, 0x02, 0xf4,
             0x00, 0x05, 0x00, 0xc8, 0x00, 0x00, 0x02, 0x58, 0x00, 0x1d, 0x02, 0x58, 0x00, 0x1d,
             0x00, 0x0a, 0xff, 0x73,
-        ];
-        let fhmtx = hmtx::from_bytes(&binary_hmtx, 8).unwrap();
+        ]);
+        let fhmtx = hmtx::from_bytes(&mut binary_hmtx, 8).unwrap();
         let metrics = [
             Metric {
                 advanceWidth: 756,

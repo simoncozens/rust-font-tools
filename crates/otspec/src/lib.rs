@@ -13,7 +13,7 @@ pub struct SerializationError(pub String);
 pub struct DeserializationError(pub String);
 
 pub struct ReaderContext {
-    input: Vec<u8>,
+    pub input: Vec<u8>,
     pub ptr: usize,
     top_of_table_stack: Vec<usize>,
 }
@@ -154,6 +154,7 @@ macro_rules! serde_primitive {
     };
 }
 
+serde_primitive!(i8);
 serde_primitive!(u8);
 serde_primitive!(u16);
 serde_primitive!(u32);
@@ -170,6 +171,24 @@ where
             el.to_bytes(data)?
         }
         Ok(())
+    }
+}
+
+impl<T> Deserialize for Vec<T>
+where
+    T: Deserialize,
+{
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let mut res: Vec<T> = vec![];
+        loop {
+            let maybe: Result<T, DeserializationError> = c.de();
+            if let Ok(x) = maybe {
+                res.push(x);
+            } else {
+                break;
+            }
+        }
+        Ok(res)
     }
 }
 

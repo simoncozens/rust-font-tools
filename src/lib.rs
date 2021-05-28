@@ -1,4 +1,5 @@
 #![warn(missing_docs, missing_crate_level_docs)]
+#![feature(type_ascription)]
 //! A library for parsing, manipulating and writing OpenType fonts
 //!
 //! # Example usage
@@ -42,19 +43,19 @@ pub mod font;
 pub mod fvar;
 /// The `gasp` (Grid-fitting and Scan-conversion Procedure) table
 pub mod gasp;
-// /// The `glyf` (Glyf data) table
-// pub mod glyf;
+/// The `glyf` (Glyf data) table
+pub mod glyf;
 // /// The `gvar` (Glyph variations) table
 // pub mod gvar;
 /// The `head` (Header) table
 pub mod head;
 /// The `hhea` (Horizontal header) table
 pub mod hhea;
-// /// The `hmtx` (Horizontal metrics) table
-// pub mod hmtx;
+/// The `hmtx` (Horizontal metrics) table
+pub mod hmtx;
 /// OpenType Layout common tables
 pub mod layout;
-// mod loca;
+mod loca;
 /// The `maxp` (Maximum profile) table
 pub mod maxp;
 /// The `name` (Naming) table
