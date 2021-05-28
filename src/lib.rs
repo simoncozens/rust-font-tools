@@ -59,9 +59,9 @@ pub mod layout;
 // pub mod maxp;
 /// The `name` (Naming) table
 pub mod name;
-// /// The `OS/2` (OS/2 and Windows Metrics) table
-// pub mod os2;
+/// The `OS/2` (OS/2 and Windows Metrics) table
+pub mod os2;
 // /// OpenType Variations common tables
 // pub mod otvar;
-// /// The `post` (PostScript) table
-// pub mod post;
+/// The `post` (PostScript) table
+pub mod post;

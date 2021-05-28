@@ -1,12 +1,10 @@
 #![allow(non_camel_case_types, non_snake_case)]
 
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field};
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+};
 use otspec_macros::tables;
-use serde::de::{SeqAccess, Visitor};
-use serde::ser::SerializeSeq;
-use serde::Serializer;
-use serde::{Deserialize, Deserializer, Serialize};
 
 tables!(
     Panose {
@@ -156,12 +154,8 @@ pub struct os2 {
 }
 
 impl Serialize for os2 {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
-        seq.serialize_element(&os2core {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        os2core {
             version: self.version,
             xAvgCharWidth: self.xAvgCharWidth,
             usWeightClass: self.usWeightClass,
@@ -203,38 +197,39 @@ impl Serialize for os2 {
             sTypoLineGap: self.sTypoLineGap,
             usWinAscent: self.usWinAscent,
             usWinDescent: self.usWinDescent,
-        })?;
+        }
+        .to_bytes(data)?;
         if self.version > 0 {
-            seq.serialize_element(&os2v1 {
+            (&os2v1 {
                 ulCodePageRange1: self.ulCodePageRange1.unwrap_or(0),
                 ulCodePageRange2: self.ulCodePageRange1.unwrap_or(0),
-            })?;
+            })
+                .to_bytes(data)?;
         }
         if self.version > 1 {
-            seq.serialize_element(&os2v2 {
+            (&os2v2 {
                 sxHeight: self.sxHeight.unwrap_or(0),
                 sCapHeight: self.sCapHeight.unwrap_or(0),
                 usDefaultChar: self.usDefaultChar.unwrap_or(0),
                 usBreakChar: self.usBreakChar.unwrap_or(0),
                 usMaxContext: self.usMaxContext.unwrap_or(0),
-            })?;
+            })
+                .to_bytes(data)?;
         }
         if self.version > 4 {
-            seq.serialize_element(&os2v5 {
+            (&os2v5 {
                 usLowerOpticalPointSize: self.usLowerOpticalPointSize.unwrap_or(0),
                 usUpperOpticalPointSize: self.usUpperOpticalPointSize.unwrap_or(0),
-            })?;
+            })
+                .to_bytes(data)?;
         }
-
-        seq.end()
+        Ok(())
     }
 }
 
-deserialize_visitor!(
-    os2,
-    Os2Visitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let core = read_field!(seq, os2core, "an OS/2 table");
+impl Deserialize for os2 {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let core: os2core = c.de()?;
         let mut res = os2 {
             version: core.version,
             xAvgCharWidth: core.xAvgCharWidth,
@@ -277,12 +272,12 @@ deserialize_visitor!(
             usUpperOpticalPointSize: None,
         };
         if core.version > 0 {
-            let v1 = read_field!(seq, os2v1, "OS/2 version 1 fields");
+            let v1: os2v1 = c.de()?;
             res.ulCodePageRange1 = Some(v1.ulCodePageRange1);
             res.ulCodePageRange2 = Some(v1.ulCodePageRange2);
         }
         if core.version > 1 {
-            let v2 = read_field!(seq, os2v2, "OS/2 version 2 fields");
+            let v2: os2v2 = c.de()?;
             res.sxHeight = Some(v2.sxHeight);
             res.sCapHeight = Some(v2.sCapHeight);
             res.usDefaultChar = Some(v2.usDefaultChar);
@@ -290,10 +285,10 @@ deserialize_visitor!(
             res.usMaxContext = Some(v2.usMaxContext);
         }
         if core.version > 4 {
-            let v5 = read_field!(seq, os2v5, "OS/2 version 5 fields");
+            let v5: os2v5 = c.de()?;
             res.usLowerOpticalPointSize = Some(v5.usLowerOpticalPointSize);
             res.usUpperOpticalPointSize = Some(v5.usUpperOpticalPointSize);
         }
         Ok(res)
     }
-);
+}

@@ -1,11 +1,9 @@
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_field_counted};
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Serializer,
+};
 use otspec_macros::tables;
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::ser::SerializeSeq;
-use serde::{Deserialize, Serialize};
-use serde::{Deserializer, Serializer};
 
 /// The list of 258 standard Macintosh glyph names.
 /// Names not in this list will be stored separately in the post table if
@@ -344,10 +342,7 @@ impl post {
     }
 }
 impl Serialize for post {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let core = postcore {
             version: self.version,
             italicAngle: self.italicAngle,
@@ -359,20 +354,19 @@ impl Serialize for post {
             minMemType1: self.minMemType1,
             maxMemType1: self.maxMemType1,
         };
-        let mut seq = serializer.serialize_seq(None)?;
-        seq.serialize_element(&core)?;
+        core.to_bytes(data)?;
         let mut glyph_name_table: Vec<u8> = Vec::new();
         let mut glyph_name_table_items = 0;
         if core.version == U16F16::from_num(2.0) {
             if let Some(v) = &self.glyphnames {
-                seq.serialize_element(&(v.len() as u16))?;
+                (v.len() as u16).to_bytes(data)?;
                 for name in v {
                     match APPLE_NAMES.iter().position(|&r| r == name) {
                         Some(index) => {
-                            seq.serialize_element(&(index as u16))?;
+                            (index as u16).to_bytes(data)?;
                         }
                         None => {
-                            seq.serialize_element(&((258 + glyph_name_table_items) as u16))?;
+                            ((258 + glyph_name_table_items) as u16).to_bytes(data)?;
                             glyph_name_table.push(name.len() as u8);
                             glyph_name_table.extend(name.as_bytes());
                             glyph_name_table_items += 1;
@@ -380,33 +374,28 @@ impl Serialize for post {
                     }
                 }
             }
-            seq.serialize_element(&glyph_name_table)?;
+            glyph_name_table.to_bytes(data)?;
         }
-        seq.end()
+        Ok(())
     }
 }
-deserialize_visitor!(
-    post,
-    PostVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let core = read_field!(seq, postcore, "a post table");
+
+impl Deserialize for post {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let core: postcore = c.de()?;
         let mut glyphnames = None;
         if core.version == U16F16::from_num(2.0) {
-            let num_glyphs = read_field!(seq, uint16, "a number of glyphs");
-            let glyph_offsets: Vec<u16> = read_field_counted!(seq, num_glyphs, "glyph offsets");
+            let num_glyphs: uint16 = c.de()?;
+            let glyph_offsets: Vec<u16> = c.de_counted(num_glyphs.into())?;
             let mut glyphnames_vec = Vec::with_capacity(num_glyphs as usize);
             let mut glyph_name_table: Vec<String> = Vec::new();
             loop {
-                let byte_count = seq.next_element::<u8>();
+                let byte_count: Result<u8, DeserializationError> = c.de();
                 if byte_count.is_err() {
                     break;
                 }
-                let byte_count = byte_count.unwrap();
-                if byte_count.is_none() {
-                    break;
-                }
                 let byte_count = byte_count.unwrap() as usize;
-                let name: Vec<u8> = read_field_counted!(seq, byte_count, "glyph name");
+                let name: Vec<u8> = c.de_counted(byte_count)?;
                 glyph_name_table.push(String::from_utf8(name).unwrap());
             }
             for i in 0..num_glyphs {
@@ -432,7 +421,7 @@ deserialize_visitor!(
             glyphnames,
         })
     }
-);
+}
 
 #[cfg(test)]
 mod tests {
