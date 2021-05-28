@@ -449,72 +449,12 @@ impl Container {
             expecting: expecting.get(),
         }
     }
-
-    pub fn deny_unknown_fields(&self) -> bool {
-        self.deny_unknown_fields
-    }
-
     pub fn default(&self) -> &Default {
         &self.default
     }
 
     pub fn ser_bound(&self) -> Option<&[syn::WherePredicate]> {
         self.ser_bound.as_ref().map(|vec| &vec[..])
-    }
-
-    pub fn de_bound(&self) -> Option<&[syn::WherePredicate]> {
-        self.de_bound.as_ref().map(|vec| &vec[..])
-    }
-
-    pub fn tag(&self) -> &TagType {
-        &self.tag
-    }
-
-    pub fn type_from(&self) -> Option<&syn::Type> {
-        self.type_from.as_ref()
-    }
-
-    pub fn type_try_from(&self) -> Option<&syn::Type> {
-        self.type_try_from.as_ref()
-    }
-
-    pub fn type_into(&self) -> Option<&syn::Type> {
-        self.type_into.as_ref()
-    }
-
-    pub fn remote(&self) -> Option<&syn::Path> {
-        self.remote.as_ref()
-    }
-
-    pub fn is_packed(&self) -> bool {
-        self.is_packed
-    }
-
-    pub fn identifier(&self) -> Identifier {
-        self.identifier
-    }
-
-    pub fn has_flatten(&self) -> bool {
-        self.has_flatten
-    }
-
-    pub fn mark_has_flatten(&mut self) {
-        self.has_flatten = true;
-    }
-
-    pub fn custom_serde_path(&self) -> Option<&syn::Path> {
-        self.serde_path.as_ref()
-    }
-
-    pub fn serde_path(&self) -> Cow<syn::Path> {
-        self.custom_serde_path()
-            .map_or_else(|| Cow::Owned(parse_quote!(_serde)), Cow::Borrowed)
-    }
-
-    /// Error message generated when type can't be deserialized.
-    /// If `None`, default message will be used
-    pub fn expecting(&self) -> Option<&str> {
-        self.expecting.as_ref().map(String::as_ref)
     }
 }
 
@@ -759,15 +699,6 @@ pub enum Default {
     Path(syn::ExprPath),
 }
 
-impl Default {
-    pub fn is_none(&self) -> bool {
-        match self {
-            Default::None => true,
-            Default::Default | Default::Path(_) => false,
-        }
-    }
-}
-
 impl Field {
     /// Extract out the `#[serde(...)]` attributes from a struct field.
     pub fn from_ast(
@@ -932,22 +863,6 @@ where
     Ok((ser_meta, de_meta))
 }
 
-fn get_renames<'a>(
-    cx: &Ctxt,
-    items: &'a Punctuated<syn::NestedMeta, Token![,]>,
-) -> Result<SerAndDe<&'a syn::LitStr>, ()> {
-    let (ser, de) = get_ser_and_de(cx, RENAME, items, get_lit_str2)?;
-    Ok((ser.at_most_one()?, de.at_most_one()?))
-}
-
-fn get_multiple_renames<'a>(
-    cx: &Ctxt,
-    items: &'a Punctuated<syn::NestedMeta, Token![,]>,
-) -> Result<(Option<&'a syn::LitStr>, Vec<&'a syn::LitStr>), ()> {
-    let (ser, de) = get_ser_and_de(cx, RENAME, items, get_lit_str2)?;
-    Ok((ser.at_most_one()?, de.get()))
-}
-
 fn get_where_predicates(
     cx: &Ctxt,
     items: &Punctuated<syn::NestedMeta, Token![,]>,
@@ -998,13 +913,6 @@ fn get_lit_str2<'a>(
     }
 }
 
-fn parse_lit_into_path(cx: &Ctxt, attr_name: Symbol, lit: &syn::Lit) -> Result<syn::Path, ()> {
-    let string = get_lit_str(cx, attr_name, lit)?;
-    parse_lit_str(string).map_err(|_| {
-        cx.error_spanned_by(lit, format!("failed to parse path: {:?}", string.value()))
-    })
-}
-
 fn parse_lit_into_expr_path(
     cx: &Ctxt,
     attr_name: Symbol,
@@ -1032,191 +940,6 @@ fn parse_lit_into_where(
     parse_lit_str::<syn::WhereClause>(&where_string)
         .map(|wh| wh.predicates.into_iter().collect())
         .map_err(|err| cx.error_spanned_by(lit, err))
-}
-
-fn parse_lit_into_ty(cx: &Ctxt, attr_name: Symbol, lit: &syn::Lit) -> Result<syn::Type, ()> {
-    let string = get_lit_str(cx, attr_name, lit)?;
-
-    parse_lit_str(string).map_err(|_| {
-        cx.error_spanned_by(
-            lit,
-            format!("failed to parse type: {} = {:?}", attr_name, string.value()),
-        )
-    })
-}
-
-// Parses a string literal like "'a + 'b + 'c" containing a nonempty list of
-// lifetimes separated by `+`.
-fn parse_lit_into_lifetimes(
-    cx: &Ctxt,
-    attr_name: Symbol,
-    lit: &syn::Lit,
-) -> Result<BTreeSet<syn::Lifetime>, ()> {
-    let string = get_lit_str(cx, attr_name, lit)?;
-    if string.value().is_empty() {
-        cx.error_spanned_by(lit, "at least one lifetime must be borrowed");
-        return Err(());
-    }
-
-    struct BorrowedLifetimes(Punctuated<syn::Lifetime, Token![+]>);
-
-    impl Parse for BorrowedLifetimes {
-        fn parse(input: ParseStream) -> parse::Result<Self> {
-            Punctuated::parse_separated_nonempty(input).map(BorrowedLifetimes)
-        }
-    }
-
-    if let Ok(BorrowedLifetimes(lifetimes)) = parse_lit_str(string) {
-        let mut set = BTreeSet::new();
-        for lifetime in lifetimes {
-            if !set.insert(lifetime.clone()) {
-                cx.error_spanned_by(lit, format!("duplicate borrowed lifetime `{}`", lifetime));
-            }
-        }
-        return Ok(set);
-    }
-
-    cx.error_spanned_by(
-        lit,
-        format!("failed to parse borrowed lifetimes: {:?}", string.value()),
-    );
-    Err(())
-}
-
-fn is_implicitly_borrowed(ty: &syn::Type) -> bool {
-    is_implicitly_borrowed_reference(ty) || is_option(ty, is_implicitly_borrowed_reference)
-}
-
-fn is_implicitly_borrowed_reference(ty: &syn::Type) -> bool {
-    is_reference(ty, is_str) || is_reference(ty, is_slice_u8)
-}
-
-// Whether the type looks like it might be `std::borrow::Cow<T>` where elem="T".
-// This can have false negatives and false positives.
-//
-// False negative:
-//
-//     use std::borrow::Cow as Pig;
-//
-//     #[derive(Deserialize)]
-//     struct S<'a> {
-//         #[serde(borrow)]
-//         pig: Pig<'a, str>,
-//     }
-//
-// False positive:
-//
-//     type str = [i16];
-//
-//     #[derive(Deserialize)]
-//     struct S<'a> {
-//         #[serde(borrow)]
-//         cow: Cow<'a, str>,
-//     }
-fn is_cow(ty: &syn::Type, elem: fn(&syn::Type) -> bool) -> bool {
-    let path = match ungroup(ty) {
-        syn::Type::Path(ty) => &ty.path,
-        _ => {
-            return false;
-        }
-    };
-    let seg = match path.segments.last() {
-        Some(seg) => seg,
-        None => {
-            return false;
-        }
-    };
-    let args = match &seg.arguments {
-        syn::PathArguments::AngleBracketed(bracketed) => &bracketed.args,
-        _ => {
-            return false;
-        }
-    };
-    seg.ident == "Cow"
-        && args.len() == 2
-        && match (&args[0], &args[1]) {
-            (syn::GenericArgument::Lifetime(_), syn::GenericArgument::Type(arg)) => elem(arg),
-            _ => false,
-        }
-}
-
-fn is_option(ty: &syn::Type, elem: fn(&syn::Type) -> bool) -> bool {
-    let path = match ungroup(ty) {
-        syn::Type::Path(ty) => &ty.path,
-        _ => {
-            return false;
-        }
-    };
-    let seg = match path.segments.last() {
-        Some(seg) => seg,
-        None => {
-            return false;
-        }
-    };
-    let args = match &seg.arguments {
-        syn::PathArguments::AngleBracketed(bracketed) => &bracketed.args,
-        _ => {
-            return false;
-        }
-    };
-    seg.ident == "Option"
-        && args.len() == 1
-        && match &args[0] {
-            syn::GenericArgument::Type(arg) => elem(arg),
-            _ => false,
-        }
-}
-
-// Whether the type looks like it might be `&T` where elem="T". This can have
-// false negatives and false positives.
-//
-// False negative:
-//
-//     type Yarn = str;
-//
-//     #[derive(Deserialize)]
-//     struct S<'a> {
-//         r: &'a Yarn,
-//     }
-//
-// False positive:
-//
-//     type str = [i16];
-//
-//     #[derive(Deserialize)]
-//     struct S<'a> {
-//         r: &'a str,
-//     }
-fn is_reference(ty: &syn::Type, elem: fn(&syn::Type) -> bool) -> bool {
-    match ungroup(ty) {
-        syn::Type::Reference(ty) => ty.mutability.is_none() && elem(&ty.elem),
-        _ => false,
-    }
-}
-
-fn is_str(ty: &syn::Type) -> bool {
-    is_primitive_type(ty, "str")
-}
-
-fn is_slice_u8(ty: &syn::Type) -> bool {
-    match ungroup(ty) {
-        syn::Type::Slice(ty) => is_primitive_type(&ty.elem, "u8"),
-        _ => false,
-    }
-}
-
-fn is_primitive_type(ty: &syn::Type, primitive: &str) -> bool {
-    match ungroup(ty) {
-        syn::Type::Path(ty) => ty.qself.is_none() && is_primitive_path(&ty.path, primitive),
-        _ => false,
-    }
-}
-
-fn is_primitive_path(path: &syn::Path, primitive: &str) -> bool {
-    path.leading_colon.is_none()
-        && path.segments.len() == 1
-        && path.segments[0].ident == primitive
-        && path.segments[0].arguments.is_empty()
 }
 
 // All lifetimes that this type could borrow from a Deserializer.

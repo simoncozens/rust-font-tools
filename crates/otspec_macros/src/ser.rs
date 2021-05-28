@@ -72,12 +72,6 @@ impl Parameters {
 
         Parameters { this, generics }
     }
-
-    /// Type name to use in error messages and `&'static str` arguments to
-    /// various Serializer methods.
-    fn type_name(&self) -> String {
-        self.this.segments.last().unwrap().ident.to_string()
-    }
 }
 
 fn build_generics(cont: &Container) -> syn::Generics {
