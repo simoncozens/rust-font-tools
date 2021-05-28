@@ -133,14 +133,6 @@ impl<'c, T> VecAttr<'c, T> {
     }
 }
 
-pub struct Name {
-    serialize: String,
-    serialize_renamed: bool,
-    deserialize: String,
-    deserialize_renamed: bool,
-    deserialize_aliases: Vec<String>,
-}
-
 #[allow(deprecated)]
 fn unraw(ident: &Ident) -> String {
     // str::trim_start_matches was added in 1.30, trim_left_matches deprecated
@@ -149,60 +141,8 @@ fn unraw(ident: &Ident) -> String {
     ident.to_string().trim_left_matches("r#").to_owned()
 }
 
-impl Name {
-    fn from_attrs(
-        source_name: String,
-        ser_name: Attr<String>,
-        de_name: Attr<String>,
-        de_aliases: Option<VecAttr<String>>,
-    ) -> Name {
-        let deserialize_aliases = match de_aliases {
-            Some(de_aliases) => {
-                let mut alias_list = BTreeSet::new();
-                for alias_name in de_aliases.get() {
-                    alias_list.insert(alias_name);
-                }
-                alias_list.into_iter().collect()
-            }
-            None => Vec::new(),
-        };
-
-        let ser_name = ser_name.get();
-        let ser_renamed = ser_name.is_some();
-        let de_name = de_name.get();
-        let de_renamed = de_name.is_some();
-        Name {
-            serialize: ser_name.unwrap_or_else(|| source_name.clone()),
-            serialize_renamed: ser_renamed,
-            deserialize: de_name.unwrap_or(source_name),
-            deserialize_renamed: de_renamed,
-            deserialize_aliases,
-        }
-    }
-
-    /// Return the container name for the container when serializing.
-    pub fn serialize_name(&self) -> String {
-        self.serialize.clone()
-    }
-
-    /// Return the container name for the container when deserializing.
-    pub fn deserialize_name(&self) -> String {
-        self.deserialize.clone()
-    }
-
-    fn deserialize_aliases(&self) -> Vec<String> {
-        let mut aliases = self.deserialize_aliases.clone();
-        let main_name = self.deserialize_name();
-        if !aliases.contains(&main_name) {
-            aliases.push(main_name);
-        }
-        aliases
-    }
-}
-
 /// Represents struct or enum attribute information.
 pub struct Container {
-    name: Name,
     transparent: bool,
     deny_unknown_fields: bool,
     default: Default,
@@ -492,7 +432,6 @@ impl Container {
         }
 
         Container {
-            name: Name::from_attrs(unraw(&item.ident), ser_name, de_name, None),
             transparent: transparent.get(),
             deny_unknown_fields: deny_unknown_fields.get(),
             default: default.get().unwrap_or(Default::None),
@@ -509,14 +448,6 @@ impl Container {
             is_packed,
             expecting: expecting.get(),
         }
-    }
-
-    pub fn name(&self) -> &Name {
-        &self.name
-    }
-
-    pub fn transparent(&self) -> bool {
-        self.transparent
     }
 
     pub fn deny_unknown_fields(&self) -> bool {
@@ -727,7 +658,6 @@ fn decide_identifier(
 
 /// Represents variant attribute information
 pub struct Variant {
-    name: Name,
     ser_bound: Option<Vec<syn::WherePredicate>>,
     de_bound: Option<Vec<syn::WherePredicate>>,
     skip_deserializing: bool,
@@ -740,9 +670,6 @@ pub struct Variant {
 
 impl Variant {
     pub fn from_ast(cx: &Ctxt, variant: &syn::Variant) -> Self {
-        let mut ser_name = Attr::none(cx, RENAME);
-        let mut de_name = Attr::none(cx, RENAME);
-        let mut de_aliases = VecAttr::none(cx, RENAME);
         let mut skip_deserializing = BoolAttr::none(cx, SKIP_DESERIALIZING);
         let mut skip_serializing = BoolAttr::none(cx, SKIP_SERIALIZING);
         let mut ser_bound = Attr::none(cx, BOUND);
@@ -801,7 +728,6 @@ impl Variant {
         }
 
         Variant {
-            name: Name::from_attrs(unraw(&variant.ident), ser_name, de_name, Some(de_aliases)),
             ser_bound: ser_bound.get(),
             de_bound: de_bound.get(),
             skip_deserializing: skip_deserializing.get(),
@@ -812,47 +738,15 @@ impl Variant {
             borrow: borrow.get(),
         }
     }
-
-    pub fn ser_bound(&self) -> Option<&[syn::WherePredicate]> {
-        self.ser_bound.as_ref().map(|vec| &vec[..])
-    }
-
-    pub fn de_bound(&self) -> Option<&[syn::WherePredicate]> {
-        self.de_bound.as_ref().map(|vec| &vec[..])
-    }
-
-    pub fn skip_deserializing(&self) -> bool {
-        self.skip_deserializing
-    }
-
-    pub fn skip_serializing(&self) -> bool {
-        self.skip_serializing
-    }
-
-    pub fn other(&self) -> bool {
-        self.other
-    }
-
-    pub fn serialize_with(&self) -> Option<&syn::ExprPath> {
-        self.serialize_with.as_ref()
-    }
-
-    pub fn deserialize_with(&self) -> Option<&syn::ExprPath> {
-        self.deserialize_with.as_ref()
-    }
 }
 
 /// Represents field attribute information
 pub struct Field {
-    name: Name,
-    skip_serializing: bool,
-    skip_deserializing: bool,
-    skip_serializing_if: Option<syn::ExprPath>,
+    pub offset_base: bool,
     default: Default,
     serialize_with: Option<syn::ExprPath>,
     deserialize_with: Option<syn::ExprPath>,
     ser_bound: Option<Vec<syn::WherePredicate>>,
-    flatten: bool,
 }
 
 /// Represents the default to use for a field when deserializing.
@@ -883,18 +777,13 @@ impl Field {
         attrs: Option<&Variant>,
         container_default: &Default,
     ) -> Self {
-        let ser_name = Attr::none(cx, RENAME);
-        let de_name = Attr::none(cx, RENAME);
-        let de_aliases = VecAttr::none(cx, RENAME);
-        let skip_serializing = BoolAttr::none(cx, SKIP_SERIALIZING);
         let skip_deserializing = BoolAttr::none(cx, SKIP_DESERIALIZING);
-        let skip_serializing_if = Attr::none(cx, SKIP_SERIALIZING_IF);
         let mut default = Attr::none(cx, DEFAULT);
         let mut serialize_with = Attr::none(cx, SERIALIZE_WITH);
         let mut deserialize_with = Attr::none(cx, DESERIALIZE_WITH);
         let ser_bound = Attr::none(cx, BOUND);
         let mut borrowed_lifetimes = Attr::none(cx, BORROW);
-        let mut flatten = BoolAttr::none(cx, FLATTEN);
+        let mut offset_base = BoolAttr::none(cx, OFFSET_BASE);
 
         let ident = match &field.ident {
             Some(ident) => unraw(ident),
@@ -930,11 +819,16 @@ impl Field {
                 // Parse `#[serde(with = "...")]`
                 Meta(NameValue(m)) if m.path == WITH => {
                     if let Ok(path) = parse_lit_into_expr_path(cx, WITH, &m.lit) {
-                        let mut ser_path = path.clone();
+                        let ser_path = path.clone();
                         serialize_with.set(&m.path, ser_path);
-                        let mut de_path = path;
+                        let de_path = path;
                         deserialize_with.set(&m.path, de_path);
                     }
+                }
+
+                // Parse `#[serde(offset_base)]`
+                Meta(Path(word)) if word == OFFSET_BASE => {
+                    offset_base.set_true(word);
                 }
 
                 // Parse `#[serde(borrow)]`
@@ -972,15 +866,11 @@ impl Field {
         }
 
         Field {
-            name: Name::from_attrs(ident, ser_name, de_name, Some(de_aliases)),
-            skip_serializing: skip_serializing.get(),
-            skip_deserializing: skip_deserializing.get(),
-            skip_serializing_if: skip_serializing_if.get(),
+            offset_base: offset_base.get(),
             default: default.get().unwrap_or(Default::None),
             serialize_with: serialize_with.get(),
             deserialize_with: deserialize_with.get(),
             ser_bound: ser_bound.get(),
-            flatten: flatten.get(),
         }
     }
 

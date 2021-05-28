@@ -26,13 +26,17 @@ pub fn expand_derive_deserialize(
         Data::Struct(Style::Struct, fields) => {
             let body = deserialize_fields(fields);
             let names = fields.iter().map(|f| &f.original.ident);
+            let do_pop = if fields.iter().any(|f| f.attrs.offset_base) {
+                quote!(c.pop();)
+            } else {
+                quote!()
+            };
             Ok(quote! {
                 #[automatically_derived]
                 impl #impl_generics otspec::Deserialize for #ident #ty_generics #where_clause {
                     fn from_bytes(c: &mut otspec::ReaderContext) -> Result<Self, otspec::DeserializationError> {
-                        c.push(c.ptr);
                         #(#body)*
-                        c.pop();
+                        #do_pop
                         Ok(#ident { #(#names,)* })
                     }
                 }
@@ -48,11 +52,17 @@ fn deserialize_fields(fields: &[Field]) -> Vec<TokenStream> {
         .map(|field| {
             let name = &field.original.ident;
             let ty = &field.original.ty;
+            let start = if field.attrs.offset_base {
+                quote!(c.push();)
+            } else {
+                quote!()
+            };
             if let Some(path) = field.attrs.deserialize_with() {
                 if path.path.is_ident("Counted") {
                     if let syn::Type::Path(subvec) = ty {
                         let subpath = get_vector_arg(subvec);
                         quote! {
+                            #start
                             let wrapped: otspec::Counted<#subpath> = c.de()?;
                             let #name: #ty = wrapped.into();
                         }
@@ -61,12 +71,16 @@ fn deserialize_fields(fields: &[Field]) -> Vec<TokenStream> {
                     }
                 } else {
                     quote! {
+                        #start
                         let wrapped: #path = c.de()?;
                         let #name: #ty = wrapped.into();
                     }
                 }
             } else {
-                quote! { let #name: #ty = c.de()?; }
+                quote! {
+                    #start
+                    let #name: #ty = c.de()?;
+                }
             }
         })
         .collect()

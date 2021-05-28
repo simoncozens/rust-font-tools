@@ -82,6 +82,18 @@ fn expect_ident(item: Option<TokenTree>) -> String {
     }
 }
 
+fn has_pragma(item: &Option<TokenTree>) -> Option<String> {
+    match item {
+        Some(TokenTree::Group(i)) => {
+            if i.delimiter() == Delimiter::Bracket {
+                return Some(i.to_string());
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
 fn special_type(t: &str) -> Option<String> {
     match t {
         /* We don't use types from the fixed crate here because fixed-point
@@ -126,6 +138,14 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
             if maybe_t.is_none() {
                 break;
             }
+            if let Some(pragma) = has_pragma(&maybe_t) {
+                if pragma == "[offset_base]" {
+                    out_s.push_str("#[serde(offset_base)]");
+                } else {
+                    panic!("Unknown pragma '{:?}'", pragma);
+                }
+                continue;
+            }
             let t = expect_ident(maybe_t);
             if t == "Maybe" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
@@ -142,8 +162,16 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .unwrap()
                     .to_string();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&format!("#[serde(with = \"Counted\")]\n"));
+                out_s.push_str(&"#[serde(with = \"Counted\")]\n".to_string());
                 out_s.push_str(&format!("pub {} : Vec<{}>,\n", name, subtype))
+            } else if t == "Offset16" {
+                let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .to_string();
+                let name = expect_ident(table_def.next());
+                out_s.push_str(&format!("pub {} : Offset16<{}>,\n", name, subtype))
             } else if let Some(nonspecial_type) = special_type(&t) {
                 out_s.push_str(&format!("#[serde(with = \"{}\")]\n", t));
                 let name = expect_ident(table_def.next());
