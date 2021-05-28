@@ -141,11 +141,26 @@ impl From<LONGDATETIME> for chrono::NaiveDateTime {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Offset16<T> {
     off: Option<u16>,
-    link: Option<T>,
+    link: T,
 }
 
+impl<T> Offset16<T> {
+    fn to(thing: T) -> Self {
+        Offset16 {
+            off: None,
+            link: thing,
+        }
+    }
+}
+
+impl<T: PartialEq> PartialEq for Offset16<T> {
+    fn eq(&self, rhs: &Offset16<T>) -> bool {
+        self.link == rhs.link
+    }
+}
 impl<T> Serialize for Offset16<T> {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         match self.off {
@@ -158,13 +173,23 @@ impl<T> Serialize for Offset16<T> {
 impl<T: Deserialize> Deserialize for Offset16<T> {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let off: uint16 = c.de()?;
-        c.push(c.start_of_struct() + off as usize);
+        let oldptr = c.ptr;
+        c.ptr = c.top_of_table() + off as usize;
         let obj: T = c.de()?;
-        c.pop();
+        c.ptr = oldptr;
         Ok(Offset16 {
             off: Some(off),
-            link: Some(obj),
+            link: obj,
         })
+    }
+}
+
+use std::ops::Deref;
+
+impl<T> Deref for Offset16<T> {
+    type Target = T;
+    fn deref(&self) -> &Self::Target {
+        &self.link
     }
 }
 
@@ -184,7 +209,13 @@ mod tests {
     #[derive(Deserialize, Debug, PartialEq)]
     struct Two {
         test1: uint16,
+        deep: Offset16<Three>,
         test2: uint16,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq)]
+    struct Three {
+        blah: uint16,
     }
 
     #[test]
@@ -195,17 +226,22 @@ mod tests {
             0x00, 0x02, // other
             0xff, 0xff, // filler
             0x00, 0x0a, // test1
+            0x00, 0x06, // deep
             0x00, 0x0b, // test2
+            0x00, 0xaa,
         ];
         let mut rc = ReaderContext::new(bytes);
         let one: One = rc.de().unwrap();
         assert_eq!(one.other, 0x02);
+        assert_eq!(one.thing, 0x01);
+        assert_eq!(one.off.test1, 0x0a);
         assert_eq!(
             one.off.link,
-            Some(Two {
+            Two {
                 test1: 0x0a,
+                deep: Offset16::to(Three { blah: 0xaa }),
                 test2: 0x0b
-            })
+            }
         );
     }
 }
