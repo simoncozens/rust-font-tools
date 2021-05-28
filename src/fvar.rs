@@ -4,7 +4,6 @@ use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
     Serializer,
 };
-
 use otspec_macros::tables;
 
 tables!(
@@ -59,7 +58,7 @@ impl InstanceRecord {
         };
         Ok(InstanceRecord {
             subfamilyNameID,
-            coordinates: coordinates.into(),
+            coordinates,
             postscriptNameID,
         })
     }
