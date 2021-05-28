@@ -2,7 +2,6 @@ use crate::font::get_search_range;
 use otspec::types::*;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-    Serializer,
 };
 use otspec_macros::{tables, Serialize};
 use std::collections::hash_map::DefaultHasher;
@@ -306,7 +305,7 @@ impl Deserialize for cmap4 {
         let id_range_offsets: Vec<uint16> = c.de_counted(segcount)?;
         let len_so_far = 16 + (segcount * 2 * 4);
         let remainder = length as usize - len_so_far;
-        let glyph_id_array: Vec<u16> = c.de_counted((remainder / 2).into()).unwrap_or_default();
+        let glyph_id_array: Vec<u16> = c.de_counted(remainder / 2).unwrap_or_default();
         Ok(cmap4 {
             format,
             length,
