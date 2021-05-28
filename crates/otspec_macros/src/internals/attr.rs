@@ -1,7 +1,7 @@
 use crate::internals::respan::respan;
 use crate::internals::symbol::*;
 use crate::internals::{ungroup, Ctxt};
-use proc_macro2::{Spacing, Span, TokenStream, TokenTree};
+use proc_macro2::{Spacing, TokenStream, TokenTree};
 use quote::ToTokens;
 use std::borrow::Cow;
 use std::collections::BTreeSet;
@@ -224,7 +224,7 @@ impl Container {
     pub fn from_ast(cx: &Ctxt, item: &syn::DeriveInput) -> Self {
         let mut ser_name = Attr::none(cx, RENAME);
         let mut de_name = Attr::none(cx, RENAME);
-        let mut transparent = BoolAttr::none(cx, TRANSPARENT);
+        let transparent = BoolAttr::none(cx, TRANSPARENT);
         let mut deny_unknown_fields = BoolAttr::none(cx, DENY_UNKNOWN_FIELDS);
         let mut default = Attr::none(cx, DEFAULT);
         let mut ser_bound = Attr::none(cx, BOUND);
@@ -232,14 +232,14 @@ impl Container {
         let mut untagged = BoolAttr::none(cx, UNTAGGED);
         let mut internal_tag = Attr::none(cx, TAG);
         let mut content = Attr::none(cx, CONTENT);
-        let mut type_from = Attr::none(cx, FROM);
-        let mut type_try_from = Attr::none(cx, TRY_FROM);
-        let mut type_into = Attr::none(cx, INTO);
-        let mut remote = Attr::none(cx, REMOTE);
-        let mut field_identifier = BoolAttr::none(cx, FIELD_IDENTIFIER);
-        let mut variant_identifier = BoolAttr::none(cx, VARIANT_IDENTIFIER);
-        let mut serde_path = Attr::none(cx, CRATE);
-        let mut expecting = Attr::none(cx, EXPECTING);
+        let type_from = Attr::none(cx, FROM);
+        let type_try_from = Attr::none(cx, TRY_FROM);
+        let type_into = Attr::none(cx, INTO);
+        let remote = Attr::none(cx, REMOTE);
+        let field_identifier = BoolAttr::none(cx, FIELD_IDENTIFIER);
+        let variant_identifier = BoolAttr::none(cx, VARIANT_IDENTIFIER);
+        let serde_path = Attr::none(cx, CRATE);
+        let expecting = Attr::none(cx, EXPECTING);
 
         for meta_item in item
             .attrs
@@ -670,11 +670,11 @@ pub struct Variant {
 
 impl Variant {
     pub fn from_ast(cx: &Ctxt, variant: &syn::Variant) -> Self {
-        let mut skip_deserializing = BoolAttr::none(cx, SKIP_DESERIALIZING);
-        let mut skip_serializing = BoolAttr::none(cx, SKIP_SERIALIZING);
-        let mut ser_bound = Attr::none(cx, BOUND);
-        let mut de_bound = Attr::none(cx, BOUND);
-        let mut other = BoolAttr::none(cx, OTHER);
+        let skip_deserializing = BoolAttr::none(cx, SKIP_DESERIALIZING);
+        let skip_serializing = BoolAttr::none(cx, SKIP_SERIALIZING);
+        let ser_bound = Attr::none(cx, BOUND);
+        let de_bound = Attr::none(cx, BOUND);
+        let other = BoolAttr::none(cx, OTHER);
         let mut serialize_with = Attr::none(cx, SERIALIZE_WITH);
         let mut deserialize_with = Attr::none(cx, DESERIALIZE_WITH);
         let mut borrow = Attr::none(cx, BORROW);

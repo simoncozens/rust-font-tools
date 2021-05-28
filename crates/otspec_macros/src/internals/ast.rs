@@ -63,7 +63,7 @@ impl<'a> Container<'a> {
     pub fn from_ast(
         cx: &Ctxt,
         item: &'a syn::DeriveInput,
-        derive: Derive,
+        _derive: Derive,
     ) -> Option<Container<'a>> {
         let attrs = attr::Container::from_ast(cx, item);
 
@@ -79,7 +79,7 @@ impl<'a> Container<'a> {
             }
         };
 
-        let mut item = Container {
+        let item = Container {
             ident: item.ident.clone(),
             attrs,
             data,
@@ -91,7 +91,7 @@ impl<'a> Container<'a> {
 }
 
 impl<'a> Data<'a> {
-    pub fn all_fields(&'a self) -> Box<Iterator<Item = &'a Field<'a>> + 'a> {
+    pub fn all_fields(&'a self) -> Box<dyn Iterator<Item = &'a Field<'a>> + 'a> {
         match self {
             Data::Enum(variants) => {
                 Box::new(variants.iter().flat_map(|variant| variant.fields.iter()))

@@ -96,6 +96,6 @@ fn build_generics(cont: &Container) -> syn::Generics {
         ),
     }
 }
-fn needs_serialize_bound(field: &attr::Field, variant: Option<&attr::Variant>) -> bool {
+fn needs_serialize_bound(field: &attr::Field, _variant: Option<&attr::Variant>) -> bool {
     field.serialize_with().is_none()
 }

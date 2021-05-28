@@ -1,10 +1,10 @@
-use proc_macro2::{Span, TokenStream};
-use syn::spanned::Spanned;
-use syn::{self, Ident, Index, Member};
+use proc_macro2::{TokenStream};
+
+use syn::{self};
 
 use bound;
-use fragment::{Fragment, Match, Stmts};
-use internals::ast::{Container, Data, Field, Style, Variant};
+
+use internals::ast::{Container, Data, Field, Style};
 use internals::{attr, replace_receiver, Ctxt, Derive};
 
 pub fn expand_derive_deserialize(
@@ -172,6 +172,6 @@ fn build_generics(cont: &Container) -> syn::Generics {
         ),
     }
 }
-fn needs_serialize_bound(field: &attr::Field, variant: Option<&attr::Variant>) -> bool {
+fn needs_serialize_bound(field: &attr::Field, _variant: Option<&attr::Variant>) -> bool {
     field.serialize_with().is_none()
 }
