@@ -102,14 +102,21 @@ pub struct Version16Dot16(pub U16F16);
 
 impl Serialize for Version16Dot16 {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let packed: u32 = self.0.to_bits();
-        packed.to_bytes(data)
+        let major = self.0.floor().to_num::<u8>();
+        let minor = (self.0.frac().to_num::<f32>() * 160.0) as u8;
+        0_u8.to_bytes(data)?;
+        major.to_bytes(data)?;
+        minor.to_bytes(data)?;
+        0_u8.to_bytes(data)
     }
 }
 impl Deserialize for Version16Dot16 {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        let packed: u32 = c.de()?;
-        Ok(Version16Dot16(U16F16::from_bits(packed)))
+        let packed: i32 = c.de()?;
+        let orig = packed.to_be_bytes();
+        let major = orig[1] as f32;
+        let minor = orig[2] as f32 / 160.0;
+        Ok(Self(U16F16::from_num(major + minor)))
     }
 }
 
