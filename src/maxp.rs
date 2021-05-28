@@ -1,10 +1,6 @@
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field};
-use otspec_macros::tables;
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::Deserializer;
-use serde::{Deserialize, Serialize};
+use otspec::{DeserializationError, Deserialize, Deserializer, ReaderContext, Serialize};
+use otspec_macros::{tables, Serialize};
 
 tables!(
 maxp05 {
@@ -33,12 +29,21 @@ maxp10 {
 /// The `maxp` table comes in two versions, 0.5 and 1.0, which have
 /// different fields. The enum allows a single maxp object to represent
 /// both versions.
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum MaxpVariant {
     /// This table is a maxp version 0.5
     Maxp05(maxp05),
     /// This table is a maxp version 1.0
     Maxp10(maxp10),
+}
+
+impl Serialize for MaxpVariant {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
+        match self {
+            MaxpVariant::Maxp05(expr) => expr.to_bytes(data),
+            MaxpVariant::Maxp10(expr) => expr.to_bytes(data),
+        }
+    }
 }
 
 /// A maxp table, regardless of version.
@@ -49,7 +54,6 @@ pub struct maxp {
     #[serde(with = "Version16Dot16")]
     pub version: U16F16,
     /// Either a maxp 0.5 table or a maxp 1.0 table
-    #[serde(flatten)]
     pub table: MaxpVariant,
 }
 
@@ -113,26 +117,28 @@ impl maxp {
     }
 }
 
-deserialize_visitor!(
-    maxp,
-    MaxpVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let version = read_field!(seq, i32, "a maxp version");
-        if version == 0x00005000 {
-            return Ok(maxp {
-                version: U16F16::from_num(0.5),
-                table: MaxpVariant::Maxp05(read_field!(seq, maxp05, "a maxp05 table")),
-            });
+impl Deserialize for maxp {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let version: i32 = c.de()?;
+        match version {
+            0x00005000 => {
+                let table: maxp05 = c.de()?;
+                Ok(maxp {
+                    version: U16F16::from_num(0.5),
+                    table: MaxpVariant::Maxp05(table),
+                })
+            }
+            0x00010000 => {
+                let table: maxp10 = c.de()?;
+                Ok(maxp {
+                    version: U16F16::from_num(1.0),
+                    table: MaxpVariant::Maxp10(table),
+                })
+            }
+            _ => Err(DeserializationError("Unknown maxp version".to_string())),
         }
-        if version == 0x00010000 {
-            return Ok(maxp {
-                version: U16F16::from_num(1.0),
-                table: MaxpVariant::Maxp10(read_field!(seq, maxp10, "a maxp05 table")),
-            });
-        }
-        Err(serde::de::Error::custom("Unknown maxp version"))
     }
-);
+}
 
 #[cfg(test)]
 mod tests {
