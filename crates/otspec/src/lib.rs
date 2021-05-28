@@ -69,6 +69,7 @@ where
     T: Deserialize,
 {
     fn de(&mut self) -> Result<T, DeserializationError>;
+    fn de_counted(&mut self, s: usize) -> Result<Vec<T>, DeserializationError>;
 }
 
 impl<T> Deserializer<T> for ReaderContext
@@ -77,6 +78,14 @@ where
 {
     fn de(&mut self) -> Result<T, DeserializationError> {
         T::from_bytes(self)
+    }
+    fn de_counted(&mut self, s: usize) -> Result<Vec<T>, DeserializationError> {
+        (0..s)
+            .map(|_| {
+                let c: Result<T, DeserializationError> = self.de();
+                c
+            })
+            .collect()
     }
 }
 
