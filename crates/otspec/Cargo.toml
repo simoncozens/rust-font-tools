@@ -9,3 +9,4 @@ edition = "2018"
 shrinkwraprs = "0.3.0"
 otspec_macros = { path = "../otspec_macros" }
 chrono = { version = "0.4.3" }
+fixed = "1"

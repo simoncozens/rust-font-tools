@@ -13,6 +13,8 @@ pub type FWORD = i16;
 pub type UFWORD = u16;
 pub type Tag = [u8; 4];
 
+pub use fixed::types::U16F16;
+
 pub fn tag(s: &str) -> Tag {
     (*s).as_bytes().try_into().unwrap()
 }
@@ -95,6 +97,32 @@ impl From<F2DOT14> for f32 {
     }
 }
 
+#[derive(Shrinkwrap, Debug, PartialEq)]
+pub struct Version16Dot16(pub U16F16);
+
+impl Serialize for Version16Dot16 {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        let packed: u32 = self.0.to_bits();
+        packed.to_bytes(data)
+    }
+}
+impl Deserialize for Version16Dot16 {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let packed: u32 = c.de()?;
+        Ok(Version16Dot16(U16F16::from_bits(packed)))
+    }
+}
+
+impl From<U16F16> for Version16Dot16 {
+    fn from(num: U16F16) -> Self {
+        Self(num)
+    }
+}
+impl From<Version16Dot16> for U16F16 {
+    fn from(num: Version16Dot16) -> Self {
+        num.0
+    }
+}
 #[derive(Shrinkwrap, Debug, PartialEq)]
 pub struct LONGDATETIME(pub chrono::NaiveDateTime);
 
