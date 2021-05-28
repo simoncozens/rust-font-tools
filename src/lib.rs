@@ -34,12 +34,12 @@
 // pub mod GSUB;
 /// The `avar` (Axis variations) table
 pub mod avar;
-// /// The `cmap` (Character To Glyph Index Mapping) table
-// pub mod cmap;
-// /// The main font object. Start here.
-// pub mod font;
-// /// The `fvar` (Font variations) table
-// pub mod fvar;
+/// The `cmap` (Character To Glyph Index Mapping) table
+pub mod cmap;
+/// The main font object. Start here.
+pub mod font;
+/// The `fvar` (Font variations) table
+pub mod fvar;
 /// The `gasp` (Grid-fitting and Scan-conversion Procedure) table
 pub mod gasp;
 // /// The `glyf` (Glyf data) table
@@ -52,8 +52,8 @@ pub mod head;
 pub mod hhea;
 // /// The `hmtx` (Horizontal metrics) table
 // pub mod hmtx;
-// /// OpenType Layout common tables
-// pub mod layout;
+/// OpenType Layout common tables
+pub mod layout;
 // mod loca;
 // /// The `maxp` (Maximum profile) table
 // pub mod maxp;
