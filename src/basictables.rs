@@ -236,10 +236,10 @@ pub fn compile_os2(
         usUpperOpticalPointSize: None,
         fsSelection: get_selection(info),
     };
-    if info.open_type_os2_code_page_ranges.is_none() {
-        table.calc_code_page_ranges(&mapping);
+    if let Some(page_ranges) = info.open_type_os2_code_page_ranges.as_ref() {
+        table.int_list_to_code_page_ranges(page_ranges);
     } else {
-        table.int_list_to_code_page_ranges(info.open_type_os2_code_page_ranges.as_ref().unwrap());
+        table.calc_code_page_ranges(&mapping);
     }
     table
 }
