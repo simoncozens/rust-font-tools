@@ -1,5 +1,6 @@
 #![allow(non_camel_case_types, non_snake_case)]
 
+use crate::utils::int_list_to_num;
 use otspec::types::*;
 use otspec::{deserialize_visitor, read_field};
 use otspec_macros::tables;
@@ -7,6 +8,7 @@ use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::Serializer;
 use serde::{Deserialize, Deserializer, Serialize};
+use std::collections::{BTreeMap, HashSet};
 
 tables!(
     Panose {
@@ -207,7 +209,7 @@ impl Serialize for os2 {
         if self.version > 0 {
             seq.serialize_element(&os2v1 {
                 ulCodePageRange1: self.ulCodePageRange1.unwrap_or(0),
-                ulCodePageRange2: self.ulCodePageRange1.unwrap_or(0),
+                ulCodePageRange2: self.ulCodePageRange2.unwrap_or(0),
             })?;
         }
         if self.version > 1 {
@@ -297,3 +299,139 @@ deserialize_visitor!(
         Ok(res)
     }
 );
+
+impl os2 {
+    /// Populate ulCodePageRange fields using a
+    pub fn int_list_to_code_page_ranges(&mut self, bitlist: &Vec<u8>) {
+        let mut code_pages1 = bitlist.clone();
+        code_pages1.sort_unstable();
+        let split_at = code_pages1
+            .iter()
+            .position(|&x| x >= 32)
+            .unwrap_or_else(|| bitlist.len());
+        let mut code_pages2 = code_pages1.split_off(split_at);
+        code_pages2.iter_mut().for_each(|x| *x -= 32);
+
+        self.ulCodePageRange1 = Some(int_list_to_num(&code_pages1) as u32);
+        self.ulCodePageRange2 = Some(int_list_to_num(&code_pages2) as u32);
+    }
+    /// implementation based on ufo2ft:
+    /// https://github.com/googlefonts/ufo2ft/blob/main/lib/ufo2ft/util.py#l307
+    pub fn calc_code_page_ranges(&mut self, mapping: &BTreeMap<u32, u16>) {
+        let unicodes = mapping.keys().copied().collect::<HashSet<_>>();
+        let mut code_page_ranges: Vec<u8> = vec![];
+
+        let unicodes_contains = |char| unicodes.contains(&(char as u32));
+
+        let has_ascii = (0x20..0x7E).all(|x| unicodes.contains(&x));
+        let has_lineart = unicodes_contains('┤');
+
+        if unicodes_contains('Þ') && has_ascii {
+            code_page_ranges.push(0); // Latin 1
+        }
+        if unicodes_contains('Ľ') && has_ascii {
+            code_page_ranges.push(1); // Latin 2
+        }
+        if unicodes_contains('Б') {
+            code_page_ranges.push(2); // Cyrillic
+            if unicodes_contains('Ѕ') && has_lineart {
+                code_page_ranges.push(57); // IBM Cyrillic
+            }
+            if unicodes_contains('╜') && has_lineart {
+                code_page_ranges.push(49); // MS-DOS Russian
+            }
+        }
+        if unicodes_contains('Ά') {
+            code_page_ranges.push(3); // Greek
+            if unicodes_contains('½') && has_lineart {
+                code_page_ranges.push(48); // IBM Greek
+            }
+            if unicodes_contains('√') && has_lineart {
+                code_page_ranges.push(60); // Greek, former 437 G
+            }
+        }
+        if unicodes_contains('İ') && has_ascii {
+            code_page_ranges.push(4); //  Turkish
+            if has_lineart {
+                code_page_ranges.push(56); //  IBM turkish
+            }
+        }
+        if unicodes_contains('א') {
+            code_page_ranges.push(5); //  Hebrew
+            if has_lineart && unicodes_contains('√') {
+                code_page_ranges.push(53); //  Hebrew
+            }
+        }
+        if unicodes_contains('ر') {
+            code_page_ranges.push(6); //  Arabic
+            if unicodes_contains('√') {
+                code_page_ranges.push(51); //  Arabic
+            }
+            if has_lineart {
+                code_page_ranges.push(61); //  Arabic; ASMO 708
+            }
+        }
+        if unicodes_contains('ŗ') && has_ascii {
+            code_page_ranges.push(7); //  Windows Baltic
+            if has_lineart {
+                code_page_ranges.push(59); //  MS-DOS Baltic
+            }
+        }
+        if unicodes_contains('₫') && has_ascii {
+            code_page_ranges.push(8); //  Vietnamese
+        }
+        if unicodes_contains('ๅ') {
+            code_page_ranges.push(16); //  Thai
+        }
+        if unicodes_contains('エ') {
+            code_page_ranges.push(17); //  JIS/Japan
+        }
+        if unicodes_contains('ㄅ') {
+            code_page_ranges.push(18); //  Chinese: Simplified chars
+        }
+        if unicodes_contains('ㄱ') {
+            code_page_ranges.push(19); //  Korean wansung
+        }
+        if unicodes_contains('央') {
+            code_page_ranges.push(20); //  Chinese: Traditional chars
+        }
+        if unicodes_contains('곴') {
+            code_page_ranges.push(21); //  Korean Johab
+        }
+        if unicodes_contains('♥') && has_ascii {
+            code_page_ranges.push(30); //  OEM Character Set
+                                       //  TODO: Symbol bit has a special meaning (check the spec), we need
+                                       //  to confirm if this is wanted by default.
+                                       //  elif chr(0xF000) <= char <= chr(0xF0FF):
+                                       //     code_page_ranges.push(31)          //  Symbol Character Set
+        }
+        if unicodes_contains('þ') && has_ascii && has_lineart {
+            code_page_ranges.push(54); //  MS-DOS Icelandic
+        }
+        if unicodes_contains('╚') && has_ascii {
+            code_page_ranges.push(62); //  WE/Latin 1
+            code_page_ranges.push(63); //  US
+        }
+        if has_ascii && has_lineart && unicodes_contains('√') {
+            if unicodes_contains('Å') {
+                code_page_ranges.push(50); //  MS-DOS Nordic
+            }
+            if unicodes_contains('é') {
+                code_page_ranges.push(52); //  MS-DOS Canadian French
+            }
+            if unicodes_contains('õ') {
+                code_page_ranges.push(55); //  MS-DOS Portuguese
+            }
+        }
+        if has_ascii && unicodes_contains('‰') && unicodes_contains('∑') {
+            code_page_ranges.push(29); // Macintosh Character Set (US Roman)
+        }
+        // when no codepage ranges can be enabled, fall back to enabling bit 0
+        // (Latin 1) so that the font works in MS Word:
+        // https://github.com/googlei18n/fontmake/issues/468
+        if code_page_ranges.is_empty() {
+            code_page_ranges.push(0);
+        }
+        self.int_list_to_code_page_ranges(&mut code_page_ranges);
+    }
+}

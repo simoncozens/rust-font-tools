@@ -1,5 +1,6 @@
-use crate::utils::int_list_to_num;
+use fonttools::utils::int_list_to_num;
 use norad::fontinfo::StyleMapStyle;
+use std::collections::HashSet;
 
 pub fn ascender(info: &norad::FontInfo) -> i16 {
     let upm = info.units_per_em.map_or(1000.0, |f| f.get()) as f64;
@@ -152,4 +153,15 @@ pub fn get_selection(info: &norad::FontInfo) -> u16 {
         _ => {}
     };
     int_list_to_num(&selection) as u16
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_calc_code_page_ranges() {
+        let unicodes: HashSet<u32> = (0x20..0xFFFF).collect();
+        let ranges = calc_code_page_ranges(&unicodes);
+        assert_eq!(ranges.iter().count(), 32);
+    }
 }
