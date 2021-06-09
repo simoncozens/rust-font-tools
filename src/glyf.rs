@@ -22,7 +22,11 @@ pub struct glyf {
 /// Deserialize the font from a binary buffer.
 ///
 /// loca_offsets must be obtained from the `loca` table.
-pub fn from_bytes(
+pub fn from_bytes(c: &[u8], loca_offsets: Vec<Option<u32>>) -> Result<glyf, DeserializationError> {
+    from_rc(&mut ReaderContext::new(c.to_vec()), loca_offsets)
+}
+
+pub fn from_rc(
     c: &mut ReaderContext,
     loca_offsets: Vec<Option<u32>>,
 ) -> Result<glyf, DeserializationError> {

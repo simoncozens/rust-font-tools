@@ -3,8 +3,7 @@ use crate::cmap::cmap;
 use crate::fvar::fvar;
 use crate::gasp::gasp;
 use crate::glyf;
-use otspec::ReaderContext;
-// use crate::gvar;
+use crate::gvar;
 use crate::head::head;
 use crate::hhea::hhea;
 use crate::hmtx;
@@ -14,6 +13,7 @@ use crate::name::name;
 use crate::os2::os2;
 use crate::post::post;
 use otspec::types::*;
+use otspec::ReaderContext;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, SerializationError, Serialize, Serializer,
 };
@@ -40,7 +40,7 @@ pub enum Table {
     /// Contains a glyph data table.
     Glyf(glyf::glyf),
     /// Contains a glyph variations table.
-    // Gvar(gvar::gvar),
+    Gvar(gvar::gvar),
     /// Contains a header table.
     Head(head),
     /// Contains a horizontal header table.
@@ -81,7 +81,7 @@ impl Table {
     table_unchecked!(fvar_unchecked, Fvar, fvar);
     table_unchecked!(gasp_unchecked, Gasp, gasp);
     table_unchecked!(glyf_unchecked, Glyf, glyf::glyf);
-    // table_unchecked!(gvar_unchecked, Gvar, gvar::gvar);
+    table_unchecked!(gvar_unchecked, Gvar, gvar::gvar);
     table_unchecked!(head_unchecked, Head, head);
     table_unchecked!(hhea_unchecked, Hhea, hhea);
     table_unchecked!(hmtx_unchecked, Hmtx, hmtx::hmtx);
@@ -100,11 +100,12 @@ impl Serialize for Table {
             Table::Cmap(expr) => expr.to_bytes(data),
             Table::Fvar(expr) => expr.to_bytes(data),
             Table::Gasp(expr) => expr.to_bytes(data),
+            Table::Gvar(_) => unimplemented!(),
             Table::Head(expr) => expr.to_bytes(data),
             Table::Hhea(expr) => expr.to_bytes(data),
-            Table::Hmtx(expr) => unimplemented!(),
-            Table::Glyf(expr) => unimplemented!(),
-            Table::Loca(expr) => unimplemented!(),
+            Table::Hmtx(_) => unimplemented!(),
+            Table::Glyf(_) => unimplemented!(),
+            Table::Loca(_) => unimplemented!(),
             Table::Maxp(expr) => expr.to_bytes(data),
             Table::Name(expr) => expr.to_bytes(data),
             Table::Os2(expr) => expr.to_bytes(data),
@@ -203,19 +204,19 @@ impl Font {
         panic!("Can't happen - hhea not a hhea table?!")
     }
 
-    // fn _gvar_coords_and_ends(&self) -> Option<gvar::CoordsAndEndsVec> {
-    //     let glyf = self.get_table_simple(b"glyf")?;
-    //     if self._table_needs_deserializing(glyf) {
-    //         return None;
-    //     }
-    //     let glyf = glyf.glyf_unchecked();
-    //     Some(
-    //         glyf.glyphs
-    //             .iter()
-    //             .map(|g| g.gvar_coords_and_ends())
-    //             .collect(),
-    //     )
-    // }
+    fn _gvar_coords_and_ends(&self) -> Option<gvar::CoordsAndEndsVec> {
+        let glyf = self.get_table_simple(b"glyf")?;
+        if self._table_needs_deserializing(glyf) {
+            return None;
+        }
+        let glyf = glyf.glyf_unchecked();
+        Some(
+            glyf.glyphs
+                .iter()
+                .map(|g| g.gvar_coords_and_ends())
+                .collect(),
+        )
+    }
 
     fn _deserialize(&self, tag: &Tag, binary: &[u8]) -> Result<Table, DeserializationError> {
         match tag {
@@ -260,22 +261,22 @@ impl Font {
                     ));
                 }
                 Ok(Table::Glyf(glyf::from_bytes(
-                    &mut otspec::ReaderContext::new(binary.to_vec()),
+                    binary,
                     loca_offsets.unwrap(),
                 )?))
             }
-            // b"gvar" => {
-            //     let gvar_coords_and_ends = self._gvar_coords_and_ends();
-            //     if gvar_coords_and_ends.is_none() {
-            //         return Err(DeserializationError(
-            //             "Deserialized in wrong order".to_string(),
-            //         ));
-            //     }
-            //     Ok(Table::Gvar(gvar::from_bytes(
-            //         binary,
-            //         gvar_coords_and_ends.unwrap(),
-            //     )?))
-            // }
+            b"gvar" => {
+                let gvar_coords_and_ends = self._gvar_coords_and_ends();
+                if gvar_coords_and_ends.is_none() {
+                    return Err(DeserializationError(
+                        "Deserialized in wrong order".to_string(),
+                    ));
+                }
+                Ok(Table::Gvar(gvar::from_bytes(
+                    binary,
+                    gvar_coords_and_ends.unwrap(),
+                )?))
+            }
             _ => Ok(Table::Unknown(binary.to_vec())),
         }
     }

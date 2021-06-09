@@ -68,7 +68,7 @@ impl From<Fixed> for f32 {
     }
 }
 
-#[derive(Shrinkwrap, Debug)]
+#[derive(Shrinkwrap, Debug, Copy, Clone)]
 pub struct F2DOT14(pub f32);
 
 impl F2DOT14 {
