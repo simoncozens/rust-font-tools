@@ -101,6 +101,8 @@ pub fn glyf_contour_to_kurbo_contour(contour: &[Point]) -> kurbo::BezPath {
             (segment[0].x as f64, segment[0].y as f64),
             (contour[0].x as f64, contour[0].y as f64),
         );
+    } else if contour[0].on_curve && contour.last().unwrap().on_curve {
+        path.line_to((contour[0].x as f64, contour[0].y as f64))
     }
     path.close_path();
     path

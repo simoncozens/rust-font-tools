@@ -11,3 +11,5 @@ itertools = "0.10.0"
 skia-safe = "0"
 log = "0.4.14"
 env_logger = "0.8"
+rayon = "1.0.1"
+kurbo = { version = "0.8.1" }
