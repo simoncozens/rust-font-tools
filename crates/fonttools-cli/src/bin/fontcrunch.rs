@@ -402,23 +402,6 @@ impl State {
             init: false,
         }
     }
-    fn combine(&mut self, prev: &State, score: f64, q: &QuadBez, penalty: f64) {
-        let prev_sl = prev.sts.first();
-        if !prev.init && prev_sl.is_none() {
-            return;
-        }
-        let mut sl = Statelet {
-            prev: Box::new(None),
-            score: 0.0,
-            quad: *q,
-        };
-        sl.combine(prev_sl, score, *q, penalty);
-        if self.sts.is_empty() {
-            self.sts.push(sl);
-        } else if sl.score < self.sts[0].score {
-            self.sts[0] = sl
-        }
-    }
 
     fn ok_for_half(&self, q: QuadBez) -> bool {
         if is_int(q.p0.x) && is_int(q.p0.y) {
@@ -449,11 +432,24 @@ fn try_quad(
     penalty: f64,
 ) {
     let score = curve.measure_quad(bk0.s, bk1.s, q);
-    let prev = states[prev].clone();
-
-    // println!("Pre combine prev {:?}", prev);
+    let prev = &states[prev];
     // println!("Pre combine this {:?}", states[this]);
-    states[this].combine(&prev, score, q, penalty);
+    let prev_sl = prev.sts.first();
+    if !prev.init && prev_sl.is_none() {
+        return;
+    }
+    let mut sl = Statelet {
+        prev: Box::new(None),
+        score: 0.0,
+        quad: *q,
+    };
+    sl.combine(prev_sl, score, *q, penalty);
+    if states[this].sts.is_empty() {
+        states[this].sts.push(sl);
+    } else if sl.score < states[this].sts[0].score {
+        states[this].sts[0] = sl
+    }
+
     // println!("Post combine prev {:?}", prev);
     // println!("Post combine this {:?}", states[this]);
 }
