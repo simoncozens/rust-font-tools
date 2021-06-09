@@ -1,15 +1,9 @@
 use crate::font::get_search_range;
-use otspec::de::CountedDeserializer;
-use otspec::ser;
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_field_counted};
-use otspec_macros::tables;
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::ser::SerializeSeq;
-use serde::Deserializer;
-use serde::Serializer;
-use serde::{Deserialize, Serialize};
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+};
+use otspec_macros::{tables, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashSet};
 use std::convert::TryInto;
@@ -24,9 +18,11 @@ EncodingRecord {
 }
 
 CmapHeader {
+    [offset_base]
     uint16  version
     Counted(EncodingRecord) encodingRecords
 }
+
 );
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -53,22 +49,22 @@ impl cmap0 {
     }
 }
 
-deserialize_visitor!(
-    cmap0,
-    Cmap0Visitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let format = read_field!(seq, uint16, "a cmap0 table format");
-        let length = read_field!(seq, uint16, "a cmap0 table length");
-        let language = read_field!(seq, uint16, "a cmap0 table language");
-        let glyph_ids = read_field_counted!(seq, length, "a cmap0 glyph array");
+impl Deserialize for cmap0 {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let format: uint16 = c.de()?;
+        let length: uint16 = c.de()?;
+        let language: uint16 = c.de()?;
+        let records = 256.max(length - 6);
+        let glyph_ids: Result<Vec<u8>, DeserializationError> =
+            (0..records).map(|_| c.de()).collect();
         Ok(cmap0 {
             format,
             length,
             language,
-            glyphIdArray: glyph_ids,
+            glyphIdArray: glyph_ids?,
         })
     }
-);
+}
 
 #[allow(non_camel_case_types, non_snake_case)]
 #[derive(Debug, PartialEq, Serialize)]
@@ -293,38 +289,28 @@ impl cmap4 {
         map
     }
 }
-deserialize_visitor!(
-    cmap4,
-    Cmap4Visitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let format = read_field!(seq, uint16, "a cmap4 table format");
-        let length = read_field!(seq, uint16, "a cmap4 table length");
-        let language = read_field!(seq, uint16, "a cmap4 table language");
-        let segcount = read_field!(seq, uint16, "a cmap4 table segcount") / 2;
-        let _search_range = read_field!(seq, uint16, "a cmap4 table search range");
-        let _entry_selector = read_field!(seq, uint16, "a cmap4 table entry selector");
-        let _range_shift = read_field!(seq, uint16, "a cmap4 table entry range shift");
-        let end_code: Vec<uint16> = read_field_counted!(seq, segcount, "a cmap4 table endcode");
-        let _reserved_pad = read_field!(seq, uint16, "padding");
-        let start_code: Vec<uint16> = read_field_counted!(seq, segcount, "a cmap4 table startcode");
-        let id_delta: Vec<int16> = read_field_counted!(seq, segcount, "a cmap4 table idDelta");
-        let id_range_offsets: Vec<uint16> =
-            read_field_counted!(seq, segcount, "a cmap4 table idRangeOffsets");
 
+impl Deserialize for cmap4 {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let format: uint16 = c.de()?;
+        let length: uint16 = c.de()?;
+        let language: uint16 = c.de()?;
+        let segCountX2: uint16 = c.de()?;
+        let segcount: usize = segCountX2 as usize / 2;
+        c.skip(6);
+        let end_code: Vec<uint16> = c.de_counted(segcount)?;
+        c.skip(2);
+        let start_code: Vec<uint16> = c.de_counted(segcount)?;
+        let id_delta: Vec<int16> = c.de_counted(segcount)?;
+        let id_range_offsets: Vec<uint16> = c.de_counted(segcount)?;
         let len_so_far = 16 + (segcount * 2 * 4);
-
-        // This one is optional, hence unwrap_or_default
-        let glyph_id_array: Vec<u16> = seq
-            .next_element_seed(CountedDeserializer::with_len(
-                (length - len_so_far) as usize,
-            ))?
-            .unwrap_or_default();
-
+        let remainder = length as usize - len_so_far;
+        let glyph_id_array: Vec<u16> = c.de_counted(remainder / 2).unwrap_or_default();
         Ok(cmap4 {
             format,
             length,
             language,
-            segCountX2: segcount * 2,
+            segCountX2,
             searchRange: 0,
             entrySelector: 0,
             rangeShift: 0,
@@ -336,7 +322,7 @@ deserialize_visitor!(
             glyphIdArray: glyph_id_array,
         })
     }
-);
+}
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[allow(non_snake_case)]
@@ -379,17 +365,12 @@ impl CmapSubtable {
 }
 
 impl Serialize for CmapSubtable {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         match self.format {
-            0 => seq.serialize_element(&cmap0::from_mapping(self.languageID, &self.mapping)),
-            4 => seq.serialize_element(&cmap4::from_mapping(self.languageID, &self.mapping)),
+            0 => cmap0::from_mapping(self.languageID, &self.mapping).to_bytes(data),
+            4 => cmap4::from_mapping(self.languageID, &self.mapping).to_bytes(data),
             _ => unimplemented!(),
-        }?;
-        seq.end()
+        }
     }
 }
 
@@ -402,10 +383,7 @@ pub struct cmap {
 }
 
 impl Serialize for cmap {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let mut offsets: BTreeMap<u64, uint32> = BTreeMap::new();
         let mut output: Vec<u8> = Vec::new();
         let mut encoding_records: Vec<EncodingRecord> = Vec::new();
@@ -416,7 +394,7 @@ impl Serialize for cmap {
             let hash_value = hash.finish();
             let entry = offsets.entry(hash_value).or_insert_with(|| {
                 let offset = offset_base + output.len() as u32;
-                output.extend(ser::to_bytes(&st).unwrap());
+                st.to_bytes(&mut output).unwrap();
                 offset
             });
             encoding_records.push(EncodingRecord {
@@ -429,26 +407,21 @@ impl Serialize for cmap {
             version: 0,
             encodingRecords: encoding_records,
         };
-        let mut seq = serializer.serialize_seq(None)?;
-        seq.serialize_element(&header)?;
-        seq.serialize_element(&output)?;
-        seq.end()
+        header.to_bytes(data)?;
+        output.to_bytes(data)
     }
 }
 
-deserialize_visitor!(
-    cmap,
-    CmapVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let core = read_field!(seq, CmapHeader, "a cmap table");
-        let remainder = read_field!(seq, Vec<u8>, "a cmap table");
-        let offset_base = (4 + core.encodingRecords.len() * 8) as u32;
+impl Deserialize for cmap {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let core: CmapHeader = c.de()?;
         let mut subtables = Vec::with_capacity(core.encodingRecords.len());
         for er in &core.encodingRecords {
-            let subtable_bytes = &remainder[(er.subtableOffset - offset_base) as usize..];
-            match subtable_bytes[0..2] {
+            c.ptr = c.top_of_table() + er.subtableOffset as usize;
+
+            match c.peek(2)? {
                 [0x0, 0x0] => {
-                    let subtable: cmap0 = otspec::de::from_bytes(&subtable_bytes).unwrap();
+                    let subtable: cmap0 = c.de()?;
                     subtables.push(CmapSubtable {
                         format: 0,
                         platformID: er.platformID,
@@ -458,7 +431,7 @@ deserialize_visitor!(
                     });
                 }
                 [0x0, 0x04] => {
-                    let subtable: cmap4 = otspec::de::from_bytes(&subtable_bytes).unwrap();
+                    let subtable: cmap4 = c.de()?;
                     subtables.push(CmapSubtable {
                         format: 4,
                         platformID: er.platformID,
@@ -474,7 +447,7 @@ deserialize_visitor!(
         }
         Ok(cmap { subtables })
     }
-);
+}
 
 impl cmap {
     /// Tries to find a mapping targetted at the the given platform and

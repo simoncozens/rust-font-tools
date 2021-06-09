@@ -1,16 +1,10 @@
 #![allow(non_camel_case_types, non_snake_case)]
-
-use otspec::de::CountedDeserializer;
-use otspec::de::Deserializer as OTDeserializer;
 use otspec::types::*;
 use otspec::{
-    deserialize_visitor, read_field, read_field_counted, read_remainder, stateful_deserializer,
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Serializer,
 };
 use otspec_macros::tables;
-use serde::de::{DeserializeSeed, SeqAccess, Visitor};
-use serde::ser::SerializeSeq;
-use serde::Serializer;
-use serde::{Deserialize, Deserializer, Serialize};
 
 tables!(
     fvarcore {
@@ -44,47 +38,31 @@ pub struct InstanceRecord {
     pub postscriptNameID: Option<uint16>,
 }
 
-stateful_deserializer!(
-Vec<InstanceRecord>,
-InstanceRecordDeserializer,
-{
-    axisCount: uint16,
-    instanceCount: uint16,
-    has_postscript_name_id: bool
-},
-fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Vec<InstanceRecord>, A::Error>
-        where
-            A: SeqAccess<'de>
-        {
-            let mut res = vec![];
-            for _ in 0..self.instanceCount {
-                let subfamilyNameID =
-                    read_field!(seq, uint16, "instance record family name ID");
-                let _flags = read_field!(seq, uint16, "instance record flags");
-                let coordinates = (read_field_counted!(seq, self.axisCount, "a coordinate")
-                    as Vec<i32>)
-                    .iter()
-                    .map(|x| Fixed::unpack(*x))
-                    .collect();
-                let postscriptNameID = if self.has_postscript_name_id {
-                    Some(read_field!(
-                        seq,
-                        uint16,
-                        "instance record postscript name ID"
-                    ))
-                } else {
-                    None
-                };
-                res.push(InstanceRecord {
-                    subfamilyNameID,
-                    coordinates,
-                    postscriptNameID,
-                });
-                println!("Got a record {:?}", res);
-            }
-            Ok(res)
-        }
-);
+impl InstanceRecord {
+    fn from_bytes(
+        c: &mut ReaderContext,
+        axis_count: uint16,
+        has_postscript_name_id: bool,
+    ) -> Result<Self, DeserializationError> {
+        let subfamilyNameID = c.de()?;
+        let _flags: uint16 = c.de()?;
+        let coordinates: Vec<f32> = c
+            .de_counted(axis_count.into())?
+            .iter()
+            .map(|x: &Fixed| (*x).into())
+            .collect();
+        let postscriptNameID: Option<uint16> = if has_postscript_name_id {
+            Some(c.de()?)
+        } else {
+            None
+        };
+        Ok(InstanceRecord {
+            subfamilyNameID,
+            coordinates,
+            postscriptNameID,
+        })
+    }
+}
 
 /// Represents a font's fvar (Font Variations) table
 #[derive(Debug, PartialEq)]
@@ -95,48 +73,38 @@ pub struct fvar {
     pub instances: Vec<InstanceRecord>,
 }
 
-deserialize_visitor!(
-    fvar,
-    FvarVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let core = read_field!(seq, fvarcore, "an fvar table header");
-        let remainder = read_remainder!(seq, "an fvar table");
+impl Deserialize for fvar {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        c.push();
+        let core: fvarcore = c.de()?;
         let offset = core.axesArrayOffset as usize;
-        let offset_base: usize = 16;
         let axis_count = core.axisCount as usize;
-        let axis_records = &remainder[offset - offset_base..];
-        let mut de = OTDeserializer::from_bytes(axis_records);
-        let cs: CountedDeserializer<VariationAxisRecord> =
-            CountedDeserializer::with_len(axis_count);
-        let axes: Vec<VariationAxisRecord> = cs
-            .deserialize(&mut de)
-            .map_err(|_| serde::de::Error::custom("Expecting a VariationAxisRecord"))?;
 
-        let instance_records =
-            &remainder[offset - offset_base + (core.axisCount * core.axisSize) as usize..];
-        let mut de2 = otspec::de::Deserializer::from_bytes(instance_records);
-        let cs2 = InstanceRecordDeserializer {
-            axisCount: core.axisCount,
-            instanceCount: core.instanceCount,
-            has_postscript_name_id: core.instanceSize == core.axisCount * 4 + 6,
-        };
-        let instances: Vec<InstanceRecord> = cs2.deserialize(&mut de2).map_err(|e| {
-            serde::de::Error::custom(format!("Expecting a InstanceRecord: {:?}", e))
-        })?;
-
-        Ok(fvar { axes, instances })
+        c.ptr = c.top_of_table() + offset;
+        let axes: Vec<VariationAxisRecord> = c.de_counted(axis_count)?;
+        let instances: Result<Vec<InstanceRecord>, DeserializationError> = (0..core.instanceCount)
+            .map(|_| {
+                let c: Result<InstanceRecord, DeserializationError> = InstanceRecord::from_bytes(
+                    c,
+                    core.axisCount,
+                    core.instanceSize == core.axisCount * 4 + 6,
+                );
+                c
+            })
+            .collect();
+        Ok(fvar {
+            axes,
+            instances: instances?,
+        })
     }
-);
+}
 
 impl Serialize for fvar {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let has_postscript_name_id = self.instances.iter().any(|x| x.postscriptNameID.is_some());
         if has_postscript_name_id && !self.instances.iter().all(|x| x.postscriptNameID.is_some()) {
-            return Err(serde::ser::Error::custom(
-                "Inconsistent use of postscriptNameID in fvar instances",
+            return Err(SerializationError(
+                "Inconsistent use of postscriptNameID in fvar instances".to_string(),
             ));
         }
         let core = fvarcore {
@@ -150,27 +118,25 @@ impl Serialize for fvar {
             instanceSize: (self.axes.len() * 4 + if has_postscript_name_id { 6 } else { 4 })
                 as uint16,
         };
-        let mut seq = serializer.serialize_seq(None)?;
-        seq.serialize_element(&core)?;
+        core.to_bytes(data)?;
         for axis in &self.axes {
-            seq.serialize_element(&axis)?;
+            axis.to_bytes(data)?;
         }
         for instance in &self.instances {
             // Have to do this by hand
-            seq.serialize_element(&instance.subfamilyNameID)?;
-            seq.serialize_element::<uint16>(&0)?;
-            seq.serialize_element::<Vec<i32>>(
-                &instance
-                    .coordinates
-                    .iter()
-                    .map(|x| Fixed::pack(*x))
-                    .collect(),
-            )?;
+            data.put(instance.subfamilyNameID)?;
+            data.put(0_u16)?;
+            let coords: Vec<Fixed> = instance
+                .coordinates
+                .iter()
+                .map(|x: &f32| (*x).into())
+                .collect();
+            data.put(coords)?;
             if has_postscript_name_id {
-                seq.serialize_element(&instance.postscriptNameID.unwrap())?;
+                data.put(instance.postscriptNameID.unwrap())?;
             }
         }
-        seq.end()
+        Ok(())
     }
 }
 
@@ -178,13 +144,14 @@ impl Serialize for fvar {
 mod tests {
     use crate::fvar;
     use crate::fvar::InstanceRecord;
+    use otspec::types::tag;
 
     #[test]
     fn fvar_de() {
         let ffvar = fvar::fvar {
             axes: vec![
                 fvar::VariationAxisRecord {
-                    axisTag: *b"wght",
+                    axisTag: tag("wght"),
                     flags: 0,
                     minValue: 200.0,
                     defaultValue: 200.0,

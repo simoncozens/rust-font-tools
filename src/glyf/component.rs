@@ -2,9 +2,8 @@
 use bitflags::bitflags;
 use kurbo::Affine;
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field};
-use serde::de::{SeqAccess, Visitor};
-use serde::{Deserialize, Deserializer, Serialize};
+use otspec::{DeserializationError, Deserialize, Deserializer, ReaderContext};
+use otspec_macros::{Deserialize, Serialize};
 
 bitflags! {
     /// Flags used when serializing/deserializing the component.
@@ -110,24 +109,22 @@ impl Component {
     }
 }
 
-deserialize_visitor!(
-    Component,
-    ComponentVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let flags = read_field!(seq, ComponentFlags, "a component flag field");
-        let glyph_index = read_field!(seq, uint16, "a component glyph index");
+impl Deserialize for Component {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let flags: ComponentFlags = c.de()?;
+        let glyph_index: uint16 = c.de()?;
         let mut match_points: Option<(uint16, uint16)> = None;
         let mut x_offset: i16 = 0;
         let mut y_offset: i16 = 0;
         if !flags.contains(ComponentFlags::ARGS_ARE_XY_VALUES) {
             // unsigned point values
             if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
-                let p1 = read_field!(seq, u16, "a component point value");
-                let p2 = read_field!(seq, u16, "a component point value");
+                let p1: u16 = c.de()?;
+                let p2: u16 = c.de()?;
                 match_points = Some((p1, p2));
             } else {
-                let p1 = read_field!(seq, u8, "a component point value");
-                let p2 = read_field!(seq, u8, "a component point value");
+                let p1: u8 = c.de()?;
+                let p2: u8 = c.de()?;
                 match_points = Some((p1.into(), p2.into()));
             }
             if flags.contains(
@@ -135,16 +132,18 @@ deserialize_visitor!(
                     | ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE
                     | ComponentFlags::WE_HAVE_A_TWO_BY_TWO,
             ) {
-                return Err(serde::de::Error::custom("Simon is a lazy programmer"));
+                return Err(DeserializationError(
+                    "Simon is a lazy programmer".to_string(),
+                ));
             }
         } else {
             // signed xy values
             if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
-                x_offset = read_field!(seq, i16, "a component point value");
-                y_offset = read_field!(seq, i16, "a component point value");
+                x_offset = c.de()?;
+                y_offset = c.de()?;
             } else {
-                x_offset = read_field!(seq, i8, "a component point value").into();
-                y_offset = read_field!(seq, i8, "a component point value").into();
+                x_offset = (c.de()?: u8).into();
+                y_offset = (c.de()?: u8).into();
             }
         }
         let mut x_scale = 1.0_f64;
@@ -152,16 +151,16 @@ deserialize_visitor!(
         let mut scale10 = 0.0_f64;
         let mut y_scale = 1.0_f64;
         if flags.contains(ComponentFlags::WE_HAVE_A_SCALE) {
-            x_scale = F2DOT14::unpack(read_field!(seq, i16, "a scale")).into();
+            x_scale = ((c.de()?: F2DOT14).into(): f32) as f64;
             y_scale = x_scale;
         } else if flags.contains(ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE) {
-            x_scale = F2DOT14::unpack(read_field!(seq, i16, "an X scale")).into();
-            y_scale = F2DOT14::unpack(read_field!(seq, i16, "a Y scale")).into();
+            x_scale = ((c.de()?: F2DOT14).into(): f32) as f64;
+            y_scale = ((c.de()?: F2DOT14).into(): f32) as f64;
         } else if flags.contains(ComponentFlags::WE_HAVE_A_TWO_BY_TWO) {
-            x_scale = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
-            scale01 = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
-            scale10 = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
-            y_scale = F2DOT14::unpack(read_field!(seq, i16, "a 2x2 component")).into();
+            x_scale = ((c.de()?: F2DOT14).into(): f32) as f64;
+            scale01 = ((c.de()?: F2DOT14).into(): f32) as f64;
+            scale10 = ((c.de()?: F2DOT14).into(): f32) as f64;
+            y_scale = ((c.de()?: F2DOT14).into(): f32) as f64;
         }
         let transformation = Affine::new([
             x_scale,
@@ -179,4 +178,4 @@ deserialize_visitor!(
             flags,
         })
     }
-);
+}

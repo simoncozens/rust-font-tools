@@ -1,7 +1,7 @@
 use bitflags::bitflags;
 use otspec::types::*;
-use otspec_macros::tables;
-use serde::{Deserialize, Serialize};
+use otspec::Deserializer;
+use otspec_macros::{tables, Deserialize, Serialize};
 
 tables!(
 GaspRecord {

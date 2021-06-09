@@ -1,28 +1,26 @@
 use bitflags::bitflags;
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_remainder};
-use otspec_macros::tables;
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::Deserializer;
-use serde::{Deserialize, Serialize};
+use otspec::Deserializer;
+use otspec_macros::{tables, Deserialize, Serialize};
 use std::collections::HashMap;
 
 tables!(
     ScriptListInternal {
+        [offset_base]
         Counted(ScriptRecord) scriptRecords
     }
     ScriptRecord {
         Tag scriptTag
-        uint16 scriptOffset
+        Offset16(ScriptInternal) scriptOffset
     }
     ScriptInternal {
-        uint16 defaultLangSysOffset
+        [offset_base]
+        Offset16(LangSys) defaultLangSys
         Counted(LangSysRecord) langSysRecords
     }
     LangSysRecord {
         Tag langSysTag
-        uint16 langSysOffset
+        Offset16(LangSys) langSys
     }
     LangSys {
         uint16	lookupOrderOffset // Null, ignore it
@@ -30,24 +28,26 @@ tables!(
         Counted(uint16) featureIndices
     }
     FeatureList {
-            Counted(FeatureRecord) featureRecords
+        [offset_base]
+        Counted(FeatureRecord) featureRecords
     }
     FeatureRecord {
             Tag	featureTag
-            uint16	featureOffset
+            Offset16(FeatureTable)	feature
     }
     FeatureTable {
             uint16	featureParamsOffset
             Counted(uint16) lookupListIndices
     }
     LookupList {
-            Counted(uint16) lookupOffsets
+        [offset_base]
+        Counted(uint16) lookupOffsets
     }
     Lookup {
-            uint16	lookupType
-            LookupFlags	lookupFlag
-            Counted(uint16)	subtableOffsets
-            // Optional markFilteringSet
+        uint16	lookupType
+        LookupFlags	lookupFlag
+        Counted(uint16)	subtableOffsets
+        // Optional markFilteringSet
     }
 
     cvFeatureParams {
@@ -138,58 +138,78 @@ pub struct LanguageSystem {
     pub feature_indices: Vec<usize>,
 }
 
-deserialize_visitor!(
-    ScriptList,
-    ScriptListVisitor,
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<ScriptList, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let sl = read_field!(seq, ScriptListInternal, "A script list");
-        let remainder = read_remainder!(seq, "Script records");
-        let base = 2 + (6 * sl.scriptRecords.len());
-        let mut scripts = HashMap::new();
-        for rec in sl.scriptRecords {
-            let script_base = rec.scriptOffset as usize - base;
-            let si: ScriptInternal = otspec::de::from_bytes(&remainder[script_base..]).unwrap();
-            let mut script = Script {
-                default_language_system: if si.defaultLangSysOffset > 0 {
-                    let offset = script_base + si.defaultLangSysOffset as usize;
-                    let langsys: LangSys = otspec::de::from_bytes(&remainder[offset..]).unwrap();
-                    Some(LanguageSystem {
-                        required_feature: if langsys.requiredFeatureIndex != 0xFFFF {
-                            Some(langsys.requiredFeatureIndex.into())
-                        } else {
-                            None
-                        },
-                        feature_indices: langsys
-                            .featureIndices
-                            .iter()
-                            .map(|x| *x as usize)
-                            .collect(),
-                    })
-                } else {
-                    None
-                },
-                language_systems: HashMap::new(),
-            };
-            for langsysrecord in si.langSysRecords {
-                let lang_tag = langsysrecord.langSysTag;
-                let offset = script_base + langsysrecord.langSysOffset as usize;
-                let langsys: LangSys = otspec::de::from_bytes(&remainder[offset..]).unwrap();
-                let language_system = LanguageSystem {
-                    required_feature: if langsys.requiredFeatureIndex != 0xFFFF {
-                        Some(langsys.requiredFeatureIndex.into())
-                    } else {
-                        None
-                    },
-                    feature_indices: langsys.featureIndices.iter().map(|x| *x as usize).collect(),
-                };
-                script.language_systems.insert(lang_tag, language_system);
-            }
-            scripts.insert(rec.scriptTag, script);
-        }
+// deserialize_visitor!(
+//     ScriptList,
+//     ScriptListVisitor,
+//     fn visit_seq<A>(self, mut seq: A) -> std::result::Result<ScriptList, A::Error>
+//     where
+//         A: SeqAccess<'de>,
+//     {
+//         let sl = read_field!(seq, ScriptListInternal, "A script list");
+//         let remainder = read_remainder!(seq, "Script records");
+//         let base = 2 + (6 * sl.scriptRecords.len());
+//         let mut scripts = HashMap::new();
+//         for rec in sl.scriptRecords {
+//             let script_base = rec.scriptOffset as usize - base;
+//             let si: ScriptInternal = otspec::de::from_bytes(&remainder[script_base..]).unwrap();
+//             let mut script = Script {
+//                 default_language_system: if si.defaultLangSysOffset > 0 {
+//                     let offset = script_base + si.defaultLangSysOffset as usize;
+//                     let langsys: LangSys = otspec::de::from_bytes(&remainder[offset..]).unwrap();
+//                     Some(LanguageSystem {
+//                         required_feature: if langsys.requiredFeatureIndex != 0xFFFF {
+//                             Some(langsys.requiredFeatureIndex.into())
+//                         } else {
+//                             None
+//                         },
+//                         feature_indices: langsys
+//                             .featureIndices
+//                             .iter()
+//                             .map(|x| *x as usize)
+//                             .collect(),
+//                     })
+//                 } else {
+//                     None
+//                 },
+//                 language_systems: HashMap::new(),
+//             };
+//             for langsysrecord in si.langSysRecords {
+//                 let lang_tag = langsysrecord.langSysTag;
+//                 let offset = script_base + langsysrecord.langSysOffset as usize;
+//                 let langsys: LangSys = otspec::de::from_bytes(&remainder[offset..]).unwrap();
+//                 let language_system = LanguageSystem {
+//                     required_feature: if langsys.requiredFeatureIndex != 0xFFFF {
+//                         Some(langsys.requiredFeatureIndex.into())
+//                     } else {
+//                         None
+//                     },
+//                     feature_indices: langsys.featureIndices.iter().map(|x| *x as usize).collect(),
+//                 };
+//                 script.language_systems.insert(lang_tag, language_system);
+//             }
+//             scripts.insert(rec.scriptTag, script);
+//         }
 
-        Ok(ScriptList { scripts })
+//         Ok(ScriptList { scripts })
+//     }
+// );
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scriptlist_internal() {
+        let binary_scriptlist = vec![
+            0x00, 0x02, 0x61, 0x72, 0x61, 0x62, 0x00, 0x0E, 0x6C, 0x61, 0x74, 0x6E, 0x00, 0x40,
+            0x00, 0x0A, 0x00, 0x01, 0x55, 0x52, 0x44, 0x20, 0x00, 0x1E, 0x00, 0x00, 0xFF, 0xFF,
+            0x00, 0x07, 0x00, 0x01, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x06, 0x00, 0x07,
+            0x00, 0x08, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x07, 0x00, 0x00, 0x00, 0x03, 0x00, 0x04,
+            0x00, 0x05, 0x00, 0x06, 0x00, 0x07, 0x00, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00,
+            0xFF, 0xFF, 0x00, 0x07, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x06,
+            0x00, 0x07, 0x00, 0x08,
+        ];
+        let deserialized: ScriptListInternal = otspec::de::from_bytes(&binary_scriptlist).unwrap();
+        println!("Script list {:?}", deserialized);
     }
-);
+}

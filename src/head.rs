@@ -1,6 +1,6 @@
 use otspec::types::*;
+use otspec::Deserializer;
 use otspec_macros::tables;
-use serde::{Deserialize, Serialize};
 
 tables!(head {
     uint16 majorVersion

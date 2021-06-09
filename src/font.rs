@@ -12,13 +12,12 @@ use crate::maxp::maxp;
 use crate::name::name;
 use crate::os2::os2;
 use crate::post::post;
-use otspec::error::Error as OTSpecError;
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field};
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::{Deserialize, Deserializer};
-use serde::{Serialize, Serializer};
+use otspec::ReaderContext;
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, SerializationError, Serialize, Serializer,
+};
+use otspec_macros::{Deserialize, Serialize};
 use std::cmp;
 use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
@@ -26,8 +25,7 @@ use std::io::Write;
 use std::num::Wrapping;
 
 /// A generic container for a font table, either known (deserialized) or unknown (binary)
-#[derive(Debug, Serialize, PartialEq)]
-#[serde(untagged)]
+#[derive(Debug, PartialEq)]
 pub enum Table {
     /// Contains an unknown or unparsed table stored as a binary byte array.
     Unknown(Vec<u8>),
@@ -94,8 +92,30 @@ impl Table {
     table_unchecked!(post_unchecked, Post, post);
 }
 
+impl Serialize for Table {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
+        match self {
+            Table::Unknown(expr) => expr.to_bytes(data),
+            Table::Avar(expr) => expr.to_bytes(data),
+            Table::Cmap(expr) => expr.to_bytes(data),
+            Table::Fvar(expr) => expr.to_bytes(data),
+            Table::Gasp(expr) => expr.to_bytes(data),
+            Table::Gvar(_) => unimplemented!(),
+            Table::Head(expr) => expr.to_bytes(data),
+            Table::Hhea(expr) => expr.to_bytes(data),
+            Table::Hmtx(_) => unimplemented!(),
+            Table::Glyf(_) => unimplemented!(),
+            Table::Loca(_) => unimplemented!(),
+            Table::Maxp(expr) => expr.to_bytes(data),
+            Table::Name(expr) => expr.to_bytes(data),
+            Table::Os2(expr) => expr.to_bytes(data),
+            Table::Post(expr) => expr.to_bytes(data),
+        }
+    }
+}
+
 /// Magic number used to identify the font type
-#[derive(Copy, Clone, Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SfntVersion {
     /// TrueType (generally containing glyf outlines)
     TrueType = 0x00010000,
@@ -198,7 +218,7 @@ impl Font {
         )
     }
 
-    fn _deserialize(&self, tag: &Tag, binary: &[u8]) -> otspec::error::Result<Table> {
+    fn _deserialize(&self, tag: &Tag, binary: &[u8]) -> Result<Table, DeserializationError> {
         match tag {
             b"cmap" => Ok(Table::Cmap(otspec::de::from_bytes(binary)?)),
             b"head" => Ok(Table::Head(otspec::de::from_bytes(binary)?)),
@@ -212,27 +232,33 @@ impl Font {
             b"hmtx" => {
                 let number_of_hmetrics = self._number_of_hmetrics();
                 if number_of_hmetrics.is_none() {
-                    return Err(OTSpecError::DeserializedInWrongOrder);
+                    return Err(DeserializationError(
+                        "Deserialized in wrong order".to_string(),
+                    ));
                 }
                 Ok(Table::Hmtx(hmtx::from_bytes(
-                    binary,
+                    &mut otspec::ReaderContext::new(binary.to_vec()),
                     number_of_hmetrics.unwrap(),
                 )?))
             }
             b"loca" => {
                 let loca_is32bit = self._loca_is32bit();
                 if loca_is32bit.is_none() {
-                    return Err(OTSpecError::DeserializedInWrongOrder);
+                    return Err(DeserializationError(
+                        "Deserialized in wrong order".to_string(),
+                    ));
                 }
                 Ok(Table::Loca(loca::from_bytes(
-                    binary,
+                    &mut otspec::ReaderContext::new(binary.to_vec()),
                     loca_is32bit.unwrap(),
                 )?))
             }
             b"glyf" => {
                 let loca_offsets = self._loc_offsets();
                 if loca_offsets.is_none() {
-                    return Err(OTSpecError::DeserializedInWrongOrder);
+                    return Err(DeserializationError(
+                        "Deserialized in wrong order".to_string(),
+                    ));
                 }
                 Ok(Table::Glyf(glyf::from_bytes(
                     binary,
@@ -242,7 +268,9 @@ impl Font {
             b"gvar" => {
                 let gvar_coords_and_ends = self._gvar_coords_and_ends();
                 if gvar_coords_and_ends.is_none() {
-                    return Err(OTSpecError::DeserializedInWrongOrder);
+                    return Err(DeserializationError(
+                        "Deserialized in wrong order".to_string(),
+                    ));
                 }
                 Ok(Table::Gvar(gvar::from_bytes(
                     binary,
@@ -293,7 +321,10 @@ impl Font {
     /// Returns an Err if the table could not be correctly deserialized.
     /// Returns Ok(None) if the table was not present within the font.
     /// Returns Ok(Some(Table)) if the table was present.
-    pub fn get_table<'a>(&'a mut self, tag: &Tag) -> otspec::error::Result<Option<&'a mut Table>> {
+    pub fn get_table<'a>(
+        &'a mut self,
+        tag: &Tag,
+    ) -> Result<Option<&'a mut Table>, DeserializationError> {
         let table = self.get_table_simple(tag);
         // println!("Getting table {:?}", tag);
         if table.is_none() {
@@ -337,7 +368,7 @@ impl Font {
         T: Write,
     {
         self.compile_glyf_loca_maxp();
-        let serialized = ser::to_bytes(&self).unwrap();
+        let serialized = ser::to_bytes(self).unwrap();
         file.write_all(&serialized).unwrap();
     }
 
@@ -481,13 +512,9 @@ pub fn get_search_range(n: u16, itemsize: u16) -> (u16, u16, u16) {
 }
 
 impl Serialize for Font {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let lenu16: u16 = self.tables.len().try_into().unwrap();
         let (search_range, max_pow2, range_shift) = get_search_range(lenu16, 16);
-        // let mut seq = serializer.serialize_seq(None)?;
         let mut output: Vec<u8> = vec![];
         let mut output_tables: Vec<u8> = vec![];
         output.extend(&(self.sfntVersion as u32).to_be_bytes());
@@ -528,24 +555,21 @@ impl Serialize for Font {
             output[head_pos + 10] = checksum_be[2];
             output[head_pos + 11] = checksum_be[3];
         }
-        serializer.serialize_bytes(&output)
+        data.put(output)
     }
 }
 
-deserialize_visitor!(
-    Font,
-    FontVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let header = read_field!(seq, TableHeader, "table header");
-        let version = TryInto::<SfntVersion>::try_into(header.sfntVersion)
-            .map_err(|_| serde::de::Error::custom("Font must begin with a valid version"))?;
+impl Deserialize for Font {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let header: TableHeader = c.de()?;
+        let version = TryInto::<SfntVersion>::try_into(header.sfntVersion).map_err(|_| {
+            DeserializationError("Font must begin with a valid version".to_string())
+        })?;
 
         let mut result = Font::new(version);
         let mut table_records = Vec::with_capacity(header.numTables as usize);
         for i in 0..(header.numTables as usize) {
-            let next = seq
-                .next_element::<TableRecord>()?
-                .ok_or_else(|| serde::de::Error::invalid_length(i, &self))?;
+            let next: TableRecord = c.de()?;
             table_records.push(next)
         }
         let pos = (16 * table_records.len() + 12) as u32;
@@ -553,20 +577,17 @@ deserialize_visitor!(
             .iter()
             .map(|x| (x.length + x.offset))
             .max()
-            .ok_or_else(|| serde::de::Error::custom("No tables?"))?;
-        let remainder: Vec<u8> = (0..(max_offset - pos))
-            .filter_map(|_| seq.next_element::<u8>().unwrap())
-            .collect();
+            .ok_or_else(|| DeserializationError("No tables?".to_string()))?;
         table_records.sort_by_key(|tr| tr.offset);
         for tr in table_records {
-            let start = (tr.offset - pos) as usize;
-            let this_table = &remainder[start..start + tr.length as usize];
+            let start = tr.offset as usize;
+            let this_table = &c.input[start..start + tr.length as usize];
             let table = Table::Unknown(this_table.into()); // Deserialize on read
             result.tables.insert(tr.tag, table);
         }
         Ok(result)
     }
-);
+}
 
 #[cfg(test)]
 mod tests {

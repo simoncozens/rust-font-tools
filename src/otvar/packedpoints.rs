@@ -1,10 +1,9 @@
 /// Packed points within a Tuple Variation Store
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_field_counted};
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::ser::SerializeSeq;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Serializer,
+};
 
 /// An array of packed points
 ///
@@ -18,14 +17,13 @@ pub struct PackedPoints {
     pub points: Option<Vec<uint16>>,
 }
 
-deserialize_visitor!(
-    PackedPoints,
-    PackedPointsVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let mut count: u16 = read_field!(seq, u8, "a packed point count (first byte)") as u16;
+impl Deserialize for PackedPoints {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let count1_u8: u8 = c.de()?;
+        let mut count: u16 = count1_u8 as u16;
         if count > 127 {
-            let count2: u16 = read_field!(seq, u8, "a packed point count (second byte)") as u16;
-            count = (count & 0xff) << 8 | count2;
+            let count2: u8 = c.de()?;
+            count = (count & 0xff) << 8 | count2 as u16;
         }
         if count == 0 {
             // All of them
@@ -33,16 +31,16 @@ deserialize_visitor!(
         }
         let mut res = vec![];
         while res.len() < count as usize {
-            let control_byte = read_field!(seq, u8, "a packed point control byte");
+            let control_byte: u8 = c.de()?;
             let points_are_words = (control_byte & 0x80) > 0;
             // "The low 7 bits specify the number of elements in the run minus 1."
             // MINUS ONE.
             let run_count = (control_byte & 0x7f) + 1;
             let deltas: Vec<u16>;
             if points_are_words {
-                deltas = read_field_counted!(seq, run_count, "packed points");
+                deltas = c.de_counted(run_count.into())?;
             } else {
-                let delta_bytes: Vec<u8> = read_field_counted!(seq, run_count, "packed points");
+                let delta_bytes: Vec<u8> = c.de_counted(run_count.into())?;
                 deltas = delta_bytes.iter().map(|x| *x as u16).collect();
             }
             res.extend(deltas);
@@ -58,24 +56,19 @@ deserialize_visitor!(
             points: Some(cumsum),
         })
     }
-);
+}
 
 impl Serialize for PackedPoints {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         if self.points.is_none() {
-            seq.serialize_element::<u8>(&0)?;
-            return seq.end();
+            return data.put(0_u8);
         }
         let points = self.points.as_ref().unwrap();
         let num_points = points.len() as uint16;
         if num_points <= 0x80 {
-            seq.serialize_element::<u8>(&(num_points as u8))?;
+            data.put(num_points as u8)?;
         } else {
-            seq.serialize_element::<u16>(&(num_points | 0x8000))?;
+            data.put(num_points | 0x8000)?;
         }
 
         let mut pos = 0;
@@ -106,9 +99,9 @@ impl Serialize for PackedPoints {
             } else {
                 run[0] = (run.len() as u8 - 2) | 0x80;
             }
-            seq.serialize_element(&run)?;
+            data.put(run)?
         }
-        seq.end()
+        Ok(())
     }
 }
 

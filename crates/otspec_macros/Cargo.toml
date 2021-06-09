@@ -1,13 +1,12 @@
 [package]
 name = "otspec_macros"
 version = "0.1.0"
-authors = ["Simon Cozens <simon@simon-cozens.org>"]
-edition = "2018"
 
 [lib]
+name = "otspec_macros"
 proc-macro = true
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-chrono = { version = "0.4.3" }
+proc-macro2 = "1.0"
 quote = "1.0"
+syn = "1.0.60"

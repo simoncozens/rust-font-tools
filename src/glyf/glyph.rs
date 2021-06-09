@@ -3,12 +3,11 @@ use crate::glyf::point::Point;
 use bitflags::bitflags;
 use itertools::izip;
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_field_counted};
-use otspec_macros::tables;
-use serde::de::{SeqAccess, Visitor};
-use serde::ser::SerializeSeq;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
+use otspec::Serializer;
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+};
+use otspec_macros::{tables, Deserialize, Serialize};
 tables!(
     GlyphCore {
         int16	xMin
@@ -55,15 +54,12 @@ pub struct Glyph {
     pub overlap: bool,
 }
 
-deserialize_visitor!(
-    Glyph,
-    GlyphVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+impl Deserialize for Glyph {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         // println!("Reading a glyph");
-        let maybe_num_contours = seq.next_element::<i16>()?;
-        let num_contours = maybe_num_contours.unwrap();
+        let num_contours: i16 = c.de()?;
         // println!("Num contours: {:?}", num_contours);
-        let core = read_field!(seq, GlyphCore, "a glyph header");
+        let core: GlyphCore = c.de()?;
         let mut components: Vec<Component> = vec![];
         let mut instructions: Vec<u8> = vec![];
         let mut contours: Vec<Vec<Point>> = Vec::with_capacity(if num_contours < 1 {
@@ -75,7 +71,7 @@ deserialize_visitor!(
         let mut has_instructions = false;
         if num_contours < 1 {
             loop {
-                let comp = read_field!(seq, Component, "component");
+                let comp: Component = c.de()?;
                 let has_more = comp.flags.contains(ComponentFlags::MORE_COMPONENTS);
                 if comp.flags.contains(ComponentFlags::OVERLAP_COMPOUND) {
                     overlap = true;
@@ -89,34 +85,37 @@ deserialize_visitor!(
                 }
             }
             if has_instructions {
-                let instructions_count = read_field!(seq, i16, "a count of instruction bytes");
+                let instructions_count: i16 = c.de()?;
                 if instructions_count > 0 {
-                    instructions = read_field_counted!(seq, instructions_count, "instructions");
+                    instructions = c.de_counted(instructions_count as usize)?;
                 }
             }
         } else {
             // println!("Reading {:?} contours", num_contours);
             let mut end_pts_of_contour: Vec<usize> = (0..num_contours as usize)
-                .filter_map(|_| seq.next_element::<uint16>().unwrap())
+                .filter_map(|_| {
+                    let x: Result<uint16, DeserializationError> = c.de();
+                    Some(x.unwrap())
+                })
                 .map(|x| (1 + x) as usize)
                 .collect();
-            let instructions_count = read_field!(seq, i16, "a count of instruction bytes");
+            let instructions_count: i16 = c.de()?;
             if instructions_count > 0 {
-                instructions = read_field_counted!(seq, instructions_count, "instructions");
+                instructions = c.de_counted(instructions_count as usize)?;
             }
             // println!("Instructions: {:?}", instructions);
             let num_points = *(end_pts_of_contour
                 .last()
-                .ok_or_else(|| serde::de::Error::custom("No points?"))?)
+                .ok_or_else(|| DeserializationError("No points?".to_string()))?)
                 as usize;
             let mut i = 0;
             // println!("Number of points: {:?}", num_points);
             let mut flags: Vec<SimpleGlyphFlags> = Vec::with_capacity(num_points);
             while i < num_points {
-                let flag = read_field!(seq, SimpleGlyphFlags, "a glyph flag");
+                let flag: SimpleGlyphFlags = c.de()?;
                 flags.push(flag);
                 if flag.contains(SimpleGlyphFlags::REPEAT_FLAG) {
-                    let mut repeat_count = read_field!(seq, u8, "a flag repeat count");
+                    let mut repeat_count: u8 = c.de()?;
                     // println!("Repeated flag! {:?}", repeat_count);
                     while repeat_count > 0 {
                         flags.push(flag);
@@ -132,11 +131,11 @@ deserialize_visitor!(
             let mut last_y = 0_i16;
             for flag in &flags {
                 if flag.contains(SimpleGlyphFlags::X_SHORT_VECTOR) {
-                    let coord = read_field!(seq, u8, "an X coordinate") as i16;
+                    let coord: u8 = c.de()?;
                     if flag.contains(SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR) {
-                        last_x += coord;
+                        last_x += coord as i16;
                     } else {
-                        last_x -= coord;
+                        last_x -= coord as i16;
                     }
                     // println!("Read short X coordinate {:?}", coord);
                     // println!("X is now {:?}", last_x);
@@ -144,7 +143,7 @@ deserialize_visitor!(
                     // println!("Elided X coordinate");
                     // println!("X is still {:?}", last_x);
                 } else {
-                    let coord = read_field!(seq, i16, "an X coordinate");
+                    let coord: i16 = c.de()?;
                     // println!("Read long X coordinate {:?}", coord);
                     last_x += coord;
                     // println!("X is now {:?}", last_x);
@@ -153,11 +152,11 @@ deserialize_visitor!(
             }
             for flag in &flags {
                 if flag.contains(SimpleGlyphFlags::Y_SHORT_VECTOR) {
-                    let coord = read_field!(seq, u8, "a Y coordinate") as i16;
+                    let coord: u8 = c.de()?;
                     if flag.contains(SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR) {
-                        last_y += coord;
+                        last_y += coord as i16;
                     } else {
-                        last_y -= coord;
+                        last_y -= coord as i16;
                     }
                     // println!("Read short Y coordinate {:?}", coord);
                     // println!("Y is now {:?}", last_y);
@@ -165,7 +164,7 @@ deserialize_visitor!(
                     // println!("Elided Y coordinate");
                     // println!("Y is still {:?}", last_y);
                 } else {
-                    let coord = read_field!(seq, i16, "a Y coordinate");
+                    let coord: i16 = c.de()?;
                     last_y += coord;
                     // println!("Read long Y coordinate {:?}", coord);
                     // println!("Y is now {:?}", last_y);
@@ -201,7 +200,7 @@ deserialize_visitor!(
             yMin: core.yMin,
         })
     }
-);
+}
 
 impl Glyph {
     /// Returns true if this glyph has any components
@@ -403,23 +402,17 @@ impl Glyph {
 }
 
 impl Serialize for Glyph {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         if self.is_empty() {
-            return seq.end();
+            return Ok(());
         }
-        seq.serialize_element::<i16>(
-            &(if self.has_components() {
-                -1
-            } else {
-                self.contours.len() as i16
-            }),
-        )?;
+        data.put(if self.has_components() {
+            -1
+        } else {
+            self.contours.len() as i16
+        })?;
         // recalc bounds?
-        seq.serialize_element::<GlyphCore>(&GlyphCore {
+        data.put(GlyphCore {
             xMin: self.xMin,
             xMax: self.xMax,
             yMin: self.yMin,
@@ -429,58 +422,58 @@ impl Serialize for Glyph {
             for (i, comp) in self.components.iter().enumerate() {
                 let flags = comp
                     .recompute_flags(i < self.components.len() - 1, !self.instructions.is_empty());
-                seq.serialize_element::<uint16>(&flags.bits())?;
-                seq.serialize_element::<uint16>(&comp.glyph_index)?;
+                data.put(flags.bits())?;
+                data.put(comp.glyph_index)?;
                 let [x_scale, scale01, scale10, scale_y, translate_x, translate_y] =
                     comp.transformation.as_coeffs();
                 if flags.contains(ComponentFlags::ARGS_ARE_XY_VALUES) {
                     if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
-                        seq.serialize_element::<i16>(&(translate_x.round() as i16))?;
-                        seq.serialize_element::<i16>(&(translate_y as i16))?;
+                        data.put(translate_x.round() as i16)?;
+                        data.put(translate_y as i16)?;
                     } else {
-                        seq.serialize_element::<i8>(&(translate_x.round() as i8))?;
-                        seq.serialize_element::<i8>(&(translate_y as i8))?;
+                        data.put(translate_x.round() as i8)?;
+                        data.put(translate_y as i8)?;
                     }
                 } else {
                     let (x, y) = comp.match_points.unwrap();
                     if flags.contains(ComponentFlags::ARG_1_AND_2_ARE_WORDS) {
-                        seq.serialize_element::<i16>(&(x as i16))?;
-                        seq.serialize_element::<i16>(&(y as i16))?;
+                        data.put(x as i16)?;
+                        data.put(y as i16)?;
                     } else {
-                        seq.serialize_element::<i8>(&(x as i8))?;
-                        seq.serialize_element::<i8>(&(y as i8))?;
+                        data.put(x as i8)?;
+                        data.put(y as i8)?;
                     }
                 }
                 if flags.contains(ComponentFlags::WE_HAVE_A_TWO_BY_TWO) {
-                    F2DOT14::serialize_element(&(x_scale as f32), &mut seq)?;
-                    F2DOT14::serialize_element(&(scale01 as f32), &mut seq)?;
-                    F2DOT14::serialize_element(&(scale10 as f32), &mut seq)?;
-                    F2DOT14::serialize_element(&(scale_y as f32), &mut seq)?;
+                    data.put(F2DOT14(x_scale as f32))?;
+                    data.put(F2DOT14(scale01 as f32))?;
+                    data.put(F2DOT14(scale10 as f32))?;
+                    data.put(F2DOT14(scale_y as f32))?;
                 } else if flags.contains(ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE) {
-                    F2DOT14::serialize_element(&(x_scale as f32), &mut seq)?;
-                    F2DOT14::serialize_element(&(scale_y as f32), &mut seq)?;
+                    data.put(F2DOT14(x_scale as f32))?;
+                    data.put(F2DOT14(scale_y as f32))?;
                 } else if flags.contains(ComponentFlags::WE_HAVE_A_SCALE) {
-                    F2DOT14::serialize_element(&(x_scale as f32), &mut seq)?;
+                    data.put(F2DOT14(x_scale as f32))?;
                 }
                 if flags.contains(ComponentFlags::WE_HAVE_INSTRUCTIONS) {
-                    seq.serialize_element::<uint16>(&(self.instructions.len() as u16))?;
-                    seq.serialize_element::<Vec<u8>>(&self.instructions)?;
+                    data.put(self.instructions.len() as u16)?;
+                    data.put(self.instructions.clone())?;
                 }
             }
         } else {
             let end_pts_of_contour = self.end_points();
-            seq.serialize_element::<Vec<uint16>>(&end_pts_of_contour)?;
+            data.put(end_pts_of_contour)?;
             if !self.instructions.is_empty() {
-                seq.serialize_element::<uint16>(&(self.instructions.len() as u16))?;
-                seq.serialize_element::<Vec<u8>>(&self.instructions)?;
+                data.put(self.instructions.len() as u16)?;
+                data.put(self.instructions.clone())?;
             } else {
-                seq.serialize_element::<uint16>(&0)?;
+                data.put(0_u16)?;
             }
             let (compressed_flags, compressed_xs, compressed_ys) = self._compile_deltas_greedy();
-            seq.serialize_element::<Vec<u8>>(&compressed_flags)?;
-            seq.serialize_element::<Vec<u8>>(&compressed_xs)?;
-            seq.serialize_element::<Vec<u8>>(&compressed_ys)?;
+            data.put(compressed_flags)?;
+            data.put(compressed_xs)?;
+            data.put(compressed_ys)?;
         }
-        seq.end()
+        Ok(())
     }
 }
