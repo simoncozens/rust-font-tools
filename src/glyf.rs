@@ -2,13 +2,15 @@ use otspec::{DeserializationError, Deserializer, ReaderContext};
 
 /// Structures for handling components within a composite glyph
 mod component;
+/// Utilities for handling contours
+pub mod contourutils;
 /// Structures for handling simple glyph descriptions
 mod glyph;
 /// A representation of a contour point
 mod point;
 
 pub use component::{Component, ComponentFlags};
-pub use glyph::{kurbo_contour_to_glyf_contour, Glyph};
+pub use glyph::Glyph;
 pub use point::Point;
 
 /// The glyf table
@@ -19,13 +21,16 @@ pub struct glyf {
     pub glyphs: Vec<Glyph>,
 }
 
-/// Deserialize the font from a binary buffer.
+/// Deserialize the glyf table from a binary buffer.
 ///
 /// loca_offsets must be obtained from the `loca` table.
 pub fn from_bytes(c: &[u8], loca_offsets: Vec<Option<u32>>) -> Result<glyf, DeserializationError> {
     from_rc(&mut ReaderContext::new(c.to_vec()), loca_offsets)
 }
 
+/// Deserialize the glyf table from a `ReaderContext` object.
+///
+/// loca_offsets must be obtained from the `loca` table.
 pub fn from_rc(
     c: &mut ReaderContext,
     loca_offsets: Vec<Option<u32>>,
