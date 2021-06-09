@@ -650,11 +650,11 @@ fn main() {
             .map(|(ix, g)| {
                 let name = glyphnames.as_ref().map_or("", |gn| &gn[ix]);
                 println!("Crunching {:}", name);
-                if name == "Aogonek" {
-                    crunch_glyph(g)
-                } else {
-                    g.clone()
-                }
+                // if name == "Aogonek" {
+                crunch_glyph(g)
+                // } else {
+                // g.clone()
+                // }
             })
             .collect();
     }
