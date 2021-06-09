@@ -8,7 +8,7 @@ mod glyph;
 mod point;
 
 pub use component::{Component, ComponentFlags};
-pub use glyph::Glyph;
+pub use glyph::{kurbo_contour_to_glyf_contour, Glyph};
 pub use point::Point;
 
 /// The glyf table
