@@ -1,15 +1,13 @@
 use crate::otvar::iup::iup_contour;
-use crate::otvar::{
-    Delta, PackedDeltas, PackedDeltasDeserializer, PackedPoints, TupleIndexFlags,
-    TupleVariationHeader, TupleVariationHeaderDeserializer,
-};
+use crate::otvar::packeddeltas::from_bytes as packed_deltas_from_bytes;
+use crate::otvar::{Delta, PackedDeltas, PackedPoints, TupleIndexFlags, TupleVariationHeader};
 use otspec::types::*;
-use otspec::{read_field, stateful_deserializer};
-use serde::de::DeserializeSeed;
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::ser::SerializeSeq;
-use serde::{Serialize, Serializer};
+use otspec::DeserializationError;
+use otspec::Deserializer;
+use otspec::ReaderContext;
+use otspec::SerializationError;
+use otspec::Serialize;
+use otspec::Serializer;
 use std::collections::VecDeque;
 
 /// A record within a tuple variation store
@@ -69,43 +67,35 @@ impl TupleVariation {
 #[derive(Debug, PartialEq)]
 pub struct TupleVariationStore(pub Vec<TupleVariation>);
 
-stateful_deserializer!(
-    TupleVariationStore,
-    TupleVariationStoreDeserializer,
-    {
+impl TupleVariationStore {
+    pub fn from_bytes(
+        c: &mut ReaderContext,
         axis_count: uint16,
         is_gvar: bool,
-        point_count: uint16
-    },
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<TupleVariationStore, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
+        point_count: uint16,
+    ) -> Result<Self, DeserializationError> {
         // Begin with the "GlyphVariationData header"
-        let packed_count = read_field!(seq, uint16, "a packed count");
+        let packed_count: uint16 = c.de()?;
         let count = packed_count & 0x0FFF;
         let points_are_shared = (packed_count & 0x8000) != 0;
         let mut shared_points = vec![];
-        let _data_offset = read_field!(seq, uint16, "a data offset");
+        let _data_offset: uint16 = c.de()?;
 
         // Read the headers
         let mut headers: Vec<TupleVariationHeader> = vec![];
         let mut variations: Vec<TupleVariation> = vec![];
         for _ in 0..count {
-            headers.push(
-                seq.next_element_seed(TupleVariationHeaderDeserializer {
-                    axis_count: self.axis_count,
-                })?
-                .unwrap(),
-            );
+            let header = TupleVariationHeader::from_bytes(c, axis_count)?;
+            headers.push(header);
         }
 
         // Now we are into the "serialized data block"
         // ...which begins with Shared "point" numbers (optional per flag in the header)
         if points_are_shared {
-            shared_points = match read_field!(seq, PackedPoints, "packed points").points {
+            let pp: PackedPoints = c.de()?;
+            shared_points = match pp.points {
                 Some(pts) => pts,
-                None =>  (0..self.point_count).collect()
+                None => (0..point_count).collect(),
             };
         }
 
@@ -117,48 +107,48 @@ stateful_deserializer!(
                 .flags
                 .contains(TupleIndexFlags::PRIVATE_POINT_NUMBERS)
             {
-                let private_points = read_field!(seq, PackedPoints, "packed points");
+                let private_points: PackedPoints = c.de()?;
                 if private_points.points.is_some() {
                     points_for_this_header = private_points.points.unwrap().clone().into();
                 } else {
-                    points_for_this_header =  (0..self.point_count).collect();
+                    points_for_this_header = (0..point_count).collect();
                 }
             } else {
                 points_for_this_header = shared_points.clone().into();
             }
             #[allow(clippy::branches_sharing_code)] // Just easier to understand this way
-            let mut deltas:VecDeque<Delta> = if self.is_gvar {
-                let packed_x = seq.next_element_seed(PackedDeltasDeserializer { num_points: points_for_this_header.len() })?.unwrap().0;
-                let packed_y = seq.next_element_seed(PackedDeltasDeserializer { num_points: points_for_this_header.len() })?.unwrap().0;
-                packed_x.iter().zip(packed_y.iter()).map(|(x,y)| Delta::Delta2D((*x,*y)) ).collect()
+            let mut deltas: VecDeque<Delta> = if is_gvar {
+                let packed_x = packed_deltas_from_bytes(c, points_for_this_header.len())?.0;
+                let packed_y = packed_deltas_from_bytes(c, points_for_this_header.len())?.0;
+                packed_x
+                    .iter()
+                    .zip(packed_y.iter())
+                    .map(|(x, y)| Delta::Delta2D((*x, *y)))
+                    .collect()
             } else {
-                let packed = seq.next_element_seed(PackedDeltasDeserializer { num_points: points_for_this_header.len() })?.unwrap().0;
-                packed.iter().map(|x| Delta::Delta1D(*x) ).collect()
+                let packed = packed_deltas_from_bytes(c, points_for_this_header.len())?.0;
+                packed.iter().map(|x| Delta::Delta1D(*x)).collect()
             };
-            let mut all_deltas:Vec<Option<Delta>> = vec![];
-            for i in 0..self.point_count {
+            let mut all_deltas: Vec<Option<Delta>> = vec![];
+            for i in 0..point_count {
                 if !points_for_this_header.is_empty() && i == points_for_this_header[0] {
                     all_deltas.push(Some(deltas.pop_front().unwrap()));
                     points_for_this_header.pop_front();
                 } else {
-                    all_deltas.push(None);  // IUP needed later
+                    all_deltas.push(None); // IUP needed later
                 }
             }
-            variations.push( TupleVariation(header, all_deltas))
+            variations.push(TupleVariation(header, all_deltas))
         }
 
         Ok(TupleVariationStore(variations))
     }
-);
+}
 
 impl Serialize for TupleVariationStore {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut ser = serializer.serialize_seq(None)?;
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let packed_count: uint16 = self.0.len() as uint16 | 0x8000; // Shared points only!
-        ser.serialize_element(&packed_count)?;
+        data.put(packed_count)?;
         let mut serialized_headers = vec![];
         let mut serialized_data_block: Vec<u8> = vec![];
 
@@ -232,10 +222,10 @@ impl Serialize for TupleVariationStore {
             serialized_headers.extend(serialized_header);
         }
         let data_offset: uint16 = 4 + (serialized_headers.len() as uint16);
-        ser.serialize_element(&data_offset)?;
-        ser.serialize_element(&serialized_headers)?;
-        ser.serialize_element(&serialized_data_block)?;
-        ser.end()
+        data.put(data_offset)?;
+        data.put(serialized_headers)?;
+        data.put(serialized_data_block)?;
+        Ok(())
     }
 }
 
@@ -244,8 +234,8 @@ mod tests {
     use crate::otvar::Delta::Delta2D;
     use crate::otvar::TupleVariation;
     use crate::otvar::TupleVariationHeader;
-    use crate::otvar::{TupleIndexFlags, TupleVariationStore, TupleVariationStoreDeserializer};
-    use serde::de::DeserializeSeed;
+    use crate::otvar::{TupleIndexFlags, TupleVariationStore};
+    use otspec::ReaderContext;
 
     #[test]
     fn test_tvs_de() {
@@ -255,13 +245,9 @@ mod tests {
             0xfe, 0xe0, 0x81, 0x0a, 0x08, 0xfd, 0xfd, 0x08, 0x08, 0xe4, 0xe4, 0x08, 0xc5, 0xc5,
             0xeb, 0x83,
         ];
-        let mut de = otspec::de::Deserializer::from_bytes(&binary_tvs);
-        let cs = TupleVariationStoreDeserializer {
-            axis_count: 1,
-            point_count: 15,
-            is_gvar: true,
-        };
-        let tvs = cs.deserialize(&mut de).unwrap();
+        let mut tvs =
+            TupleVariationStore::from_bytes(&mut ReaderContext::new(binary_tvs), 1, true, 15)
+                .unwrap();
         let expected = TupleVariationStore(vec![TupleVariation(
             TupleVariationHeader {
                 size: 33,

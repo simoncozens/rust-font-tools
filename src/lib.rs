@@ -62,7 +62,7 @@ pub mod maxp;
 pub mod name;
 /// The `OS/2` (OS/2 and Windows Metrics) table
 pub mod os2;
-// /// OpenType Variations common tables
-// pub mod otvar;
+/// OpenType Variations common tables
+pub mod otvar;
 /// The `post` (PostScript) table
 pub mod post;

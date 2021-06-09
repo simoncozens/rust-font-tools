@@ -14,7 +14,7 @@ pub struct NormalizedLocation(pub Tuple);
 type Support = HashMap<Tag, (f32, f32, f32)>;
 /// A location as a mapping of tags to user-space values
 pub type Location = HashMap<Tag, f32>;
-type AxisPoints = HashMap<Tag, HashSet<i16>>;
+type AxisPoints = HashMap<Tag, HashSet<F2DOT14>>;
 
 /// An OpenType variation model helps to determine and interpolate the correct
 /// supports and deltasets when there are intermediate masters.
@@ -112,8 +112,8 @@ impl VariationModel {
             if let Some((axis, value)) = loc.iter().next() {
                 let entry = axis_points
                     .entry(*axis)
-                    .or_insert_with(|| IntoIter::new([F2DOT14::pack(0.0)]).collect());
-                entry.insert(F2DOT14::pack(*value));
+                    .or_insert_with(|| IntoIter::new([F2DOT14::from(0.0)]).collect());
+                entry.insert(F2DOT14::from(*value));
             }
         }
         let on_point_count = |loc: &Location| {
@@ -123,7 +123,7 @@ impl VariationModel {
                         && axis_points
                             .get(&axis)
                             .unwrap()
-                            .contains(&F2DOT14::pack(value))
+                            .contains(&F2DOT14::from(value))
                 })
                 .count()
         };

@@ -1,11 +1,8 @@
 /// Packed deltas within a Tuple Variation Store
 use otspec::types::*;
-use otspec::{read_field, read_field_counted, stateful_deserializer};
-use serde::de::DeserializeSeed;
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::ser::SerializeSeq;
-use serde::{Serialize, Serializer};
+use otspec::{
+    DeserializationError, Deserializer, ReaderContext, SerializationError, Serialize, Serializer,
+};
 
 /// An array of packed deltas
 ///
@@ -20,39 +17,36 @@ const DELTAS_ARE_ZERO: u8 = 0x80;
 /// Mask off a run control byte to find the number of deltas in the run
 const DELTA_RUN_COUNT_MASK: u8 = 0x3f;
 
-stateful_deserializer!(
-    PackedDeltas,
-    PackedDeltasDeserializer,
-    { num_points: usize },
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let mut res = vec![];
-        while res.len() < self.num_points {
-            let control_byte = read_field!(seq, u8, "a packed point control byte");
-            let deltas_are_words = (control_byte & DELTAS_ARE_WORDS) > 0;
-            // "The low 6 bits specify the number of delta values in the run minus 1."
-            // MINUS ONE.
-            let run_count = (control_byte & DELTA_RUN_COUNT_MASK) + 1;
-            let deltas: Vec<i16>;
-            if control_byte & DELTAS_ARE_ZERO > 0 {
-                deltas = std::iter::repeat(0).take(run_count as usize).collect();
-            } else if deltas_are_words {
-                deltas = read_field_counted!(seq, run_count, "packed points");
-            } else {
-                let delta_bytes: Vec<i8> = read_field_counted!(seq, run_count, "packed points");
-                deltas = delta_bytes.iter().map(|x| *x as i16).collect();
-            }
-            res.extend(deltas);
+/// Deserialize the packed deltas array from a binary buffer.
+/// The number of points must be provided.
+#[allow(dead_code)] // We *do* use it, I promise. Like, just a few lines below.
+pub fn from_bytes(
+    c: &mut ReaderContext,
+    num_points: usize,
+) -> Result<PackedDeltas, DeserializationError> {
+    let mut res = vec![];
+    while res.len() < num_points {
+        let control_byte: u8 = c.de()?;
+        let deltas_are_words = (control_byte & DELTAS_ARE_WORDS) > 0;
+        // "The low 6 bits specify the number of delta values in the run minus 1."
+        // MINUS ONE.
+        let run_count = (control_byte & DELTA_RUN_COUNT_MASK) + 1;
+        let deltas: Vec<i16>;
+        if control_byte & DELTAS_ARE_ZERO > 0 {
+            deltas = std::iter::repeat(0).take(run_count as usize).collect();
+        } else if deltas_are_words {
+            deltas = c.de_counted(run_count.into())?;
+        } else {
+            let delta_bytes: Vec<i8> = c.de_counted(run_count.into())?;
+            deltas = delta_bytes.iter().map(|x| *x as i16).collect();
         }
-        Ok(PackedDeltas(res))
+        res.extend(deltas);
     }
-);
+    Ok(PackedDeltas(res))
+}
 
 impl Serialize for PackedDeltas {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let mut pos = 0;
         let deltas = &self.0;
         while pos < deltas.len() {
@@ -64,11 +58,11 @@ impl Serialize for PackedDeltas {
                     pos += 1;
                 }
                 while run_length >= 64 {
-                    seq.serialize_element(&(DELTAS_ARE_ZERO | 63_u8))?;
+                    data.put(DELTAS_ARE_ZERO | 63_u8)?;
                     run_length -= 64;
                 }
                 if run_length > 0 {
-                    seq.serialize_element(&((DELTAS_ARE_ZERO | (run_length - 1)) as u8))?;
+                    data.put((DELTAS_ARE_ZERO | (run_length - 1)) as u8)?;
                 }
             } else if (-128..=127).contains(&value) {
                 // Runs of byte values
@@ -86,23 +80,23 @@ impl Serialize for PackedDeltas {
                 }
                 let mut run_length = pos - start_of_run;
                 while run_length >= 64 {
-                    seq.serialize_element(&63_u8)?;
-                    seq.serialize_element(
-                        &(deltas[start_of_run..start_of_run + 64]
+                    data.put(63_u8)?;
+                    data.put(
+                        deltas[start_of_run..start_of_run + 64]
                             .iter()
                             .map(|x| *x as i8)
-                            .collect::<Vec<i8>>()),
+                            .collect::<Vec<i8>>(),
                     )?;
                     start_of_run += 64;
                     run_length -= 64;
                 }
                 if run_length > 0 {
-                    seq.serialize_element(&((run_length - 1) as u8))?;
-                    seq.serialize_element(
-                        &(deltas[start_of_run..pos]
+                    data.put((run_length - 1) as u8)?;
+                    data.put(
+                        deltas[start_of_run..pos]
                             .iter()
                             .map(|x| *x as i8)
-                            .collect::<Vec<i8>>()),
+                            .collect::<Vec<i8>>(),
                     )?;
                 }
             } else {
@@ -125,34 +119,30 @@ impl Serialize for PackedDeltas {
                 }
                 let mut run_length = pos - start_of_run;
                 while run_length >= 64 {
-                    seq.serialize_element(&(DELTAS_ARE_WORDS | 63))?;
-                    seq.serialize_element(&deltas[start_of_run..(start_of_run + 64)])?;
+                    data.put(DELTAS_ARE_WORDS | 63)?;
+                    for d in deltas[start_of_run..(start_of_run + 64)].iter() {
+                        data.put(d)?;
+                    }
                     start_of_run += 64;
                     run_length -= 64;
                 }
                 if run_length > 0 {
-                    seq.serialize_element(&(DELTAS_ARE_WORDS | (run_length - 1) as u8))?;
-                    seq.serialize_element(&deltas[start_of_run..pos])?;
+                    data.put(DELTAS_ARE_WORDS | (run_length - 1) as u8)?;
+                    for d in deltas[start_of_run..pos].iter() {
+                        data.put(d)?
+                    }
                 }
             }
         }
-        seq.end()
+        Ok(())
     }
-}
-
-/// Deserialize the packed deltas array from a binary buffer.
-/// The number of points must be provided.
-#[allow(dead_code)] // We *do* use it, I promise. Like, just a few lines below.
-pub fn from_bytes(s: &[u8], num_points: usize) -> otspec::error::Result<PackedDeltas> {
-    let mut deserializer = otspec::de::Deserializer::from_bytes(s);
-    let cs = PackedDeltasDeserializer { num_points };
-    cs.deserialize(&mut deserializer)
 }
 
 #[cfg(test)]
 mod tests {
     use crate::otvar::packeddeltas::from_bytes;
     use crate::otvar::packeddeltas::PackedDeltas;
+    use otspec::ReaderContext;
 
     #[test]
     fn test_packed_delta_de() {
@@ -160,7 +150,7 @@ mod tests {
             0x03, 0x0a, 0x97, 0x00, 0xc6, 0x87, 0x41, 0x10, 0x22, 0xfb, 0x34,
         ];
         let expected = PackedDeltas(vec![10, -105, 0, -58, 0, 0, 0, 0, 0, 0, 0, 0, 4130, -1228]);
-        let deserialized: PackedDeltas = from_bytes(&packed, 14).unwrap();
+        let deserialized: PackedDeltas = from_bytes(&mut ReaderContext::new(packed), 14).unwrap();
         assert_eq!(deserialized, expected);
     }
 

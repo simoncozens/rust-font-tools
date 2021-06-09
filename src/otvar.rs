@@ -40,14 +40,10 @@ pub use crate::otvar::itemvariationstore::{
     ItemVariationData, ItemVariationStore, RegionAxisCoordinates,
 };
 pub use crate::otvar::locations::{Location, NormalizedLocation, VariationModel};
-pub use crate::otvar::packeddeltas::{PackedDeltas, PackedDeltasDeserializer};
+pub use crate::otvar::packeddeltas::PackedDeltas;
 pub use crate::otvar::packedpoints::PackedPoints;
-pub use crate::otvar::tuplevariationheader::{
-    TupleIndexFlags, TupleVariationHeader, TupleVariationHeaderDeserializer,
-};
-pub use crate::otvar::tuplevariationstore::{
-    TupleVariation, TupleVariationStore, TupleVariationStoreDeserializer,
-};
+pub use crate::otvar::tuplevariationheader::{TupleIndexFlags, TupleVariationHeader};
+pub use crate::otvar::tuplevariationstore::{TupleVariation, TupleVariationStore};
 
 #[cfg(test)]
 mod tests {
