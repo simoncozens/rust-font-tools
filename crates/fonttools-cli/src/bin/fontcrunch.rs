@@ -311,14 +311,14 @@ impl Thetas {
         states[0].init = true;
         // println!("Try line quad {:?} -- {:?}", breaks[0], breaks[n]);
         try_line_quad(&mut states, 0, n, self, &breaks[0], &breaks[n], penalty);
-        if states[n].sts[0].score > 3.0 * penalty {
+        if states[n].sts.as_ref().unwrap().score > 3.0 * penalty {
             for i in 1..n {
                 // println!("Trying a split {:}", i);
                 try_line_quad(&mut states, 0, i, self, &breaks[0], &breaks[i], penalty);
                 try_line_quad(&mut states, i, n, self, &breaks[i], &breaks[n], penalty);
                 // println!("States[n] = {:?}", states[n]);
             }
-            if states[n].sts[0].score > 4.0 * penalty {
+            if states[n].sts.as_ref().unwrap().score > 4.0 * penalty {
                 for i in 1..n + 1 {
                     let mut j = i - 1;
                     loop {
@@ -333,7 +333,7 @@ impl Thetas {
             }
         }
         let mut result: Vec<QuadBez> = vec![];
-        let mut sl: &Statelet = &states[n].sts[0];
+        let mut sl: &Statelet = &states[n].sts.as_ref().unwrap();
         // println!("All done, last state is {:?}", sl);
         loop {
             result.push(sl.quad);
@@ -387,7 +387,7 @@ impl Statelet {
 
 #[derive(Debug, Clone)]
 struct State {
-    sts: Vec<Statelet>,
+    sts: Option<Statelet>,
     init: bool,
 }
 
@@ -398,7 +398,7 @@ fn is_int(f: f64) -> bool {
 impl State {
     fn new() -> Self {
         State {
-            sts: vec![],
+            sts: None,
             init: false,
         }
     }
@@ -410,7 +410,7 @@ impl State {
         if q.is_line() {
             return false;
         }
-        if let Some(prevsl) = self.sts.first() {
+        if let Some(prevsl) = &self.sts {
             if prevsl.quad.is_line() {
                 return false;
             }
@@ -434,7 +434,7 @@ fn try_quad(
     let score = curve.measure_quad(bk0.s, bk1.s, q);
     let prev = &states[prev];
     // println!("Pre combine this {:?}", states[this]);
-    let prev_sl = prev.sts.first();
+    let prev_sl = &prev.sts;
     if !prev.init && prev_sl.is_none() {
         return;
     }
@@ -443,11 +443,11 @@ fn try_quad(
         score: 0.0,
         quad: *q,
     };
-    sl.combine(prev_sl, score, *q, penalty);
-    if states[this].sts.is_empty() {
-        states[this].sts.push(sl);
-    } else if sl.score < states[this].sts[0].score {
-        states[this].sts[0] = sl
+    sl.combine(prev_sl.as_ref(), score, *q, penalty);
+    if states[this].sts.is_none() {
+        states[this].sts = Some(sl);
+    } else if sl.score < states[this].sts.as_ref().unwrap().score {
+        states[this].sts = Some(sl);
     }
 
     // println!("Post combine prev {:?}", prev);
@@ -755,6 +755,6 @@ mod tests {
             )),
         ];
         let res = segment_sp(&path);
-        assert_eq!(res, vec![0, 1, 2, 3, 5, 7]);
+        assert_eq!(res, vec![1, 2, 3, 5]);
     }
 }
