@@ -19,31 +19,31 @@ fn f64_is_close(a: f64, b: f64) -> bool {
 
 const HALF_STEP: bool = true;
 
-fn rk4<T>(y: &mut Vec<f64>, x: f64, h: f64, derivs: &T)
+fn rk4<T>(order: usize, y: &mut [f64; 2], x: f64, h: f64, derivs: &T)
 where
     T: Apply,
 {
-    let mut dydx: Vec<f64> = std::iter::repeat(0_f64).take(y.len()).collect();
-    let mut dyt: Vec<f64> = std::iter::repeat(0_f64).take(y.len()).collect();
-    let mut dym: Vec<f64> = std::iter::repeat(0_f64).take(y.len()).collect();
-    let mut yt: Vec<f64> = std::iter::repeat(0_f64).take(y.len()).collect();
+    let mut dydx: [f64; 2] = [0_f64, 0_f64];
+    let mut dyt: [f64; 2] = [0_f64, 0_f64];
+    let mut dym: [f64; 2] = [0_f64, 0_f64];
+    let mut yt: [f64; 2] = [0_f64, 0_f64];
     derivs.apply(&mut dydx, x, y);
     let hh = h * 0.5;
     let h6 = h / 6.0;
-    for i in 0..y.len() {
+    for i in 0..order {
         yt[i] = y[i] + hh * dydx[i]
     }
     derivs.apply(&mut dyt, x + hh, &mut yt);
-    for i in 0..y.len() {
+    for i in 0..order {
         yt[i] = y[i] + hh * dyt[i]
     }
     derivs.apply(&mut dym, x + hh, &mut yt);
-    for i in 0..y.len() {
+    for i in 0..order {
         yt[i] = y[i] + h * dym[i];
         dym[i] += dyt[i];
     }
     derivs.apply(&mut dyt, x + h, &mut yt);
-    for i in 0..y.len() {
+    for i in 0..order {
         y[i] += h6 * (dydx[i] + dyt[i] + 2.0 * dym[i]);
     }
 }
@@ -76,7 +76,7 @@ impl PointMonkeyPatch for Point {
         dx * dx + dy * dy
     }
     fn unitize(&self) -> Self {
-        let scale = 1.0 / self.distance(Point::ZERO);
+        let scale = 1.0 / (self.x * self.x + self.y * self.y).sqrt();
         Point::new(self.x * scale, self.y * scale)
     }
 }
@@ -100,9 +100,9 @@ impl QBMonkeyPatch for QuadBez {
         let n = 10;
         let dt = 1.0 / 10.0;
         let mut t = 0.0;
-        let mut y = vec![0.0];
+        let mut y = [0.0, 0.0];
         for _ in 0..n {
-            rk4(&mut y, t, dt, &derivs);
+            rk4(1, &mut y, t, dt, &derivs);
             t += dt;
         }
         y[0]
@@ -134,13 +134,13 @@ impl ArclenFunctor {
 }
 
 trait Apply {
-    fn apply(&self, dydx: &mut Vec<f64>, t: f64, y: &mut Vec<f64>);
+    fn apply(&self, dydx: &mut [f64; 2], t: f64, y: &mut [f64; 2]);
 }
 
 impl Apply for ArclenFunctor {
-    fn apply(&self, dydx: &mut Vec<f64>, t: f64, _y: &mut Vec<f64>) {
+    fn apply(&self, dydx: &mut [f64; 2], t: f64, _y: &mut [f64; 2]) {
         let p = self.deriv(t);
-        dydx[0] = p.distance(Point::ZERO);
+        dydx[0] = (p.x * p.x + p.y * p.y).sqrt();
     }
 }
 
@@ -153,9 +153,9 @@ struct MeasureFunctor<'a> {
 }
 
 impl Apply for MeasureFunctor<'_> {
-    fn apply(&self, dydx: &mut Vec<f64>, t: f64, y: &mut Vec<f64>) {
+    fn apply(&self, dydx: &mut [f64; 2], t: f64, y: &mut [f64; 2]) {
         let dxy = self.af.deriv(t);
-        dydx[0] = dxy.distance(Point::ZERO);
+        dydx[0] = (dxy.x * dxy.x + dxy.y * dxy.y).sqrt();
         let curvexy = self.curve.xy(self.s0 + y[0] * self.ss);
         let disterr = if NORM_LEVEL == 1 {
             self.q.point_at_t(t).distance(curvexy)
@@ -192,7 +192,7 @@ impl Thetas {
             let derivs = ArclenFunctor::new(q);
             let n = 100;
             let dt = 1.0 / 100.0;
-            let mut y = vec![arclen];
+            let mut y = [arclen, 0.0];
             let mut t = 0.0;
             for _ in 0..n {
                 let thisxy = q.point_at_t(t);
@@ -204,7 +204,7 @@ impl Thetas {
                     ix += 1.0;
                 }
                 lasts = y[0];
-                rk4(&mut y, t, dt, &derivs);
+                rk4(1, &mut y, t, dt, &derivs);
                 t += dt;
                 lastxy = thisxy;
                 lastd = thisd;
@@ -224,12 +224,12 @@ impl Thetas {
     }
     fn xy(&self, s: f64) -> Point {
         let bucket: usize = s as usize;
-        let frac = s - s.floor();
+        let frac = s.fract();
         self.xys[bucket].lerp(self.xys[bucket + 1], frac)
     }
     fn dir(&self, s: f64) -> Point {
         let bucket: usize = s as usize;
-        let frac = s - s.floor();
+        let frac = s.fract();
         self.dirs[bucket].lerp(self.dirs[bucket + 1], frac)
     }
 
@@ -252,9 +252,9 @@ impl Thetas {
         };
         let dt = 1.0 / 10.0;
         let mut t = 0.0;
-        let mut y = vec![0.0, 0.0];
+        let mut y = [0.0, 0.0];
         for _ in 0..10 {
-            rk4(&mut y, t, dt, &err);
+            rk4(2, &mut y, t, dt, &err);
             // println!(" rk round t={:?}, y={:?}", t, y);
             t += dt;
         }
