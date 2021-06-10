@@ -1,5 +1,7 @@
 use fonttools::font::Table;
-use fonttools::glyf::contourutils::{glyf_contour_to_kurbo_contour, kurbo_contour_to_glyf_contour};
+use fonttools::glyf::contourutils::{
+    glyf_contour_to_kurbo_contour, kurbo_contour_to_glyf_contour, remove_implied_oncurves,
+};
 use fonttools::glyf::Glyph;
 use fonttools_cli::{open_font, read_args, save_font};
 use kurbo::{BezPath, PathSeg, Point, QuadBez};
@@ -622,9 +624,9 @@ fn crunch_glyph(glyph: &Glyph) -> Glyph {
         .iter()
         .map(|c| {
             let kurbo = crunch_contour(glyf_contour_to_kurbo_contour(c));
-            // remove_explicit_oncurves(
-            kurbo_contour_to_glyf_contour(&kurbo, 0.5)
-            // )
+            let mut new = kurbo_contour_to_glyf_contour(&kurbo, 0.5);
+            remove_implied_oncurves(&mut new);
+            new
         })
         .collect();
     // println!("New glyph {:?}", new_glyph);

@@ -17,6 +17,28 @@ pub fn insert_explicit_oncurves(contour: &mut Vec<Point>) {
     }
 }
 
+/// Removes implied oncurve points from a contour
+pub fn remove_implied_oncurves(contour: &mut Vec<Point>) {
+    let mut i: usize = 0;
+    while i < contour.len() {
+        let next_ix = (i + 1) % contour.len();
+        let prev_ix = if i == 0 { contour.len() - 1 } else { i - 1 };
+        let this = contour[i];
+        let next = contour[next_ix];
+        let prev = contour[prev_ix];
+        if !this.on_curve
+            || prev.on_curve
+            || next.on_curve
+            || this.x != (prev.x + next.x) / 2
+            || this.y != (prev.y + next.y) / 2
+        {
+            i += 1;
+            continue;
+        }
+        contour.remove(i);
+    }
+}
+
 /// Construct a vector of points from a `kurbo::BezPath` object
 ///
 /// Cubic paths will be converted to quadratic paths using the given error tolerance.
