@@ -36,7 +36,7 @@ let mut outfile = File::create("Test-with-OFL.otf").expect("Could not create fil
 myfont.save(&mut outfile);
 ```
 
-See the [https://docs.rs/fonttools](documentation) for more details, and the [https://github.com/simoncozens/fonttools-rs/tree/main/crates/fonttools-cli/src/bin](fonttools-cli utilities) (installable via `cargo install fonttools_cli`) for code examples.
+See the [documentation](https://docs.rs/fonttools) for more details, and the [fonttools-cli utilities](https://github.com/simoncozens/fonttools-rs/tree/main/crates/fonttools-cli/src/bin) (installable via `cargo install fonttools_cli`) for code examples.
 
 ## License
 
