@@ -4,17 +4,17 @@ use fonttools::glyf::contourutils::{
 };
 use fonttools::glyf::Glyph;
 use fonttools_cli::{open_font, read_args, save_font};
+use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use kurbo::{BezPath, PathSeg, Point, QuadBez};
 use rayon::iter::IndexedParallelIterator;
+use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelIterator;
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
 const NORM_LEVEL: i32 = 2;
 const DIST_FACTOR: f64 = 0.005;
 const ANGLE_FACTOR: f64 = 5.0;
-
-use rayon::iter::IntoParallelRefIterator;
-use rayon::iter::ParallelIterator;
 
 fn f64_is_close(a: f64, b: f64) -> bool {
     (a - b).abs() < 1e-8 // f64::EPSILON
@@ -98,6 +98,7 @@ impl QBMonkeyPatch for QuadBez {
         let p12 = self.p1.lerp(self.p2, t);
         p01.lerp(p12, t)
     }
+
     fn arclen(&self) -> f64 {
         let derivs = ArclenFunctor::new(self);
         let n = 10;
@@ -141,6 +142,7 @@ trait Apply {
 }
 
 impl Apply for ArclenFunctor {
+    #[inline(always)]
     fn apply(&self, dydx: &mut [f64; 2], t: f64, _y: &mut [f64; 2]) {
         let p = self.deriv(t);
         dydx[0] = (p.x * p.x + p.y * p.y).sqrt();
@@ -156,6 +158,7 @@ struct MeasureFunctor<'a> {
 }
 
 impl Apply for MeasureFunctor<'_> {
+    #[inline(always)]
     fn apply(&self, dydx: &mut [f64; 2], t: f64, y: &mut [f64; 2]) {
         let dxy = self.af.deriv(t);
         dydx[0] = (dxy.x * dxy.x + dxy.y * dxy.y).sqrt();
@@ -217,7 +220,7 @@ impl Thetas {
         let q = qs.last().unwrap();
         let thisxy = q.p2;
         let thisd = ArclenFunctor::new(q).deriv(1.0);
-        while ix <= arclen + 1.0 {
+        while ix <= arclen + 2.0 {
             let u = (ix as f64 - lasts) / (arclen - lasts);
             xys.push(lastxy.lerp(thisxy, u));
             dirs.push(lastd.lerp(thisd, u).unitize());
@@ -314,14 +317,14 @@ impl Thetas {
         states[0].init = true;
         // println!("Try line quad {:?} -- {:?}", breaks[0], breaks[n]);
         try_line_quad(&mut states, 0, n, self, &breaks[0], &breaks[n], penalty);
-        if states[n].sts.as_ref().as_ref().unwrap().score > 3.0 * penalty {
+        if states[n].sts.as_ref().as_ref()?.score > 3.0 * penalty {
             for i in 1..n {
                 // println!("Trying a split {:}", i);
                 try_line_quad(&mut states, 0, i, self, &breaks[0], &breaks[i], penalty);
                 try_line_quad(&mut states, i, n, self, &breaks[i], &breaks[n], penalty);
                 // println!("States[n] = {:?}", states[n]);
             }
-            if states[n].sts.as_ref().as_ref().unwrap().score > 4.0 * penalty {
+            if states[n].sts.as_ref().as_ref()?.score > 4.0 * penalty {
                 for i in 1..n + 1 {
                     let mut j = i - 1;
                     loop {
@@ -634,6 +637,10 @@ fn crunch_glyph(glyph: &Glyph) -> Glyph {
 }
 
 fn main() {
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "warn"),
+    );
+
     let matches = read_args("fontcrunch", "Optimizes quadratic beziers in a font");
     let mut infont = open_font(&matches);
     if infont.tables.contains_key(b"gvar") {
@@ -651,26 +658,42 @@ fn main() {
     }
     .clone();
 
+    log::info!("Parsing glyf table");
     if let Table::Glyf(glyf) = infont
         .get_table(b"glyf")
         .expect("Error reading glyf table")
         .expect("No glyf table found")
     {
-        glyf.glyphs = glyf
-            .glyphs
+        log::info!("Done reading glyf table");
+        let mut todo: Vec<(usize, &Glyph)> = vec![];
+        for (ix, g) in glyf.glyphs.iter().enumerate() {
+            if !g.contours.is_empty() {
+                // if name == "U.rotat" {
+                todo.push((ix, g));
+            }
+        }
+
+        let pb = ProgressBar::new(todo.len() as u64);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("[{bar:52}] {pos:>7}/{len:7} {eta_precise}")
+                .progress_chars("█░ "),
+        );
+
+        let crunched: Vec<(usize, Glyph)> = todo
             .par_iter()
-            .enumerate()
-            .map(|(ix, g)| {
+            .progress_with(pb)
+            .map(|&(ix, g)| {
                 let name = glyphnames.as_ref().map_or("", |gn| &gn[ix]);
-                println!("Crunching {:}", name);
-                // if name == "Aogonek" {
-                crunch_glyph(g)
-                // } else {
-                // g.clone()
-                // }
+                log::info!("Crunching {:}", name);
+                (ix, crunch_glyph(g))
             })
             .collect();
+        for (ix, g) in crunched {
+            glyf.glyphs[ix] = g;
+        }
     }
+    log::info!("All done, saving font");
     save_font(infont, &matches);
 }
 
