@@ -1,10 +1,10 @@
-#![allow(non_snake_case)]
 use otspec::types::*;
 use otspec::{DeserializationError, Deserializer, ReaderContext, Serialize};
 use otspec_macros::{Deserialize, Serialize};
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
 /// A single horizontal metric
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[allow(non_snake_case)]
 pub struct Metric {
     /// The full horizontal advance width of the glyph
     pub advanceWidth: u16,
@@ -12,9 +12,9 @@ pub struct Metric {
     pub lsb: int16,
 }
 
-#[allow(non_camel_case_types)]
-#[derive(Debug, PartialEq)]
 /// The horizontal metrics table
+#[derive(Debug, PartialEq)]
+#[allow(non_camel_case_types)]
 pub struct hmtx {
     /// The list of metrics, corresponding to the glyph order
     pub metrics: Vec<Metric>,

@@ -2,7 +2,6 @@
 
 use crate::internals::attr;
 use crate::internals::{Ctxt, Derive};
-use syn;
 use syn::punctuated::Punctuated;
 use syn::Token;
 

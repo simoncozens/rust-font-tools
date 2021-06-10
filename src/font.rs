@@ -1,4 +1,3 @@
-#![allow(non_snake_case)]
 use crate::avar::avar;
 use crate::cmap::cmap;
 use crate::fvar::fvar;
@@ -146,6 +145,7 @@ struct TableRecord {
 }
 /// The header of the font's table directory
 #[derive(Deserialize)]
+#[allow(non_snake_case)]
 struct TableHeader {
     sfntVersion: u32,
     numTables: u16,

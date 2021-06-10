@@ -32,6 +32,7 @@ pub fn expand_derive_deserialize(
             };
             Ok(quote! {
                 #[automatically_derived]
+                #[allow(non_snake_case)]
                 impl #impl_generics otspec::Deserialize for #ident #ty_generics #where_clause {
                     fn from_bytes(c: &mut otspec::ReaderContext) -> Result<Self, otspec::DeserializationError> {
                         #(#body)*

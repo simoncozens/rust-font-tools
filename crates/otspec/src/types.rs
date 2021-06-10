@@ -6,10 +6,15 @@ use crate::SerializationError;
 use crate::Serialize;
 use std::convert::TryInto;
 
+#[allow(non_camel_case_types)]
 pub type uint16 = u16;
+#[allow(non_camel_case_types)]
 pub type uint32 = u32;
+#[allow(non_camel_case_types)]
 pub type int16 = i16;
+#[allow(clippy::upper_case_acronyms)]
 pub type FWORD = i16;
+#[allow(clippy::upper_case_acronyms)]
 pub type UFWORD = u16;
 pub type Tag = [u8; 4];
 
@@ -155,6 +160,7 @@ impl From<Version16Dot16> for U16F16 {
     }
 }
 #[derive(Shrinkwrap, Debug, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct LONGDATETIME(pub chrono::NaiveDateTime);
 
 use chrono::Duration;

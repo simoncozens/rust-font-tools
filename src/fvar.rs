@@ -1,4 +1,3 @@
-#![allow(non_camel_case_types, non_snake_case)]
 use otspec::types::*;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
@@ -29,6 +28,7 @@ tables!(
 
 /// Struct representing a named instance within the variable font's design space
 #[derive(Debug, PartialEq)]
+#[allow(non_snake_case)]
 pub struct InstanceRecord {
     /// The name ID for entries in the 'name' table that provide subfamily names for this instance.
     pub subfamilyNameID: uint16,
@@ -39,6 +39,7 @@ pub struct InstanceRecord {
 }
 
 impl InstanceRecord {
+    #[allow(non_snake_case)]
     fn from_bytes(
         c: &mut ReaderContext,
         axis_count: uint16,
@@ -66,6 +67,7 @@ impl InstanceRecord {
 
 /// Represents a font's fvar (Font Variations) table
 #[derive(Debug, PartialEq)]
+#[allow(non_camel_case_types)]
 pub struct fvar {
     /// The font's axes of variation
     pub axes: Vec<VariationAxisRecord>,

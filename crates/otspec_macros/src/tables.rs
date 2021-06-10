@@ -1,6 +1,4 @@
-use proc_macro::Delimiter;
-use proc_macro::TokenStream;
-use proc_macro::TokenTree;
+use proc_macro::{Delimiter, TokenStream, TokenTree};
 
 #[cfg(nightly)]
 fn expect_group(item: Option<TokenTree>, delimiter: Delimiter) -> TokenStream {
@@ -127,7 +125,10 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
 
         let table_name = expect_ident(maybe_table_name);
         out_s.push_str(&format!(
-            "/// Low-level structure used for serializing/deserializing table\n#[allow(missing_docs, non_snake_case, non_camel_case_types)]\n#[derive(otspec_macros::Serialize, otspec_macros::Deserialize, Debug, PartialEq, Clone)]\npub struct {} {{",
+            "/// Low-level structure used for serializing/deserializing table\n\
+            #[allow(missing_docs, non_snake_case, non_camel_case_types)]\n\
+            #[derive(otspec_macros::Serialize, otspec_macros::Deserialize, Debug, PartialEq, Clone)]\n\
+            pub struct {} {{",
             table_name,
         ));
 

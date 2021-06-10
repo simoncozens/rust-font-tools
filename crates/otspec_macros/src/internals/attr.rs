@@ -4,7 +4,6 @@ use crate::internals::Ctxt;
 use proc_macro2::{TokenStream, TokenTree};
 use quote::ToTokens;
 
-use syn;
 use syn::parse::{self, Parse, ParseStream};
 
 use syn::Meta::{List, NameValue, Path};
