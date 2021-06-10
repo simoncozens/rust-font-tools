@@ -2,11 +2,13 @@
 name = "otspec"
 version = "0.1.0"
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "Apache-2.0"
+description = "Utility library for reading/writing OpenType data structures"
+repository = "https://github.com/simoncozens/fonttools-rs"
+authors = ["Simon Cozens <simon@simon-cozens.org>"]
 
 [dependencies]
 shrinkwraprs = "0.3.0"
-otspec_macros = { path = "../otspec_macros" }
+otspec_macros = { path = "../otspec_macros", version = "*" }
 chrono = { version = "0.4.3" }
 fixed = "1"

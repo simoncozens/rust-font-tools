@@ -2,10 +2,9 @@ use proc_macro2::TokenStream;
 
 use syn::{self};
 
-use bound;
-
-use internals::ast::{Container, Data, Field, Style};
-use internals::{attr, replace_receiver, Ctxt, Derive};
+use crate::bound;
+use crate::internals::ast::{Container, Data, Field, Style};
+use crate::internals::{attr, replace_receiver, Ctxt, Derive};
 
 pub fn expand_derive_deserialize(
     input: &mut syn::DeriveInput,

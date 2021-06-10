@@ -1,6 +1,9 @@
 #![warn(missing_docs, missing_crate_level_docs)]
 //! A library for parsing, manipulating and writing OpenType fonts
 //!
+//! *This is a prerelease version; it is not feature complete.*
+//! *Notably, variable fonts are supported, but GPOS/GSUB (OpenType Layout) is not.*
+//!
 //! # Example usage
 //! ```no_run
 //! use fonttools::font::{self, Font, Table};

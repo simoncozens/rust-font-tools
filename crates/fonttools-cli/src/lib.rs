@@ -1,3 +1,21 @@
+//! Command line utilities for manipulating OpenType files
+//!
+//! This crate contains a number of utilities for manipulating OpenType files:
+//!
+//! The utilities are designed in the "Unix pipe" philosophy: if you provide
+//! one file name, it is understood as the input font; otherwise, the input
+//! font is read from stdin. If you provide a second file name, it is understood
+//! as the output font; otherwise the font is written to stdout.
+//!
+//!  * `fontcrunch` - A Rust port of https://github.com/googlefonts/fontcrunch
+//!  * `ttf-add-minimal-dsig` - Adds a minimal DSIG table if one is not present
+//!  * `ttf-fix-checksum` - Ensures TTF files have correct checksum
+//!  * `ttf-fix-non-hinted` - Adds a `gasp` and `prep` table which is set to smooth for all sizes
+//!  * `ttf-flatten-components` - Flattens components
+//!  * `ttf-optimize-gvar` - Optimizes the gvar table by omitting points which can be inferred
+//!  * `ttf-remove-overlap` - Removes overlap from TTF files
+//!  * `ttf-rename-glyphs` - Renames glyphs to production names
+
 use clap::{App, Arg};
 use fonttools::font::{self, Font};
 use std::fs::File;

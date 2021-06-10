@@ -1,6 +1,11 @@
 [package]
 name = "otspec_macros"
 version = "0.1.0"
+description = "Procmacro library for reading/writing OpenType data structures"
+repository = "https://github.com/simoncozens/fonttools-rs"
+license = "Apache-2.0"
+authors = ["Simon Cozens <simon@simon-cozens.org>"]
+edition = "2018"
 
 [lib]
 name = "otspec_macros"

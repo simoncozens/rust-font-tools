@@ -7,11 +7,14 @@ name = "fonttools"
 version = "0.1.0"
 authors = ["Simon Cozens <simon@simon-cozens.org>"]
 edition = "2018"
+license = "Apache-2.0"
+description = "A library for reading, manipulating and writing OpenType font files"
+repository = "https://github.com/simoncozens/fonttools-rs"
 
 [dependencies]
 chrono = { version = "0.4.3" }
-otspec = { path = "crates/otspec" } 
-otspec_macros = { path = "crates/otspec_macros" } 
+otspec = { path = "crates/otspec", version = "*" } 
+otspec_macros = { path = "crates/otspec_macros", version = "*" } 
 kurbo = { version = "0.8.1" }
 bitflags = "1.2.1"
 itertools = "0.10.0"

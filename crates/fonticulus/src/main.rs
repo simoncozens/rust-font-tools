@@ -1,3 +1,4 @@
+//! A fonticulously fast variable font builder
 mod basictables;
 mod buildbasic;
 mod fontinfo;

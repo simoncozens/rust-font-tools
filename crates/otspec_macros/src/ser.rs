@@ -1,6 +1,6 @@
-use bound;
-use internals::ast::{Container, Data, Field, Style};
-use internals::{attr, replace_receiver, Ctxt, Derive};
+use crate::bound;
+use crate::internals::ast::{Container, Data, Field, Style};
+use crate::internals::{attr, replace_receiver, Ctxt, Derive};
 use proc_macro2::TokenStream;
 use syn::{self};
 

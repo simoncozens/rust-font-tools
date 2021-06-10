@@ -1,3 +1,4 @@
+//! This library is used by the otspec crate. No user-serviceable parts inside.
 #![cfg_attr(nightly, feature(proc_macro_diagnostic))]
 #[macro_use]
 extern crate quote;

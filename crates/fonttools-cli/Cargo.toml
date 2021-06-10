@@ -3,9 +3,12 @@ name = "fonttools_cli"
 version = "0.1.0"
 authors = ["Simon Cozens <simon@simon-cozens.org>"]
 edition = "2018"
+description = "Command line utilities for manipulating OpenType files"
+repository = "https://github.com/simoncozens/fonttools-rs"
+license = "Apache-2.0"
 
 [dependencies]
-fonttools = { path = "../..", features = ["rayon"] }
+fonttools = { path = "../..", version="0.1.0", features = ["rayon"] }
 clap = "2.33.3"
 itertools = "0.10.0"
 skia-safe = "0"

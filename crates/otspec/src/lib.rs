@@ -1,3 +1,4 @@
+//! This library is used by the fonttools crate. No user-serviceable parts inside.
 #![allow(non_snake_case, non_camel_case_types, clippy::upper_case_acronyms)]
 #[macro_use]
 extern crate shrinkwraprs;

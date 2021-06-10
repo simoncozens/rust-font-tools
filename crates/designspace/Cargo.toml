@@ -3,11 +3,14 @@ name = "designspace"
 version = "0.1.0"
 authors = ["Simon Cozens <simon@simon-cozens.org>"]
 edition = "2018"
+license = "Apache-2.0"
+description = "Utility library for reading/writing .designspace files"
+repository = "https://github.com/simoncozens/fonttools-rs"
 
 [dependencies]
 serde-xml-rs = "0.4.1"
 serde = { version = "1.0", features = ["derive"] }
-fonttools = { path = "../.." }
-otspec = { path = "../otspec" }
+fonttools = { path = "../..", version = "0" }
+otspec = { path = "../otspec", version = "0" }
 norad = { git="https://github.com/linebender/norad", features = ["rayon", "kurbo"], optional = true }
 log = "0.4.14"
