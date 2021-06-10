@@ -5,6 +5,7 @@ use fonttools_cli::{open_font, read_args, save_font};
 use kurbo::{BezPath, PathSeg, Point, QuadBez};
 use rayon::iter::IndexedParallelIterator;
 use std::collections::BTreeSet;
+use std::rc::Rc;
 
 const NORM_LEVEL: i32 = 2;
 const DIST_FACTOR: f64 = 0.005;
@@ -311,18 +312,18 @@ impl Thetas {
         states[0].init = true;
         // println!("Try line quad {:?} -- {:?}", breaks[0], breaks[n]);
         try_line_quad(&mut states, 0, n, self, &breaks[0], &breaks[n], penalty);
-        if states[n].sts.as_ref().unwrap().score > 3.0 * penalty {
+        if states[n].sts.as_ref().as_ref().unwrap().score > 3.0 * penalty {
             for i in 1..n {
                 // println!("Trying a split {:}", i);
                 try_line_quad(&mut states, 0, i, self, &breaks[0], &breaks[i], penalty);
                 try_line_quad(&mut states, i, n, self, &breaks[i], &breaks[n], penalty);
                 // println!("States[n] = {:?}", states[n]);
             }
-            if states[n].sts.as_ref().unwrap().score > 4.0 * penalty {
+            if states[n].sts.as_ref().as_ref().unwrap().score > 4.0 * penalty {
                 for i in 1..n + 1 {
                     let mut j = i - 1;
                     loop {
-                        println!("{:?}, {:?}", i, j);
+                        // println!("{:?}, {:?}", i, j);
                         try_line_quad(&mut states, j, i, self, &breaks[j], &breaks[i], penalty);
                         if j == 0 {
                             break;
@@ -333,7 +334,7 @@ impl Thetas {
             }
         }
         let mut result: Vec<QuadBez> = vec![];
-        let mut sl: &Statelet = &states[n].sts.as_ref().unwrap();
+        let mut sl: &Statelet = &states[n].sts.as_ref().as_ref().unwrap();
         // println!("All done, last state is {:?}", sl);
         loop {
             result.push(sl.quad);
@@ -356,18 +357,25 @@ struct Break {
 
 #[derive(Debug, Clone)]
 struct Statelet {
-    prev: Box<Option<Statelet>>,
+    prev: Rc<Option<Statelet>>,
     score: f64,
     quad: QuadBez,
 }
 
 impl Statelet {
-    fn combine(&mut self, newprev: Option<&Statelet>, newscore: f64, newq: QuadBez, penalty: f64) {
-        self.prev = Box::new(newprev.cloned());
+    fn combine(
+        &mut self,
+        newprev: Rc<Option<Statelet>>,
+        newscore: f64,
+        newq: QuadBez,
+        penalty: f64,
+    ) {
+        self.prev = Rc::clone(&newprev);
         let pmul = if (newq.is_line())
             || (newprev.is_some()
-                && !newprev.as_ref().unwrap().quad.is_line()
+                && !newprev.as_ref().as_ref().unwrap().quad.is_line()
                 && newprev
+                    .as_ref()
                     .as_ref()
                     .unwrap()
                     .quad
@@ -380,14 +388,14 @@ impl Statelet {
             2.0
         };
 
-        self.score = newprev.map_or(0.0, |p| p.score) + penalty * pmul + newscore;
+        self.score = newprev.as_ref().as_ref().map_or(0.0, |p| p.score) + penalty * pmul + newscore;
         self.quad = newq
     }
 }
 
 #[derive(Debug, Clone)]
 struct State {
-    sts: Option<Statelet>,
+    sts: Rc<Option<Statelet>>,
     init: bool,
 }
 
@@ -398,7 +406,7 @@ fn is_int(f: f64) -> bool {
 impl State {
     fn new() -> Self {
         State {
-            sts: None,
+            sts: Rc::new(None),
             init: false,
         }
     }
@@ -410,11 +418,18 @@ impl State {
         if q.is_line() {
             return false;
         }
-        if let Some(prevsl) = &self.sts {
-            if prevsl.quad.is_line() {
+        if self.sts.is_some() {
+            if self.sts.as_ref().as_ref().unwrap().quad.is_line() {
                 return false;
             }
-            prevsl.quad.p1.lerp(q.p1, 0.5).is_close(q.p0)
+            self.sts
+                .as_ref()
+                .as_ref()
+                .unwrap()
+                .quad
+                .p1
+                .lerp(q.p1, 0.5)
+                .is_close(q.p0)
         } else {
             false
         }
@@ -439,15 +454,15 @@ fn try_quad(
         return;
     }
     let mut sl = Statelet {
-        prev: Box::new(None),
+        prev: Rc::new(None),
         score: 0.0,
         quad: *q,
     };
-    sl.combine(prev_sl.as_ref(), score, *q, penalty);
+    sl.combine(prev_sl.clone(), score, *q, penalty);
     if states[this].sts.is_none() {
-        states[this].sts = Some(sl);
-    } else if sl.score < states[this].sts.as_ref().unwrap().score {
-        states[this].sts = Some(sl);
+        states[this].sts = Rc::new(Some(sl));
+    } else if sl.score < states[this].sts.as_ref().as_ref().unwrap().score {
+        states[this].sts = Rc::new(Some(sl));
     }
 
     // println!("Post combine prev {:?}", prev);
