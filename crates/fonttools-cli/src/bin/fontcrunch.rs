@@ -25,10 +25,10 @@ fn rk4<T>(order: usize, y: &mut [f64; 2], x: f64, h: f64, derivs: &T)
 where
     T: Apply,
 {
-    let mut dydx: [f64; 2] = [0_f64, 0_f64];
-    let mut dyt: [f64; 2] = [0_f64, 0_f64];
-    let mut dym: [f64; 2] = [0_f64, 0_f64];
-    let mut yt: [f64; 2] = [0_f64, 0_f64];
+    let mut dydx = [0_f64; 2];
+    let mut dyt = [0_f64; 2];
+    let mut dym = [0_f64; 2];
+    let mut yt = [0_f64; 2];
     derivs.apply(&mut dydx, x, y);
     let hh = h * 0.5;
     let h6 = h / 6.0;
@@ -316,9 +316,7 @@ impl Thetas {
     }
 
     fn optimize(&self, penalty: f64) -> Option<Vec<QuadBez>> {
-        let breaks = self.find_breaks();
-        breaks.as_ref()?;
-        let breaks = breaks.unwrap();
+        let breaks = self.find_breaks()?;
         let n = breaks.len() - 1;
         let mut states: Vec<State> = breaks.iter().map(|_| State::new()).collect();
         states[0].init = true;
@@ -369,7 +367,7 @@ struct Break {
 
 #[derive(Debug, Clone)]
 struct Statelet {
-    prev: Rc<Option<Statelet>>,
+    prev: Option<Rc<Statelet>>,
     score: f64,
     quad: QuadBez,
 }
@@ -377,12 +375,12 @@ struct Statelet {
 impl Statelet {
     fn combine(
         &mut self,
-        newprev: Rc<Option<Statelet>>,
+        newprev: Option<Rc<Statelet>>,
         newscore: f64,
         newq: QuadBez,
         penalty: f64,
     ) {
-        self.prev = Rc::clone(&newprev);
+        self.prev = newprev.clone();
         let pmul = if (newq.is_line())
             || (newprev.is_some()
                 && !newprev.as_ref().as_ref().unwrap().quad.is_line()
@@ -407,7 +405,7 @@ impl Statelet {
 
 #[derive(Debug, Clone)]
 struct State {
-    sts: Rc<Option<Statelet>>,
+    sts: Option<Rc<Statelet>>,
     init: bool,
 }
 
@@ -418,7 +416,7 @@ fn is_int(f: f64) -> bool {
 impl State {
     fn new() -> Self {
         State {
-            sts: Rc::new(None),
+            sts: None,
             init: false,
         }
     }
@@ -467,13 +465,13 @@ fn try_quad(
         return;
     }
     let mut sl = Statelet {
-        prev: Rc::new(None),
+        prev: None,
         score: 0.0,
         quad: *q,
     };
     sl.combine(prev_sl.clone(), score, *q, penalty);
     if states[this].sts.is_none() || sl.score < states[this].sts.as_ref().as_ref().unwrap().score {
-        states[this].sts = Rc::new(Some(sl));
+        states[this].sts = Some(Rc::new(sl));
     }
 
     // println!("Post combine prev {:?}", prev);
