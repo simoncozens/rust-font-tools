@@ -658,7 +658,7 @@ fn main() {
     {
         glyf.glyphs = glyf
             .glyphs
-            .iter()
+            .par_iter()
             .enumerate()
             .map(|(ix, g)| {
                 let name = glyphnames.as_ref().map_or("", |gn| &gn[ix]);
