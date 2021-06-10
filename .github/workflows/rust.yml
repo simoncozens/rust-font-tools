@@ -4,9 +4,9 @@ on:
     branches:
       - main
     tags:
-      - '*'
+      - "*"
 
-name: Continuous integration
+name: build
 
 jobs:
   rustfmt:

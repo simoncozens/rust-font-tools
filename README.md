@@ -1,7 +1,7 @@
 # fonttools-rs &emsp; [![Build Status]][actions] [![Latest Version]][crates.io] [![Docs badge]][docs.rs]
 
-[Build Status]: https://img.shields.io/github/workflow/status/simoncozens/fonttools-rs/CI/master
-[actions]: https://github.com/simoncozens/fonttools-rs/actions?query=branch%3Amaster
+[Build Status]: https://img.shields.io/github/workflow/status/simoncozens/fonttools-rs/build/main
+[actions]: https://github.com/simoncozens/fonttools-rs/actions?query=branch%3Amain
 [Latest Version]: https://img.shields.io/crates/v/fonttools.svg
 [crates.io]: https://crates.io/crates/fonttools
 [Docs badge]: https://img.shields.io/badge/docs.rs-rustdoc-green
