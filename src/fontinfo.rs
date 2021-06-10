@@ -1,6 +1,5 @@
 use fonttools::utils::int_list_to_num;
 use norad::fontinfo::StyleMapStyle;
-use std::collections::HashSet;
 
 pub fn ascender(info: &norad::FontInfo) -> i16 {
     let upm = info.units_per_em.map_or(1000.0, |f| f.get()) as f64;

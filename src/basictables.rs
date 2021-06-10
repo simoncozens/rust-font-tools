@@ -13,8 +13,7 @@ use fonttools::name::{name, NameRecord, NameRecordID};
 use fonttools::os2::os2;
 use fonttools::post::post;
 use fonttools::utils::int_list_to_num;
-use otspec::types::Tuple;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 use std::convert::TryInto;
 
 pub fn compile_head(info: &norad::FontInfo, glyf: &glyf::glyf) -> head {
