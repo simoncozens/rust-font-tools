@@ -638,7 +638,7 @@ fn crunch_glyph(glyph: &Glyph) -> Glyph {
 
 fn main() {
     env_logger::init_from_env(
-        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "warn"),
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
     );
 
     let matches = read_args("fontcrunch", "Optimizes quadratic beziers in a font");
@@ -673,6 +673,7 @@ fn main() {
             }
         }
 
+        log::info!("Crunching...");
         let pb = ProgressBar::new(todo.len() as u64);
         pb.set_style(
             ProgressStyle::default_bar()
@@ -685,7 +686,7 @@ fn main() {
             .progress_with(pb)
             .map(|&(ix, g)| {
                 let name = glyphnames.as_ref().map_or("", |gn| &gn[ix]);
-                log::info!("Crunching {:}", name);
+                log::debug!("Crunching {:}", name);
                 (ix, crunch_glyph(g))
             })
             .collect();
