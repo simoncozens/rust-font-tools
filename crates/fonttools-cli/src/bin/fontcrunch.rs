@@ -691,6 +691,7 @@ fn main() {
         let crunched: Vec<(usize, Glyph)> = todo
             .par_iter()
             .progress_with(pb)
+            .panic_fuse()
             .map(|&(ix, g)| {
                 let name = glyphnames.as_ref().map_or("", |gn| &gn[ix]);
                 log::debug!("Crunching {:}", name);
