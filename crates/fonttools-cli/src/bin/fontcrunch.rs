@@ -158,6 +158,7 @@ struct MeasureFunctor<'a> {
 }
 
 impl Apply for MeasureFunctor<'_> {
+    // This, and everything inside it, is very hot code.
     #[inline(always)]
     fn apply(&self, dydx: &mut [f64; 2], t: f64, y: &mut [f64; 2]) {
         let dxy = self.af.deriv(t);
@@ -695,7 +696,9 @@ fn main() {
             .map(|&(ix, g)| {
                 let name = glyphnames.as_ref().map_or("", |gn| &gn[ix]);
                 log::debug!("Crunching {:}", name);
-                (ix, crunch_glyph(g))
+                let crunched = crunch_glyph(g);
+                log::debug!("Crunched {:}", name);
+                (ix, crunched)
             })
             .collect();
         for (ix, g) in crunched {
