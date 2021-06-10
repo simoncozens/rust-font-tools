@@ -1,4 +1,5 @@
 #![warn(missing_docs, missing_crate_level_docs)]
+//! A library for parsing variable font designspace files
 extern crate serde;
 extern crate serde_xml_rs;
 use serde::{Deserialize, Serialize};
@@ -6,7 +7,6 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fs::File;
 extern crate fonttools;
-extern crate norad;
 use fonttools::avar::{avar, SegmentMap};
 use fonttools::font::{Font, Table};
 use fonttools::fvar::{fvar, InstanceRecord, VariationAxisRecord};
@@ -16,16 +16,25 @@ use fonttools::otvar::{NormalizedLocation, VariationModel};
 use otspec::types::Tag;
 use serde_xml_rs::from_reader;
 
+#[cfg(feature = "norad")]
+extern crate norad;
+
+/// Loads and parses a designspace file
 pub fn from_file(filename: &str) -> Result<Designspace, serde_xml_rs::Error> {
     from_reader(File::open(filename).unwrap())
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename = "designspace")]
+/// A designspace object
 pub struct Designspace {
+    /// The format of this designspace file (we support 2 and 3)
     pub format: f32,
+    /// An axes element (contains individual axes)
     pub axes: Axes,
+    /// An sources element (contains individual sources)
     pub sources: Sources,
+    /// An instance element (optional, contains individual instances)
     pub instances: Option<Instances>,
     // pub rules: Rules,
 }
@@ -53,8 +62,8 @@ fn piecewise_linear_map(mapping: HashMap<i32, f32>, value: i32) -> f32 {
 }
 
 impl Designspace {
-    /// Add information to a font (fvar and avar tables) expressed by this
-    /// design space.
+    /// Add information to a fonttools Font object (fvar and avar tables)
+    /// expressed by this design space.
     pub fn add_to_font(&self, font: &mut Font) -> Result<(), &'static str> {
         let mut axes: Vec<VariationAxisRecord> = vec![];
         let mut maps: Vec<SegmentMap> = vec![];
@@ -139,6 +148,7 @@ impl Designspace {
         Ok(())
     }
 
+    /// Returns a mapping between axis tags and their names
     pub fn tag_to_name(&self) -> HashMap<Tag, String> {
         let mut hm = HashMap::new();
         for axis in &self.axes.axis {
@@ -167,7 +177,7 @@ impl Designspace {
             .collect()
     }
 
-    // Returns the location of a given source object in design space coordinates
+    /// Returns the location of a given source object in design space coordinates
     pub fn source_location(&self, source: &Source) -> Vec<i32> {
         self.location_to_tuple(&source.location)
             .iter()
@@ -175,7 +185,7 @@ impl Designspace {
             .collect()
     }
 
-    // Converts a location to a tuple
+    /// Converts a location to a tuple
     pub fn location_to_tuple(&self, loc: &Location) -> Vec<f32> {
         let mut tuple = vec![];
         let tag_to_name = self.tag_to_name();
@@ -201,6 +211,7 @@ impl Designspace {
             .find(|s| self.source_location(s) == expected)
     }
 
+    /// Normalizes a location between -1.0 and 1.0
     pub fn normalize_location(&self, loc: Vec<i32>) -> NormalizedLocation {
         let mut v: Vec<f32> = vec![];
         for (ax, iter_l) in self.axes.axis.iter().zip(loc.iter()) {
@@ -210,6 +221,7 @@ impl Designspace {
         NormalizedLocation(v)
     }
 
+    /// Constructs a fonttools variation model for this designspace
     pub fn variation_model(&self) -> VariationModel {
         let mut locations: Vec<OTVarLocation> = vec![];
         for source in self.sources.source.iter() {
@@ -226,20 +238,31 @@ impl Designspace {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename = "axes")]
+/// A collection of axes
 pub struct Axes {
+    /// A vector of axes
     pub axis: Vec<Axis>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename = "axes")]
+/// A single axis
 pub struct Axis {
+    /// Axis name (user-facing)
     pub name: String,
+    /// Axis tag (internal; four bytes)
     pub tag: String,
+    /// Axis minimum value
     pub minimum: i32,
+    /// Axis maximum value
     pub maximum: i32,
+    /// Axis default value
     pub default: i32,
+    /// Whether the axis should be exposed to the user
     pub hidden: Option<bool>,
+    /// Internationalized name
     pub labelname: Option<Vec<LabelName>>,
+    /// Mapping between userspace and designspace values
     pub map: Option<Vec<Mapping>>,
 }
 
@@ -262,6 +285,7 @@ impl Axis {
         })
     }
 
+    /// Converts a position on this axis in userspace coordinates to designspace coordinates
     pub fn userspace_to_designspace(&self, l: i32) -> f32 {
         let mut mapping: HashMap<i32, f32> = HashMap::new();
         if self.map.is_some() {
@@ -277,6 +301,7 @@ impl Axis {
         piecewise_linear_map(mapping, l)
     }
 
+    /// Converts a position on this axis from designspace coordinates to userspace coordinates
     pub fn designspace_to_userspace(&self, l: i32) -> f32 {
         let mut mapping: HashMap<i32, f32> = HashMap::new();
         if self.map.is_some() {
@@ -340,66 +365,100 @@ impl Axis {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+/// A name record for internationalization of an axis
 pub struct LabelName {
+    /// A language string
     pub lang: String,
+    /// The axis's name in that language
     #[serde(rename = "$value")]
     pub value: String,
 }
 
+/// A mapping between userspace coordinates and designspace coordinates
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Mapping {
+    /// The value in userspace coordinates
     pub input: f32,
+    /// Its equivalent in userspace coordinates
     pub output: f32,
 }
 
+/// A collection of source descriptors
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Sources {
+    /// A vector of source descriptors
     pub source: Vec<Source>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+/// An individual source descriptor
 pub struct Source {
+    /// The family name for this source
     pub familyname: Option<String>,
+    /// The stylename for this source
     pub stylename: Option<String>,
+    /// The complete name for this source
     pub name: Option<String>,
+    /// The filename for this source
     pub filename: String,
+    /// The name of the layer in the source to look for outline data
     pub layer: Option<String>,
+    /// The location of this source within the coordinates
     pub location: Location,
 }
 
 impl Source {
+    #[cfg(feature = "norad")]
+    /// Load the source from a UFO file
     pub fn ufo(&self) -> Result<norad::Font, norad::Error> {
         log::info!("Loading {:}", self.filename);
         norad::Font::load(&self.filename)
     }
 }
 
+/// A location element
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Location {
+    /// A vector of location components (dimensions)
     pub dimension: Vec<Dimension>,
 }
 
+/// An individual location component within a location tag
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Dimension {
+    /// The name of the axis (not the axis tag!)
     pub name: String,
+    /// The value on the axis
     pub xvalue: f32,
+    /// Separate value for anisotropic interpolations
     pub yvalue: Option<f32>,
 }
 
+/// A collection of instances
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Instances {
+    /// A vector of instances
     pub instance: Vec<Instance>,
 }
 
+/// An individual instance descriptor
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Instance {
+    /// The family name of this instance
     pub familyname: String,
+    /// The style name of this instance
     pub stylename: String,
+    /// The full name of this instance
     pub name: Option<String>,
+    /// The filename for this instance
     pub filename: Option<String>,
+    /// The PostScript family name for this instance
     pub postscriptfontname: Option<String>,
+    /// The style map family name for this instance
     pub stylemapfamilyname: Option<String>,
+    /// The style map style name for this instance
     pub stylemapstylename: Option<String>,
+    /// The location of this instance in the designspace
     pub location: Location,
 }
 
@@ -436,7 +495,7 @@ mod tests {
     <source familyname="MasterFamilyName" filename="masters/default.ufo" name="default.ufo" stylename="MasterStyleNameOne">
     <location>
         <dimension name="weight" xvalue="1" />
-        <dimension name="width" xvalue="100" />
+        <dimension name="width" xvalue="66" />
     </location>
     </source>
 </sources>

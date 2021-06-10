@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 fonttools = { path = "../..", features = ["rayon"] }
 otspec = { path = "../otspec" }
-designspace = { path = "../designspace" }
+designspace = { path = "../designspace", features = ["norad"] }
 clap = "2.33.3"
 itertools = "0.10.0"
 norad = { git="https://github.com/linebender/norad", features = ["rayon", "kurbo"] }
