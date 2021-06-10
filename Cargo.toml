@@ -3,11 +3,13 @@ name = "fonticulus"
 version = "0.1.0"
 authors = ["Simon Cozens <simon@simon-cozens.org>"]
 edition = "2018"
+license = "Apache-2.0"
+description = "A fonticulously fast variable font builder"
+repository = "https://github.com/simoncozens/fonttools-rs"
 
 [dependencies]
-fonttools = { path = "../..", features = ["rayon"] }
-otspec = { path = "../otspec" }
-designspace = { path = "../designspace", features = ["norad"] }
+fonttools = { path = "../..", features = ["rayon"], version = "0" }
+designspace = { path = "../designspace", features = ["norad"], version="0" }
 clap = "2.33.3"
 itertools = "0.10.0"
 norad = { git="https://github.com/linebender/norad", features = ["rayon", "kurbo"] }
