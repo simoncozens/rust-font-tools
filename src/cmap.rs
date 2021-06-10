@@ -295,8 +295,8 @@ impl Deserialize for cmap4 {
         let format: uint16 = c.de()?;
         let length: uint16 = c.de()?;
         let language: uint16 = c.de()?;
-        let segCountX2: uint16 = c.de()?;
-        let segcount: usize = segCountX2 as usize / 2;
+        let seg_count_x2: uint16 = c.de()?;
+        let segcount: usize = seg_count_x2 as usize / 2;
         c.skip(6);
         let end_code: Vec<uint16> = c.de_counted(segcount)?;
         c.skip(2);
@@ -310,7 +310,7 @@ impl Deserialize for cmap4 {
             format,
             length,
             language,
-            segCountX2,
+            segCountX2: seg_count_x2,
             searchRange: 0,
             entrySelector: 0,
             rangeShift: 0,

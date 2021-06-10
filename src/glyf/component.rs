@@ -109,6 +109,12 @@ impl Component {
     }
 }
 
+fn read_f64_from_f2dot14(c: &mut ReaderContext) -> Result<f64, DeserializationError> {
+    let x: F2DOT14 = c.de()?;
+    let x_f32: f32 = x.into();
+    Ok(x_f32 as f64)
+}
+
 impl Deserialize for Component {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let flags: ComponentFlags = c.de()?;
@@ -142,8 +148,10 @@ impl Deserialize for Component {
                 x_offset = c.de()?;
                 y_offset = c.de()?;
             } else {
-                x_offset = (c.de()?: u8).into();
-                y_offset = (c.de()?: u8).into();
+                let x_off_u8: u8 = c.de()?;
+                let y_off_u8: u8 = c.de()?;
+                x_offset = x_off_u8.into();
+                y_offset = y_off_u8.into();
             }
         }
         let mut x_scale = 1.0_f64;
@@ -151,16 +159,16 @@ impl Deserialize for Component {
         let mut scale10 = 0.0_f64;
         let mut y_scale = 1.0_f64;
         if flags.contains(ComponentFlags::WE_HAVE_A_SCALE) {
-            x_scale = ((c.de()?: F2DOT14).into(): f32) as f64;
+            x_scale = read_f64_from_f2dot14(c)?;
             y_scale = x_scale;
         } else if flags.contains(ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE) {
-            x_scale = ((c.de()?: F2DOT14).into(): f32) as f64;
-            y_scale = ((c.de()?: F2DOT14).into(): f32) as f64;
+            x_scale = read_f64_from_f2dot14(c)?;
+            y_scale = read_f64_from_f2dot14(c)?;
         } else if flags.contains(ComponentFlags::WE_HAVE_A_TWO_BY_TWO) {
-            x_scale = ((c.de()?: F2DOT14).into(): f32) as f64;
-            scale01 = ((c.de()?: F2DOT14).into(): f32) as f64;
-            scale10 = ((c.de()?: F2DOT14).into(): f32) as f64;
-            y_scale = ((c.de()?: F2DOT14).into(): f32) as f64;
+            x_scale = read_f64_from_f2dot14(c)?;
+            scale01 = read_f64_from_f2dot14(c)?;
+            scale10 = read_f64_from_f2dot14(c)?;
+            y_scale = read_f64_from_f2dot14(c)?;
         }
         let transformation = Affine::new([
             x_scale,

@@ -94,6 +94,7 @@ pub fn kurbo_contour_to_glyf_contour(kurbo_path: &kurbo::BezPath, error: f32) ->
     points
 }
 
+/// Returns a kurbo BezPath object representing this glyf contour
 pub fn glyf_contour_to_kurbo_contour(contour: &[Point]) -> kurbo::BezPath {
     let mut path = kurbo::BezPath::new();
     let mut contour = contour.to_vec();

@@ -72,7 +72,7 @@ impl From<Fixed> for f32 {
 pub struct F2DOT14(pub f32);
 
 impl F2DOT14 {
-    pub fn to_packed(&self) -> Result<i16, std::num::TryFromIntError> {
+    pub fn as_packed(&self) -> Result<i16, std::num::TryFromIntError> {
         ot_round(self.0 * 16384.0).try_into()
     }
     pub fn from_packed(packed: i16) -> Self {
@@ -81,7 +81,7 @@ impl F2DOT14 {
 }
 impl PartialEq for F2DOT14 {
     fn eq(&self, other: &Self) -> bool {
-        self.to_packed() == other.to_packed()
+        self.as_packed() == other.as_packed()
     }
 }
 impl Eq for F2DOT14 {}
@@ -91,14 +91,14 @@ impl std::hash::Hash for F2DOT14 {
     where
         H: std::hash::Hasher,
     {
-        self.to_packed().unwrap().hash(state)
+        self.as_packed().unwrap().hash(state)
     }
 }
 
 impl Serialize for F2DOT14 {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let packed: i16 = self
-            .to_packed()
+            .as_packed()
             .map_err(|_| SerializationError("Value didn't fit into a F2DOT14".to_string()))?;
         packed.to_bytes(data)
     }
@@ -194,7 +194,7 @@ pub struct Offset16<T> {
 }
 
 impl<T> Offset16<T> {
-    fn to(thing: T) -> Self {
+    pub fn to(thing: T) -> Self {
         Offset16 {
             off: None,
             link: thing,

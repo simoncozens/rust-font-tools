@@ -1,3 +1,4 @@
+#![warn(missing_docs, missing_crate_level_docs)]
 extern crate serde;
 extern crate serde_xml_rs;
 use serde::{Deserialize, Serialize};
@@ -276,7 +277,7 @@ impl Axis {
         piecewise_linear_map(mapping, l)
     }
 
-    fn designspace_to_userspace(&self, l: i32) -> f32 {
+    pub fn designspace_to_userspace(&self, l: i32) -> f32 {
         let mut mapping: HashMap<i32, f32> = HashMap::new();
         if self.map.is_some() {
             for m in self.map.as_ref().unwrap().iter() {

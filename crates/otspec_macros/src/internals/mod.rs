@@ -15,7 +15,6 @@ use syn::Type;
 #[derive(Copy, Clone)]
 pub enum Derive {
     Serialize,
-    Deserialize,
 }
 
 pub fn ungroup(mut ty: &Type) -> &Type {

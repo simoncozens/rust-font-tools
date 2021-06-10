@@ -4,13 +4,11 @@
 /// the deltas in the design space. These are low-level data structures,
 /// generally used only in serialization/deserialization.
 use bitflags::bitflags;
-use otspec::{types::*, Deserialize};
+use otspec::types::*;
 use otspec::{
     DeserializationError, Deserializer, ReaderContext, SerializationError, Serialize, Serializer,
 };
 use otspec_macros::{Deserialize, Serialize};
-
-use super::TupleVariation;
 
 bitflags! {
     /// Flags used internally to a tuple variation header
@@ -50,6 +48,7 @@ pub struct TupleVariationHeader {
 }
 
 impl TupleVariationHeader {
+    /// Construct a new TupleVariationHeader from a serialized binary
     pub fn from_bytes(
         c: &mut ReaderContext,
         axis_count: uint16,

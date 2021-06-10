@@ -3,10 +3,7 @@ use crate::otvar::iup::optimize_deltas;
 use crate::otvar::*;
 use counter::Counter;
 use otspec::types::*;
-use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-    Serializer,
-};
+use otspec::{DeserializationError, Deserializer, ReaderContext, SerializationError, Serialize};
 use otspec_macros::tables;
 use std::convert::TryInto;
 

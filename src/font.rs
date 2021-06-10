@@ -1,3 +1,4 @@
+#![allow(non_snake_case)]
 use crate::avar::avar;
 use crate::cmap::cmap;
 use crate::fvar::fvar;
@@ -145,7 +146,6 @@ struct TableRecord {
 }
 /// The header of the font's table directory
 #[derive(Deserialize)]
-#[allow(non_snake_case)]
 struct TableHeader {
     sfntVersion: u32,
     numTables: u16,
@@ -568,16 +568,10 @@ impl Deserialize for Font {
 
         let mut result = Font::new(version);
         let mut table_records = Vec::with_capacity(header.numTables as usize);
-        for i in 0..(header.numTables as usize) {
+        for _ in 0..(header.numTables as usize) {
             let next: TableRecord = c.de()?;
             table_records.push(next)
         }
-        let pos = (16 * table_records.len() + 12) as u32;
-        let max_offset = table_records
-            .iter()
-            .map(|x| (x.length + x.offset))
-            .max()
-            .ok_or_else(|| DeserializationError("No tables?".to_string()))?;
         table_records.sort_by_key(|tr| tr.offset);
         for tr in table_records {
             let start = tr.offset as usize;

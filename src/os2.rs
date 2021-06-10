@@ -297,8 +297,8 @@ impl Deserialize for os2 {
 
 impl os2 {
     /// Populate ulCodePageRange fields using a
-    pub fn int_list_to_code_page_ranges(&mut self, bitlist: &Vec<u8>) {
-        let mut code_pages1 = bitlist.clone();
+    pub fn int_list_to_code_page_ranges(&mut self, bitlist: &[u8]) {
+        let mut code_pages1 = bitlist.to_owned();
         code_pages1.sort_unstable();
         let split_at = code_pages1
             .iter()

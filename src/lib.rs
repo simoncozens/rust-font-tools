@@ -1,5 +1,4 @@
 #![warn(missing_docs, missing_crate_level_docs)]
-#![feature(type_ascription)]
 //! A library for parsing, manipulating and writing OpenType fonts
 //!
 //! # Example usage
@@ -30,9 +29,9 @@
 //! the [font] module as the entry point to creating, parsing and
 //! saving an OpenType font.
 
-/// The `GSUB` (Glyph substitution) table
 #[allow(non_snake_case)]
 // pub mod GSUB;
+
 /// The `avar` (Axis variations) table
 pub mod avar;
 /// The `cmap` (Character To Glyph Index Mapping) table
@@ -45,7 +44,7 @@ pub mod fvar;
 pub mod gasp;
 /// The `glyf` (Glyf data) table
 pub mod glyf;
-// /// The `gvar` (Glyph variations) table
+/// The `gvar` (Glyph variations) table
 pub mod gvar;
 /// The `head` (Header) table
 pub mod head;

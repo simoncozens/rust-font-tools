@@ -1,12 +1,9 @@
+#![allow(non_snake_case)]
 use otspec::types::*;
-use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-    Serializer,
-};
+use otspec::{DeserializationError, Deserializer, ReaderContext, Serialize};
 use otspec_macros::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-#[allow(non_snake_case)]
 /// A single horizontal metric
 pub struct Metric {
     /// The full horizontal advance width of the glyph

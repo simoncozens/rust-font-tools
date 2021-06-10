@@ -1,7 +1,4 @@
-use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-    Serializer,
-};
+use otspec::{DeserializationError, Deserializer, ReaderContext, Serialize};
 #[allow(non_snake_case, non_camel_case_types)]
 #[derive(Debug, PartialEq)]
 pub struct loca {

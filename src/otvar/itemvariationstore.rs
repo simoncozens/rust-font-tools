@@ -1,5 +1,5 @@
 use otspec::{types::*, Deserialize};
-use otspec::{DeserializationError, Deserializer, ReaderContext, Serialize};
+use otspec::{DeserializationError, Deserializer, ReaderContext};
 use otspec_macros::tables;
 
 tables!(

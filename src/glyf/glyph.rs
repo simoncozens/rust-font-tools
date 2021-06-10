@@ -94,11 +94,10 @@ impl Deserialize for Glyph {
         } else {
             // println!("Reading {:?} contours", num_contours);
             let mut end_pts_of_contour: Vec<usize> = (0..num_contours as usize)
-                .filter_map(|_| {
+                .map(|_| {
                     let x: Result<uint16, DeserializationError> = c.de();
-                    Some(x.unwrap())
+                    1 + (x.unwrap() as usize)
                 })
-                .map(|x| (1 + x) as usize)
                 .collect();
             let instructions_count: i16 = c.de()?;
             if instructions_count > 0 {

@@ -68,6 +68,7 @@ impl TupleVariation {
 pub struct TupleVariationStore(pub Vec<TupleVariation>);
 
 impl TupleVariationStore {
+    /// Construct a new TupleVariationStore from a serialized binary
     pub fn from_bytes(
         c: &mut ReaderContext,
         axis_count: uint16,
@@ -245,9 +246,8 @@ mod tests {
             0xfe, 0xe0, 0x81, 0x0a, 0x08, 0xfd, 0xfd, 0x08, 0x08, 0xe4, 0xe4, 0x08, 0xc5, 0xc5,
             0xeb, 0x83,
         ];
-        let mut tvs =
-            TupleVariationStore::from_bytes(&mut ReaderContext::new(binary_tvs), 1, true, 15)
-                .unwrap();
+        let tvs = TupleVariationStore::from_bytes(&mut ReaderContext::new(binary_tvs), 1, true, 15)
+            .unwrap();
         let expected = TupleVariationStore(vec![TupleVariation(
             TupleVariationHeader {
                 size: 33,

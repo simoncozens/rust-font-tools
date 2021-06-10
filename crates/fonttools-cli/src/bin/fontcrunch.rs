@@ -6,7 +6,6 @@ use fonttools::glyf::Glyph;
 use fonttools_cli::{open_font, read_args, save_font};
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use kurbo::{BezPath, PathSeg, Point, QuadBez};
-use rayon::iter::IndexedParallelIterator;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use std::collections::BTreeSet;
@@ -449,6 +448,7 @@ impl State {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn try_quad(
     states: &mut Vec<State>,
     prev: usize,
@@ -472,9 +472,7 @@ fn try_quad(
         quad: *q,
     };
     sl.combine(prev_sl.clone(), score, *q, penalty);
-    if states[this].sts.is_none() {
-        states[this].sts = Rc::new(Some(sl));
-    } else if sl.score < states[this].sts.as_ref().as_ref().unwrap().score {
+    if states[this].sts.is_none() || sl.score < states[this].sts.as_ref().as_ref().unwrap().score {
         states[this].sts = Rc::new(Some(sl));
     }
 
