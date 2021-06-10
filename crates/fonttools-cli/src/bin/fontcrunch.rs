@@ -231,11 +231,18 @@ impl Thetas {
     fn xy(&self, s: f64) -> Point {
         let bucket: usize = s as usize;
         let frac = s.fract();
+        // C++ just merrily ignores this situation...
+        if bucket >= self.xys.len() {
+            return Point::ZERO;
+        }
         self.xys[bucket].lerp(self.xys[bucket + 1], frac)
     }
     fn dir(&self, s: f64) -> Point {
         let bucket: usize = s as usize;
         let frac = s.fract();
+        if bucket >= self.dirs.len() {
+            return Point::ZERO;
+        }
         self.dirs[bucket].lerp(self.dirs[bucket + 1], frac)
     }
 
@@ -797,5 +804,20 @@ mod tests {
         ];
         let res = segment_sp(&path);
         assert_eq!(res, vec![1, 2, 3, 5]);
+    }
+
+    #[test]
+    fn test_outofbounds() {
+        let path = vec![
+            kurbo::QuadBez::new((699.0, -23.0), (684.0, -9.0), (684.0, 28.0)),
+            kurbo::QuadBez::new((684.0, 28.0), (684.0, 320.5), (684.0, 613.0)),
+            kurbo::QuadBez::new((684.0, 613.0), (684.0, 712.0), (675.0, 791.0)),
+        ];
+        let thetas = Thetas::new(&path);
+        thetas.measure_quad(
+            51.70017152785462,
+            817.9027135905666,
+            &kurbo::QuadBez::new((684.0, 25.0), (671.0, 828.0), (675.0, 791.0)),
+        );
     }
 }
