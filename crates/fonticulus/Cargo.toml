@@ -12,7 +12,7 @@ fonttools = { path = "../..", features = ["rayon"], version = "0" }
 designspace = { path = "../designspace", features = ["norad"], version="0" }
 clap = "2.33.3"
 itertools = "0.10.0"
-norad = { git="https://github.com/linebender/norad", features = ["rayon", "kurbo"] }
+norad = { version="0.4", git="https://github.com/linebender/norad", features = ["rayon", "kurbo"] }
 kurbo = { version = "0.8.1" }
 chrono = { version = "0.4.3" }
 log = "0.4.14"
