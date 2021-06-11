@@ -1,3 +1,9 @@
+//! Optimize truetype font outlines
+//!
+//! This is a direct port of the original fontcrunch implementation, written in
+//! C++. For more information on the algorithm, [see the fontcrunch repo][repo].
+//!
+//! [repo]: https://github.com/googlefonts/fontcrunch
 use fonttools::font::Table;
 use fonttools::glyf::contourutils::{
     glyf_contour_to_kurbo_contour, kurbo_contour_to_glyf_contour, remove_implied_oncurves,
@@ -21,31 +27,32 @@ fn f64_is_close(a: f64, b: f64) -> bool {
 
 const HALF_STEP: bool = true;
 
-fn rk4<T>(order: usize, y: &mut [f64; 2], x: f64, h: f64, derivs: &T)
+/// One step of a 4th-order Runge-Kutta numerical integration
+fn rk4<T, const N: usize>(y: &mut [f64; N], x: f64, h: f64, derivs: &T)
 where
-    T: Apply,
+    T: Apply<N>,
 {
-    let mut dydx = [0_f64; 2];
-    let mut dyt = [0_f64; 2];
-    let mut dym = [0_f64; 2];
-    let mut yt = [0_f64; 2];
+    let mut dydx = [0_f64; N];
+    let mut dyt = [0_f64; N];
+    let mut dym = [0_f64; N];
+    let mut yt = [0_f64; N];
     derivs.apply(&mut dydx, x, y);
     let hh = h * 0.5;
     let h6 = h / 6.0;
-    for i in 0..order {
+    for i in 0..N {
         yt[i] = y[i] + hh * dydx[i]
     }
     derivs.apply(&mut dyt, x + hh, &mut yt);
-    for i in 0..order {
+    for i in 0..N {
         yt[i] = y[i] + hh * dyt[i]
     }
     derivs.apply(&mut dym, x + hh, &mut yt);
-    for i in 0..order {
+    for i in 0..N {
         yt[i] = y[i] + h * dym[i];
         dym[i] += dyt[i];
     }
     derivs.apply(&mut dyt, x + h, &mut yt);
-    for i in 0..order {
+    for i in 0..N {
         y[i] += h6 * (dydx[i] + dyt[i] + 2.0 * dym[i]);
     }
 }
@@ -103,9 +110,9 @@ impl QBMonkeyPatch for QuadBez {
         let n = 10;
         let dt = 1.0 / 10.0;
         let mut t = 0.0;
-        let mut y = [0.0, 0.0];
+        let mut y = [0.0];
         for _ in 0..n {
-            rk4(1, &mut y, t, dt, &derivs);
+            rk4(&mut y, t, dt, &derivs);
             t += dt;
         }
         y[0]
@@ -136,13 +143,13 @@ impl ArclenFunctor {
     }
 }
 
-trait Apply {
-    fn apply(&self, dydx: &mut [f64; 2], t: f64, y: &mut [f64; 2]);
+trait Apply<const N: usize> {
+    fn apply(&self, dydx: &mut [f64; N], t: f64, y: &mut [f64; N]);
 }
 
-impl Apply for ArclenFunctor {
+impl Apply<1> for ArclenFunctor {
     #[inline(always)]
-    fn apply(&self, dydx: &mut [f64; 2], t: f64, _y: &mut [f64; 2]) {
+    fn apply(&self, dydx: &mut [f64; 1], t: f64, _y: &mut [f64; 1]) {
         let p = self.deriv(t);
         dydx[0] = (p.x * p.x + p.y * p.y).sqrt();
     }
@@ -156,7 +163,7 @@ struct MeasureFunctor<'a> {
     q: &'a QuadBez,
 }
 
-impl Apply for MeasureFunctor<'_> {
+impl Apply<2> for MeasureFunctor<'_> {
     // This, and everything inside it, is very hot code.
     #[inline(always)]
     fn apply(&self, dydx: &mut [f64; 2], t: f64, y: &mut [f64; 2]) {
@@ -198,7 +205,7 @@ impl Thetas {
             let derivs = ArclenFunctor::new(q);
             let n = 100;
             let dt = 1.0 / 100.0;
-            let mut y = [arclen, 0.0];
+            let mut y = [arclen];
             let mut t = 0.0;
             for _ in 0..n {
                 let thisxy = q.point_at_t(t);
@@ -210,7 +217,7 @@ impl Thetas {
                     ix += 1.0;
                 }
                 lasts = y[0];
-                rk4(1, &mut y, t, dt, &derivs);
+                rk4(&mut y, t, dt, &derivs);
                 t += dt;
                 lastxy = thisxy;
                 lastd = thisd;
@@ -267,7 +274,7 @@ impl Thetas {
         let mut t = 0.0;
         let mut y = [0.0, 0.0];
         for _ in 0..10 {
-            rk4(2, &mut y, t, dt, &err);
+            rk4(&mut y, t, dt, &err);
             // println!(" rk round t={:?}, y={:?}", t, y);
             t += dt;
         }
