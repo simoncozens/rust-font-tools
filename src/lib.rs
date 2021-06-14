@@ -32,7 +32,7 @@
 //! the [font] module as the entry point to creating, parsing and
 //! saving an OpenType font.
 
-#[allow(non_snake_case)]
+//#[allow(non_snake_case)]
 // pub mod GSUB;
 
 /// The `avar` (Axis variations) table

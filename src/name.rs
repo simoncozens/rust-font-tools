@@ -1,5 +1,3 @@
-#![allow(non_camel_case_types, non_snake_case)]
-
 use encoding::all::{
     BIG5_2003, GBK, MAC_CYRILLIC, MAC_ROMAN, UTF_16BE, WINDOWS_1252, WINDOWS_31J, WINDOWS_949,
 };
@@ -120,6 +118,7 @@ tables!(
 
 /// A single name record to be placed inside the name table
 #[derive(Debug, PartialEq)]
+#[allow(non_snake_case)]
 pub struct NameRecord {
     /// Platform ID (0=Unicode, 1=Macintosh, 3=Windows)
     pub platformID: uint16,
@@ -159,6 +158,7 @@ impl NameRecord {
 
 /// Represents a font's name (Naming) table
 #[derive(Debug, PartialEq)]
+#[allow(non_camel_case_types)]
 pub struct name {
     /// A set of name records.
     pub records: Vec<NameRecord>,

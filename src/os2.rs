@@ -1,5 +1,3 @@
-#![allow(non_camel_case_types, non_snake_case)]
-
 use crate::utils::int_list_to_num;
 use otspec::types::*;
 use otspec::{
@@ -74,6 +72,7 @@ tables!(
 
 /// Represents a font's OS/2 (OS/2 and Windows Metrics) table
 #[derive(Debug, PartialEq)]
+#[allow(non_camel_case_types, non_snake_case)]
 pub struct os2 {
     /// Table version (between 0 and 5)
     pub version: uint16,
