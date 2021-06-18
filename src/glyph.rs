@@ -1,6 +1,6 @@
 use crate::utils::is_all_same;
 use fonttools::glyf;
-use fonttools::glyf::contourutils::kurbo_contour_to_glyf_contour;
+use fonttools::glyf::contourutils::{kurbo_contour_to_glyf_contour, remove_implied_oncurves};
 use fonttools::gvar::DeltaSet;
 use fonttools::gvar::GlyphVariationData;
 use fonttools::otvar::VariationModel;
@@ -209,7 +209,11 @@ fn norad_contours_to_glyf_contours(
 
     returned_contours
         .iter()
-        .map(|x| kurbo_contour_to_glyf_contour(x, 0.5))
+        .map(|x| {
+            let mut c = kurbo_contour_to_glyf_contour(x, 0.5);
+            remove_implied_oncurves(&mut c);
+            c
+        })
         .collect()
 }
 
