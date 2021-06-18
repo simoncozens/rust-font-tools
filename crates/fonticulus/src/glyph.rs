@@ -89,7 +89,10 @@ pub fn glifs_to_glyph(
                 .push(finished_contour.clone());
         }
     }
-    if !contours.is_empty() && !contours[default_master].as_ref().unwrap().is_empty() {
+    if glifs.len() > 1
+        && !contours.is_empty()
+        && !contours[default_master].as_ref().unwrap().is_empty()
+    {
         if !glyph.components.is_empty() {
             log::warn!(
                 "Can't create gvar deltas for mixed glyph {:}",
