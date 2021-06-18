@@ -62,9 +62,13 @@ fn main() {
             .par_iter()
             .map(|s| s.ufo().expect("Couldn't open master file"))
             .collect();
-        font = build_fonts(dm_index.unwrap(), masters, ds.variation_model(), subset);
-        ds.add_to_font(&mut font)
-            .expect("Couldn't add variation tables");
+        if masters.len() > 1 {
+            font = build_fonts(dm_index.unwrap(), masters, ds.variation_model(), subset);
+            ds.add_to_font(&mut font)
+                .expect("Couldn't add variation tables");
+        } else {
+            font = build_font(masters.into_iter().nth(0).unwrap(), subset);
+        }
     } else if filename.ends_with(".ufo") {
         let ufo = norad::Font::load(filename).expect("Can't load UFO file");
         font = build_font(ufo, subset);
