@@ -1,20 +1,23 @@
 use crate::layout::coverage::Coverage;
-use crate::GSUB::{peek_format, ToBytes};
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_remainder};
+use otspec::DeserializationError;
+use otspec::Deserialize;
+use otspec::Deserializer;
+use otspec::ReaderContext;
+use otspec::SerializationError;
+use otspec::Serialize;
+use otspec::Serializer;
+
 use otspec_macros::tables;
-use serde::de::{SeqAccess, Visitor};
-use serde::ser::SerializeSeq;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::BTreeMap;
 
 tables!(
   SingleSubstFormat1 {
-    uint16 coverageOffset // Offset to Coverage table, from beginning of substitution subtable
+    Offset16(Coverage) coverage // Offset to Coverage table, from beginning of substitution subtable
     int16 deltaGlyphID  // Add to original glyph ID to get substitute glyph ID
   }
   SingleSubstFormat2 {
-    uint16  coverageOffset  // Offset to Coverage table, from beginning of substitution subtable
+    Offset16(Coverage)  coverage  // Offset to Coverage table, from beginning of substitution subtable
     Counted(uint16)  substituteGlyphIDs // Array of substitute glyph IDs — ordered by Coverage index
   }
 );
@@ -26,34 +29,33 @@ pub struct SingleSubst {
     pub mapping: BTreeMap<uint16, uint16>,
 }
 
-impl ToBytes for SingleSubst {
-    fn to_bytes(&self) -> Vec<u8> {
-        otspec::ser::to_bytes(self).unwrap()
-    }
-}
-deserialize_visitor!(
-    SingleSubst,
-    SingleSubstDeserializer,
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<SingleSubst, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
+// impl ToBytes for SingleSubst {
+//     fn to_bytes(&self) -> Vec<u8> {
+//         otspec::ser::to_bytes(self).unwrap()
+//     }
+// }
+
+impl Deserialize for SingleSubst {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let mut mapping = BTreeMap::new();
-        let remainder = read_remainder!(seq, "a single substitution table");
-        match peek_format(&remainder, 0) {
-            Ok(1) => {
-                let sub: SingleSubstFormat1 = otspec::de::from_bytes(&remainder[2..]).unwrap();
-                let coverage: Coverage =
-                    otspec::de::from_bytes(&remainder[sub.coverageOffset as usize..]).unwrap();
-                for gid in &coverage.glyphs {
+        let fmt: uint16 = c.de()?;
+        match fmt {
+            1 => {
+                let sub: SingleSubstFormat1 = c.de()?;
+                for gid in &sub.coverage.as_ref().unwrap().glyphs {
                     mapping.insert(*gid, (*gid as i16 + sub.deltaGlyphID) as u16);
                 }
             }
-            Ok(2) => {
-                let sub: SingleSubstFormat2 = otspec::de::from_bytes(&remainder[2..]).unwrap();
-                let coverage: Coverage =
-                    otspec::de::from_bytes(&remainder[sub.coverageOffset as usize..]).unwrap();
-                for (gid, newgid) in coverage.glyphs.iter().zip(sub.substituteGlyphIDs.iter()) {
+            2 => {
+                let sub: SingleSubstFormat2 = c.de()?;
+                for (gid, newgid) in sub
+                    .coverage
+                    .as_ref()
+                    .unwrap()
+                    .glyphs
+                    .iter()
+                    .zip(sub.substituteGlyphIDs.iter())
+                {
                     mapping.insert(*gid, *newgid);
                 }
             }
@@ -61,21 +63,18 @@ deserialize_visitor!(
         }
         Ok(SingleSubst { mapping })
     }
-);
+}
 
 impl Serialize for SingleSubst {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         // Determine format
-        let mut delta = 0_u16;
+        let mut delta = 0_i16;
         let mut map = self.mapping.iter();
         let format: u16 = if let Some((&first_left, &first_right)) = map.next() {
-            delta = first_right.wrapping_sub(first_left);
+            delta = (first_right as i16).wrapping_sub(first_left as i16);
             let mut format = 1;
             for (&left, &right) in map {
-                if left.wrapping_add(delta) != right {
+                if (left as i16).wrapping_add(delta) != (right as i16) {
                     format = 2;
                     break;
                 }
@@ -84,23 +83,25 @@ impl Serialize for SingleSubst {
         } else {
             2
         };
-        let mut seq = serializer.serialize_seq(None)?;
-        seq.serialize_element(&format)?;
+        data.put(format)?;
+        let coverage = Coverage {
+            glyphs: self.mapping.keys().copied().collect(),
+        };
         if format == 1 {
-            seq.serialize_element(&6_u16)?;
-            seq.serialize_element(&delta)?;
+            data.put(SingleSubstFormat1 {
+                coverage: Offset16::to(coverage),
+                deltaGlyphID: delta,
+            })?;
         } else {
             let len = self.mapping.len() as u16;
-            seq.serialize_element(&(6 + 2 * len))?;
-            seq.serialize_element(&len)?;
+            data.put(6 + 2 * len)?;
+            data.put(len)?;
             for k in self.mapping.values() {
-                seq.serialize_element(k)?;
+                data.put(k)?;
             }
+            data.put(coverage)?;
         }
-        seq.serialize_element(&Coverage {
-            glyphs: self.mapping.keys().copied().collect(),
-        })?;
-        seq.end()
+        Ok(())
     }
 }
 
@@ -116,14 +117,18 @@ mod tests {
     }
 
     #[test]
-    fn test_single_subst_1_ser() {
+    fn test_single_subst_1_serde() {
         let subst = SingleSubst {
             mapping: btreemap!(66 => 67, 68 => 69),
         };
+        let binary_subst = vec![
+            0x00, 0x01, 0x00, 0x04, 0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 66, 0x00, 68,
+        ];
         let serialized = otspec::ser::to_bytes(&subst).unwrap();
+        assert_eq!(serialized, binary_subst);
         assert_eq!(
-            serialized,
-            vec![0x00, 0x01, 0x00, 0x06, 0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 66, 0x00, 68]
+            otspec::de::from_bytes::<SingleSubst>(&binary_subst).unwrap(),
+            subst
         );
     }
 
@@ -132,13 +137,15 @@ mod tests {
         let subst = SingleSubst {
             mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
         };
+        let binary_subst = vec![
+            0x00, 0x02, 0x00, 0x0C, 0x00, 0x03, 0x00, 0x42, 0x00, 0x42, 0x00, 0x42, 0x00, 0x01,
+            0x00, 0x03, 0x00, 0x22, 0x00, 0x23, 0x00, 0x24,
+        ];
         let serialized = otspec::ser::to_bytes(&subst).unwrap();
+        assert_eq!(serialized, binary_subst);
         assert_eq!(
-            serialized,
-            vec![
-                0x00, 0x02, 0x00, 0x0C, 0x00, 0x03, 0x00, 0x42, 0x00, 0x42, 0x00, 0x42, 0x00, 0x01,
-                0x00, 0x03, 0x00, 0x22, 0x00, 0x23, 0x00, 0x24
-            ]
+            otspec::de::from_bytes::<SingleSubst>(&binary_subst).unwrap(),
+            subst
         );
     }
 }

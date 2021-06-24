@@ -82,13 +82,24 @@ fn is_sorted<T: Ord>(slice: &[T]) -> bool {
     true
 }
 
-impl Serialize for Coverage {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+impl Coverage {
+    fn most_efficient_format(&self) -> u16 {
         let as_consecutive = consecutive_slices(&self.glyphs);
         if self.glyphs.is_empty()
             || !is_sorted(&self.glyphs)
             || as_consecutive.len() * 3 >= self.glyphs.len()
         {
+            1
+        } else {
+            2
+        }
+    }
+}
+
+impl Serialize for Coverage {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        let as_consecutive = consecutive_slices(&self.glyphs);
+        if self.most_efficient_format() == 1 {
             1_u16.to_bytes(data)?;
             CoverageFormat1 {
                 glyphArray: self.glyphs.clone(),
@@ -109,6 +120,14 @@ impl Serialize for Coverage {
             }
         }
         Ok(())
+    }
+    fn ot_binary_size(&self) -> usize {
+        2 + if self.most_efficient_format() == 1 {
+            2 + self.glyphs.len()
+        } else {
+            let as_consecutive = consecutive_slices(&self.glyphs);
+            2 + 6 * as_consecutive.len()
+        }
     }
 }
 

@@ -1,12 +1,13 @@
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field};
+use otspec::DeserializationError;
+use otspec::Deserialize;
+use otspec::Deserializer;
+use otspec::ReaderContext;
+use otspec::SerializationError;
+use otspec::Serialize;
+use otspec::Serializer;
+
 use otspec_macros::tables;
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::ser::SerializeSeq;
-use serde::Deserializer;
-use serde::Serializer;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 tables!(
@@ -34,19 +35,17 @@ pub struct ClassDef {
     pub classes: BTreeMap<uint16, uint16>,
 }
 
-deserialize_visitor!(
-    ClassDef,
-    ClassDefVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let format = read_field!(seq, uint16, "a class definition table format field");
+impl Deserialize for ClassDef {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let format: uint16 = c.de()?;
         let mut classes = BTreeMap::new();
         if format == 1 {
-            let cdf1 = read_field!(seq, ClassDefFormat1, "a class definition table format 1");
+            let cdf1: ClassDefFormat1 = c.de()?;
             for (ix, class) in cdf1.classValueArray.iter().enumerate() {
                 classes.insert(cdf1.startGlyphID + ix as uint16, *class);
             }
         } else {
-            let cdf2 = read_field!(seq, ClassDefFormat2, "a class definition table format 2");
+            let cdf2: ClassDefFormat2 = c.de()?;
             for rr in cdf2.classRangeRecords {
                 for g in rr.startGlyphID..(rr.endGlyphID + 1) {
                     classes.insert(g, rr.class);
@@ -55,7 +54,7 @@ deserialize_visitor!(
         }
         Ok(ClassDef { classes })
     }
-);
+}
 
 fn consecutive_slices(data: &[(uint16, uint16)]) -> Vec<&[(uint16, uint16)]> {
     let mut slice_start = 0;
@@ -73,43 +72,39 @@ fn consecutive_slices(data: &[(uint16, uint16)]) -> Vec<&[(uint16, uint16)]> {
 }
 
 impl Serialize for ClassDef {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let pairs: Vec<(u16, u16)> = self.classes.iter().map(|(k, v)| (*k, *v)).collect();
         let as_consecutive = consecutive_slices(&pairs);
         if self.classes.is_empty() {
-            seq.serialize_element::<uint16>(&1)?;
-            seq.serialize_element(&ClassDefFormat1 {
+            data.put(1_u16)?;
+            data.put(ClassDefFormat1 {
                 startGlyphID: 0,
                 classValueArray: vec![],
             })?;
-            return seq.end();
+            return Ok(());
         }
         let first_gid = pairs[0].0;
         let last_gid = pairs.last().unwrap().0;
         if as_consecutive.len() as u16 * 3 > (2 + last_gid - first_gid) {
-            seq.serialize_element::<uint16>(&1)?;
-            seq.serialize_element(&ClassDefFormat1 {
+            data.put(1_u16)?;
+            data.put(ClassDefFormat1 {
                 startGlyphID: first_gid,
                 classValueArray: (first_gid..last_gid + 1)
                     .map(|gid| self.classes.get(&gid).map_or(0, |class| *class))
                     .collect(),
             })?;
         } else {
-            seq.serialize_element::<uint16>(&2)?;
-            seq.serialize_element(&(as_consecutive.len() as uint16))?;
+            data.put(2_u16)?;
+            data.put(as_consecutive.len() as uint16)?;
             for slice in as_consecutive {
-                seq.serialize_element(&ClassRangeRecord {
+                data.put(ClassRangeRecord {
                     startGlyphID: slice.first().unwrap().0,
                     endGlyphID: slice.last().unwrap().0,
                     class: slice.first().unwrap().1,
                 })?;
             }
         }
-        seq.end()
+        Ok(())
     }
 }
 
