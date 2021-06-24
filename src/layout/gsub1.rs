@@ -95,14 +95,11 @@ impl Serialize for SingleSubst {
                 deltaGlyphID: delta,
             })?;
         } else {
-            let len = self.mapping.len() as u16;
-            data.put(2_u16)?;
-            data.put(6 + 2 * len)?;
-            data.put(len)?;
-            for k in self.mapping.values() {
-                data.put(k)?;
-            }
-            data.put(coverage)?;
+            data.put(SingleSubstFormat2 {
+                substFormat: 2,
+                coverage: Offset16::to(coverage),
+                substituteGlyphIDs: self.mapping.values().copied().collect(),
+            })?;
         }
         Ok(())
     }
