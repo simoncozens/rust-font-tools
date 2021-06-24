@@ -31,11 +31,26 @@ pub struct SingleSubst {
     pub mapping: BTreeMap<uint16, uint16>,
 }
 
-// impl ToBytes for SingleSubst {
-//     fn to_bytes(&self) -> Vec<u8> {
-//         otspec::ser::to_bytes(self).unwrap()
-//     }
-// }
+impl SingleSubst {
+    fn best_format(&self) -> (uint16, i16) {
+        let mut delta = 0_i16;
+        let mut map = self.mapping.iter();
+        let format: u16 = if let Some((&first_left, &first_right)) = map.next() {
+            delta = (first_right as i16).wrapping_sub(first_left as i16);
+            let mut format = 1;
+            for (&left, &right) in map {
+                if (left as i16).wrapping_add(delta) != (right as i16) {
+                    format = 2;
+                    break;
+                }
+            }
+            format
+        } else {
+            2
+        };
+        (format, delta)
+    }
+}
 
 impl Deserialize for SingleSubst {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
@@ -69,22 +84,7 @@ impl Deserialize for SingleSubst {
 
 impl Serialize for SingleSubst {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        // Determine format
-        let mut delta = 0_i16;
-        let mut map = self.mapping.iter();
-        let format: u16 = if let Some((&first_left, &first_right)) = map.next() {
-            delta = (first_right as i16).wrapping_sub(first_left as i16);
-            let mut format = 1;
-            for (&left, &right) in map {
-                if (left as i16).wrapping_add(delta) != (right as i16) {
-                    format = 2;
-                    break;
-                }
-            }
-            format
-        } else {
-            2
-        };
+        let (format, delta) = self.best_format();
         let coverage = Coverage {
             glyphs: self.mapping.keys().copied().collect(),
         };
