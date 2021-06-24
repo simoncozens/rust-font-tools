@@ -1,9 +1,11 @@
 //! This library is used by the fonttools crate. No user-serviceable parts inside.
 #[macro_use]
 extern crate shrinkwraprs;
+use crate::types::OffsetMarkerTrait;
 use crate::types::*;
 use std::convert::TryInto;
 use std::mem;
+pub mod offsetmanager;
 pub mod types;
 
 #[derive(Debug)]
@@ -122,8 +124,20 @@ impl std::fmt::Display for DeserializationError {
 impl std::error::Error for SerializationError {}
 impl std::error::Error for DeserializationError {}
 
-pub trait Serialize {
+pub trait Serialize: std::fmt::Debug {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError>;
+    fn ot_binary_size(&self) -> usize {
+        // Lazy implementation that works everywhere
+        let mut d = vec![];
+        self.to_bytes(&mut d).unwrap();
+        d.len()
+    }
+    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
+        vec![]
+    }
+    fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        self.to_bytes(data)
+    }
 }
 
 pub trait Deserialize {
@@ -139,12 +153,17 @@ macro_rules! serde_primitive {
                 data.extend_from_slice(&self.to_be_bytes());
                 Ok(())
             }
+
+            fn ot_binary_size(&self) -> usize {
+                mem::size_of::<$t>()
+            }
         }
 
         impl Deserialize for $t {
             fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-                let bytes: &[u8] = c.consume(mem::size_of::<$t>())?;
-                let bytes_array: [u8; mem::size_of::<$t>()] = bytes
+                const SIZE: usize = mem::size_of::<$t>();
+                let bytes: &[u8] = c.consume(SIZE)?;
+                let bytes_array: [u8; SIZE] = bytes
                     .try_into()
                     .map_err(|_| DeserializationError("Slice with incorrect length".to_string()))?;
                 Ok(<$t>::from_be_bytes(bytes_array))
@@ -170,6 +189,16 @@ where
             el.to_bytes(data)?
         }
         Ok(())
+    }
+    fn ot_binary_size(&self) -> usize {
+        self.iter().map(|x| x.ot_binary_size()).sum()
+    }
+    fn offset_fields(&self) -> Vec<&dyn types::OffsetMarkerTrait> {
+        let mut v = vec![];
+        for el in self {
+            v.extend(el.offset_fields())
+        }
+        v
     }
 }
 
@@ -202,6 +231,16 @@ where
         (self.len() as uint16).to_bytes(data)?;
         self.0.to_bytes(data)?;
         Ok(())
+    }
+    fn ot_binary_size(&self) -> usize {
+        2 + self.0.ot_binary_size()
+    }
+    fn offset_fields(&self) -> Vec<&dyn types::OffsetMarkerTrait> {
+        let mut v = vec![];
+        for el in &self.0 {
+            v.extend(el.offset_fields())
+        }
+        v
     }
 }
 
@@ -249,6 +288,12 @@ where
         data: &mut std::vec::Vec<u8>,
     ) -> std::result::Result<(), SerializationError> {
         (*self).to_bytes(data)
+    }
+    fn ot_binary_size(&self) -> usize {
+        (*self).ot_binary_size()
+    }
+    fn offset_fields(&self) -> Vec<&dyn types::OffsetMarkerTrait> {
+        (*self).offset_fields()
     }
 }
 

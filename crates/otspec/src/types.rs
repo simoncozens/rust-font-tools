@@ -4,6 +4,8 @@ use crate::Deserializer;
 use crate::ReaderContext;
 use crate::SerializationError;
 use crate::Serialize;
+
+use std::cell::RefCell;
 use std::convert::TryInto;
 
 #[allow(non_camel_case_types)]
@@ -32,6 +34,9 @@ impl Serialize for Tag {
         self[3].to_bytes(data)?;
         Ok(())
     }
+    fn ot_binary_size(&self) -> usize {
+        4
+    }
 }
 
 impl Deserialize for Tag {
@@ -53,6 +58,9 @@ impl Serialize for Fixed {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let packed: i32 = ot_round(self.0 * 65536.0);
         packed.to_bytes(data)
+    }
+    fn ot_binary_size(&self) -> usize {
+        4
     }
 }
 impl Deserialize for Fixed {
@@ -107,6 +115,9 @@ impl Serialize for F2DOT14 {
             .map_err(|_| SerializationError("Value didn't fit into a F2DOT14".to_string()))?;
         packed.to_bytes(data)
     }
+    fn ot_binary_size(&self) -> usize {
+        2
+    }
 }
 impl Deserialize for F2DOT14 {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
@@ -137,6 +148,9 @@ impl Serialize for Version16Dot16 {
         major.to_bytes(data)?;
         minor.to_bytes(data)?;
         0_u8.to_bytes(data)
+    }
+    fn ot_binary_size(&self) -> usize {
+        2
     }
 }
 impl Deserialize for Version16Dot16 {
@@ -172,6 +186,9 @@ impl Serialize for LONGDATETIME {
         let epoch = NaiveDate::from_ymd(1904, 1, 1).and_hms(0, 0, 0).timestamp();
         (now - epoch).to_bytes(data)
     }
+    fn ot_binary_size(&self) -> usize {
+        8
+    }
 }
 impl Deserialize for LONGDATETIME {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
@@ -193,18 +210,96 @@ impl From<LONGDATETIME> for chrono::NaiveDateTime {
     }
 }
 
+// OK, the offset type is going to be terrifying.
+
+/// Represents an offset within a table to another subtable
 #[derive(Debug, Clone)]
 pub struct Offset16<T> {
-    off: Option<u16>,
-    link: T,
+    off: RefCell<Option<u16>>,
+    /// The subtable referred to by this offset. Can be `None` (e.g. `Script.defaultLangSysOffset`)
+    pub link: Option<T>,
+}
+
+// This is purely internal but we need to make it pub because it's shared
+// with otspec_macros. I'm not going to rustdoc it, though.
+//
+// The idea behind this is that we need to be able to build an object
+// graph containing different subtable types. To do *that*, we need to erase
+// the internal type of the `Offset16<T>`, and so turn it into a trait object.
+// So we expose a portion of the Offset16's functionality inside this marker
+// trait.
+pub trait OffsetMarkerTrait: Serialize + std::fmt::Debug {
+    fn children(&self) -> Vec<&dyn OffsetMarkerTrait>;
+    fn object_size(&self) -> usize;
+    fn total_size_with_descendants(&self) -> usize;
+    fn needs_resolving(&self) -> bool;
+    fn set(&self, off: uint16);
+    fn serialize_contents(&self, output: &mut Vec<u8>) -> Result<(), SerializationError>;
+    fn is_top_of_table(&self) -> bool;
+}
+
+impl<T: Serialize + std::fmt::Debug> OffsetMarkerTrait for Offset16<T> {
+    // When building the tree, we need to know which of my fields also have
+    // offsets.
+    fn children(&self) -> Vec<&dyn OffsetMarkerTrait> {
+        self.link.as_ref().map_or(vec![], |l| l.offset_fields())
+    }
+    // And when computing the offset for the *next* link, we need to know
+    // how big this object is.
+    fn object_size(&self) -> usize {
+        self.link.as_ref().map_or(0, |l| l.ot_binary_size())
+    }
+    fn total_size_with_descendants(&self) -> usize {
+        let me: usize = self.object_size();
+        let them: usize = self
+            .children()
+            .iter()
+            .map(|l| l.total_size_with_descendants())
+            .sum();
+        me + them
+    }
+
+    fn needs_resolving(&self) -> bool {
+        if self.off.borrow().is_none() {
+            return true;
+        }
+        for f in self.children() {
+            if f.needs_resolving() {
+                return true;
+            }
+        }
+        false
+    }
+
+    // Finally, when we have resolved all the offsets, we use interior
+    // mutability to replace the offset within the `Offset16` struct.
+    fn set(&self, off: uint16) {
+        self.off.replace(Some(off));
+    }
+    fn serialize_contents(&self, output: &mut Vec<u8>) -> Result<(), SerializationError> {
+        if let Some(l) = self.link.as_ref() {
+            l.to_bytes_shallow(output)?
+        }
+        Ok(())
+    }
+    fn is_top_of_table(&self) -> bool {
+        true
+    }
 }
 
 impl<T> Offset16<T> {
+    /// Create a new offset pointing to a subtable. Its offset must be resolved
+    /// before serialization using an `OffsetManager`.
     pub fn to(thing: T) -> Self {
         Offset16 {
-            off: None,
-            link: thing,
+            off: RefCell::new(None),
+            link: Some(thing),
         }
+    }
+
+    /// Returns the byte offset from the parent of this subtable, if set.
+    pub fn offset_value(&self) -> Option<uint16> {
+        *self.off.borrow()
     }
 }
 
@@ -213,25 +308,40 @@ impl<T: PartialEq> PartialEq for Offset16<T> {
         self.link == rhs.link
     }
 }
-impl<T> Serialize for Offset16<T> {
+
+impl<T: std::fmt::Debug> Serialize for Offset16<T> {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        match self.off {
-            Some(x) => x.to_bytes(data),
-            None => Err(SerializationError("Offset not set".to_string())),
+        if let Some(v) = self.offset_value() {
+            v.to_bytes(data)
+        } else {
+            Err(SerializationError("Offset not set".to_string()))
         }
+    }
+
+    fn ot_binary_size(&self) -> usize {
+        2
+    }
+    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
+        vec![] // Maybe?
     }
 }
 
-impl<T: Deserialize> Deserialize for Offset16<T> {
+impl<T: Deserialize + std::fmt::Debug> Deserialize for Offset16<T> {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let off: uint16 = c.de()?;
+        if off == 0 {
+            return Ok(Offset16 {
+                off: RefCell::new(None),
+                link: None,
+            });
+        }
         let oldptr = c.ptr;
         c.ptr = c.top_of_table() + off as usize;
         let obj: T = c.de()?;
         c.ptr = oldptr;
         Ok(Offset16 {
-            off: Some(off),
-            link: obj,
+            off: RefCell::new(Some(off)),
+            link: Some(obj),
         })
     }
 }
@@ -239,7 +349,7 @@ impl<T: Deserialize> Deserialize for Offset16<T> {
 use std::ops::Deref;
 
 impl<T> Deref for Offset16<T> {
-    type Target = T;
+    type Target = Option<T>;
     fn deref(&self) -> &Self::Target {
         &self.link
     }
@@ -249,23 +359,24 @@ impl<T> Deref for Offset16<T> {
 mod tests {
     use super::*;
     use crate as otspec;
-    use otspec_macros::Deserialize;
+    use otspec_macros::{Deserialize, Serialize};
 
-    #[derive(Deserialize)]
+    #[derive(Deserialize, Serialize, Debug, Clone)]
     struct One {
         thing: uint16,
         off: Offset16<Two>,
         other: uint16,
     }
 
-    #[derive(Deserialize, Debug, PartialEq)]
+    #[derive(Deserialize, Debug, PartialEq, Serialize, Clone)]
     struct Two {
+        #[serde(offset_base)]
         test1: uint16,
         deep: Offset16<Three>,
         test2: uint16,
     }
 
-    #[derive(Deserialize, Debug, PartialEq)]
+    #[derive(Deserialize, Debug, PartialEq, Serialize, Clone)]
     struct Three {
         blah: uint16,
     }
@@ -286,17 +397,14 @@ mod tests {
         let one: One = rc.de().unwrap();
         assert_eq!(one.other, 0x02);
         assert_eq!(one.thing, 0x01);
-        assert_eq!(one.off.test1, 0x0a);
-
-        // XXX Need to work out automatic top-of-table stuff
-
-        // assert_eq!(
-        //     one.off.link,
-        //     Two {
-        //         test1: 0x0a,
-        //         deep: Offset16::to(Three { blah: 0xaa }),
-        //         test2: 0x0b
-        //     }
-        // );
+        assert_eq!(one.off.as_ref().unwrap().test1, 0x0a);
+        assert_eq!(
+            one.off.link,
+            Some(Two {
+                test1: 0x0a,
+                deep: Offset16::to(Three { blah: 0xaa }),
+                test2: 0x0b
+            })
+        );
     }
 }

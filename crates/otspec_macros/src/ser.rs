@@ -21,14 +21,48 @@ pub fn expand_derive_serialize(
     let (impl_generics, ty_generics, where_clause) = params.generics.split_for_impl();
     match &cont.data {
         Data::Struct(Style::Struct, fields) => {
-            let body = serialize_fields(fields);
+            let sizes = serialize_sizes(fields);
+            let offset_fields = serialize_offset_fields(fields);
+            let serializer = serialize_fields(fields);
+            let has_offsets = !offset_fields.is_empty();
+            let is_offset_base = true; // generally speaking, offsets are from top of each subtable
+            let prepare = if has_offsets && is_offset_base {
+                quote! {
+                    let obj = otspec::offsetmanager::resolve_offsets(self);
+                }
+            } else {
+                quote! { let obj = self; }
+            };
+            let descendants = if has_offsets && is_offset_base {
+                quote! {
+                    otspec::offsetmanager::resolve_offsets_and_serialize(obj, data, false)?;
+                }
+            } else {
+                quote! {}
+            };
             Ok(quote! {
                 #[automatically_derived]
                 impl #impl_generics otspec::Serialize for #ident #ty_generics #where_clause {
                     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-                        #(#body)*
+                        #prepare
+                        self.to_bytes_shallow(data)?;
+                        #descendants
                         Ok(())
                     }
+
+                    fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
+                        let obj = self;
+                        #(#serializer)*
+                        Ok(())
+                    }
+                    fn ot_binary_size(&self) -> usize {
+                        0 #(#sizes)*
+                    }
+
+                    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
+                        vec![ #(#offset_fields)* ]
+                    }
+
                 }
             })
         }
@@ -44,17 +78,63 @@ fn serialize_fields(fields: &[Field]) -> Vec<TokenStream> {
             if let Some(path) = field.attrs.serialize_with() {
                 if path.path.is_ident("Counted") {
                     quote! {
-                        let wrapped = otspec::Counted(self.#name.clone());
+                        let wrapped = otspec::Counted(obj.#name.clone());
                         wrapped.to_bytes(data)?;
                     }
                 } else {
                     quote! {
-                        let wrapped = #path(self.#name);
+                        let wrapped = #path(obj.#name);
                         wrapped.to_bytes(data)?;
                     }
                 }
             } else {
-                quote! { self.#name.to_bytes(data)?; }
+                quote! { obj.#name.to_bytes(data)?; }
+            }
+        })
+        .collect()
+}
+
+fn serialize_sizes(fields: &[Field]) -> Vec<TokenStream> {
+    fields
+        .iter()
+        .map(|field| {
+            let name = &field.original.ident;
+            if let Some(path) = field.attrs.serialize_with() {
+                if path.path.is_ident("Counted") {
+                    quote! {
+                         + {
+                            let wrapped = otspec::Counted(self.#name.clone());
+                            wrapped.ot_binary_size()
+                        }
+                    }
+                } else {
+                    quote! {
+                        + { let wrapped = #path(self.#name);
+                            wrapped.ot_binary_size()
+                        }
+                    }
+                }
+            } else {
+                quote! { + self.#name.ot_binary_size() }
+            }
+        })
+        .collect()
+}
+
+fn serialize_offset_fields(fields: &[Field]) -> Vec<TokenStream> {
+    fields
+        .iter()
+        .map(|field| {
+            let name = &field.original.ident;
+            let ty = &field.original.ty;
+            if let syn::Type::Path(path) = ty {
+                if path.path.segments.first().unwrap().ident == "Offset16" {
+                    quote! { &self.#name, }
+                } else {
+                    quote! {}
+                }
+            } else {
+                quote! {}
             }
         })
         .collect()
