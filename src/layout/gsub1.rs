@@ -13,10 +13,12 @@ use std::collections::BTreeMap;
 
 tables!(
   SingleSubstFormat1 {
+    uint16 substFormat
     Offset16(Coverage) coverage // Offset to Coverage table, from beginning of substitution subtable
     int16 deltaGlyphID  // Add to original glyph ID to get substitute glyph ID
   }
   SingleSubstFormat2 {
+    uint16 substFormat
     Offset16(Coverage)  coverage  // Offset to Coverage table, from beginning of substitution subtable
     Counted(uint16)  substituteGlyphIDs // Array of substitute glyph IDs — ordered by Coverage index
   }
@@ -38,15 +40,15 @@ pub struct SingleSubst {
 impl Deserialize for SingleSubst {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let mut mapping = BTreeMap::new();
-        let fmt: uint16 = c.de()?;
+        let fmt = c.peek(2)?;
         match fmt {
-            1 => {
+            [0x00, 0x01] => {
                 let sub: SingleSubstFormat1 = c.de()?;
                 for gid in &sub.coverage.as_ref().unwrap().glyphs {
                     mapping.insert(*gid, (*gid as i16 + sub.deltaGlyphID) as u16);
                 }
             }
-            2 => {
+            [0x00, 0x02] => {
                 let sub: SingleSubstFormat2 = c.de()?;
                 for (gid, newgid) in sub
                     .coverage
@@ -83,17 +85,18 @@ impl Serialize for SingleSubst {
         } else {
             2
         };
-        data.put(format)?;
         let coverage = Coverage {
             glyphs: self.mapping.keys().copied().collect(),
         };
         if format == 1 {
             data.put(SingleSubstFormat1 {
+                substFormat: 1,
                 coverage: Offset16::to(coverage),
                 deltaGlyphID: delta,
             })?;
         } else {
             let len = self.mapping.len() as u16;
+            data.put(2_u16)?;
             data.put(6 + 2 * len)?;
             data.put(len)?;
             for k in self.mapping.values() {
@@ -122,14 +125,12 @@ mod tests {
             mapping: btreemap!(66 => 67, 68 => 69),
         };
         let binary_subst = vec![
-            0x00, 0x01, 0x00, 0x04, 0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 66, 0x00, 68,
+            0x00, 0x01, 0x00, 0x06, 0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 66, 0x00, 68,
         ];
         let serialized = otspec::ser::to_bytes(&subst).unwrap();
         assert_eq!(serialized, binary_subst);
-        assert_eq!(
-            otspec::de::from_bytes::<SingleSubst>(&binary_subst).unwrap(),
-            subst
-        );
+        let de: SingleSubst = otspec::de::from_bytes(&binary_subst).unwrap();
+        assert_eq!(de, subst);
     }
 
     #[test]
