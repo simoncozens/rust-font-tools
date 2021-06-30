@@ -297,6 +297,14 @@ impl<T> Offset16<T> {
         }
     }
 
+    /// Create a new offset pointing to nothing.
+    pub fn to_nothing() -> Self {
+        Offset16 {
+            off: RefCell::new(None),
+            link: None,
+        }
+    }
+
     /// Returns the byte offset from the parent of this subtable, if set.
     pub fn offset_value(&self) -> Option<uint16> {
         *self.off.borrow()
@@ -313,6 +321,8 @@ impl<T: std::fmt::Debug> Serialize for Offset16<T> {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         if let Some(v) = self.offset_value() {
             v.to_bytes(data)
+        } else if self.link.is_none() {
+            0_u16.to_bytes(data)
         } else {
             Err(SerializationError("Offset not set".to_string()))
         }

@@ -1,4 +1,3 @@
-use crate::types::uint16;
 use crate::types::OffsetMarkerTrait;
 use crate::Offset16;
 use crate::SerializationError;
