@@ -65,11 +65,14 @@ impl<'c> BoolAttr<'c> {
 }
 
 /// Represents struct or enum attribute information.
-pub struct Container {}
+pub struct Container {
+    pub is_embedded: bool,
+}
 
 impl Container {
     /// Extract out the `#[serde(...)]` attributes from an item.
     pub fn from_ast(cx: &Ctxt, item: &syn::DeriveInput) -> Self {
+        let mut is_embedded = false;
         for meta_item in item
             .attrs
             .iter()
@@ -83,10 +86,14 @@ impl Container {
                         .into_token_stream()
                         .to_string()
                         .replace(' ', "");
-                    cx.error_spanned_by(
-                        meta_item.path(),
-                        format!("unknown serde container attribute `{}`", path),
-                    );
+                    if path == "embedded" {
+                        is_embedded = true
+                    } else {
+                        cx.error_spanned_by(
+                            meta_item.path(),
+                            format!("unknown serde container attribute `{}`", path),
+                        );
+                    }
                 }
 
                 Lit(lit) => {
@@ -95,21 +102,7 @@ impl Container {
             }
         }
 
-        let mut is_packed = false;
-        for attr in &item.attrs {
-            if attr.path.is_ident("repr") {
-                let _ = attr.parse_args_with(|input: ParseStream| {
-                    while let Some(token) = input.parse()? {
-                        if let TokenTree::Ident(ident) = token {
-                            is_packed |= ident == "packed";
-                        }
-                    }
-                    Ok(())
-                });
-            }
-        }
-
-        Container {}
+        Container { is_embedded }
     }
 }
 

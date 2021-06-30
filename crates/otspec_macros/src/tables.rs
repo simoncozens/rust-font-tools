@@ -80,7 +80,7 @@ fn expect_ident(item: Option<TokenTree>) -> String {
     }
 }
 
-fn has_pragma(item: &Option<TokenTree>) -> Option<String> {
+fn has_pragma(item: &Option<&TokenTree>) -> Option<String> {
     match item {
         Some(TokenTree::Group(i)) => {
             if i.delimiter() == Delimiter::Bracket {
@@ -113,7 +113,7 @@ fn special_type(t: &str) -> Option<String> {
 
 pub fn expand_tables(item: TokenStream) -> TokenStream {
     let mut output = TokenStream::new();
-    let mut iter = item.into_iter();
+    let mut iter = item.into_iter().peekable();
     let mut out_s = String::new();
 
     loop {
@@ -124,6 +124,17 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
         }
 
         let table_name = expect_ident(maybe_table_name);
+
+        let next = iter.peek();
+        if let Some(pragma) = has_pragma(&next) {
+            if pragma == "[embedded]" {
+                out_s.push_str("#[serde(embedded)]");
+            } else {
+                panic!("Unknown pragma '{:?}'", pragma);
+            }
+            iter.next();
+        }
+
         out_s.push_str(&format!(
             "/// Low-level structure used for serializing/deserializing table\n\
             #[allow(missing_docs, non_snake_case, non_camel_case_types)]\n\
@@ -139,7 +150,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
             if maybe_t.is_none() {
                 break;
             }
-            if let Some(pragma) = has_pragma(&maybe_t) {
+            if let Some(pragma) = has_pragma(&maybe_t.as_ref()) {
                 if pragma == "[offset_base]" {
                     out_s.push_str("#[serde(offset_base)]");
                 } else {
