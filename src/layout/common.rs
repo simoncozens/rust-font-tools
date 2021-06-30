@@ -1,10 +1,14 @@
 use bitflags::bitflags;
+use itertools::Itertools;
 use otspec::types::*;
 use otspec::DeserializationError;
 use otspec::Deserialize;
 use otspec::Deserializer;
 use otspec::ReaderContext;
+use otspec::SerializationError;
+use otspec::Serialize;
 use otspec_macros::{tables, Deserialize, Serialize};
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 tables!(
@@ -12,7 +16,7 @@ tables!(
         [offset_base]
         Counted(ScriptRecord) scriptRecords
     }
-    ScriptRecord {
+    ScriptRecord [embedded] {
         Tag scriptTag
         Offset16(ScriptInternal) scriptOffset
     }
@@ -154,29 +158,90 @@ impl From<&LangSys> for LanguageSystem {
     }
 }
 
+impl From<&LanguageSystem> for LangSys {
+    fn from(ls: &LanguageSystem) -> Self {
+        LangSys {
+            lookupOrderOffset: 0,
+            requiredFeatureIndex: ls.required_feature.unwrap_or(0xFFFF) as u16,
+            featureIndices: ls.feature_indices.iter().map(|x| *x as uint16).collect(),
+        }
+    }
+}
+
+impl From<&ScriptInternal> for Script {
+    fn from(si: &ScriptInternal) -> Self {
+        let mut script = Script {
+            default_language_system: (*si.defaultLangSys).as_ref().map(|langsys| langsys.into()),
+            language_systems: HashMap::new(),
+        };
+        for langsysrecord in &si.langSysRecords {
+            let lang_tag = langsysrecord.langSysTag;
+            let ls: LanguageSystem = langsysrecord.langSys.as_ref().unwrap().into();
+            script.language_systems.insert(lang_tag, ls);
+        }
+        script
+    }
+}
+
+impl From<&Script> for ScriptInternal {
+    fn from(script: &Script) -> Self {
+        let default_lang_sys = if script.default_language_system.is_some() {
+            let langsys: LangSys = script.default_language_system.as_ref().unwrap().into();
+            Offset16::to(langsys)
+        } else {
+            Offset16::to_nothing()
+        };
+        let lang_sys_records: Vec<LangSysRecord> = script
+            .language_systems
+            .iter()
+            .map(|(k, v)| {
+                let ls: LangSys = v.into();
+                LangSysRecord {
+                    langSysTag: *k,
+                    langSys: Offset16::to(ls),
+                }
+            })
+            .collect();
+        ScriptInternal {
+            defaultLangSys: default_lang_sys,
+            langSysRecords: lang_sys_records,
+        }
+    }
+}
+
 impl Deserialize for ScriptList {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let sl: ScriptListInternal = c.de()?;
         let mut scripts = HashMap::new();
         for rec in sl.scriptRecords {
             let si: &ScriptInternal = &rec.scriptOffset.as_ref().unwrap();
-
-            let mut script = Script {
-                default_language_system: (*si.defaultLangSys)
-                    .as_ref()
-                    .map(|langsys| langsys.into()),
-                language_systems: HashMap::new(),
-            };
-            for langsysrecord in &si.langSysRecords {
-                let lang_tag = langsysrecord.langSysTag;
-                let ls: LanguageSystem = langsysrecord.langSys.as_ref().unwrap().into();
-                script.language_systems.insert(lang_tag, ls);
-            }
+            let script: Script = si.into();
             scripts.insert(rec.scriptTag, script);
         }
         Ok(ScriptList { scripts })
     }
 }
+
+impl Serialize for ScriptList {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        let script_records = self
+            .scripts
+            .iter()
+            .map(|(k, v)| {
+                let si: ScriptInternal = v.into();
+                ScriptRecord {
+                    scriptTag: *k,
+                    scriptOffset: Offset16::to(si),
+                }
+            })
+            .collect();
+        ScriptListInternal {
+            scriptRecords: script_records,
+        }
+        .to_bytes(data)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,7 +254,7 @@ mod tests {
         }
 
     #[test]
-    fn test_scriptlist_internal() {
+    fn test_scriptlist_de() {
         let binary_scriptlist = vec![
             0x00, 0x02, 0x61, 0x72, 0x61, 0x62, 0x00, 0x0E, 0x6C, 0x61, 0x74, 0x6E, 0x00, 0x40,
             0x00, 0x0A, 0x00, 0x01, 0x55, 0x52, 0x44, 0x20, 0x00, 0x1E, 0x00, 0x00, 0xFF, 0xFF,
@@ -200,59 +265,61 @@ mod tests {
             0x00, 0x07, 0x00, 0x08,
         ];
         let deserialized: ScriptList = otspec::de::from_bytes(&binary_scriptlist).unwrap();
-        assert_eq!(
-            deserialized,
-            ScriptList {
-                scripts: hashmap!(
-                    *b"arab" => Script {
-                        default_language_system: Some(
-                            LanguageSystem {
-                                required_feature: None,
-                                feature_indices: vec![
-                                    1,
-                                    3,
-                                    4,
-                                    5,
-                                    6,
-                                    7,
-                                    8,
-                                ],
-                            },
-                        ),
-                        language_systems: hashmap!(*b"URD " =>
-                            LanguageSystem {
-                                required_feature: None,
-                                feature_indices: vec![
-                                    0,
-                                    3,
-                                    4,
-                                    5,
-                                    6,
-                                    7,
-                                    8,
-                                ],
-                            },
-                        ),
-                    },
-                    *b"latn" => Script {
-                        default_language_system: Some(
-                            LanguageSystem {
-                                required_feature: None,
-                                feature_indices: vec![
-                                    2,
-                                    3,
-                                    4,
-                                    5,
-                                    6,
-                                    7,
-                                    8,
-                                ],
-                            },
-                        ),
-                        language_systems: hashmap!(),
-                    },
-                ),
-            }
-        );
+        let script_list: ScriptList = ScriptList {
+            scripts: hashmap!(
+                *b"arab" => Script {
+                    default_language_system: Some(
+                        LanguageSystem {
+                            required_feature: None,
+                            feature_indices: vec![
+                                1,
+                                3,
+                                4,
+                                5,
+                                6,
+                                7,
+                                8,
+                            ],
+                        },
+                    ),
+                    language_systems: hashmap!(*b"URD " =>
+                        LanguageSystem {
+                            required_feature: None,
+                            feature_indices: vec![
+                                0,
+                                3,
+                                4,
+                                5,
+                                6,
+                                7,
+                                8,
+                            ],
+                        },
+                    ),
+                },
+                *b"latn" => Script {
+                    default_language_system: Some(
+                        LanguageSystem {
+                            required_feature: None,
+                            feature_indices: vec![
+                                2,
+                                3,
+                                4,
+                                5,
+                                6,
+                                7,
+                                8,
+                            ],
+                        },
+                    ),
+                    language_systems: hashmap!(),
+                },
+            ),
+        };
+        assert_eq!(deserialized, script_list);
+        let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
+        let rede: ScriptList = otspec::de::from_bytes(&serialized).unwrap();
+        // assert_eq!(serialized, binary_scriptlist);
+        assert_eq!(rede, deserialized);
     }
 }
