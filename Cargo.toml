@@ -8,8 +8,8 @@ description = "A fonticulously fast variable font builder"
 repository = "https://github.com/simoncozens/fonttools-rs"
 
 [dependencies]
-fonttools = { path = "../..", features = ["rayon"], version = "0" }
-designspace = { path = "../designspace", features = ["norad"], version="0" }
+fonttools = { path = "../fonttools-rs", features = ["rayon"], version = "0" }
+designspace = { path = "../fonttools-rs/crates/designspace", features = ["norad"], version="0" }
 clap = "2.33.3"
 itertools = "0.10.0"
 norad = { version="0.4", git="https://github.com/linebender/norad", features = ["rayon", "kurbo"] }
