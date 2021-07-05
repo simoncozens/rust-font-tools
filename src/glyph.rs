@@ -210,7 +210,7 @@ fn babelfont_contours_to_glyf_contours(
         .iter()
         .map(|x| {
             let mut c = kurbo_contour_to_glyf_contour(x, 0.5);
-            remove_implied_oncurves(&mut c);
+            // remove_implied_oncurves(&mut c);
             c
         })
         .collect()
