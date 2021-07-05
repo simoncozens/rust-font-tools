@@ -25,7 +25,7 @@ pub fn expand_derive_serialize(
             let offset_fields = serialize_offset_fields(fields);
             let serializer = serialize_fields(fields);
             let has_offsets = !offset_fields.is_empty();
-            let is_offset_base = true; // generally speaking, offsets are from top of each subtable
+            let is_offset_base = !cont.attrs.is_embedded;
             let prepare = if has_offsets && is_offset_base {
                 quote! {
                     let obj = otspec::offsetmanager::resolve_offsets(self);
@@ -37,6 +37,11 @@ pub fn expand_derive_serialize(
                 quote! {
                     otspec::offsetmanager::resolve_offsets_and_serialize(obj, data, false)?;
                 }
+            } else {
+                quote! {}
+            };
+            let tot = if is_offset_base {
+                quote! {}
             } else {
                 quote! {}
             };
@@ -62,8 +67,8 @@ pub fn expand_derive_serialize(
                     fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
                         vec![ #(#offset_fields)* ]
                     }
-
                 }
+                #tot
             })
         }
         _ => panic!("Can't auto-serialize a non-struct type"),
