@@ -230,7 +230,8 @@ fn cubics_to_quadratics(cubics: Vec<PathSeg>, glif_name: &str) -> Vec<Vec<PathEl
                         .collect(),
                 )
             } else {
-                panic!("Incompatible contours");
+                log::error!("Incompatible contours in glyph {:?}", glif_name);
+                return itertools::repeat_n(vec![], cubics.len()).collect();
             }
         }
 
