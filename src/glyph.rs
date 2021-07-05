@@ -6,15 +6,15 @@ use fonttools::gvar::GlyphVariationData;
 use fonttools::otvar::VariationModel;
 use kurbo::{BezPath, PathEl, PathSeg};
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
 type GlyphContour = Vec<Vec<glyf::Point>>;
 
 pub fn glifs_to_glyph(
     default_master: usize,
     mapping: &BTreeMap<String, u16>,
-    glifs: &[Option<&std::sync::Arc<norad::Glyph>>],
+    glifs: &[Option<&babelfont::Layer>],
     model: Option<&VariationModel>,
+    glif_name: &str,
 ) -> (glyf::Glyph, Option<GlyphVariationData>) {
     let mut glyph = glyf::Glyph {
         xMin: 0,
@@ -27,26 +27,26 @@ pub fn glifs_to_glyph(
         overlap: false,
     };
     let glif = glifs[default_master].expect("No glif in default master!");
-    if glif.components.is_empty() && glif.contours.is_empty() {
+    if glif.components().is_empty() && glif.paths().is_empty() {
         return (glyph, None);
     }
 
     /* Do components */
-    for component in &glif.components {
-        if let Some(glyf_component) = norad_component_to_glyf_component(component, mapping) {
+    for component in &glif.components() {
+        if let Some(glyf_component) = babelfont_component_to_glyf_component(component, mapping) {
             glyph.components.push(glyf_component);
         }
     }
 
     /* Do outlines */
 
-    let mut widths: Vec<Option<f32>> = vec![];
+    let mut widths: Vec<Option<i32>> = vec![];
     let mut contours: Vec<Option<GlyphContour>> = vec![];
 
     /* Base case */
     if model.is_none() {
-        for contour in glif.contours.iter() {
-            let glyph_contour = norad_contours_to_glyf_contours(vec![contour], 0, &glif.name)
+        for contour in glif.paths().iter() {
+            let glyph_contour = babelfont_contours_to_glyf_contours(vec![contour], 0, glif_name)
                 .first()
                 .unwrap()
                 .clone();
@@ -63,20 +63,20 @@ pub fn glifs_to_glyph(
         contours.push(o.and_then(|_| Some(vec![])));
     }
 
-    for (index, _) in glif.contours.iter().enumerate() {
+    for (index, _) in glif.paths().iter().enumerate() {
         for o in glifs {
-            if o.is_some() && index >= o.unwrap().contours.len() {
-                log::error!("Incompatible contour count in glyph {:}", o.unwrap().name);
+            if o.is_some() && index >= o.unwrap().paths().len() {
+                log::error!("Incompatible contour count in glyph {:}", glif_name);
                 return (glyph, None);
             }
         }
-        let all_contours: Vec<&norad::Contour> = glifs
+        let all_contours: Vec<&babelfont::Path> = glifs
             .iter()
             .filter(|g| g.is_some())
-            .map(|x| &x.unwrap().contours[index])
+            .map(|x| x.unwrap().paths()[index])
             .collect();
         let all_glyf_contours =
-            norad_contours_to_glyf_contours(all_contours, default_master, &glif.name);
+            babelfont_contours_to_glyf_contours(all_contours, default_master, glif_name);
         // Now we put them into their respective master
         for (finished_contour, master_id) in all_glyf_contours
             .iter()
@@ -94,10 +94,7 @@ pub fn glifs_to_glyph(
         && !contours[default_master].as_ref().unwrap().is_empty()
     {
         if !glyph.components.is_empty() {
-            log::warn!(
-                "Can't create gvar deltas for mixed glyph {:}",
-                glif.name.to_string()
-            );
+            log::warn!("Can't create gvar deltas for mixed glyph {:}", glif_name);
             return (glyph, None);
         }
         let lengths: Vec<usize> = contours
@@ -106,7 +103,7 @@ pub fn glifs_to_glyph(
             .map(|g| g.as_ref().unwrap().iter().flatten().count())
             .collect();
         if !is_all_same(&lengths) {
-            log::warn!("Incompatible glyph: {:}, lengths: {:?}", glif.name, lengths);
+            log::warn!("Incompatible glyph: {:}, lengths: {:?}", glif_name, lengths);
             glyph.contours = contours[default_master].as_ref().unwrap().clone();
             return (glyph, None);
         }
@@ -120,7 +117,7 @@ pub fn glifs_to_glyph(
 
 fn compute_deltas(
     contours: &[Option<GlyphContour>],
-    widths: Vec<Option<f32>>,
+    widths: Vec<Option<i32>>,
     model: &VariationModel,
 ) -> GlyphVariationData {
     let mut deltasets: Vec<DeltaSet> = vec![];
@@ -174,18 +171,17 @@ fn compute_deltas(
     GlyphVariationData { deltasets }
 }
 
-fn norad_contours_to_glyf_contours(
-    contours: Vec<&norad::Contour>,
+fn babelfont_contours_to_glyf_contours(
+    paths: Vec<&babelfont::Path>,
     default_master: usize,
-    glif_name: &Arc<str>,
+    glif_name: &str,
 ) -> Vec<Vec<glyf::Point>> {
     // let's first get them all to kurbo elements
-    let kurbo_paths: Vec<BezPath> = contours
+    let kurbo_paths: Vec<BezPath> = paths
         .iter()
         .map(|x| x.to_kurbo().expect("Bad contour construction"))
         .collect();
-    let mut returned_contours: Vec<kurbo::BezPath> =
-        contours.iter().map(|_| BezPath::new()).collect();
+    let mut returned_contours: Vec<kurbo::BezPath> = paths.iter().map(|_| BezPath::new()).collect();
     let default_elements: &[PathEl] = kurbo_paths[default_master].elements();
 
     for (el_ix, el) in default_elements.iter().enumerate() {
@@ -220,7 +216,7 @@ fn norad_contours_to_glyf_contours(
         .collect()
 }
 
-fn cubics_to_quadratics(cubics: Vec<PathSeg>, glif_name: &Arc<str>) -> Vec<Vec<PathEl>> {
+fn cubics_to_quadratics(cubics: Vec<PathSeg>, glif_name: &str) -> Vec<Vec<PathEl>> {
     let mut error = 0.05;
     let mut warned = false;
     while error < 50.0 {
@@ -254,14 +250,14 @@ fn cubics_to_quadratics(cubics: Vec<PathSeg>, glif_name: &Arc<str>) -> Vec<Vec<P
     panic!("Couldn't compatibly interpolate contours");
 }
 
-fn norad_component_to_glyf_component(
-    component: &norad::Component,
+fn babelfont_component_to_glyf_component(
+    component: &babelfont::Component,
     mapping: &BTreeMap<String, u16>,
 ) -> Option<glyf::Component> {
-    let maybe_id = mapping.get(&component.base.to_string());
+    let maybe_id = mapping.get(&component.reference.to_string());
 
     if maybe_id.is_none() {
-        log::warn!("Couldn't find component for {:?}", component.base);
+        log::warn!("Couldn't find component for {:?}", component.reference);
         return None;
     }
 

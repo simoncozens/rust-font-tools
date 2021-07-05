@@ -9,6 +9,7 @@ repository = "https://github.com/simoncozens/fonttools-rs"
 
 [dependencies]
 fonttools = { path = "../fonttools-rs", features = ["rayon"], version = "0" }
+babelfont = { path = "../babelfont-rs",  version = "0" }
 designspace = { path = "../fonttools-rs/crates/designspace", features = ["norad"], version="0" }
 clap = "2.33.3"
 itertools = "0.10.0"

@@ -1,5 +1,6 @@
 use crate::fontinfo::*;
 use crate::utils::adjust_offset;
+use babelfont::OTScalar;
 use fonttools::cmap;
 use fonttools::font;
 use fonttools::font::Font;
@@ -16,13 +17,12 @@ use fonttools::utils::int_list_to_num;
 use std::collections::BTreeMap;
 use std::convert::TryInto;
 
-pub fn compile_head(info: &norad::FontInfo, glyf: &glyf::glyf) -> head {
-    let mut minor = info.version_minor.unwrap_or(0);
+pub fn compile_head(font: &babelfont::Font, glyf: &glyf::glyf) -> head {
+    let mut minor = font.version.1;
     while minor > 999 {
         minor /= 10;
     }
-    let font_revision: f32 =
-        (info.version_major.unwrap_or(1) as f32 * 1000.0 + minor as f32).round() / 1000.0;
+    let font_revision: f32 = (font.version.0 as f32 * 1000.0 + minor as f32).round() / 1000.0;
 
     // bounding box
     let bounds: Vec<(i16, i16, i16, i16)> = glyf
@@ -32,7 +32,7 @@ pub fn compile_head(info: &norad::FontInfo, glyf: &glyf::glyf) -> head {
         .collect();
     let mut head_table = head::new(
         font_revision,
-        info.units_per_em.map_or(1000, |f| f.get() as u16),
+        font.upm,
         bounds.iter().map(|x| x.0).min().unwrap_or(0), /* xmin */
         bounds.iter().map(|x| x.2).min().unwrap_or(0), /* ymin */
         bounds.iter().map(|x| x.1).max().unwrap_or(0), /* xmax */
@@ -40,41 +40,38 @@ pub fn compile_head(info: &norad::FontInfo, glyf: &glyf::glyf) -> head {
     );
 
     // dates (modified is set to now by default)
-    if info.open_type_head_created.is_some() {
-        if let Ok(date) = chrono::NaiveDateTime::parse_from_str(
-            &info.open_type_head_created.as_ref().unwrap(),
-            "%Y/%m/%d %H:%M:%S",
-        ) {
-            head_table.created = date
-        } else {
-            log::warn!(
-                "Couldn't parse created date {:?}",
-                info.open_type_head_created
-            )
-        }
-    }
+    head_table.created = font.date.naive_local();
 
-    // mac style
-    if let Some(lowest_rec_ppm) = info.open_type_head_lowest_rec_ppem {
-        head_table.lowestRecPPEM = lowest_rec_ppm as u16;
-    }
+    // XXX
+    // // mac style
+    // if let Some(lowest_rec_ppm) = info.open_type_head_lowest_rec_ppem {
+    //     head_table.lowestRecPPEM = lowest_rec_ppm as u16;
+    // }
 
-    // misc
-    if let Some(flags) = &info.open_type_head_flags {
-        head_table.flags = int_list_to_num(flags) as u16;
-    }
+    // // misc
+    // if let Some(flags) = &info.open_type_head_flags {
+    //     head_table.flags = int_list_to_num(flags) as u16;
+    // }
+
     head_table
 }
 
-pub fn compile_post(info: &norad::FontInfo, names: &[String]) -> post {
-    let upm = info.units_per_em.map_or(1000.0, |f| f.get());
+pub fn compile_post(font: &babelfont::Font, names: &[String]) -> post {
+    let upm = font.upm as f32;
+    let default_master = font.default_master();
     post::new(
         2.0,
-        info.italic_angle.map_or(0.0, |f| f.get() as f32),
-        info.postscript_underline_position
-            .map_or_else(|| upm * -0.075, |f| f.get()) as i16,
-        postscript_underline_thickness(info),
-        info.postscript_is_fixed_pitch.unwrap_or(false),
+        *default_master
+            .and_then(|x| x.metrics.get("italic angle"))
+            .unwrap_or(&0) as f32,
+        i16::from(
+            font.ot_value("post", "underlinePosition")
+                .unwrap_or_else(|| OTScalar::Float(upm * -0.075)),
+        ),
+        postscript_underline_thickness(font),
+        font.ot_value("post", "isFixedPitch")
+            .map(|x| bool::from(x))
+            .unwrap_or(false),
         Some(names.to_vec()),
     )
 }
@@ -101,16 +98,19 @@ pub fn compile_cmap(mapping: BTreeMap<u32, u16>) -> cmap::cmap {
 }
 
 pub fn compile_hhea(
-    info: &norad::FontInfo,
+    input: &babelfont::Font,
     metrics: &[hmtx::Metric],
     glyf: &glyf::glyf,
 ) -> hhea::hhea {
     hhea::hhea {
         majorVersion: 1,
         minorVersion: 0,
-        ascender: hhea_ascender(info),
-        descender: hhea_descender(info),
-        lineGap: info.open_type_hhea_line_gap.unwrap_or(0) as i16,
+        ascender: hhea_ascender(input),
+        descender: hhea_descender(input),
+        lineGap: input
+            .ot_value("hhea", "lineGap")
+            .map(|x| i16::from(x))
+            .unwrap_or(0),
         advanceWidthMax: metrics.iter().map(|x| x.advanceWidth).max().unwrap_or(0),
         minLeftSideBearing: metrics.iter().map(|x| x.lsb).min().unwrap_or(0),
         minRightSideBearing: metrics
@@ -123,7 +123,10 @@ pub fn compile_hhea(
         xMaxExtent: glyf.glyphs.iter().map(|g| g.xMax).max().unwrap_or(0),
         caretSlopeRise: 1, // XXX
         caretSlopeRun: 0,  // XXX
-        caretOffset: info.open_type_hhea_caret_offset.unwrap_or(0) as i16,
+        caretOffset: input
+            .ot_value("hhea", "caretOffset")
+            .map(|x| i16::from(x))
+            .unwrap_or(0),
         reserved0: 0,
         reserved1: 0,
         reserved2: 0,
@@ -134,96 +137,112 @@ pub fn compile_hhea(
 }
 
 pub fn compile_os2(
-    info: &norad::FontInfo,
+    input: &babelfont::Font,
     metrics: &[hmtx::Metric],
     _glyf: &glyf::glyf,
     mapping: &BTreeMap<u32, u16>,
 ) -> os2 {
-    let upm = info.units_per_em.map_or(1000.0, |f| f.get());
-    let italic_angle = info.italic_angle.map_or(0.0, |f| f.get());
-    let x_height = info.x_height.map_or(upm * 0.5, |f| f.get());
-    let subscript_y_offset = info
-        .open_type_os2_subscript_y_offset
-        .unwrap_or((upm * 0.075).round() as i32) as i16;
-    let font_ascender = ascender(info);
-    let font_descender = descender(info);
-    let s_typo_ascender = info
-        .open_type_os2_typo_ascender
+    let upm = input.upm as f64;
+    let italic_angle = input.default_metric("italic angle").unwrap_or(0) as f64;
+    let x_height = input
+        .default_metric("xHeight")
+        .unwrap_or((upm * 0.5) as i32);
+    let subscript_y_offset = input
+        .ot_value("OS2", "subscriptYOffset")
+        .map(|x| i16::from(x))
+        .unwrap_or((upm * 0.075).round() as i16);
+    let font_ascender = ascender(input);
+    let font_descender = descender(input);
+    let s_typo_ascender = input
+        .ot_value("OS2", "typoAscender")
+        .map(|x| i16::from(x))
         .unwrap_or_else(|| font_ascender.into()) as i16;
-    let s_typo_descender = info
-        .open_type_os2_typo_descender
+    let s_typo_descender = input
+        .ot_value("OS2", "typoDescender")
+        .map(|x| i16::from(x))
         .unwrap_or_else(|| font_descender.into()) as i16;
-    let s_typo_line_gap =
-        info.open_type_hhea_line_gap
-            .unwrap_or((upm * 1.2) as i32 + (font_ascender - font_descender) as i32) as i16;
-    let superscript_y_offset = info
-        .open_type_os2_superscript_y_offset
-        .unwrap_or((upm * 0.35).round() as i32) as i16;
+    let s_typo_line_gap = input
+        .ot_value("hhea", "lineGap")
+        .map(|x| i32::from(x))
+        .unwrap_or((upm * 1.2) as i32 + (font_ascender - font_descender) as i32)
+        as i16;
+    let superscript_y_offset = input
+        .ot_value("OS2", "superscriptYOffset")
+        .map(|x| i16::from(x))
+        .unwrap_or((upm * 0.35).round() as i16);
 
-    let subscript_x_size = info
-        .open_type_os2_subscript_x_size
-        .unwrap_or((upm * 0.65).round() as i32) as i16;
+    let subscript_x_size = input
+        .ot_value("OS2", "subscriptXSize")
+        .map_or((upm * 0.65).round() as i16, |x| i16::from(x));
 
     let mut table = os2 {
         version: 4,
         xAvgCharWidth: (metrics.iter().map(|m| m.advanceWidth as f32).sum::<f32>()
             / metrics.iter().filter(|m| m.advanceWidth != 0).count() as f32)
             .round() as i16,
-        usWeightClass: info.open_type_os2_weight_class.unwrap_or(400) as u16,
-        usWidthClass: info.open_type_os2_width_class.map_or(5, |f| f as u16),
-        fsType: int_list_to_num(&info.open_type_os2_type.as_ref().unwrap_or(&vec![2])) as u16,
+        usWeightClass: input
+            .ot_value("OS2", "weightClass")
+            .map_or(400, |x| i16::from(x)) as u16,
+        usWidthClass: input
+            .ot_value("OS2", "widthClass")
+            .map_or(5, |x| i16::from(x)) as u16,
+        // XXX OS2 fsType
+        fsType: int_list_to_num(&[2]) as u16,
         ySubscriptXSize: subscript_x_size,
-        ySubscriptYSize: info
-            .open_type_os2_subscript_y_size
-            .unwrap_or((upm * 0.6).round() as i32) as i16,
+        ySubscriptYSize: input
+            .ot_value("OS2", "subscriptYSize")
+            .map_or((upm * 0.6).round() as i16, |x| i16::from(x)),
         ySubscriptYOffset: subscript_y_offset,
-        ySubscriptXOffset: info
-            .open_type_os2_subscript_x_offset
-            .unwrap_or_else(|| adjust_offset(-subscript_y_offset, italic_angle))
-            as i16,
+        ySubscriptXOffset: input.ot_value("OS2", "subscriptXOffset").map_or_else(
+            || adjust_offset(-subscript_y_offset, italic_angle),
+            |f| i32::from(f),
+        ) as i16,
 
-        ySuperscriptXSize: info
-            .open_type_os2_superscript_x_size
-            .unwrap_or((upm * 0.65).round() as i32) as i16,
-        ySuperscriptYSize: info
-            .open_type_os2_superscript_y_size
-            .unwrap_or((upm * 0.6).round() as i32) as i16,
+        ySuperscriptXSize: input
+            .ot_value("OS2", "superscriptXSize")
+            .map_or((upm * 0.65).round() as i16, |x| i16::from(x)),
+        ySuperscriptYSize: input
+            .ot_value("OS2", "superscriptYSize")
+            .map_or((upm * 0.6).round() as i16, |x| i16::from(x)),
         ySuperscriptYOffset: superscript_y_offset,
-        ySuperscriptXOffset: info
-            .open_type_os2_superscript_x_offset
-            .unwrap_or_else(|| adjust_offset(-superscript_y_offset, italic_angle))
-            as i16,
+        ySuperscriptXOffset: input.ot_value("OS2", "superscriptXOffset").map_or_else(
+            || adjust_offset(-superscript_y_offset, italic_angle),
+            |x| i32::from(x),
+        ) as i16,
 
-        yStrikeoutSize: info
-            .open_type_os2_strikeout_size
-            .unwrap_or_else(|| postscript_underline_thickness(info).into())
-            as i16,
-        yStrikeoutPosition: info
-            .open_type_os2_strikeout_position
-            .unwrap_or((x_height * 0.22) as i32) as i16,
+        yStrikeoutSize: input.ot_value("OS2", "strikeoutSize").map_or_else(
+            || postscript_underline_thickness(input).into(),
+            |x| i32::from(x),
+        ) as i16,
+        yStrikeoutPosition: input
+            .ot_value("OS2", "strikeoutPosition")
+            .map_or((x_height as f32 * 0.22) as i16, |x| i16::from(x)),
 
         sxHeight: Some(x_height as i16),
-        achVendID: info
-            .open_type_os2_vendor_id
-            .as_ref()
-            .map_or(*b"NONE", |x| x.as_bytes().try_into().unwrap()),
-        sCapHeight: Some(info.cap_height.map_or(upm * 0.7, |f| f.get()) as i16),
+        achVendID: input
+            .ot_value("OS2", "vendorId")
+            .map_or(*b"NONE", |x| String::from(x).as_bytes().try_into().unwrap()),
+        sCapHeight: Some(
+            input
+                .default_metric("cap height")
+                .unwrap_or((upm * 0.7) as i32) as i16,
+        ),
         sTypoAscender: s_typo_ascender,
         sTypoDescender: s_typo_descender,
         sTypoLineGap: s_typo_line_gap,
-        usWinAscent: info
-            .open_type_os2_win_ascent
-            .unwrap_or_else(|| (font_ascender + s_typo_line_gap).try_into().unwrap())
-            as u16,
-        usWinDescent: info
-            .open_type_os2_win_descent
-            .unwrap_or(font_descender.abs() as u32) as u16,
+        usWinAscent: input.ot_value("OS2", "winAscent").map_or_else(
+            || (font_ascender + s_typo_line_gap).try_into().unwrap(),
+            |x| i16::from(x),
+        ) as u16,
+        usWinDescent: input
+            .ot_value("OS2", "winDescent")
+            .map_or(font_descender.abs(), |x| i16::from(x)) as u16,
         usBreakChar: Some(32),
         usMaxContext: Some(0),
         usDefaultChar: Some(0),
-        // sFamilyClass: info.open_type_os2_family_class... (not public)
+        // sFamilyClass: input.open_type_os2_family_class... (not public)
         sFamilyClass: 0,
-        panose: get_panose(info),
+        panose: get_panose(input),
         ulCodePageRange1: Some(0),
         ulCodePageRange2: Some(0),
         ulUnicodeRange1: 0b10100001000000000000000011111111, // XXX
@@ -234,20 +253,20 @@ pub fn compile_os2(
         usLastCharIndex: *mapping.keys().max().unwrap_or(&0xFFFF) as u16,
         usLowerOpticalPointSize: None,
         usUpperOpticalPointSize: None,
-        fsSelection: get_selection(info),
+        fsSelection: get_selection(input),
     };
-    if let Some(page_ranges) = info.open_type_os2_code_page_ranges.as_ref() {
-        table.int_list_to_code_page_ranges(page_ranges);
+    if let Some(OTScalar::BitField(page_ranges)) = input.ot_value("OS2", "codePageRanges") {
+        table.int_list_to_code_page_ranges(&page_ranges);
     } else {
         table.calc_code_page_ranges(&mapping);
     }
     table
 }
 
-pub fn compile_name(info: &norad::FontInfo) -> name {
+pub fn compile_name(input: &babelfont::Font) -> name {
     let mut name = name { records: vec![] };
     /* Ideally...
-    if let Some(records) = &info.open_type_name_records {
+    if let Some(records) = &input.open_type_name_records {
         for record in records {
             name.records.push(NameRecord {
                 nameID: record.name_id as u16,
@@ -261,39 +280,33 @@ pub fn compile_name(info: &norad::FontInfo) -> name {
     */
 
     let mut records: Vec<(NameRecordID, String)> = vec![];
-    if let Some(copyright) = &info.copyright {
+    if let Some(copyright) = &input.names.copyright.default() {
         records.push((NameRecordID::Copyright, copyright.to_string()));
     }
 
-    let family_name = style_map_family_name(info);
-    let style_name = style_map_style_name(info);
-    let pfn = preferred_family_name(info);
-    let psfn = preferred_subfamily_name(info);
+    let family_name = style_map_family_name(input);
+    let style_name = style_map_style_name(input);
+    let pfn = preferred_family_name(input);
+    let psfn = preferred_subfamily_name(input);
     records.extend(vec![
         (NameRecordID::FontFamilyName, family_name.clone()),
         (NameRecordID::FontSubfamilyName, style_name.clone()),
-        (NameRecordID::UniqueID, unique_id(info)),
+        (NameRecordID::UniqueID, unique_id(input)),
         (NameRecordID::FullFontName, format!("{0} {1}", pfn, psfn)),
-        (NameRecordID::Version, name_version(info)),
-        (NameRecordID::PostscriptName, postscript_font_name(info)),
+        (NameRecordID::Version, name_version(input)),
+        (NameRecordID::PostscriptName, postscript_font_name(input)),
     ]);
     for (id, field) in &[
-        (NameRecordID::Trademark, &info.trademark),
-        (
-            NameRecordID::Manufacturer,
-            &info.open_type_name_manufacturer,
-        ),
-        (NameRecordID::Designer, &info.open_type_name_designer),
-        (NameRecordID::Description, &info.open_type_name_description),
-        (
-            NameRecordID::ManufacturerURL,
-            &info.open_type_name_manufacturer_url,
-        ),
-        (NameRecordID::DesignerURL, &info.open_type_name_designer_url),
-        (NameRecordID::License, &info.open_type_name_license),
-        (NameRecordID::LicenseURL, &info.open_type_name_license_url),
+        (NameRecordID::Trademark, &input.names.trademark),
+        (NameRecordID::Manufacturer, &input.names.manufacturer),
+        (NameRecordID::Designer, &input.names.designer),
+        (NameRecordID::Description, &input.names.description),
+        (NameRecordID::ManufacturerURL, &input.names.manufacturer_url),
+        (NameRecordID::DesignerURL, &input.names.designer_url),
+        (NameRecordID::License, &input.names.license),
+        (NameRecordID::LicenseURL, &input.names.license_url),
     ] {
-        if let Some(value) = field {
+        if let Some(value) = field.default() {
             records.push((*id, value.to_string()));
         }
     }
@@ -308,19 +321,16 @@ pub fn compile_name(info: &norad::FontInfo) -> name {
     for (id, field) in &[
         (
             NameRecordID::CompatibleFullName,
-            &info.open_type_name_compatible_full_name,
+            &input.names.compatible_full_name,
         ),
-        (NameRecordID::SampleText, &info.open_type_name_sample_text),
-        (
-            NameRecordID::WWSFamilyName,
-            &info.open_type_name_wws_family_name,
-        ),
+        (NameRecordID::SampleText, &input.names.sample_text),
+        (NameRecordID::WWSFamilyName, &input.names.w_w_s_family_name),
         (
             NameRecordID::WWSSubfamilyName,
-            &info.open_type_name_wws_subfamily_name,
+            &input.names.w_w_s_subfamily_name,
         ),
     ] {
-        if let Some(value) = field {
+        if let Some(value) = field.default() {
             records.push((*id, value.to_string()));
         }
     }
@@ -332,15 +342,15 @@ pub fn compile_name(info: &norad::FontInfo) -> name {
 }
 
 pub fn fill_tables(
-    info: &norad::FontInfo,
+    input: &babelfont::Font,
     glyf_table: glyf::glyf,
     metrics: Vec<hmtx::Metric>,
     names: Vec<String>,
     mapping: BTreeMap<u32, u16>,
 ) -> Font {
     let mut font = Font::new(font::SfntVersion::TrueType);
-    let head_table = compile_head(info, &glyf_table);
-    let post_table = compile_post(info, &names);
+    let head_table = compile_head(input, &glyf_table);
+    let post_table = compile_post(input, &names);
     let (
         num_glyphs,
         max_points,
@@ -359,10 +369,10 @@ pub fn fill_tables(
         max_component_elements,
         max_component_depth,
     );
-    let os2_table = compile_os2(info, &metrics, &glyf_table, &mapping);
+    let os2_table = compile_os2(input, &metrics, &glyf_table, &mapping);
     let cmap_table = compile_cmap(mapping);
-    let name_table = compile_name(info);
-    let mut hhea_table = compile_hhea(info, &metrics, &glyf_table);
+    let name_table = compile_name(input);
+    let mut hhea_table = compile_hhea(input, &metrics, &glyf_table);
     let hmtx_table = hmtx::hmtx { metrics };
     let (hmtx_bytes, num_h_metrics) = hmtx_table.to_bytes();
     hhea_table.numberOfHMetrics = num_h_metrics;

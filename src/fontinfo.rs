@@ -1,52 +1,60 @@
+use babelfont::names::StyleMapStyle;
+use babelfont::OTScalar;
 use fonttools::utils::int_list_to_num;
-use norad::fontinfo::StyleMapStyle;
 
-pub fn ascender(info: &norad::FontInfo) -> i16 {
-    let upm = info.units_per_em.map_or(1000.0, |f| f.get()) as f64;
-    info.ascender
-        .map_or((upm * 0.80) as i16, |f| f.get() as i16)
+pub fn ascender(input: &babelfont::Font) -> i16 {
+    let upm = input.upm as f32;
+    input
+        .default_metric("ascender")
+        .map_or((upm * 0.80) as i16, |f| f as i16)
 }
-pub fn descender(info: &norad::FontInfo) -> i16 {
-    let upm = info.units_per_em.map_or(1000.0, |f| f.get()) as f64;
-    info.descender
-        .map_or((-upm * 0.20) as i16, |f| f.get() as i16)
+pub fn descender(input: &babelfont::Font) -> i16 {
+    let upm = input.upm as f32;
+    input
+        .default_metric("descender")
+        .map_or((-upm * 0.20) as i16, |f| f as i16)
 }
-pub fn hhea_ascender(info: &norad::FontInfo) -> i16 {
-    info.open_type_hhea_ascender
-        .map_or_else(|| ascender(info), |x| x as i16)
+pub fn hhea_ascender(input: &babelfont::Font) -> i16 {
+    input
+        .ot_value("hhea", "ascender")
+        .map_or_else(|| ascender(input), i16::from)
 }
-pub fn hhea_descender(info: &norad::FontInfo) -> i16 {
-    info.open_type_hhea_descender
-        .map_or_else(|| descender(info), |x| x as i16)
+pub fn hhea_descender(input: &babelfont::Font) -> i16 {
+    input
+        .ot_value("hhea", "descender")
+        .map_or_else(|| descender(input), i16::from)
 }
-pub fn preferred_family_name(info: &norad::FontInfo) -> String {
-    info.open_type_name_preferred_family_name
-        .as_ref()
-        .or_else(|| info.family_name.as_ref())
-        .map_or("New Font".to_string(), |x| x.to_string())
-}
-
-pub fn preferred_subfamily_name(info: &norad::FontInfo) -> String {
-    info.open_type_name_preferred_subfamily_name
-        .as_ref()
-        .or_else(|| info.style_name.as_ref())
-        .map_or("Regular".to_string(), |x| x.to_string())
+pub fn preferred_family_name(input: &babelfont::Font) -> String {
+    input
+        .names
+        .family_name
+        .default()
+        .unwrap_or_else(|| "New Font".to_string())
 }
 
-pub fn style_map_family_name(info: &norad::FontInfo) -> String {
-    if let Some(smfn) = &info.style_map_family_name {
+pub fn preferred_subfamily_name(input: &babelfont::Font) -> String {
+    input
+        .names
+        .typographic_subfamily
+        .default()
+        .unwrap_or_else(|| "Regular".to_string())
+}
+
+pub fn style_map_family_name(input: &babelfont::Font) -> String {
+    if let Some(smfn) = &input.names.style_map_family_name.default() {
         return smfn.to_string();
     }
 
-    let style_name = info
-        .style_name
-        .as_ref()
-        .or_else(|| info.open_type_name_preferred_subfamily_name.as_ref());
-    let family_name = preferred_family_name(&info);
+    let style_name = input.names.typographic_subfamily.default();
+    let family_name = input
+        .names
+        .family_name
+        .default()
+        .unwrap_or_else(|| "New Font".to_string());
     if style_name.is_none() {
         return family_name;
     }
-    let lower = style_name.unwrap().to_lowercase();
+    let lower = style_name.as_ref().unwrap().to_lowercase();
     match &lower[..] {
         "regular" => family_name,
         "bold" => family_name,
@@ -57,21 +65,21 @@ pub fn style_map_family_name(info: &norad::FontInfo) -> String {
             res.push_str(&family_name);
             if !lower.is_empty() {
                 res.push_str(&" ".to_string());
-                res.push_str(style_name.unwrap());
+                res.push_str(&style_name.unwrap());
             }
             res
         }
     }
 }
 
-pub fn style_map_style_name(info: &norad::FontInfo) -> String {
-    match info.style_map_style_name {
+pub fn style_map_style_name(input: &babelfont::Font) -> String {
+    match input.names.style_map_style_name {
         Some(StyleMapStyle::BoldItalic) => "bold italic",
         Some(StyleMapStyle::Bold) => "bold",
         Some(StyleMapStyle::Italic) => "italic",
         Some(StyleMapStyle::Regular) => "regular",
         None => {
-            let preferred_style_name = preferred_subfamily_name(&info);
+            let preferred_style_name = preferred_subfamily_name(&input);
             match preferred_style_name.to_lowercase().as_str() {
                 "bold italic" => "bold italic",
                 "bold" => "bold",
@@ -83,47 +91,42 @@ pub fn style_map_style_name(info: &norad::FontInfo) -> String {
     .to_string()
 }
 
-pub fn postscript_font_name(info: &norad::FontInfo) -> String {
+pub fn postscript_font_name(input: &babelfont::Font) -> String {
     format!(
         "{0}-{1}",
-        preferred_family_name(info),
-        preferred_subfamily_name(info)
+        preferred_family_name(input),
+        preferred_subfamily_name(input)
     )
     // XXX check postscript characters here
 }
-pub fn name_version(info: &norad::FontInfo) -> String {
-    info.open_type_name_version.as_ref().map_or_else(
-        {
-            || {
-                format!(
-                    "Version {0}.{1:03}",
-                    info.version_major.unwrap_or(0),
-                    info.version_minor.unwrap_or(0)
-                )
-            }
-        },
+pub fn name_version(input: &babelfont::Font) -> String {
+    input.names.version.default().as_ref().map_or_else(
+        || format!("Version {0}.{1:03}", input.version.0, input.version.1),
         |x| x.clone(),
     )
 }
-pub fn unique_id(info: &norad::FontInfo) -> String {
-    info.open_type_name_unique_id.as_ref().map_or_else(
+pub fn unique_id(input: &babelfont::Font) -> String {
+    input.names.unique_id.default().as_ref().map_or_else(
         || {
             format!(
                 "{0};{1};{2}",
-                name_version(info),
-                info.open_type_os2_vendor_id.as_ref().map_or("NONE", |x| x),
-                postscript_font_name(info)
+                name_version(input),
+                input
+                    .ot_value("OS2", "vendorId")
+                    .map_or("NONE".to_string(), String::from),
+                postscript_font_name(input)
             )
         },
         |x| x.clone(),
     )
 }
-pub fn postscript_underline_thickness(info: &norad::FontInfo) -> i16 {
-    let upm = info.units_per_em.map_or(1000.0, |f| f.get()) as f64;
-    info.postscript_underline_thickness
-        .map_or_else(|| upm * 0.05, |f| f.get()) as i16
+pub fn postscript_underline_thickness(input: &babelfont::Font) -> i16 {
+    let upm = input.upm as f32;
+    input
+        .ot_value("post", "underlineThickness")
+        .map_or_else(|| upm * 0.05, f32::from) as i16
 }
-pub fn get_panose(_info: &norad::FontInfo) -> fonttools::os2::Panose {
+pub fn get_panose(_input: &babelfont::Font) -> fonttools::os2::Panose {
     // Struct not public, unfortunately.
     fonttools::os2::Panose {
         panose0: 0,
@@ -138,9 +141,13 @@ pub fn get_panose(_info: &norad::FontInfo) -> fonttools::os2::Panose {
         panose9: 0,
     }
 }
-pub fn get_selection(info: &norad::FontInfo) -> u16 {
-    let mut selection = info.open_type_os2_selection.clone().unwrap_or_default();
-    let style_map = style_map_style_name(info);
+pub fn get_selection(input: &babelfont::Font) -> u16 {
+    let mut selection = if let Some(OTScalar::BitField(s)) = input.ot_value("OS2", "fsSelection") {
+        s
+    } else {
+        vec![]
+    };
+    let style_map = style_map_style_name(input);
     match style_map.as_str() {
         "regular" => selection.push(6),
         "bold" => selection.push(5),

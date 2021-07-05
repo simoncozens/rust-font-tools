@@ -85,13 +85,13 @@ fn form_glyf_and_fix_bounds(
 }
 
 fn get_glyph_names_and_mapping(
-    layer: &norad::Layer,
+    input: &babelfont::Font,
     mapping: &mut BTreeMap<u32, u16>,
     name_to_id: &mut BTreeMap<String, u16>,
     subset: &Option<HashSet<String>>,
 ) -> Vec<String> {
     let mut names: Vec<String> = vec![];
-    for (glyph_id, glyf) in layer.iter().enumerate() {
+    for (glyph_id, glyf) in input.glyphs.iter().enumerate() {
         let name = glyf.name.to_string();
         if subset.is_some() && !subset.as_ref().unwrap().contains(&name) {
             continue;
@@ -106,80 +106,45 @@ fn get_glyph_names_and_mapping(
     names
 }
 
-pub fn build_font(mut ufo: norad::Font, include: Option<HashSet<String>>) -> font::Font {
-    decompose_mixed_glyphs(&mut ufo);
-    let layer = ufo.default_layer();
-    let info = ufo.font_info.as_ref().unwrap();
+pub fn build_font(input: babelfont::Font, include: Option<HashSet<String>>) -> font::Font {
+    // input.decompose_mixed_glyphs();
 
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
 
-    let names = get_glyph_names_and_mapping(&layer, &mut mapping, &mut name_to_id, &include);
-    let glifs: Vec<&Arc<norad::Glyph>> = layer.iter().collect();
-    let (glyphs, mut metrics): (Vec<glyf::Glyph>, Vec<hmtx::Metric>) = glifs
-        .iter()
-        .filter(|g| include.is_none() || include.as_ref().unwrap().contains(&g.name.to_string()))
-        .map({
-            |glyf| {
-                let (glyph, _) = glifs_to_glyph(0, &name_to_id, &[Some(&glyf)], None);
-                let lsb = glyph.xMin;
-                let advance_width = glyf.width as u16;
-                (
-                    glyph,
-                    hmtx::Metric {
-                        advanceWidth: advance_width,
-                        lsb,
-                    },
-                )
-            }
-        })
-        .unzip();
-    let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
-    fill_tables(info, glyf_table, metrics, names, mapping)
-}
-
-pub fn build_fonts(
-    default_master: usize,
-    mut fonts: Vec<norad::Font>,
-    variation_model: VariationModel,
-    include: Option<HashSet<String>>,
-) -> font::Font {
-    for f in fonts.iter_mut() {
-        decompose_mixed_glyphs(f);
-    }
-    let layer = fonts[default_master].default_layer();
-    let info = fonts[default_master].font_info.as_ref().unwrap();
-    let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
-    let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
-
-    let names = get_glyph_names_and_mapping(&layer, &mut mapping, &mut name_to_id, &include);
-
-    let glifs: Vec<&Arc<norad::Glyph>> = layer.iter().collect();
+    let names = get_glyph_names_and_mapping(&input, &mut mapping, &mut name_to_id, &include);
 
     let mut glyphs: Vec<glyf::Glyph> = vec![];
     let mut metrics: Vec<hmtx::Metric> = vec![];
     let mut variations: Vec<Option<GlyphVariationData>> = vec![];
-    for glif in glifs {
+    let variation_model = input
+        .variation_model()
+        .expect("Couldn't get variation model");
+    let default_master_ix = input
+        .default_master_index()
+        .expect("Couldn't find default master");
+    for glif in input.glyphs.iter() {
         if include.is_some() && !include.as_ref().unwrap().contains(&glif.name.to_string()) {
             continue;
         }
         // Find other glyphs in designspace
         let mut glif_variations = vec![];
-        for font in &fonts {
-            if let Some(other_glif) = font.default_layer().get_glyph(&glif.name) {
-                glif_variations.push(Some(other_glif));
-            } else {
-                glif_variations.push(None);
-            }
+        for master in &input.masters {
+            let layer = input.master_layer_for(&glif.name, master);
+            glif_variations.push(layer);
         }
         let (glyph, variation) = glifs_to_glyph(
-            default_master,
+            default_master_ix,
             &name_to_id,
             &glif_variations,
             Some(&variation_model),
+            &glif.name,
         );
-        let lsb = glyph.xMin;
-        let advance_width = glif.width as u16;
+        let lsb = 0; // glyph.xMin;
+        let advance_width = input
+            .master_layer_for(&glif.name, input.default_master().unwrap())
+            .unwrap()
+            .width as u16;
         glyphs.push(glyph);
         metrics.push(hmtx::Metric {
             advanceWidth: advance_width,
@@ -189,10 +154,11 @@ pub fn build_fonts(
     }
 
     let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
-    let mut font = fill_tables(info, glyf_table, metrics, names, mapping);
+    let mut font = fill_tables(&input, glyf_table, metrics, names, mapping);
     let gvar_table = fonttools::gvar::gvar { variations };
     font.tables
         .insert(*b"gvar", Table::Unknown(gvar_table.to_bytes(None)));
+
     // No optimization by default
 
     font
