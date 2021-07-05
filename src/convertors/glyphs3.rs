@@ -9,8 +9,10 @@ use openstep_plist::{Plist, PlistDictionary, PlistParser};
 use std::collections::HashMap;
 use std::convert::TryInto;
 
+use chrono::TimeZone;
 use std::fs;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     let s = fs::read_to_string(&path).map_err(|source| BabelfontError::IO {
@@ -384,7 +386,13 @@ fn load_metadata(font: &mut Font, plist: &PlistDictionary) {
         .unwrap_or(&"New font".to_string())
         .into();
     // XXX properties
-    // XXX date
+    // XXX custom parameters
+    font.date = plist
+        .get("date")
+        .and_then(|x| x.string())
+        .and_then(|x| chrono::NaiveDateTime::parse_from_str(x, "%Y-%m-%d %H:%M:%S +0000").ok())
+        .map(|x| chrono::Local.from_local_datetime(&x).unwrap())
+        .unwrap_or_else(chrono::Local::now);
     font.note = plist
         .get("note")
         .and_then(|x| x.string())
