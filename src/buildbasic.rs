@@ -106,7 +106,7 @@ fn get_glyph_names_and_mapping(
     names
 }
 
-pub fn build_font(input: babelfont::Font, include: Option<HashSet<String>>) -> font::Font {
+pub fn build_font(input: &babelfont::Font, include: Option<HashSet<String>>) -> font::Font {
     // input.decompose_mixed_glyphs();
 
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();

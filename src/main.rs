@@ -78,7 +78,12 @@ fn main() {
     } else if filename.ends_with(".glyphs") {
         let in_font = babelfont::convertors::glyphs3::load(PathBuf::from(filename))
             .expect("Couldn't load source");
-        font = build_font(in_font, subset);
+        font = build_font(&in_font, subset);
+        if in_font.masters.len() > 1 {
+            in_font
+                .add_variation_tables(&mut font)
+                .expect("Couldn't add variation tables")
+        }
     } else {
         panic!("Unknown file type {:?}", filename);
     }
