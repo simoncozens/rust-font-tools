@@ -3,8 +3,8 @@ use crate::i18ndictionary::I18NDictionary;
 
 #[derive(Debug)]
 pub struct Instance {
-    name: I18NDictionary,
-    location: Location,
-    style_name: I18NDictionary,
+    pub name: I18NDictionary,
+    pub location: Location,
+    pub style_name: I18NDictionary,
     // lib
 }

@@ -9,8 +9,13 @@ use crate::names::Names;
 use crate::Location;
 use crate::{BabelfontError, Layer};
 use chrono::Local;
+use fonttools::avar::{avar, SegmentMap};
+use fonttools::font::{Font as FTFont, Table};
+use fonttools::fvar::{fvar, InstanceRecord, VariationAxisRecord};
+use fonttools::name::NameRecord;
 use fonttools::otvar::Location as OTVarLocation;
 use fonttools::otvar::{NormalizedLocation, VariationModel};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Font {
@@ -137,5 +142,120 @@ impl Font {
 
     fn axis_order(&self) -> Vec<Tag> {
         self.axes.iter().map(|ax| ax.tag_as_tag()).collect()
+    }
+
+    /// Add information to a fonttools Font object (fvar and avar tables)
+    /// expressed by this design space.
+    pub fn add_variation_tables(&self, font: &mut FTFont) -> Result<(), BabelfontError> {
+        let mut axes: Vec<VariationAxisRecord> = vec![];
+        let mut maps: Vec<SegmentMap> = vec![];
+
+        let mut ix = 255;
+
+        for axis in self.axes.iter() {
+            axes.push(axis.to_variation_axis_record(ix as u16)?);
+            if let Table::Name(name) = font
+                .get_table(b"name")
+                .expect("No name table?")
+                .expect("Couldn't open name table")
+            {
+                name.records.push(NameRecord::windows_unicode(
+                    ix as u16,
+                    axis.name.default().clone().expect("Bad axis name"),
+                ));
+            }
+            ix += 1;
+            if axis.map.is_some() {
+                let mut sm: Vec<(f32, f32)> = vec![(-1.0, -1.0)];
+                sm.extend(
+                    axis.map
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .map(|x| {
+                            (
+                                axis.normalize_userspace_value(*x.0).expect("Bad map"),
+                                axis.normalize_designspace_value(*x.1).expect("Bad map"),
+                            )
+                        })
+                        .collect::<Vec<(f32, f32)>>(),
+                );
+                maps.push(SegmentMap::new(sm));
+            } else {
+                maps.push(SegmentMap::new(vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)]));
+            }
+        }
+        let mut instances: Vec<InstanceRecord> = vec![];
+        for instance in &self.instances {
+            if let Table::Name(name) = font
+                .get_table(b"name")
+                .expect("No name table?")
+                .expect("Couldn't open name table")
+            {
+                name.records.push(NameRecord::windows_unicode(
+                    ix,
+                    instance.style_name.default().expect("Bad instance name"),
+                ));
+            }
+            let mut ir = InstanceRecord {
+                subfamilyNameID: ix,
+                coordinates: self.location_to_tuple(&instance.location),
+                postscriptNameID: None,
+            };
+            ix += 1;
+            // if let Some(psname) = &instance.postscriptfontname {
+            //     if let Table::Name(name) = font
+            //         .get_table(b"name")
+            //         .expect("No name table?")
+            //         .expect("Couldn't open name table")
+            //     {
+            //         name.records
+            //             .push(NameRecord::windows_unicode(ix, psname.clone()));
+            //     }
+            //     ir.postscriptNameID = Some(ix);
+            //     ix += 1;
+            // }
+            instances.push(ir)
+        }
+        let fvar_table = Table::Fvar(fvar { axes, instances });
+        font.tables.insert(*b"fvar", fvar_table);
+
+        // Handle avar here
+        let avar_table = avar {
+            majorVersion: 1,
+            minorVersion: 0,
+            reserved: 0,
+            axisSegmentMaps: maps,
+        };
+        font.tables.insert(*b"avar", Table::Avar(avar_table));
+
+        Ok(())
+    }
+
+    fn tag_to_name(&self) -> HashMap<Tag, String> {
+        let mut hm = HashMap::new();
+        for axis in &self.axes {
+            hm.insert(axis.tag_as_tag(), axis.name.default().unwrap());
+        }
+        hm
+    }
+
+    pub fn location_to_tuple(&self, loc: &Location) -> Vec<f32> {
+        let mut tuple = vec![];
+        let tag_to_name = self.tag_to_name();
+        for (tag, default) in self
+            .axis_order()
+            .iter()
+            .zip(self.default_location().0.iter())
+        {
+            let name = tag_to_name.get(tag).unwrap();
+            let dim = loc.0.iter().find(|d| d.0 == name);
+            if let Some(dim) = dim {
+                tuple.push(*dim.1);
+            } else {
+                tuple.push(*default.1);
+            }
+        }
+        tuple
     }
 }

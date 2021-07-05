@@ -1,6 +1,7 @@
 use crate::common::Tag;
 use crate::i18ndictionary::I18NDictionary;
 use crate::BabelfontError;
+use fonttools::fvar::VariationAxisRecord;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use uuid::Uuid;
@@ -41,7 +42,7 @@ impl Axis {
         self.tag.as_bytes()[0..4].try_into().unwrap()
     }
 
-    fn normalize_userspace_value(&self, mut l: f32) -> Result<f32, BabelfontError> {
+    pub fn normalize_userspace_value(&self, mut l: f32) -> Result<f32, BabelfontError> {
         let min = self.min.ok_or_else(|| BabelfontError::IllDefinedAxis {
             axis_name: self.name.default(),
         })?;
@@ -91,5 +92,24 @@ impl Axis {
             l = designspace_maximum;
         }
         Ok((l - designspace_minimum) / (designspace_maximum - designspace_minimum))
+    }
+
+    pub fn to_variation_axis_record(
+        &self,
+        name_id: u16,
+    ) -> Result<VariationAxisRecord, BabelfontError> {
+        if self.tag.len() != 4 {
+            return Err(BabelfontError::General {
+                msg: format!("Badly formatted axis tag: {}", self.tag),
+            });
+        }
+        Ok(VariationAxisRecord {
+            axisTag: self.tag.as_bytes()[0..4].try_into().unwrap(),
+            defaultValue: self.default.expect("Bad axis") as f32,
+            maxValue: self.max.expect("Bad axis") as f32,
+            minValue: self.min.expect("Bad axis") as f32,
+            flags: if self.hidden { 0x0001 } else { 0x0000 },
+            axisNameID: name_id,
+        })
     }
 }
