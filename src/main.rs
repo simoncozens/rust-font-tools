@@ -8,7 +8,7 @@ mod utils;
 use buildbasic::build_font;
 use clap::{App, Arg};
 use designspace::Designspace;
-use rayon::prelude::*;
+// use rayon::prelude::*;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io;

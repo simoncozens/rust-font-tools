@@ -5,11 +5,9 @@ use fonttools::font::Table;
 use fonttools::glyf;
 use fonttools::gvar::GlyphVariationData;
 use fonttools::hmtx;
-use fonttools::otvar::VariationModel;
 use kurbo::{Affine, Point};
 use norad::{Component, Contour, ContourPoint, Glyph, Layer};
 use std::collections::{BTreeMap, HashSet};
-use std::sync::Arc;
 
 fn decomposed_components(glyph: &Glyph, glyphset: &Layer) -> Vec<Contour> {
     let mut contours = Vec::new();
