@@ -16,12 +16,12 @@ pub fn descender(input: &babelfont::Font) -> i16 {
 }
 pub fn hhea_ascender(input: &babelfont::Font) -> i16 {
     input
-        .ot_value("hhea", "ascender")
+        .ot_value("hhea", "ascent", true)
         .map_or_else(|| ascender(input), i16::from)
 }
 pub fn hhea_descender(input: &babelfont::Font) -> i16 {
     input
-        .ot_value("hhea", "descender")
+        .ot_value("hhea", "descent", true)
         .map_or_else(|| descender(input), i16::from)
 }
 pub fn preferred_family_name(input: &babelfont::Font) -> String {
@@ -112,7 +112,7 @@ pub fn unique_id(input: &babelfont::Font) -> String {
                 "{0};{1};{2}",
                 name_version(input),
                 input
-                    .ot_value("OS2", "vendorId")
+                    .ot_value("OS2", "achVendID", true)
                     .map_or("NONE".to_string(), String::from),
                 postscript_font_name(input)
             )
@@ -123,7 +123,7 @@ pub fn unique_id(input: &babelfont::Font) -> String {
 pub fn postscript_underline_thickness(input: &babelfont::Font) -> i16 {
     let upm = input.upm as f32;
     input
-        .ot_value("post", "underlineThickness")
+        .ot_value("post", "underlineThickness", true)
         .map_or_else(|| upm * 0.05, f32::from) as i16
 }
 pub fn get_panose(_input: &babelfont::Font) -> fonttools::os2::Panose {
@@ -142,11 +142,12 @@ pub fn get_panose(_input: &babelfont::Font) -> fonttools::os2::Panose {
     }
 }
 pub fn get_selection(input: &babelfont::Font) -> u16 {
-    let mut selection = if let Some(OTScalar::BitField(s)) = input.ot_value("OS2", "fsSelection") {
-        s
-    } else {
-        vec![]
-    };
+    let mut selection =
+        if let Some(OTScalar::BitField(s)) = input.ot_value("OS2", "fsSelection", true) {
+            s
+        } else {
+            vec![]
+        };
     let style_map = style_map_style_name(input);
     match style_map.as_str() {
         "regular" => selection.push(6),

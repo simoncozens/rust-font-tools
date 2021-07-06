@@ -44,9 +44,9 @@ pub fn compile_head(font: &babelfont::Font, glyf: &glyf::glyf) -> head {
 
     // XXX
     // // mac style
-    // if let Some(lowest_rec_ppm) = info.open_type_head_lowest_rec_ppem {
-    //     head_table.lowestRecPPEM = lowest_rec_ppm as u16;
-    // }
+    if let Some(lowest_rec_ppm) = font.ot_value("head", "lowestRecPPEM", true) {
+        head_table.lowestRecPPEM = u16::from(lowest_rec_ppm);
+    }
 
     // // misc
     // if let Some(flags) = &info.open_type_head_flags {
@@ -65,12 +65,12 @@ pub fn compile_post(font: &babelfont::Font, names: &[String]) -> post {
             .and_then(|x| x.metrics.get("italic angle"))
             .unwrap_or(&0) as f32,
         i16::from(
-            font.ot_value("post", "underlinePosition")
+            font.ot_value("post", "underlinePosition", true)
                 .unwrap_or_else(|| OTScalar::Float(upm * -0.075)),
         ),
         postscript_underline_thickness(font),
-        font.ot_value("post", "isFixedPitch")
-            .map(|x| bool::from(x))
+        font.ot_value("post", "isFixedPitch", true)
+            .map(bool::from)
             .unwrap_or(false),
         Some(names.to_vec()),
     )
@@ -108,8 +108,8 @@ pub fn compile_hhea(
         ascender: hhea_ascender(input),
         descender: hhea_descender(input),
         lineGap: input
-            .ot_value("hhea", "lineGap")
-            .map(|x| i16::from(x))
+            .ot_value("hhea", "lineGap", true)
+            .map(i16::from)
             .unwrap_or(0),
         advanceWidthMax: metrics.iter().map(|x| x.advanceWidth).max().unwrap_or(0),
         minLeftSideBearing: metrics.iter().map(|x| x.lsb).min().unwrap_or(0),
@@ -124,7 +124,7 @@ pub fn compile_hhea(
         caretSlopeRise: 1, // XXX
         caretSlopeRun: 0,  // XXX
         caretOffset: input
-            .ot_value("hhea", "caretOffset")
+            .ot_value("hhea", "caretOffset", true)
             .map(|x| i16::from(x))
             .unwrap_or(0),
         reserved0: 0,
@@ -145,35 +145,35 @@ pub fn compile_os2(
     let upm = input.upm as f64;
     let italic_angle = input.default_metric("italic angle").unwrap_or(0) as f64;
     let x_height = input
-        .default_metric("xHeight")
+        .default_metric("sxHeight")
         .unwrap_or((upm * 0.5) as i32);
     let subscript_y_offset = input
-        .ot_value("OS2", "subscriptYOffset")
-        .map(|x| i16::from(x))
+        .ot_value("OS2", "sSubscriptYOffset", true)
+        .map(i16::from)
         .unwrap_or((upm * 0.075).round() as i16);
     let font_ascender = ascender(input);
     let font_descender = descender(input);
     let s_typo_ascender = input
-        .ot_value("OS2", "typoAscender")
-        .map(|x| i16::from(x))
-        .unwrap_or_else(|| font_ascender.into()) as i16;
+        .ot_value("OS2", "sTypoAscender", true)
+        .map(i16::from)
+        .unwrap_or(font_ascender) as i16;
     let s_typo_descender = input
-        .ot_value("OS2", "typoDescender")
-        .map(|x| i16::from(x))
-        .unwrap_or_else(|| font_descender.into()) as i16;
+        .ot_value("OS2", "sTypoDescender", true)
+        .map(i16::from)
+        .unwrap_or_else(|| font_descender) as i16;
     let s_typo_line_gap = input
-        .ot_value("hhea", "lineGap")
-        .map(|x| i32::from(x))
+        .ot_value("OS2", "sTypoLineGap", true)
+        .map(i32::from)
         .unwrap_or((upm * 1.2) as i32 + (font_ascender - font_descender) as i32)
         as i16;
     let superscript_y_offset = input
-        .ot_value("OS2", "superscriptYOffset")
-        .map(|x| i16::from(x))
+        .ot_value("OS2", "ySuperscriptYOffset", true)
+        .map(i16::from)
         .unwrap_or((upm * 0.35).round() as i16);
 
     let subscript_x_size = input
-        .ot_value("OS2", "subscriptXSize")
-        .map_or((upm * 0.65).round() as i16, |x| i16::from(x));
+        .ot_value("OS2", "ySubscriptXSize", true)
+        .map_or((upm * 0.65).round() as i16, i16::from);
 
     let mut table = os2 {
         version: 4,
@@ -181,46 +181,50 @@ pub fn compile_os2(
             / metrics.iter().filter(|m| m.advanceWidth != 0).count() as f32)
             .round() as i16,
         usWeightClass: input
-            .ot_value("OS2", "weightClass")
-            .map_or(400, |x| i16::from(x)) as u16,
+            .ot_value("OS2", "usWeightClass", true)
+            .map_or(400, i16::from) as u16,
         usWidthClass: input
-            .ot_value("OS2", "widthClass")
-            .map_or(5, |x| i16::from(x)) as u16,
+            .ot_value("OS2", "usWidthClass", true)
+            .map_or(5, i16::from) as u16,
         // XXX OS2 fsType
         fsType: int_list_to_num(&[2]) as u16,
         ySubscriptXSize: subscript_x_size,
         ySubscriptYSize: input
-            .ot_value("OS2", "subscriptYSize")
-            .map_or((upm * 0.6).round() as i16, |x| i16::from(x)),
+            .ot_value("OS2", "ySubscriptYSize", true)
+            .map_or((upm * 0.6).round() as i16, i16::from),
         ySubscriptYOffset: subscript_y_offset,
-        ySubscriptXOffset: input.ot_value("OS2", "subscriptXOffset").map_or_else(
-            || adjust_offset(-subscript_y_offset, italic_angle),
-            |f| i32::from(f),
-        ) as i16,
+        ySubscriptXOffset: input
+            .ot_value("OS2", "ySubscriptXOffset", true)
+            .map_or_else(
+                || adjust_offset(-subscript_y_offset, italic_angle),
+                i32::from,
+            ) as i16,
 
         ySuperscriptXSize: input
-            .ot_value("OS2", "superscriptXSize")
-            .map_or((upm * 0.65).round() as i16, |x| i16::from(x)),
+            .ot_value("OS2", "ySuperscriptXSize", true)
+            .map_or((upm * 0.65).round() as i16, i16::from),
         ySuperscriptYSize: input
-            .ot_value("OS2", "superscriptYSize")
-            .map_or((upm * 0.6).round() as i16, |x| i16::from(x)),
+            .ot_value("OS2", "ySuperscriptYSize", true)
+            .map_or((upm * 0.6).round() as i16, i16::from),
         ySuperscriptYOffset: superscript_y_offset,
-        ySuperscriptXOffset: input.ot_value("OS2", "superscriptXOffset").map_or_else(
-            || adjust_offset(-superscript_y_offset, italic_angle),
-            |x| i32::from(x),
-        ) as i16,
+        ySuperscriptXOffset: input
+            .ot_value("OS2", "ySuperscriptXOffset", true)
+            .map_or_else(
+                || adjust_offset(-superscript_y_offset, italic_angle),
+                i32::from,
+            ) as i16,
 
-        yStrikeoutSize: input.ot_value("OS2", "strikeoutSize").map_or_else(
-            || postscript_underline_thickness(input).into(),
-            |x| i32::from(x),
-        ) as i16,
+        yStrikeoutSize: input
+            .ot_value("OS2", "yStrikeoutSize", true)
+            .map_or_else(|| postscript_underline_thickness(input).into(), i32::from)
+            as i16,
         yStrikeoutPosition: input
-            .ot_value("OS2", "strikeoutPosition")
-            .map_or((x_height as f32 * 0.22) as i16, |x| i16::from(x)),
+            .ot_value("OS2", "yStrikeoutPosition", true)
+            .map_or((x_height as f32 * 0.22) as i16, i16::from),
 
         sxHeight: Some(x_height as i16),
         achVendID: input
-            .ot_value("OS2", "vendorId")
+            .ot_value("OS2", "achVendID", true)
             .map_or(*b"NONE", |x| String::from(x).as_bytes().try_into().unwrap()),
         sCapHeight: Some(
             input
@@ -230,13 +234,12 @@ pub fn compile_os2(
         sTypoAscender: s_typo_ascender,
         sTypoDescender: s_typo_descender,
         sTypoLineGap: s_typo_line_gap,
-        usWinAscent: input.ot_value("OS2", "winAscent").map_or_else(
-            || (font_ascender + s_typo_line_gap).try_into().unwrap(),
-            |x| i16::from(x),
-        ) as u16,
+        usWinAscent: input
+            .ot_value("OS2", "usWinAscent", true)
+            .map_or(font_ascender + s_typo_line_gap, i16::from) as u16,
         usWinDescent: input
-            .ot_value("OS2", "winDescent")
-            .map_or(font_descender.abs(), |x| i16::from(x)) as u16,
+            .ot_value("OS2", "usWinDescent", true)
+            .map_or(font_descender.abs(), i16::from) as u16,
         usBreakChar: Some(32),
         usMaxContext: Some(0),
         usDefaultChar: Some(0),
@@ -255,7 +258,7 @@ pub fn compile_os2(
         usUpperOpticalPointSize: None,
         fsSelection: get_selection(input),
     };
-    if let Some(OTScalar::BitField(page_ranges)) = input.ot_value("OS2", "codePageRanges") {
+    if let Some(OTScalar::BitField(page_ranges)) = input.ot_value("OS2", "codePageRanges", true) {
         table.int_list_to_code_page_ranges(&page_ranges);
     } else {
         table.calc_code_page_ranges(&mapping);
