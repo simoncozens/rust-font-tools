@@ -67,6 +67,16 @@ impl From<OTScalar> for i16 {
     }
 }
 
+impl From<OTScalar> for u16 {
+    fn from(p: OTScalar) -> u16 {
+        match p {
+            OTScalar::Unsigned(u) => u as u16,
+            OTScalar::Signed(u) => u as u16,
+            OTScalar::Float(f) => f as u16,
+            _ => 0,
+        }
+    }
+}
 impl From<OTScalar> for i32 {
     fn from(p: OTScalar) -> i32 {
         match p {

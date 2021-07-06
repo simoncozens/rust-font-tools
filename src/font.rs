@@ -97,13 +97,32 @@ impl Font {
         None
     }
 
-    pub fn ot_value(&self, table: &str, field: &str) -> Option<OTScalar> {
+    pub fn ot_value(
+        &self,
+        table: &str,
+        field: &str,
+        search_default_master: bool,
+    ) -> Option<OTScalar> {
         for i in &self.custom_ot_values {
             if i.table == table && i.field == field {
                 return Some(i.value.clone());
             }
         }
+        if !search_default_master {
+            return None;
+        }
+        if let Some(dm) = self.default_master() {
+            return dm.ot_value(table, field);
+        }
         None
+    }
+
+    pub fn set_ot_value(&mut self, table: &str, field: &str, value: OTScalar) {
+        self.custom_ot_values.push(OTValue {
+            table: table.to_string(),
+            field: field.to_string(),
+            value,
+        })
     }
 
     pub fn default_metric(&self, name: &str) -> Option<i32> {

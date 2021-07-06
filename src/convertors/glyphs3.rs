@@ -1,7 +1,9 @@
+use crate::common::OTValue;
 use crate::glyph::GlyphCategory;
 use crate::i18ndictionary::I18NDictionary;
-use crate::Anchor;
+use crate::OTScalar::Signed;
 use crate::Shape::{ComponentShape, PathShape};
+use crate::{Anchor, OTScalar};
 use crate::{
     Axis, BabelfontError, Component, Font, Glyph, Guide, Layer, Location, Master, Node, NodeType,
     Path, Position, Shape,
@@ -11,6 +13,7 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 
 use chrono::TimeZone;
+use lazy_static::lazy_static;
 use std::fs;
 use std::path::PathBuf;
 
@@ -42,7 +45,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     // load_kern_groups(&mut font, &plist);
     load_masters(&mut font, &plist)?;
     let default_master_id = custom_parameters
-        .get(&"Variable Font Origin".to_string())
+        .get(&"Variable Font Origin")
         .and_then(|x| x.string())
         .cloned()
         .or_else(|| font.masters.first().map(|m| m.id.clone()));
@@ -52,12 +55,15 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     // load_instances(&mut font, &plist);
     // fixup_axis_mappings(&mut font);
     load_metadata(&mut font, &plist);
+
+    load_custom_parameters(&mut font.custom_ot_values, custom_parameters);
+
     // load_features(&mut font, &plist);
     Ok(font)
 }
 
-fn get_custom_parameters(plist: &PlistDictionary) -> HashMap<&String, &Plist> {
-    let mut cp = HashMap::new();
+fn get_custom_parameters(plist: &PlistDictionary) -> HashMap<&str, &Plist> {
+    let mut cp: HashMap<&str, &Plist> = HashMap::new();
     if let Some(param) = plist.get("customParameters") {
         for p in param.iter_array_of_dicts() {
             let key = p.get("name").and_then(|n| n.string());
@@ -136,7 +142,8 @@ fn load_masters(font: &mut Font, plist: &PlistDictionary) -> Result<(), Babelfon
             if let Some(kerning) = master.get("kerningLTR").and_then(|a| a.dict()) {
                 // load_kerning(new_master, kerning);
             }
-
+            let custom_parameters = get_custom_parameters(master);
+            load_custom_parameters(&mut new_master.custom_ot_values, custom_parameters);
             font.masters.push(new_master)
         }
     }
@@ -386,7 +393,6 @@ fn load_metadata(font: &mut Font, plist: &PlistDictionary) {
         .unwrap_or(&"New font".to_string())
         .into();
     load_properties(font, &plist);
-    // XXX custom parameters
     font.date = plist
         .get("date")
         .and_then(|x| x.string())
@@ -448,6 +454,116 @@ fn load_properties(font: &mut Font, plist: &PlistDictionary) {
             }
         }
     }
+}
+
+lazy_static! {
+    static ref UNSIGNED_CP: Vec<(&'static str, &'static str, &'static str)> =
+        vec![
+        ("openTypeHeadLowestRecPPEM", "head", "lowestRecPPEM"),
+        ("openTypeOS2StrikeoutPosition", "OS2", "yStrikeoutPosition"),
+        ("openTypeOS2WidthClass", "OS2", "usWidthClass"),
+        ("openTypeOS2WeightClass", "OS2", "usWeightClass"),
+        ("widthClass", "OS2", "usWidthClass"),
+        ("weightClass", "OS2", "usWeightClass"),
+        ("openTypeOS2WinAscent", "OS2", "usWinAscent"),
+        ("openTypeOS2WinDescent", "OS2", "usWinDescent"),
+        ("winAscent", "OS2", "usWinAscent"),
+        ("winDescent", "OS2", "usWinDescent"),
+
+
+        ];
+    static ref SIGNED_CP: Vec<(&'static str, &'static str, &'static str)> = vec![
+        ("hheaAscender", "hhea", "ascent"),
+        ("openTypeHheaAscender", "hhea", "ascent"),
+        ("hheaDescender", "hhea", "descent"),
+        ("openTypeHheaDescender", "hhea", "descent"),
+        ("hheaLineGap", "hhea", "lineGap"),
+        ("openTypeHheaLineGap", "hhea", "lineGap"),
+        ("openTypeOS2FamilyClass", "OS2", "sFamilyClass"),
+        ("openTypeOS2StrikeoutPosition", "OS2", "yStrikeoutPosition"),
+        ("openTypeOS2StrikeoutSize", "OS2", "yStrikeoutSize"),
+        ("strikeoutPosition", "OS2", "yStrikeoutPosition"),
+        ("strikeoutSize", "OS2", "yStrikeoutSize"),
+        ("openTypeOS2SubscriptXOffset","OS2", "ySubscriptXOffset"),
+        ("openTypeOS2SubscriptXSize","OS2", "ySubscriptXSize"),
+        ("openTypeOS2SubscriptYOffset","OS2", "ySubscriptYOffset"),
+        ("openTypeOS2SubscriptYSize","OS2", "ySubscriptYSize"),
+        ("openTypeOS2SuperscriptXOffset","OS2", "ySuperscriptXOffset"),
+        ("openTypeOS2SuperscriptXSize","OS2", "ySuperscriptXSize"),
+        ("openTypeOS2SuperscriptYOffset","OS2", "ySuperscriptYOffset"),
+        ("openTypeOS2SuperscriptYSize","OS2", "ySuperscriptYSize"),
+        ("subscriptXOffset","OS2", "ySubscriptXOffset"),
+        ("subscriptXSize","OS2", "ySubscriptXSize"),
+        ("subscriptYOffset","OS2", "ySubscriptYOffset"),
+        ("subscriptYSize","OS2", "ySubscriptYSize"),
+        ("superscriptXOffset","OS2", "ySuperscriptXOffset"),
+        ("superscriptXSize","OS2", "ySuperscriptXSize"),
+        ("superscriptYOffset","OS2", "ySuperscriptYOffset"),
+        ("superscriptYSize","OS2", "ySuperscriptYSize"),
+        ("openTypeOS2TypoAscender","OS2", "sTypoAscender"),
+        ("openTypeOS2TypoDescender","OS2", "sTypoDescender"),
+        ("openTypeOS2TypoLineGap","OS2", "sTypoLineGap"),
+        ("typoAscender","OS2", "sTypoAscender"),
+        ("typoDescender","OS2", "sTypoDescender"),
+        ("typoLineGap","OS2", "sTypoLineGap"),
+        ("underlinePosition", "post", "underlinePosition"),
+        ("postscriptUnderlinePosition", "post", "underlinePosition"),
+        ("underlineThickness", "post", "underlineThickness"),
+        ("postscriptUnderlineThickness", "post", "underlineThickness"),
+        ("openTypeHheaCaretSlopeRun", "hhea", "caretSlopeRun"),
+        ("openTypeVheaCaretSlopeRun", "vhea", "caretSlopeRun"),
+        ("openTypeVheaCaretSlopeRise", "vhea", "caretSlopeRise"),
+        ("openTypeHheaCaretSlopeRise", "hhea", "caretSlopeRise"),
+        ("openTypeHheaCaretOffset", "hhea", "caretOffset"),
+
+    ];
+    static ref STRING_CP: Vec<(&'static str, &'static str, &'static str)> = vec![
+        ("preferredFamilyName", "name", "preferredFamilyName"),
+        ("openTypeNamePreferredFamilyName", "name", "preferredFamilyName"),
+        ("preferredSubfamilyName", "name", "preferredSubfamilyName"),
+        ("openTypeHheaDescender", "hhea", "descent"),
+        ("compatibleFullName", "name", "compatibleFullName"),
+        ("openTypeNameCompatibleFullName", "name", "compatibleFullName"),
+        ("vendorID", "OS2", "achVendID"),
+        ("openTypeOS2VendorID", "OS2", "achVendID"),
+    ];
+    static ref BOOL_CP: Vec<(&'static str, &'static str, &'static str)> = vec![
+        ("isFixedPitch", "post", "isFixedPitch"),
+        ("postscriptIsFixedPitch", "post", "isFixedPitch"),
+    ];
+
+    // XXX fsType
+}
+
+fn load_custom_parameters(ot_values: &mut Vec<OTValue>, params: HashMap<&str, &Plist>) {
+    for (key, table, field) in UNSIGNED_CP.iter() {
+        if let Some(v) = params.get(key) {
+            ot_values.push(OTValue {
+                table: table.to_string(),
+                field: field.to_string(),
+                value: OTScalar::Unsigned((*v).into()),
+            });
+        }
+    }
+    for (key, table, field) in SIGNED_CP.iter() {
+        if let Some(v) = params.get(key) {
+            ot_values.push(OTValue {
+                table: table.to_string(),
+                field: field.to_string(),
+                value: Signed((*v).into()),
+            });
+        }
+    }
+    for (key, table, field) in BOOL_CP.iter() {
+        if let Some(v) = params.get(key) {
+            ot_values.push(OTValue {
+                table: table.to_string(),
+                field: field.to_string(),
+                value: OTScalar::Bool(u32::from(*v) > 0),
+            });
+        }
+    }
+    println!("{:?}", ot_values);
 }
 
 #[cfg(test)]

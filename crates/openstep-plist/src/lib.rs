@@ -64,6 +64,16 @@ impl From<&Plist> for i32 {
     }
 }
 
+impl From<&Plist> for u32 {
+    fn from(p: &Plist) -> u32 {
+        match p {
+            Plist::Integer(i) => *i as u32,
+            Plist::Float(f) => *f as u32,
+            _ => 0,
+        }
+    }
+}
+
 #[derive(Debug, Snafu, PartialEq)]
 pub enum PlistError {
     #[snafu(display("Unexpected end of file"))]
