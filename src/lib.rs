@@ -25,6 +25,7 @@ pub use crate::error::BabelfontError;
 pub use crate::font::Font;
 pub use crate::glyph::{Glyph, GlyphList};
 pub use crate::guide::Guide;
+pub use crate::instance::Instance;
 pub use crate::layer::Layer;
 pub use crate::master::Master;
 pub use crate::shape::{Component, Path, Shape};

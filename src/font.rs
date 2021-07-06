@@ -60,7 +60,7 @@ impl Font {
                 .map(|axis| {
                     (
                         axis.tag.clone(),
-                        axis.map_forward(axis.default.unwrap_or(0.0)),
+                        axis.userspace_to_designspace(axis.default.unwrap_or(0.0) as i32),
                     )
                 })
                 .collect(),
@@ -193,8 +193,8 @@ impl Font {
                         .iter()
                         .map(|x| {
                             (
-                                axis.normalize_userspace_value(*x.0).expect("Bad map"),
-                                axis.normalize_designspace_value(*x.1).expect("Bad map"),
+                                axis.normalize_userspace_value(x.0).expect("Bad map"),
+                                axis.normalize_designspace_value(x.1).expect("Bad map"),
                             )
                         })
                         .collect::<Vec<(f32, f32)>>(),

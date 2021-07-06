@@ -5,8 +5,8 @@ use crate::OTScalar::Signed;
 use crate::Shape::{ComponentShape, PathShape};
 use crate::{Anchor, OTScalar};
 use crate::{
-    Axis, BabelfontError, Component, Font, Glyph, Guide, Layer, Location, Master, Node, NodeType,
-    Path, Position, Shape,
+    Axis, BabelfontError, Component, Font, Glyph, Guide, Instance, Layer, Location, Master, Node,
+    NodeType, Path, Position, Shape,
 };
 use openstep_plist::{Plist, PlistDictionary, PlistParser};
 use std::collections::HashMap;
@@ -52,8 +52,14 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
 
     fixup_axes(&mut font, default_master_id.as_ref());
     load_glyphs(&mut font, &plist);
-    // load_instances(&mut font, &plist);
-    // fixup_axis_mappings(&mut font);
+
+    if let Some(instances) = plist.get("instances").map(|f| f.iter_array_of_dicts()) {
+        for instance in instances {
+            load_instance(&mut font, &instance);
+        }
+    }
+
+    fixup_axis_mappings(&mut font);
     load_metadata(&mut font, &plist);
 
     load_custom_parameters(&mut font.custom_ot_values, custom_parameters);
@@ -563,7 +569,56 @@ fn load_custom_parameters(ot_values: &mut Vec<OTValue>, params: HashMap<&str, &P
             });
         }
     }
-    println!("{:?}", ot_values);
+}
+
+fn load_instance(font: &mut Font, plist: &PlistDictionary) {
+    let location = if plist.contains_key("axesValues") {
+        _to_loc(font, plist.get("axesValues"))
+    } else {
+        unimplemented!()
+    };
+    let name = plist
+        .get("name")
+        .and_then(|f| f.string())
+        .unwrap_or(&"Unnamed Instance".to_string())
+        .to_string();
+    let cp = get_custom_parameters(plist);
+    if let Some(axis_locs) = cp.get("Axis Location").map(|f| f.iter_array_of_dicts()) {
+        for loc in axis_locs {
+            let axis_name = loc.get("Axis").and_then(|f| f.string());
+            let loc = loc.get("Location").map(f32::from).unwrap_or(0.0);
+            if let Some(axis) = font
+                .axes
+                .iter_mut()
+                .find(|ax| ax.name.default().as_ref() == axis_name)
+            {
+                if let Some(designspace_value) = location.0.get(&axis.tag) {
+                    if axis.map.is_none() {
+                        axis.map = Some(vec![]);
+                    }
+                    axis.map.as_mut().unwrap().push((loc, *designspace_value));
+                }
+            }
+        }
+    }
+    font.instances.push(Instance {
+        name: (&name).into(),
+        location,
+        style_name: (&name).into(),
+    });
+}
+
+fn fixup_axis_mappings(font: &mut Font) {
+    for axis in font.axes.iter_mut() {
+        if axis.map.is_none() {
+            continue;
+        }
+        if let Some((min, default, max)) = axis.bounds() {
+            axis.min = Some(axis.designspace_to_userspace(min as i32));
+            axis.max = Some(axis.designspace_to_userspace(max as i32));
+            axis.default = Some(axis.designspace_to_userspace(default as i32));
+        }
+    }
 }
 
 #[cfg(test)]

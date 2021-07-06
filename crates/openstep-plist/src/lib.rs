@@ -49,6 +49,7 @@ impl From<&Plist> for f32 {
         match p {
             Plist::Integer(i) => *i as f32,
             Plist::Float(f) => *f,
+            Plist::String(s) => s.parse::<f32>().unwrap_or(0.0),
             _ => 0.0,
         }
     }
@@ -59,6 +60,7 @@ impl From<&Plist> for i32 {
         match p {
             Plist::Integer(i) => *i,
             Plist::Float(f) => *f as i32,
+            Plist::String(s) => s.parse::<i32>().unwrap_or(0),
             _ => 0,
         }
     }
@@ -69,6 +71,7 @@ impl From<&Plist> for u32 {
         match p {
             Plist::Integer(i) => *i as u32,
             Plist::Float(f) => *f as u32,
+            Plist::String(s) => s.parse::<u32>().unwrap_or(0),
             _ => 0,
         }
     }

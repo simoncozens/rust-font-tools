@@ -14,8 +14,30 @@ pub struct Axis {
     pub min: Option<f32>,
     pub max: Option<f32>,
     pub default: Option<f32>,
-    pub map: Option<HashMap<f32, f32>>,
+    pub map: Option<Vec<(f32, f32)>>,
     pub hidden: bool, // lib
+}
+
+fn piecewise_linear_map(mapping: HashMap<i32, f32>, value: i32) -> f32 {
+    if mapping.contains_key(&value) {
+        return *mapping.get(&value).unwrap();
+    }
+    if mapping.keys().len() == 0 {
+        return value as f32;
+    }
+    let min = *mapping.keys().min().unwrap();
+    if value < min {
+        return value as f32 + *mapping.get(&min).unwrap() - (min as f32);
+    }
+    let max = *mapping.keys().max().unwrap();
+    if value > max {
+        return value as f32 + mapping.get(&max).unwrap() - (max as f32);
+    }
+    let a = mapping.keys().filter(|k| *k < &value).max().unwrap();
+    let b = mapping.keys().filter(|k| *k > &value).min().unwrap();
+    let va = mapping.get(a).unwrap();
+    let vb = mapping.get(b).unwrap();
+    va + (vb - va) * (value - a) as f32 / (*b - *a) as f32
 }
 
 impl Axis {
@@ -35,9 +57,38 @@ impl Axis {
         }
     }
 
-    pub fn map_forward(&self, designspace: f32) -> f32 {
-        designspace // This is evil and wrong
+    pub fn bounds(&self) -> Option<(f32, f32, f32)> {
+        if self.min.is_none() || self.default.is_none() || self.max.is_none() {
+            return None;
+        }
+        Some((self.min.unwrap(), self.default.unwrap(), self.max.unwrap()))
     }
+
+    /// Converts a position on this axis from designspace coordinates to userspace coordinates
+    pub fn designspace_to_userspace(&self, l: i32) -> f32 {
+        let mut mapping: HashMap<i32, f32> = HashMap::new();
+        if self.map.is_none() {
+            return l as f32;
+        }
+        for m in self.map.as_ref().unwrap().iter() {
+            mapping.insert(m.1 as i32, m.0);
+        }
+        piecewise_linear_map(mapping, l)
+    }
+
+    /// Converts a position on this axis in userspace coordinates to designspace coordinates
+    pub fn userspace_to_designspace(&self, l: i32) -> f32 {
+        let mut mapping: HashMap<i32, f32> = HashMap::new();
+        if self.map.is_none() {
+            return l as f32;
+        }
+        for m in self.map.as_ref().unwrap().iter() {
+            mapping.insert(m.0 as i32, m.1);
+        }
+
+        piecewise_linear_map(mapping, l)
+    }
+
     pub fn tag_as_tag(&self) -> Tag {
         self.tag.as_bytes()[0..4].try_into().unwrap()
     }
@@ -71,27 +122,27 @@ impl Axis {
         if self.map.is_none() || self.map.as_ref().unwrap().is_empty() {
             return self.normalize_userspace_value(l);
         }
-        let designspace_minimum = self
+        let designspace_min = self
             .map
             .as_ref()
             .unwrap()
             .iter()
-            .map(|m| *m.1)
+            .map(|m| m.1)
             .fold(1. / 0., f32::min);
-        let designspace_maximum = self
+        let designspace_max = self
             .map
             .as_ref()
             .unwrap()
             .iter()
-            .map(|m| *m.1)
+            .map(|m| m.1)
             .fold(-1. / 0., f32::max);
-        if l < designspace_minimum {
-            l = designspace_minimum;
+        if l < designspace_min {
+            l = designspace_min;
         }
-        if l > designspace_maximum {
-            l = designspace_maximum;
+        if l > designspace_max {
+            l = designspace_max;
         }
-        Ok((l - designspace_minimum) / (designspace_maximum - designspace_minimum))
+        Ok((l - designspace_min) / (designspace_max - designspace_min))
     }
 
     pub fn to_variation_axis_record(
