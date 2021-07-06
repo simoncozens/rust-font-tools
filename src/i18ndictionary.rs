@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 
-pub struct I18NDictionary(HashMap<Tag, String>);
+pub struct I18NDictionary(pub HashMap<Tag, String>);
 
 impl I18NDictionary {
     pub fn new() -> Self {
@@ -12,6 +12,10 @@ impl I18NDictionary {
 
     pub fn default(&self) -> Option<String> {
         self.0.get(b"dflt").map(|x| x.to_string())
+    }
+
+    pub fn set_default(&mut self, s: String) {
+        self.0.insert(*b"dflt", s);
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::glyph::GlyphCategory;
+use crate::i18ndictionary::I18NDictionary;
 use crate::Anchor;
 use crate::Shape::{ComponentShape, PathShape};
 use crate::{
@@ -12,7 +13,6 @@ use std::convert::TryInto;
 use chrono::TimeZone;
 use std::fs;
 use std::path::PathBuf;
-use std::str::FromStr;
 
 pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     let s = fs::read_to_string(&path).map_err(|source| BabelfontError::IO {
@@ -385,7 +385,7 @@ fn load_metadata(font: &mut Font, plist: &PlistDictionary) {
         .and_then(|s| s.string())
         .unwrap_or(&"New font".to_string())
         .into();
-    // XXX properties
+    load_properties(font, &plist);
     // XXX custom parameters
     font.date = plist
         .get("date")
@@ -397,6 +397,57 @@ fn load_metadata(font: &mut Font, plist: &PlistDictionary) {
         .get("note")
         .and_then(|x| x.string())
         .map(|x| x.to_string());
+}
+
+fn load_properties(font: &mut Font, plist: &PlistDictionary) {
+    if let Some(props) = plist.get("properties").map(|d| d.iter_array_of_dicts()) {
+        for prop in props {
+            if let Some(key) = prop.get("key").and_then(|f| f.string()) {
+                let mut val = I18NDictionary::new();
+                if let Some(pval) = prop.get("value").and_then(|f| f.string()) {
+                    val.set_default(pval.to_string());
+                } else if let Some(pvals) = prop.get("values").map(|f| f.iter_array_of_dicts()) {
+                    for entry in pvals {
+                        if let Some(l) = entry.get("language").and_then(|f| f.string()) {
+                            if let Some(v) = entry.get("value").and_then(|f| f.string()) {
+                                if l.len() != 4 {
+                                    continue;
+                                };
+                                let l = l.as_bytes()[0..4].try_into().unwrap();
+                                val.0.insert(l, v.to_string());
+                            }
+                        }
+                    }
+                }
+                if key == "copyright" || key == "copyrights" {
+                    font.names.copyright = val;
+                } else if key == "designer" || key == "designers" {
+                    font.names.designer = val;
+                } else if key == "designerURL" {
+                    font.names.designer_url = val;
+                } else if key == "manufacturer" || key == "manufacturers" {
+                    font.names.manufacturer = val;
+                } else if key == "manufacturerURL" {
+                    font.names.manufacturer_url = val;
+                } else if key == "license" || key == "licenses" {
+                    font.names.license = val;
+                } else if key == "licenseURL" {
+                    font.names.license_url = val;
+                } else if key == "trademark" || key == "trademarks" {
+                    font.names.trademark = val;
+                } else if key == "description" || key == "descriptions" {
+                    font.names.description = val;
+                } else if key == "sampleText" || key == "sampleTexts" {
+                    font.names.sample_text = val;
+                } else if key == "postscriptFullName" { // ??
+                } else if key == "WWSFamilyName" {
+                    font.names.w_w_s_family_name = val;
+                } else if key == "versionString" {
+                    font.names.version = val;
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
