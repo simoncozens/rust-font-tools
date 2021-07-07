@@ -363,7 +363,7 @@ impl<T> Deref for Offset16<T> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct VecOffset16<T>(Vec<Offset16<T>>);
+pub struct VecOffset16<T>(pub Vec<Offset16<T>>);
 
 impl<T> Serialize for VecOffset16<T>
 where
