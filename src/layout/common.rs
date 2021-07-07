@@ -1,5 +1,4 @@
 use bitflags::bitflags;
-use itertools::Itertools;
 use otspec::types::*;
 use otspec::DeserializationError;
 use otspec::Deserialize;
@@ -37,9 +36,10 @@ tables!(
     }
     FeatureList {
         [offset_base]
+        [embed]
         Counted(FeatureRecord) featureRecords
     }
-    FeatureRecord {
+    FeatureRecord [embedded] {
             Tag	featureTag
             Offset16(FeatureTable)	feature
     }
@@ -49,13 +49,13 @@ tables!(
     }
     LookupList {
         [offset_base]
-        Counted(uint16) lookupOffsets
+        CountedOffset16(Lookup) lookupOffsets
     }
     Lookup {
         uint16	lookupType
         LookupFlags	lookupFlag
         Counted(uint16)	subtableOffsets
-        // Optional markFilteringSet
+        // Maybe(uint16) markFilteringSet
     }
 
     cvFeatureParams {
