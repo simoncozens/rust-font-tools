@@ -235,7 +235,6 @@ pub trait OffsetMarkerTrait: Serialize + std::fmt::Debug {
     fn needs_resolving(&self) -> bool;
     fn set(&self, off: uint16);
     fn serialize_contents(&self, output: &mut Vec<u8>) -> Result<(), SerializationError>;
-    fn is_top_of_table(&self) -> bool;
 }
 
 impl<T: Serialize + std::fmt::Debug> OffsetMarkerTrait for Offset16<T> {
@@ -281,9 +280,6 @@ impl<T: Serialize + std::fmt::Debug> OffsetMarkerTrait for Offset16<T> {
             l.to_bytes_shallow(output)?
         }
         Ok(())
-    }
-    fn is_top_of_table(&self) -> bool {
-        true
     }
 }
 
