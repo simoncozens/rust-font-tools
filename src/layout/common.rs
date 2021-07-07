@@ -8,24 +8,25 @@ use otspec::ReaderContext;
 use otspec::SerializationError;
 use otspec::Serialize;
 use otspec_macros::{tables, Deserialize, Serialize};
-use std::cell::RefCell;
 use std::collections::HashMap;
 
 tables!(
     ScriptListInternal {
         [offset_base]
+        [embed]
         Counted(ScriptRecord) scriptRecords
     }
-    ScriptRecord [embedded] {
+    ScriptRecord [embedded] [nodebug] {
         Tag scriptTag
         Offset16(ScriptInternal) scriptOffset
     }
     ScriptInternal {
         [offset_base]
         Offset16(LangSys) defaultLangSys
+        [embed]
         Counted(LangSysRecord) langSysRecords
     }
-    LangSysRecord {
+    LangSysRecord [embedded] {
         Tag langSysTag
         Offset16(LangSys) langSys
     }
@@ -76,6 +77,26 @@ tables!(
     }
 
 );
+
+impl std::fmt::Debug for ScriptRecord {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.alternate() {
+            write!(
+                f,
+                "{} => {:#?}",
+                std::str::from_utf8(&self.scriptTag).unwrap(),
+                self.scriptOffset.link
+            )
+        } else {
+            write!(
+                f,
+                "{} => {:?}",
+                std::str::from_utf8(&self.scriptTag).unwrap(),
+                self.scriptOffset.link
+            )
+        }
+    }
+}
 
 #[derive(Debug, PartialEq)]
 /// Feature parameter data.
@@ -222,9 +243,9 @@ impl Deserialize for ScriptList {
     }
 }
 
-impl Serialize for ScriptList {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let script_records = self
+impl From<&ScriptList> for ScriptListInternal {
+    fn from(sl: &ScriptList) -> Self {
+        let script_records = sl
             .scripts
             .iter()
             .map(|(k, v)| {
@@ -238,13 +259,20 @@ impl Serialize for ScriptList {
         ScriptListInternal {
             scriptRecords: script_records,
         }
-        .to_bytes(data)
+    }
+}
+
+impl Serialize for ScriptList {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        let i: ScriptListInternal = self.into();
+        i.to_bytes(data)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use otspec::offsetmanager::OffsetManager;
     use std::iter::FromIterator;
 
     macro_rules! hashmap {
@@ -317,9 +345,78 @@ mod tests {
             ),
         };
         assert_eq!(deserialized, script_list);
-        let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
-        let rede: ScriptList = otspec::de::from_bytes(&serialized).unwrap();
-        // assert_eq!(serialized, binary_scriptlist);
-        assert_eq!(rede, deserialized);
+    }
+
+    #[test]
+    fn test_scriptlist_ser() {
+        let binary_scriptlist = vec![
+            0x00, 0x02, 0x61, 0x72, 0x61, 0x62, 0x00, 0x0E, 0x6C, 0x61, 0x74, 0x6E, 0x00, 0x40,
+            0x00, 0x0A, 0x00, 0x01, 0x55, 0x52, 0x44, 0x20, 0x00, 0x1E, 0x00, 0x00, 0xFF, 0xFF,
+            0x00, 0x07, 0x00, 0x01, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x06, 0x00, 0x07,
+            0x00, 0x08, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x07, 0x00, 0x00, 0x00, 0x03, 0x00, 0x04,
+            0x00, 0x05, 0x00, 0x06, 0x00, 0x07, 0x00, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00,
+            0xFF, 0xFF, 0x00, 0x07, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x06,
+            0x00, 0x07, 0x00, 0x08,
+        ];
+        let script_list: ScriptList = ScriptList {
+            scripts: hashmap!(
+                *b"arab" => Script {
+                    default_language_system: Some(
+                        LanguageSystem {
+                            required_feature: None,
+                            feature_indices: vec![
+                                1,
+                                3,
+                                4,
+                                5,
+                                6,
+                                7,
+                                8,
+                            ],
+                        },
+                    ),
+                    language_systems: hashmap!(*b"URD " =>
+                        LanguageSystem {
+                            required_feature: None,
+                            feature_indices: vec![
+                                0,
+                                3,
+                                4,
+                                5,
+                                6,
+                                7,
+                                8,
+                            ],
+                        },
+                    ),
+                },
+                *b"latn" => Script {
+                    default_language_system: Some(
+                        LanguageSystem {
+                            required_feature: None,
+                            feature_indices: vec![
+                                2,
+                                3,
+                                4,
+                                5,
+                                6,
+                                7,
+                                8,
+                            ],
+                        },
+                    ),
+                    language_systems: hashmap!(),
+                },
+            ),
+        };
+
+        let mut serialized = vec![];
+        let sli: ScriptListInternal = (&script_list).into();
+        let root = Offset16::to(sli);
+        let mut mgr = OffsetManager::new(&root);
+        mgr.resolve();
+        mgr.dump_graph();
+        mgr.serialize(&mut serialized, true).unwrap();
+        assert_eq!(serialized, binary_scriptlist);
     }
 }
