@@ -23,25 +23,20 @@ pub fn expand_derive_serialize(
         Data::Struct(Style::Struct, fields) => {
             let sizes = serialize_sizes(fields);
             let offset_fields = serialize_offset_fields(fields);
+            let embed_fields = serialize_embed_fields(fields);
             let serializer = serialize_fields(fields);
             let has_offsets = !offset_fields.is_empty();
-            let is_offset_base = !cont.attrs.is_embedded;
-            let prepare = if has_offsets && is_offset_base {
+            let prepare = if has_offsets && !cont.attrs.is_embedded {
                 quote! {
                     let obj = otspec::offsetmanager::resolve_offsets(self);
                 }
             } else {
                 quote! { let obj = self; }
             };
-            let descendants = if has_offsets && is_offset_base {
+            let descendants = if has_offsets && !cont.attrs.is_embedded {
                 quote! {
                     otspec::offsetmanager::resolve_offsets_and_serialize(obj, data, false)?;
                 }
-            } else {
-                quote! {}
-            };
-            let tot = if is_offset_base {
-                quote! {}
             } else {
                 quote! {}
             };
@@ -65,10 +60,12 @@ pub fn expand_derive_serialize(
                     }
 
                     fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
-                        vec![ #(#offset_fields)* ]
+                        let mut v: Vec<&dyn OffsetMarkerTrait> = vec![ #(#offset_fields)* ];
+                        #(#embed_fields)*
+                        v
                     }
+
                 }
-                #tot
             })
         }
         _ => panic!("Can't auto-serialize a non-struct type"),
@@ -140,6 +137,19 @@ fn serialize_offset_fields(fields: &[Field]) -> Vec<TokenStream> {
                 }
             } else {
                 quote! {}
+            }
+        })
+        .collect()
+}
+
+fn serialize_embed_fields(fields: &[Field]) -> Vec<TokenStream> {
+    fields
+        .iter()
+        .filter(|field| field.attrs.embedded)
+        .map(|field| {
+            let name = &field.original.ident;
+            quote! {
+                v.extend(self.#name.offset_fields());
             }
         })
         .collect()
