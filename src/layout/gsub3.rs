@@ -1,11 +1,15 @@
 use crate::layout::coverage::Coverage;
-use crate::layout::gsub2::{MultipleSubstFormat1, Sequence};
-use crate::GSUB::ToBytes;
+use crate::layout::gsub2::MultipleSubst;
+use crate::layout::gsub2::MultipleSubstFormat1;
+use crate::layout::gsub2::Sequence;
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_remainder};
-use serde::de::{SeqAccess, Visitor};
-use serde::ser::SerializeSeq;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use otspec::DeserializationError;
+use otspec::Deserialize;
+use otspec::Deserializer;
+use otspec::ReaderContext;
+use otspec::SerializationError;
+use otspec::Serialize;
+use otspec_macros::tables;
 use std::collections::BTreeMap;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -15,73 +19,52 @@ pub struct AlternateSubst {
     pub mapping: BTreeMap<uint16, Vec<uint16>>,
 }
 
-impl ToBytes for AlternateSubst {
-    fn to_bytes(&self) -> Vec<u8> {
-        otspec::ser::to_bytes(self).unwrap()
+// This is very naughty. AltSubst is the same layout as MultipleSubst, so we
+// just pretend it is one.
+impl From<&AlternateSubst> for MultipleSubstFormat1 {
+    fn from(lookup: &AlternateSubst) -> Self {
+        let coverage = Offset16::to(Coverage {
+            glyphs: lookup.mapping.keys().copied().collect(),
+        });
+        let mut sequences = vec![];
+        for right in lookup.mapping.values() {
+            sequences.push(Offset16::to(Sequence {
+                substituteGlyphIDs: right.to_vec(),
+            }));
+        }
+        MultipleSubstFormat1 {
+            substFormat: 1,
+            coverage,
+            sequences: sequences.into(),
+        }
     }
 }
-deserialize_visitor!(
-    AlternateSubst,
-    AlternateSubstDeserializer,
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<AlternateSubst, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
+
+impl Deserialize for AlternateSubst {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let msf1: MultipleSubstFormat1 = c.de()?;
         let mut mapping = BTreeMap::new();
-        let remainder = read_remainder!(seq, "a multiple substitution table");
-        // Slightly naughty here, repurposing the fact that mult subst and
-        // alt subst have the same layout, just differ in lookupType
-        let sub: MultipleSubstFormat1 = otspec::de::from_bytes(&remainder).unwrap();
-        let coverage: Coverage =
-            otspec::de::from_bytes(&remainder[sub.coverageOffset as usize..]).unwrap();
-        for (input, seq_offset) in coverage.glyphs.iter().zip(sub.sequenceOffsets.iter()) {
-            let sequence: Sequence =
-                otspec::de::from_bytes(&remainder[*seq_offset as usize..]).unwrap();
-            mapping.insert(*input, sequence.substituteGlyphIDs);
+        for (input, sequence) in msf1
+            .coverage
+            .link
+            .unwrap()
+            .glyphs
+            .iter()
+            .zip(msf1.sequences.0.iter())
+        {
+            mapping.insert(
+                *input,
+                sequence.link.as_ref().unwrap().substituteGlyphIDs.clone(),
+            );
         }
         Ok(AlternateSubst { mapping })
     }
-);
+}
 
 impl Serialize for AlternateSubst {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
-        seq.serialize_element(&1_u16)?;
-
-        let coverage = Coverage {
-            glyphs: self.mapping.keys().copied().collect(),
-        };
-        let sequence_count = self.mapping.len() as uint16;
-        let mut sequences: BTreeMap<Vec<uint16>, uint16> = BTreeMap::new();
-        let mut offsets: Vec<uint16> = vec![];
-        let mut seq_offset = 6 + sequence_count * 2;
-        let serialized_cov = otspec::ser::to_bytes(&coverage).unwrap();
-        seq.serialize_element(&seq_offset)?;
-        seq_offset += serialized_cov.len() as uint16;
-
-        let mut sequences_ser: Vec<u8> = vec![];
-        for right in self.mapping.values() {
-            if sequences.contains_key(right) {
-                offsets.push(*sequences.get(right).unwrap());
-            } else {
-                let sequence = Sequence {
-                    substituteGlyphIDs: right.to_vec(),
-                };
-                let serialized = otspec::ser::to_bytes(&sequence).unwrap();
-                sequences.insert(right.to_vec(), seq_offset);
-                offsets.push(seq_offset);
-                seq_offset += serialized.len() as u16;
-                sequences_ser.extend(serialized);
-            }
-        }
-        seq.serialize_element(&sequence_count)?;
-        seq.serialize_element(&offsets)?;
-        seq.serialize_element(&coverage)?;
-        seq.serialize_element(&sequences_ser)?;
-        seq.end()
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        let i: MultipleSubstFormat1 = self.into();
+        i.to_bytes(data)
     }
 }
 

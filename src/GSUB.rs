@@ -4,24 +4,19 @@ use crate::layout::gsub2::MultipleSubst;
 use crate::layout::gsub3::AlternateSubst;
 use crate::layout::gsub4::LigatureSubst;
 use otspec::types::*;
-use otspec::{deserialize_visitor, read_field, read_remainder};
-use otspec_macros::tables;
-use serde::de::SeqAccess;
-use serde::de::Visitor;
-use serde::ser::SerializeSeq;
-use serde::Deserializer;
-use serde::Serializer;
-use serde::{Deserialize, Serialize};
-use std::array::TryFromSliceError;
-use std::convert::TryInto;
+use otspec::DeserializationError;
+use otspec::Deserialize;
+use otspec::Deserializer;
+use otspec::ReaderContext;
+use otspec_macros::{tables, Serialize};
 
 tables!(
   gsubcore {
-    uint16  majorVersion            // Major version of the GSUB table
-    uint16  minorVersion            // Minor version of the GSUB table
-    uint16  scriptListOffset        // Offset to ScriptList table, from beginning of GSUB table
-    uint16  featureListOffset       // Offset to FeatureList table, from beginning of GSUB table
-    uint16  lookupListOffset        // Offset to LookupList table, from beginning of GSUB table
+    uint16  majorVersion              // Major version of the GSUB table
+    uint16  minorVersion              // Minor version of the GSUB table
+    Offset16(ScriptList)  scriptList  // Offset to ScriptList table, from beginning of GSUB table
+    Offset16(FeatureList) featureList // Offset to FeatureList table, from beginning of GSUB table
+    Offset16(LookupList)  lookupList  // Offset to LookupList table, from beginning of GSUB table
   }
 );
 
@@ -53,28 +48,28 @@ impl SubstLookup {
             Substitution::ReverseChaining => 8,
         }
     }
-    fn subtables(self) -> Vec<Box<dyn ToBytes>> {
-        match self.substitution {
-            Substitution::Single(x) => x
-                .into_iter()
-                .map(|st| Box::new(st) as Box<dyn ToBytes>)
-                .collect(),
-            Substitution::Multiple(x) => x
-                .into_iter()
-                .map(|st| Box::new(st) as Box<dyn ToBytes>)
-                .collect(),
-            Substitution::Alternate(x) => x
-                .into_iter()
-                .map(|st| Box::new(st) as Box<dyn ToBytes>)
-                .collect(),
-            _ => unimplemented!(),
-        }
-    }
+    // fn subtables(self) -> Vec<Box<dyn ToBytes>> {
+    //     match self.substitution {
+    //         Substitution::Single(x) => x
+    //             .into_iter()
+    //             .map(|st| Box::new(st) as Box<dyn ToBytes>)
+    //             .collect(),
+    //         Substitution::Multiple(x) => x
+    //             .into_iter()
+    //             .map(|st| Box::new(st) as Box<dyn ToBytes>)
+    //             .collect(),
+    //         Substitution::Alternate(x) => x
+    //             .into_iter()
+    //             .map(|st| Box::new(st) as Box<dyn ToBytes>)
+    //             .collect(),
+    //         _ => unimplemented!(),
+    //     }
+    // }
 }
 /// A container which represents a generic substitution rule
 ///
 /// Each rule is expressed as a vector of subtables.
-#[derive(Debug, PartialEq, Serialize, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Substitution {
     /// Contains a single substitution rule.
     Single(Vec<SingleSubst>),
@@ -107,163 +102,121 @@ pub struct GSUB {
     pub features: Vec<(Tag, Vec<usize>, Option<FeatureParams>)>,
 }
 
-deserialize_visitor!(
-    GSUB,
-    GSUBVisitor,
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
-        let core = read_field!(seq, gsubcore, "a GSUB table header");
-        let mut header_size = 10;
+impl Deserialize for GSUB {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let core: gsubcore = c.de()?;
         if core.minorVersion == 1 {
-            let _featureVariationsOffset =
-                read_field!(seq, uint16, "A feature variations table offset");
-            header_size += 2;
+            let _featureVariationsOffset: uint16 = c.de()?;
         }
-        let remainder = read_remainder!(seq, "a GSUB table");
-
-        // Script list
-        let beginning_of_scriptlist = core.scriptListOffset as usize - header_size;
-        let scripts: ScriptList =
-            otspec::de::from_bytes(&remainder[beginning_of_scriptlist..]).unwrap();
-
-        // Feature list
-        let mut features = vec![];
-        let beginning_of_featurelist = core.featureListOffset as usize - header_size;
-        let featurelist: FeatureList =
-            otspec::de::from_bytes(&remainder[beginning_of_featurelist..]).unwrap();
-        for f in featurelist.featureRecords {
-            let tag = f.featureTag;
-            let offset = f.featureOffset as usize;
-            let feature_table: FeatureTable =
-                otspec::de::from_bytes(&remainder[beginning_of_featurelist + offset..]).unwrap();
-            let indices = feature_table
-                .lookupListIndices
-                .iter()
-                .map(|x| *x as usize)
-                .collect();
-            if feature_table.featureParamsOffset != 0 {
-                unimplemented!()
-            }
-            features.push((tag, indices, None));
-        }
-
-        // Lookup list
-        let beginning_of_lookuplist = core.lookupListOffset as usize - header_size;
-        let lookuplist: LookupList =
-            otspec::de::from_bytes(&remainder[beginning_of_lookuplist..]).unwrap();
-        let mut lookups: Vec<SubstLookup> = vec![];
-        for offset in lookuplist.lookupOffsets {
-            let beginning_of_lookup_table = beginning_of_lookuplist + (offset as usize);
-            let lookup: SubstLookup =
-                otspec::de::from_bytes(&remainder[beginning_of_lookup_table..]).unwrap();
-            lookups.push(lookup);
-        }
-
+        let scripts: ScriptList = core.scriptList.link.ok_or(DeserializationError(
+            "Bad script list in GSUB table".to_string(),
+        ))?;
         Ok(GSUB {
-            lookups,
+            lookups: vec![],
             scripts,
-            features,
+            features: vec![],
         })
     }
-);
-
-pub(crate) fn peek_format(d: &[u8], off: usize) -> Result<uint16, TryFromSliceError> {
-    Ok(u16::from_be_bytes(d[off..off + 2].try_into()?))
 }
 
-deserialize_visitor!(
-    SubstLookup,
-    SubstLookupVisitor,
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<SubstLookup, A::Error>
-    where
-        A: SeqAccess<'de>,
-    {
-        let lookup = read_field!(seq, Lookup, "A lookup table");
-        let mut header_size = 6 + lookup.subtableOffsets.len() * 2;
-        let mark_filtering_set = if lookup
-            .lookupFlag
-            .contains(LookupFlags::USE_MARK_FILTERING_SET)
-        {
-            header_size += 2;
-            Some(read_field!(seq, uint16, "Mark filtering set"))
-        } else {
-            None
-        };
-        let remainder = read_remainder!(seq, "a substitution lookup");
-        let subtable_offsets = lookup
-            .subtableOffsets
-            .iter()
-            .map(|x| *x as usize - header_size);
+// pub(crate) fn peek_format(d: &[u8], off: usize) -> Result<uint16, TryFromSliceError> {
+//     Ok(u16::from_be_bytes(d[off..off + 2].try_into()?))
+// }
 
-        let substitution = match lookup.lookupType {
-            1 => Substitution::Single(
-                subtable_offsets
-                    .map(|off| {
-                        let subtable_bin = &remainder[off..];
-                        otspec::de::from_bytes::<SingleSubst>(subtable_bin).unwrap()
-                    })
-                    .collect(),
-            ),
-            2 => Substitution::Multiple(
-                subtable_offsets
-                    .map(|off| {
-                        let subtable_bin = &remainder[off..];
-                        otspec::de::from_bytes::<MultipleSubst>(subtable_bin).unwrap()
-                    })
-                    .collect(),
-            ),
-            3 => Substitution::Alternate(
-                subtable_offsets
-                    .map(|off| {
-                        let subtable_bin = &remainder[off..];
-                        otspec::de::from_bytes::<AlternateSubst>(subtable_bin).unwrap()
-                    })
-                    .collect(),
-            ),
-            4 => Substitution::Ligature(
-                subtable_offsets
-                    .map(|off| {
-                        let subtable_bin = &remainder[off..];
-                        otspec::de::from_bytes::<LigatureSubst>(subtable_bin).unwrap()
-                    })
-                    .collect(),
-            ),
-            _ => unimplemented!(),
-        };
+// deserialize_visitor!(
+//     SubstLookup,
+//     SubstLookupVisitor,
+//     fn visit_seq<A>(self, mut seq: A) -> std::result::Result<SubstLookup, A::Error>
+//     where
+//         A: SeqAccess<'de>,
+//     {
+//         let lookup = read_field!(seq, Lookup, "A lookup table");
+//         let mut header_size = 6 + lookup.subtableOffsets.len() * 2;
+//         let mark_filtering_set = if lookup
+//             .lookupFlag
+//             .contains(LookupFlags::USE_MARK_FILTERING_SET)
+//         {
+//             header_size += 2;
+//             Some(read_field!(seq, uint16, "Mark filtering set"))
+//         } else {
+//             None
+//         };
+//         let remainder = read_remainder!(seq, "a substitution lookup");
+//         let subtable_offsets = lookup
+//             .subtableOffsets
+//             .iter()
+//             .map(|x| *x as usize - header_size);
 
-        Ok(SubstLookup {
-            substitution,
-            flags: lookup.lookupFlag,
-            mark_filtering_set,
-        })
-    }
-);
+//         let substitution = match lookup.lookupType {
+//             1 => Substitution::Single(
+//                 subtable_offsets
+//                     .map(|off| {
+//                         let subtable_bin = &remainder[off..];
+//                         otspec::de::from_bytes::<SingleSubst>(subtable_bin).unwrap()
+//                     })
+//                     .collect(),
+//             ),
+//             2 => Substitution::Multiple(
+//                 subtable_offsets
+//                     .map(|off| {
+//                         let subtable_bin = &remainder[off..];
+//                         otspec::de::from_bytes::<MultipleSubst>(subtable_bin).unwrap()
+//                     })
+//                     .collect(),
+//             ),
+//             3 => Substitution::Alternate(
+//                 subtable_offsets
+//                     .map(|off| {
+//                         let subtable_bin = &remainder[off..];
+//                         otspec::de::from_bytes::<AlternateSubst>(subtable_bin).unwrap()
+//                     })
+//                     .collect(),
+//             ),
+//             4 => Substitution::Ligature(
+//                 subtable_offsets
+//                     .map(|off| {
+//                         let subtable_bin = &remainder[off..];
+//                         otspec::de::from_bytes::<LigatureSubst>(subtable_bin).unwrap()
+//                     })
+//                     .collect(),
+//             ),
+//             _ => unimplemented!(),
+//         };
 
-impl Serialize for SubstLookup {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut seq = serializer.serialize_seq(None)?;
-        seq.serialize_element(&self.lookup_type())?;
-        seq.serialize_element(&self.flags)?;
-        let subtables: Vec<Box<dyn ToBytes>> = self.clone().subtables();
-        seq.serialize_element(&(subtables.len() as uint16))?;
-        let mut output = vec![];
-        let base =
-            6 + (if self.mark_filtering_set.is_some() {
-                2
-            } else {
-                0
-            }) + 2 * subtables.len();
-        for st in subtables.iter().map(|x| x.to_bytes()) {
-            seq.serialize_element(&((base + output.len()) as uint16))?;
-            output.extend(st);
-        }
-        seq.serialize_element(&output)?;
+//         Ok(SubstLookup {
+//             substitution,
+//             flags: lookup.lookupFlag,
+//             mark_filtering_set,
+//         })
+//     }
+// );
 
-        seq.end()
-    }
-}
+// impl Serialize for SubstLookup {
+//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+//     where
+//         S: Serializer,
+//     {
+//         let mut seq = serializer.serialize_seq(None)?;
+//         seq.serialize_element(&self.lookup_type())?;
+//         seq.serialize_element(&self.flags)?;
+//         let subtables: Vec<Box<dyn ToBytes>> = self.clone().subtables();
+//         seq.serialize_element(&(subtables.len() as uint16))?;
+//         let mut output = vec![];
+//         let base =
+//             6 + (if self.mark_filtering_set.is_some() {
+//                 2
+//             } else {
+//                 0
+//             }) + 2 * subtables.len();
+//         for st in subtables.iter().map(|x| x.to_bytes()) {
+//             seq.serialize_element(&((base + output.len()) as uint16))?;
+//             output.extend(st);
+//         }
+//         seq.serialize_element(&output)?;
+
+//         seq.end()
+//     }
+// }
 
 #[cfg(test)]
 mod tests {

@@ -33,8 +33,9 @@
 //! saving an OpenType font.
 
 //#[allow(non_snake_case)]
-// pub mod GSUB;
 
+/// The `GSUB` (Glyph substitution) table
+pub mod GSUB;
 /// The `avar` (Axis variations) table
 pub mod avar;
 /// The `cmap` (Character To Glyph Index Mapping) table
