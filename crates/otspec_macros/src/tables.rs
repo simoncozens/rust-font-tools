@@ -153,6 +153,8 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
             if let Some(pragma) = has_pragma(&maybe_t.as_ref()) {
                 if pragma == "[offset_base]" {
                     out_s.push_str("#[serde(offset_base)]");
+                } else if pragma == "[embed]" {
+                    out_s.push_str("#[serde(embed)]");
                 } else {
                     panic!("Unknown pragma '{:?}'", pragma);
                 }
