@@ -82,11 +82,7 @@ impl<'a> OffsetManager<'a> {
             }
 
             for c in children_edges {
-                let offset = if this_offset.is_top_of_table() {
-                    c.weight().unwrap() - base
-                } else {
-                    c.weight().unwrap()
-                };
+                let offset = c.weight().unwrap() - base;
                 let target_id = c.target();
                 let target_node = self.dag.node_weight(target_id).unwrap();
                 target_node.set(offset as u16);
