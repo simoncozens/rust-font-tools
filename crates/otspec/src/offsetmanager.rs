@@ -37,7 +37,7 @@ impl<'a> OffsetManager<'a> {
         node
     }
     pub fn dump_graph(&self) {
-        println!("{:?}", Dot::new(&self.dag));
+        println!("{:#?}", Dot::new(&self.dag));
     }
 
     pub fn resolve(&mut self) {
@@ -70,7 +70,6 @@ impl<'a> OffsetManager<'a> {
         let mut node = topo.next(&self.dag);
         let mut base = 0;
         while node.is_some() {
-            let this_offset = self.dag.node_weight(node.unwrap()).unwrap();
             let children_edges = self
                 .dag
                 .edges_directed(node.unwrap(), petgraph::Direction::Outgoing);
@@ -162,6 +161,7 @@ mod tests {
     use super::*;
     use crate as otspec;
     use crate::types::*;
+    use crate::ReaderContext;
     use otspec::Deserializer;
     use otspec_macros::{Deserialize, Serialize};
 
@@ -280,5 +280,229 @@ mod tests {
                 0x20, 0x20,
             ]
         );
+    }
+
+    #[derive(Deserialize, Serialize, Debug, Clone)]
+    struct HasEmbedding {
+        #[serde(offset_base)]
+        thing: uint16,
+        #[serde(embed)]
+        notanoffset: TwoEmbedded,
+    }
+
+    #[derive(Deserialize, Debug, PartialEq, Serialize, Clone)]
+    #[serde(embedded)]
+    struct TwoEmbedded {
+        test1: uint16,
+        deep: Offset16<Three>,
+        test2: uint16,
+    }
+
+    #[test]
+    fn test_serialize_embedding() {
+        let has_embedding = HasEmbedding {
+            thing: 0x01,
+            notanoffset: TwoEmbedded {
+                test1: 0x0a,
+                deep: Offset16::to(Three { blah: 0x1010 }),
+                test2: 0x0b,
+            },
+        };
+        let mut output = vec![];
+        let root = Offset16::to(has_embedding);
+        let mut mgr = OffsetManager::new(&root);
+        mgr.resolve();
+        mgr.serialize(&mut output, true).unwrap();
+        assert_eq!(
+            output,
+            vec![
+                0x0, 0x1, // thing = 0x1
+                0x00, 0x0a, // test1
+                0x00, 0x08, // offset 8 to Three = 0x1010
+                0x00, 0x0b, // test2
+                0x10, 0x10, // one.notanoffset.deep = Three
+            ]
+        );
+    }
+
+    #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+    struct HasEmbeddingArray {
+        #[serde(offset_base)]
+        thing: uint16,
+        #[serde(embed)]
+        #[serde(with = "Counted")]
+        pub embed_array: Vec<TwoEmbedded>,
+    }
+
+    #[test]
+    fn test_serialize_embedding_array() {
+        let has_embedding_array = HasEmbeddingArray {
+            thing: 0x01,
+            embed_array: vec![
+                TwoEmbedded {
+                    test1: 0x0a,
+                    deep: Offset16::to(Three { blah: 0x1010 }),
+                    test2: 0x0b,
+                },
+                TwoEmbedded {
+                    test1: 0x0c,
+                    deep: Offset16::to(Three { blah: 0x2020 }),
+                    test2: 0x0d,
+                },
+            ],
+        };
+        let mut serialized = vec![];
+        let root = Offset16::to(has_embedding_array.clone());
+        let mut mgr = OffsetManager::new(&root);
+        mgr.resolve();
+        mgr.dump_graph();
+        mgr.serialize(&mut serialized, true).unwrap();
+        assert_eq!(
+            serialized,
+            vec![
+                0x0, 0x1, // thing = 0x1
+                0x0, 0x2, // count
+                0x00, 0x0a, // el[0], test1
+                0x00, 0x10, // offset 16 to Three = 0x1010
+                0x00, 0x0b, // el[0], test2
+                0x00, 0x0c, // el[1], test1
+                0x00, 0x12, // offset 18 to Three = 0x2020
+                0x00, 0x0d, // el[1], test2
+                0x10, 0x10, // el[0].deep = Three
+                0x20, 0x20, // el[1].deep = Three
+            ]
+        );
+        let rede: HasEmbeddingArray = otspec::de::from_bytes(&serialized).unwrap();
+        assert_eq!(rede, has_embedding_array);
+    }
+
+    // Deserialization is not strictly an offset-manager thing, but it's
+    // sufficiently related to go here.
+    #[test]
+    fn test_deserialize_embedding_array() {
+        let expected = HasEmbeddingArray {
+            thing: 0x01,
+            embed_array: vec![
+                TwoEmbedded {
+                    test1: 0x0a,
+                    deep: Offset16::to(Three { blah: 0x1010 }),
+                    test2: 0x0b,
+                },
+                TwoEmbedded {
+                    test1: 0x0c,
+                    deep: Offset16::to(Three { blah: 0x2020 }),
+                    test2: 0x0d,
+                },
+            ],
+        };
+        let binary_struct: Vec<u8> = vec![
+            0x0, 0x1, // thing = 0x1
+            0x0, 0x2, // count
+            0x00, 0x0a, // el[0], test1
+            0x00, 0x10, // offset 16 to Three = 0x1010
+            0x00, 0x0b, // el[0], test2
+            0x00, 0x0c, // el[1], test1
+            0x00, 0x12, // offset 18 to Three = 0x2020
+            0x00, 0x0d, // el[1], test2
+            0x10, 0x10, // el[0].deep = Three
+            0x20, 0x20, // el[1].deep = Three
+        ];
+        let mut rc = ReaderContext::new(binary_struct);
+        let deserialized: HasEmbeddingArray = rc.de().unwrap();
+        assert_eq!(deserialized, expected);
+    }
+
+    use otspec_macros::tables;
+    tables!(
+        HasEmbeddingArrayMagical {
+            [offset_base]
+            uint16 thing
+            [embed]
+            Counted(TwoEmbeddedMagical) embed_array
+        }
+
+        TwoEmbeddedMagical [embedded] {
+            uint16 test1
+            Offset16(ThreeMagical) deep
+            uint16 test2
+        }
+
+        ThreeMagical {
+            uint16 blah
+        }
+    );
+
+    #[test]
+    fn test_serialize_embedding_array_magical() {
+        let has_embedding_array = HasEmbeddingArrayMagical {
+            thing: 0x01,
+            embed_array: vec![
+                TwoEmbeddedMagical {
+                    test1: 0x0a,
+                    deep: Offset16::to(ThreeMagical { blah: 0x1010 }),
+                    test2: 0x0b,
+                },
+                TwoEmbeddedMagical {
+                    test1: 0x0c,
+                    deep: Offset16::to(ThreeMagical { blah: 0x2020 }),
+                    test2: 0x0d,
+                },
+            ],
+        };
+        let mut output = vec![];
+        let root = Offset16::to(has_embedding_array);
+        let mut mgr = OffsetManager::new(&root);
+        mgr.resolve();
+        mgr.dump_graph();
+        mgr.serialize(&mut output, true).unwrap();
+        assert_eq!(
+            output,
+            vec![
+                0x0, 0x1, // thing = 0x1
+                0x0, 0x2, // count
+                0x00, 0x0a, // el[0], test1
+                0x00, 0x10, // offset 16 to Three = 0x1010
+                0x00, 0x0b, // el[0], test2
+                0x00, 0x0c, // el[1], test1
+                0x00, 0x12, // offset 18 to Three = 0x2020
+                0x00, 0x0d, // el[1], test2
+                0x10, 0x10, // el[0].deep = Three
+                0x20, 0x20, // el[1].deep = Three
+            ]
+        );
+    }
+
+    #[test]
+    fn test_deserialize_embedding_array_magical() {
+        let expected = HasEmbeddingArrayMagical {
+            thing: 0x01,
+            embed_array: vec![
+                TwoEmbeddedMagical {
+                    test1: 0x0a,
+                    deep: Offset16::to(ThreeMagical { blah: 0x1010 }),
+                    test2: 0x0b,
+                },
+                TwoEmbeddedMagical {
+                    test1: 0x0c,
+                    deep: Offset16::to(ThreeMagical { blah: 0x2020 }),
+                    test2: 0x0d,
+                },
+            ],
+        };
+        let binary_struct: Vec<u8> = vec![
+            0x0, 0x1, // thing = 0x1
+            0x0, 0x2, // count
+            0x00, 0x0a, // el[0], test1
+            0x00, 0x10, // offset 16 to Three = 0x1010
+            0x00, 0x0b, // el[0], test2
+            0x00, 0x0c, // el[1], test1
+            0x00, 0x12, // offset 18 to Three = 0x2020
+            0x00, 0x0d, // el[1], test2
+            0x10, 0x10, // el[0].deep = Three
+            0x20, 0x20, // el[1].deep = Three
+        ];
+        let mut rc = ReaderContext::new(binary_struct);
+        let deserialized: HasEmbeddingArrayMagical = rc.de().unwrap();
+        assert_eq!(deserialized, expected);
     }
 }
