@@ -1,10 +1,10 @@
 use crate::internals::respan::respan;
 use crate::internals::symbol::*;
 use crate::internals::Ctxt;
-use proc_macro2::{TokenStream, TokenTree};
+use proc_macro2::TokenStream;
 use quote::ToTokens;
 
-use syn::parse::{self, Parse, ParseStream};
+use syn::parse::{self, Parse};
 
 use syn::Meta::{List, NameValue, Path};
 use syn::NestedMeta::{Lit, Meta};
