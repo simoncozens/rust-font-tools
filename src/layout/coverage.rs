@@ -123,7 +123,7 @@ impl Serialize for Coverage {
     }
     fn ot_binary_size(&self) -> usize {
         2 + if self.most_efficient_format() == 1 {
-            2 + self.glyphs.len()
+            2 + 2 * self.glyphs.len()
         } else {
             let as_consecutive = consecutive_slices(&self.glyphs);
             2 + 6 * as_consecutive.len()
