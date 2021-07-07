@@ -80,7 +80,7 @@ fn serialize_fields(fields: &[Field]) -> Vec<TokenStream> {
             if let Some(path) = field.attrs.serialize_with() {
                 if path.path.is_ident("Counted") {
                     quote! {
-                        let wrapped = otspec::Counted(obj.#name.clone());
+                        let wrapped = otspec::Counted(obj.#name.clone().into());
                         wrapped.to_bytes(data)?;
                     }
                 } else {
@@ -105,7 +105,7 @@ fn serialize_sizes(fields: &[Field]) -> Vec<TokenStream> {
                 if path.path.is_ident("Counted") {
                     quote! {
                          + {
-                            let wrapped = otspec::Counted(self.#name.clone());
+                            let wrapped = otspec::Counted(self.#name.clone().into());
                             wrapped.ot_binary_size()
                         }
                     }
@@ -145,11 +145,21 @@ fn serialize_offset_fields(fields: &[Field]) -> Vec<TokenStream> {
 fn serialize_embed_fields(fields: &[Field]) -> Vec<TokenStream> {
     fields
         .iter()
-        .filter(|field| field.attrs.embedded)
         .map(|field| {
             let name = &field.original.ident;
-            quote! {
-                v.extend(self.#name.offset_fields());
+            let ty = &field.original.ty;
+            let is_vec = if let syn::Type::Path(path) = ty {
+                path.path.segments.first().unwrap().ident == "VecOffset16"
+            } else {
+                false
+            };
+
+            if field.attrs.embedded || is_vec {
+                quote! {
+                    v.extend(self.#name.offset_fields());
+                }
+            } else {
+                quote! {}
             }
         })
         .collect()

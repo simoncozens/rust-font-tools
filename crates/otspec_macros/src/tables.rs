@@ -194,6 +194,15 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .to_string();
                 let name = expect_ident(table_def.next());
                 out_s.push_str(&format!("pub {} : Offset16<{}>,\n", name, subtype))
+            } else if t == "CountedOffset16" {
+                let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
+                    .into_iter()
+                    .next()
+                    .unwrap()
+                    .to_string();
+                let name = expect_ident(table_def.next());
+                out_s.push_str(&"#[serde(with = \"Counted\")]\n".to_string());
+                out_s.push_str(&format!("pub {} : VecOffset16<{}>,\n", name, subtype))
             } else if let Some(nonspecial_type) = special_type(&t) {
                 out_s.push_str(&format!("#[serde(with = \"{}\")]\n", t));
                 let name = expect_ident(table_def.next());

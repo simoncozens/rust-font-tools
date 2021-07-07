@@ -1,8 +1,10 @@
 use crate::types::OffsetMarkerTrait;
+use crate::Counted;
 use crate::Offset16;
 use crate::SerializationError;
 use crate::Serialize;
 
+use otspec_macros::tables;
 use petgraph::dot::Dot;
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::EdgeRef;
@@ -182,7 +184,7 @@ mod tests {
     }
 
     #[derive(Deserialize, Debug, PartialEq, Serialize, Clone)]
-    struct Three {
+    pub struct Three {
         blah: uint16,
     }
 
@@ -504,5 +506,98 @@ mod tests {
         let mut rc = ReaderContext::new(binary_struct);
         let deserialized: HasEmbeddingArrayMagical = rc.de().unwrap();
         assert_eq!(deserialized, expected);
+    }
+
+    tables!(
+        HasArrayOfOffsets {
+            uint16 test
+            CountedOffset16(Three) sequences
+        }
+    );
+
+    #[test]
+    fn test_serialize_array_of_offsets() {
+        let has_offset_array = HasArrayOfOffsets {
+            test: 0x01,
+            sequences: vec![
+                Offset16::to(Three { blah: 0x1010 }),
+                Offset16::to(Three { blah: 0x2020 }),
+                Offset16::to(Three { blah: 0x3030 }),
+            ]
+            .into(),
+        };
+        assert_eq!(has_offset_array.offset_fields().len(), 3);
+        let mut output = vec![];
+        let root = Offset16::to(has_offset_array);
+        let mut mgr = OffsetManager::new(&root);
+        mgr.resolve();
+        mgr.dump_graph();
+        mgr.serialize(&mut output, true).unwrap();
+        assert_eq!(
+            output,
+            vec![
+                0x0, 0x1, // thing = 0x1
+                0x0, 0x3, // count
+                0x00, 0x0a, // offset 10 to Three = 0x1010
+                0x00, 0x0c, // offset 12 to Three = 0x2020
+                0x00, 0x0e, // offset 14 to Three = 0x3030
+                0x10, 0x10, // el[0] = Three
+                0x20, 0x20, // el[1] = Three
+                0x30, 0x30, // el[1] = Three
+            ]
+        );
+    }
+
+    #[test]
+    fn test_serialize_array_of_offsets_magical() {
+        let has_offset_array = HasArrayOfOffsets {
+            test: 0x01,
+            sequences: vec![
+                Offset16::to(Three { blah: 0x1010 }),
+                Offset16::to(Three { blah: 0x2020 }),
+                Offset16::to(Three { blah: 0x3030 }),
+            ]
+            .into(),
+        };
+        let mut output = vec![];
+        has_offset_array.to_bytes(&mut output).unwrap();
+        assert_eq!(
+            output,
+            vec![
+                0x0, 0x1, // thing = 0x1
+                0x0, 0x3, // count
+                0x00, 0x0a, // offset 10 to Three = 0x1010
+                0x00, 0x0c, // offset 12 to Three = 0x2020
+                0x00, 0x0e, // offset 14 to Three = 0x3030
+                0x10, 0x10, // el[0] = Three
+                0x20, 0x20, // el[1] = Three
+                0x30, 0x30, // el[1] = Three
+            ]
+        );
+    }
+
+    #[test]
+    fn test_deserialize_array_of_offsets_magical() {
+        let expected = HasArrayOfOffsets {
+            test: 0x01,
+            sequences: vec![
+                Offset16::to(Three { blah: 0x1010 }),
+                Offset16::to(Three { blah: 0x2020 }),
+                Offset16::to(Three { blah: 0x3030 }),
+            ]
+            .into(),
+        };
+        let binary_struct = vec![
+            0x0, 0x1, // thing = 0x1
+            0x0, 0x3, // count
+            0x00, 0x0a, // offset 10 to Three = 0x1010
+            0x00, 0x0c, // offset 12 to Three = 0x2020
+            0x00, 0x0e, // offset 14 to Three = 0x3030
+            0x10, 0x10, // el[0] = Three
+            0x20, 0x20, // el[1] = Three
+            0x30, 0x30, // el[1] = Three
+        ];
+        let s: HasArrayOfOffsets = otspec::de::from_bytes(&binary_struct).unwrap();
+        assert_eq!(s, expected);
     }
 }

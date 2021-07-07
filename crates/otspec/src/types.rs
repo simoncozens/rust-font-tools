@@ -1,3 +1,4 @@
+use crate::Counted;
 use crate::DeserializationError;
 use crate::Deserialize;
 use crate::Deserializer;
@@ -358,6 +359,55 @@ impl<T> Deref for Offset16<T> {
     type Target = Option<T>;
     fn deref(&self) -> &Self::Target {
         &self.link
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct VecOffset16<T>(Vec<Offset16<T>>);
+
+impl<T> Serialize for VecOffset16<T>
+where
+    T: Serialize,
+{
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        for el in &self.0 {
+            el.to_bytes(data)?
+        }
+        Ok(())
+    }
+    fn ot_binary_size(&self) -> usize {
+        2 * self.0.len()
+    }
+    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
+        let mut v: Vec<&dyn OffsetMarkerTrait> = vec![];
+        for el in &self.0 {
+            v.push(el);
+        }
+        v
+    }
+}
+
+impl<T> From<VecOffset16<T>> for Vec<Offset16<T>> {
+    fn from(v: VecOffset16<T>) -> Self {
+        v.0
+    }
+}
+
+impl<T> From<Vec<Offset16<T>>> for VecOffset16<T> {
+    fn from(v: Vec<Offset16<T>>) -> Self {
+        VecOffset16(v)
+    }
+}
+
+impl<T> From<VecOffset16<T>> for Counted<Offset16<T>> {
+    fn from(v: VecOffset16<T>) -> Self {
+        Counted(v.0)
+    }
+}
+
+impl<T> From<Counted<Offset16<T>>> for VecOffset16<T> {
+    fn from(v: Counted<Offset16<T>>) -> Self {
+        VecOffset16(v.0)
     }
 }
 

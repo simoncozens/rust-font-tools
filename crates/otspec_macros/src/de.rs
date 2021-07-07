@@ -60,11 +60,20 @@ fn deserialize_fields(fields: &[Field]) -> Vec<TokenStream> {
             if let Some(path) = field.attrs.deserialize_with() {
                 if path.path.is_ident("Counted") {
                     if let syn::Type::Path(subvec) = ty {
+                        let vec_type = &subvec.path.segments.first().unwrap().ident;
                         let subpath = get_vector_arg(subvec);
-                        quote! {
-                            #start
-                            let wrapped: otspec::Counted<#subpath> = c.de()?;
-                            let #name: #ty = wrapped.into();
+                        if *vec_type == "VecOffset16" {
+                            quote! {
+                                #start
+                                let wrapped: otspec::Counted<Offset16<#subpath>> = c.de()?;
+                                let #name: #ty = wrapped.into();
+                            }
+                        } else {
+                            quote! {
+                                #start
+                                let wrapped: otspec::Counted<#subpath> = c.de()?;
+                                let #name: #ty = wrapped.into();
+                            }
                         }
                     } else {
                         panic!("Can't happen");
@@ -87,6 +96,7 @@ fn deserialize_fields(fields: &[Field]) -> Vec<TokenStream> {
 }
 
 use quote::ToTokens;
+
 fn get_vector_arg(path: &syn::TypePath) -> TokenStream {
     if let syn::PathArguments::AngleBracketed(brackets) =
         &path.path.segments.first().unwrap().arguments
