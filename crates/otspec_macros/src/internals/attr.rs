@@ -118,6 +118,7 @@ impl Variant {
 /// Represents field attribute information
 pub struct Field {
     pub offset_base: bool,
+    pub embedded: bool,
     serialize_with: Option<syn::ExprPath>,
     deserialize_with: Option<syn::ExprPath>,
 }
@@ -134,6 +135,7 @@ impl Field {
         let mut serialize_with = Attr::none(cx, SERIALIZE_WITH);
         let mut deserialize_with = Attr::none(cx, DESERIALIZE_WITH);
         let mut offset_base = BoolAttr::none(cx, OFFSET_BASE);
+        let mut embedded = BoolAttr::none(cx, EMBED);
 
         for meta_item in field
             .attrs
@@ -171,6 +173,11 @@ impl Field {
                     offset_base.set_true(word);
                 }
 
+                // Parse `#[serde(offset_base)]`
+                Meta(Path(word)) if word == EMBED => {
+                    embedded.set_true(word);
+                }
+
                 Meta(meta_item) => {
                     let path = meta_item
                         .path()
@@ -191,6 +198,7 @@ impl Field {
 
         Field {
             offset_base: offset_base.get(),
+            embedded: embedded.get(),
             serialize_with: serialize_with.get(),
             deserialize_with: deserialize_with.get(),
         }
