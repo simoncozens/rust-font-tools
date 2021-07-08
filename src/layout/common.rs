@@ -295,6 +295,7 @@ pub struct gsubgposoutgoing {
 
 // We have to do horrible things for the Lookup table because it has
 // a heterogenous subtable vec field.
+#[allow(missing_docs, non_snake_case, non_camel_case_types)]
 #[derive(Debug)]
 pub struct LookupInternal {
     pub lookupType: uint16,

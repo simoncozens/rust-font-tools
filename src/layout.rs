@@ -4,6 +4,10 @@ pub mod classdef;
 pub mod common;
 /// Glyph coverage tables
 pub mod coverage;
+/// GPOS1 single positioning
+pub mod gpos1;
+/// GPOS2 pair positioning
+// pub mod gpos2;
 /// GSUB1 single substitution
 pub mod gsub1;
 /// GSUB2 multiple substitution
@@ -13,3 +17,5 @@ pub mod gsub3;
 /// GSUB4 ligature substitution
 pub mod gsub4;
 pub(crate) mod macros;
+/// GPOS value records
+pub mod valuerecord;

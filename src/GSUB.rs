@@ -76,7 +76,7 @@ impl Deserialize for GSUB {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let core: gsubcoreincoming = c.de()?;
         if core.minorVersion == 1 {
-            let _featureVariationsOffset: uint16 = c.de()?;
+            let _feature_variations_offset: uint16 = c.de()?;
         }
         let scripts: ScriptList = core
             .scriptList

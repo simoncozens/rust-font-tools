@@ -34,6 +34,8 @@
 
 //#[allow(non_snake_case)]
 
+/// The `GPOS` (Glyph positioning) table
+pub mod GPOS;
 /// The `GSUB` (Glyph substitution) table
 pub mod GSUB;
 /// The `avar` (Axis variations) table
