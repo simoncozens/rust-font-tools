@@ -68,18 +68,9 @@ pub enum Substitution {
     ReverseChaining,
 }
 
-#[derive(Debug, PartialEq, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 /// The Glyph Substitution table
-pub struct GSUB {
-    /// A list of substitution lookups
-    pub lookups: Vec<Lookup<Substitution>>,
-    /// A mapping between script tags and `Script` tables.
-    pub scripts: ScriptList,
-    /// The association between feature tags and the list of indices into the
-    /// lookup table used to process this feature, together with any feature parameters.
-    pub features: Vec<(Tag, Vec<usize>, Option<FeatureParams>)>,
-}
+pub type GSUB = GPOSGSUB<Substitution>;
 
 impl Deserialize for GSUB {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {

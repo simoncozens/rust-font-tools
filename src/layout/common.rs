@@ -268,6 +268,21 @@ pub struct Lookup<T> {
     pub rule: T,
 }
 
+// GPOS and GSUB tables
+
+#[derive(Debug, PartialEq, Clone)]
+#[allow(clippy::upper_case_acronyms)]
+/// The Glyph Positioning table
+pub struct GPOSGSUB<T> {
+    /// A list of positioning lookups
+    pub lookups: Vec<Lookup<T>>,
+    /// A mapping between script tags and `Script` tables.
+    pub scripts: ScriptList,
+    /// The association between feature tags and the list of indices into the
+    /// lookup table used to process this feature, together with any feature parameters.
+    pub features: Vec<(Tag, Vec<usize>, Option<FeatureParams>)>,
+}
+
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 #[derive(Debug, Serialize)]
 pub struct gsubgposoutgoing {
