@@ -13,11 +13,13 @@ use std::collections::BTreeMap;
 
 tables!(
   SingleSubstFormat1 {
+    [offset_base]
     uint16 substFormat
     Offset16(Coverage) coverage // Offset to Coverage table, from beginning of substitution subtable
     int16 deltaGlyphID  // Add to original glyph ID to get substitute glyph ID
   }
   SingleSubstFormat2 {
+    [offset_base]
     uint16 substFormat
     Offset16(Coverage)  coverage  // Offset to Coverage table, from beginning of substitution subtable
     Counted(uint16)  substituteGlyphIDs // Array of substitute glyph IDs — ordered by Coverage index
@@ -76,7 +78,7 @@ impl Deserialize for SingleSubst {
                     mapping.insert(*gid, *newgid);
                 }
             }
-            _ => panic!("Better error handling needed"),
+            _ => panic!("Bad single subst format {:?}", fmt),
         }
         Ok(SingleSubst { mapping })
     }
