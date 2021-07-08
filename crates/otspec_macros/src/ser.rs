@@ -28,14 +28,20 @@ pub fn expand_derive_serialize(
             let has_offsets = !offset_fields.is_empty();
             let prepare = if has_offsets && !cont.attrs.is_embedded {
                 quote! {
-                    let obj = otspec::offsetmanager::resolve_offsets(self);
+                    let obj = if self.offset_fields().is_empty() {
+                        self
+                    } else {
+                        otspec::offsetmanager::resolve_offsets(self)
+                    };
                 }
             } else {
                 quote! { let obj = self; }
             };
             let descendants = if has_offsets && !cont.attrs.is_embedded {
                 quote! {
-                    otspec::offsetmanager::resolve_offsets_and_serialize(obj, data, false)?;
+                    if !self.offset_fields().is_empty() {
+                        otspec::offsetmanager::resolve_offsets_and_serialize(obj, data, false)?;
+                    }
                 }
             } else {
                 quote! {}
