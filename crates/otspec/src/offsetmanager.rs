@@ -598,4 +598,52 @@ mod tests {
         let s: HasArrayOfOffsets = otspec::de::from_bytes(&binary_struct).unwrap();
         assert_eq!(s, expected);
     }
+
+    // Very nested things
+    #[derive(Serialize, Debug)]
+    pub struct Test1 {
+        pub t1: Offset16<Test2>,
+    }
+    tables!(
+       Test2 {
+           uint16 substFormat
+           Offset16(Test3) coverage
+           int16 deltaGlyphID
+        }
+
+        Test3 {
+           Counted(uint16) glyphArray
+        }
+    );
+    #[test]
+    fn test_very_nested() {
+        let deep = Test1 {
+            t1: Offset16::to(Test2 {
+                substFormat: 1,
+                coverage: Offset16::to(Test3 {
+                    glyphArray: vec![4, 5, 6],
+                }),
+                deltaGlyphID: 15,
+            }),
+        };
+        let mut output = vec![];
+        let root = Offset16::to(deep);
+        let mut mgr = OffsetManager::new(&root);
+        mgr.resolve();
+        mgr.dump_graph();
+        mgr.serialize(&mut output, true).unwrap();
+        assert_eq!(
+            output,
+            vec![
+                0x00, 0x02, // T1 Offset
+                0x00, 0x01, // substFormat
+                0x00, 0x06, // T2 offset
+                0x00, 0x0f, // deltaGlyphsID
+                0x00, 0x03, // count
+                0x00, 0x04, // 4
+                0x00, 0x05, // 5
+                0x00, 0x06 // 6
+            ]
+        );
+    }
 }
