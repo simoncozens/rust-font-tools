@@ -7,7 +7,8 @@ use otspec::ReaderContext;
 use otspec::SerializationError;
 use otspec::Serialize;
 use otspec_macros::{tables, Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap; // For predictable ordering
+use std::fmt::Debug;
 
 tables!(
     ScriptListInternal {
@@ -47,17 +48,6 @@ tables!(
             uint16	featureParamsOffset
             Counted(uint16) lookupListIndices
     }
-    LookupList {
-        [offset_base]
-        CountedOffset16(Lookup) lookupOffsets
-    }
-    Lookup {
-        uint16	lookupType
-        LookupFlags	lookupFlag
-        Counted(uint16)	subtableOffsets
-        // Maybe(uint16) markFilteringSet
-    }
-
     cvFeatureParams {
         uint16 format
         uint16  featUiLabelNameId
@@ -78,7 +68,7 @@ tables!(
 
 );
 
-impl std::fmt::Debug for ScriptRecord {
+impl Debug for ScriptRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             write!(
@@ -141,7 +131,7 @@ bitflags! {
 #[derive(Debug, PartialEq, Clone)]
 pub struct ScriptList {
     /// A mapping between script tags and `Script` tables.
-    pub scripts: HashMap<Tag, Script>,
+    pub scripts: BTreeMap<Tag, Script>,
 }
 
 /// A Script table, containing information about language systems for a certain script.
@@ -151,7 +141,7 @@ pub struct Script {
     /// language is selected.
     pub default_language_system: Option<LanguageSystem>,
     /// A mapping between language tags and `LanguageSystem` records.
-    pub language_systems: HashMap<Tag, LanguageSystem>,
+    pub language_systems: BTreeMap<Tag, LanguageSystem>,
 }
 
 /// A LanguageSystem table, selecting which features should be applied in the
@@ -193,7 +183,7 @@ impl From<&ScriptInternal> for Script {
     fn from(si: &ScriptInternal) -> Self {
         let mut script = Script {
             default_language_system: (*si.defaultLangSys).as_ref().map(|langsys| langsys.into()),
-            language_systems: HashMap::new(),
+            language_systems: BTreeMap::new(),
         };
         for langsysrecord in &si.langSysRecords {
             let lang_tag = langsysrecord.langSysTag;
@@ -233,7 +223,7 @@ impl From<&Script> for ScriptInternal {
 impl Deserialize for ScriptList {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let sl: ScriptListInternal = c.de()?;
-        let mut scripts = HashMap::new();
+        let mut scripts = BTreeMap::new();
         for rec in sl.scriptRecords {
             let si: &ScriptInternal = &rec.scriptOffset.as_ref().unwrap();
             let script: Script = si.into();
@@ -277,7 +267,7 @@ mod tests {
 
     macro_rules! hashmap {
             ($($k:expr => $v:expr),* $(,)?) => {
-                std::collections::HashMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+                std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
             };
         }
 
