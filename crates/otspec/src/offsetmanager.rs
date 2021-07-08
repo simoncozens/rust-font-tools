@@ -1,10 +1,8 @@
-use crate::types::OffsetMarkerTrait;
-use crate::Counted;
-use crate::Offset16;
+use crate::offsets::Offset16;
+use crate::offsets::OffsetMarkerTrait;
 use crate::SerializationError;
 use crate::Serialize;
 
-use otspec_macros::tables;
 use petgraph::dot::Dot;
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::EdgeRef;

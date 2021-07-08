@@ -1,11 +1,11 @@
 //! This library is used by the fonttools crate. No user-serviceable parts inside.
 #[macro_use]
 extern crate shrinkwraprs;
-use crate::types::OffsetMarkerTrait;
 use crate::types::*;
 use std::convert::TryInto;
 use std::mem;
 pub mod offsetmanager;
+mod offsets;
 pub mod types;
 
 #[derive(Debug)]
@@ -123,6 +123,8 @@ impl std::fmt::Display for DeserializationError {
 
 impl std::error::Error for SerializationError {}
 impl std::error::Error for DeserializationError {}
+
+use crate::offsets::OffsetMarkerTrait;
 
 pub trait Serialize: std::fmt::Debug {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError>;
