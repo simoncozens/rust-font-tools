@@ -26,6 +26,21 @@ tables!(
   }
 );
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum SingleSubstInternal {
+    Format1(SingleSubstFormat1),
+    Format2(SingleSubstFormat2),
+}
+
+impl Serialize for SingleSubstInternal {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        match self {
+            SingleSubstInternal::Format1(s) => s.to_bytes(data),
+            SingleSubstInternal::Format2(s) => s.to_bytes(data),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 /// A single substitution subtable.
 pub struct SingleSubst {
@@ -84,32 +99,39 @@ impl Deserialize for SingleSubst {
     }
 }
 
-impl Serialize for SingleSubst {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let (format, delta) = self.best_format();
+impl From<&SingleSubst> for SingleSubstInternal {
+    fn from(val: &SingleSubst) -> Self {
         let coverage = Coverage {
-            glyphs: self.mapping.keys().copied().collect(),
+            glyphs: val.mapping.keys().copied().collect(),
         };
+        let (format, delta) = val.best_format();
         if format == 1 {
-            data.put(SingleSubstFormat1 {
+            SingleSubstInternal::Format1(SingleSubstFormat1 {
                 substFormat: 1,
                 coverage: Offset16::to(coverage),
                 deltaGlyphID: delta,
-            })?;
+            })
         } else {
-            data.put(SingleSubstFormat2 {
+            SingleSubstInternal::Format2(SingleSubstFormat2 {
                 substFormat: 2,
                 coverage: Offset16::to(coverage),
-                substituteGlyphIDs: self.mapping.values().copied().collect(),
-            })?;
+                substituteGlyphIDs: val.mapping.values().copied().collect(),
+            })
         }
-        Ok(())
+    }
+}
+
+impl Serialize for SingleSubst {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        let ssi: SingleSubstInternal = self.into();
+        ssi.to_bytes(data)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use otspec_macros::Serialize;
     use std::iter::FromIterator;
 
     macro_rules! btreemap {
@@ -147,5 +169,69 @@ mod tests {
             otspec::de::from_bytes::<SingleSubst>(&binary_subst).unwrap(),
             subst
         );
+    }
+
+    #[test]
+    fn test_single_subst_internal_ser() {
+        let subst = SingleSubst {
+            mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
+        };
+        let subst: SingleSubstInternal = (&subst).into();
+        let binary_subst = vec![
+            0x00, 0x02, 0x00, 0x0C, 0x00, 0x03, 0x00, 0x42, 0x00, 0x42, 0x00, 0x42, 0x00, 0x01,
+            0x00, 0x03, 0x00, 0x22, 0x00, 0x23, 0x00, 0x24,
+        ];
+        let serialized = otspec::ser::to_bytes(&subst).unwrap();
+        assert_eq!(serialized, binary_subst);
+    }
+
+    #[derive(Serialize, Debug)]
+    pub struct Test {
+        pub t1: Offset16<SingleSubstInternal>,
+    }
+
+    #[test]
+    fn test_single_subst_internal_ser2() {
+        let subst = SingleSubst {
+            mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
+        };
+        let subst: SingleSubstInternal = (&subst).into();
+        let test = Test {
+            t1: Offset16::to(subst),
+        };
+
+        let binary_subst = vec![
+            0x00, 0x02, 0x00, 0x02, 0x00, 0x0C, 0x00, 0x03, 0x00, 0x42, 0x00, 0x42, 0x00, 0x42,
+            0x00, 0x01, 0x00, 0x03, 0x00, 0x22, 0x00, 0x23, 0x00, 0x24,
+        ];
+        let serialized = otspec::ser::to_bytes(&test).unwrap();
+        assert_eq!(serialized, binary_subst);
+    }
+
+    #[derive(Serialize, Debug)]
+    pub struct Test2 {
+        pub t1: Offset16<SingleSubstFormat2>,
+    }
+
+    #[test]
+    fn test_single_subst_internal_ser3() {
+        let subst = SingleSubst {
+            mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
+        };
+        let subst: SingleSubstInternal = (&subst).into();
+        if let SingleSubstInternal::Format2(s) = subst {
+            let test = Test2 {
+                t1: Offset16::to(s),
+            };
+
+            let binary_subst = vec![
+                0x00, 0x02, 0x00, 0x02, 0x00, 0x0C, 0x00, 0x03, 0x00, 0x42, 0x00, 0x42, 0x00, 0x42,
+                0x00, 0x01, 0x00, 0x03, 0x00, 0x22, 0x00, 0x23, 0x00, 0x24,
+            ];
+            let serialized = otspec::ser::to_bytes(&test).unwrap();
+            assert_eq!(serialized, binary_subst);
+        } else {
+            panic!("Wrong format!");
+        }
     }
 }
