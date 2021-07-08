@@ -8,10 +8,10 @@ use otspec_macros::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Copy)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct ValueRecord {
-    xPlacement: Option<int16>,
-    yPlacement: Option<int16>,
-    xAdvance: Option<int16>,
-    yAdvance: Option<int16>,
+    pub xPlacement: Option<int16>,
+    pub yPlacement: Option<int16>,
+    pub xAdvance: Option<int16>,
+    pub yAdvance: Option<int16>,
     // xPlaDeviceOffset: Offset16<Device>,
     // yPlaDeviceOffset: Offset16<Device>,
     // xAdvDeviceOffset: Offset16<Device>,
@@ -44,7 +44,7 @@ bitflags! {
 }
 
 impl ValueRecord {
-    fn new() -> ValueRecord {
+    pub fn new() -> ValueRecord {
         ValueRecord {
             xPlacement: None,
             yPlacement: None,

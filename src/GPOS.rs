@@ -76,7 +76,7 @@ impl Deserialize for GPOS {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let core: gposcoreincoming = c.de()?;
         if core.minorVersion == 1 {
-            let feature_variations_offset: uint16 = c.de()?;
+            let _feature_variations_offset: uint16 = c.de()?;
         }
         let scripts: ScriptList = core
             .scriptList

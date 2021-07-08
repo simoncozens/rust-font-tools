@@ -51,7 +51,7 @@ pub struct SinglePos {
 
 impl SinglePos {
     fn best_format(&self) -> uint16 {
-        let vals: Vec<ValueRecord> = self.mapping.values().map(|x| *x).collect();
+        let vals: Vec<ValueRecord> = self.mapping.values().copied().collect();
         if vals.windows(2).all(|w| w[0] == w[1]) {
             1
         } else {
@@ -66,14 +66,25 @@ impl Deserialize for SinglePos {
         let fmt = c.peek(2)?;
         match fmt {
             [0x00, 0x01] => {
-                let sub: SinglePosFormat1 = c.de()?;
-                unimplemented!()
+                let pos: SinglePosFormat1 = c.de()?;
+                for glyph_id in &pos.coverage.as_ref().unwrap().glyphs {
+                    mapping.insert(*glyph_id, pos.valueRecord);
+                }
             }
             [0x00, 0x02] => {
-                let sub: SinglePosFormat2 = c.de()?;
-                unimplemented!()
+                let pos: SinglePosFormat2 = c.de()?;
+                for (glyph_id, vr) in pos
+                    .coverage
+                    .as_ref()
+                    .unwrap()
+                    .glyphs
+                    .iter()
+                    .zip(pos.valueRecords.0.iter())
+                {
+                    mapping.insert(*glyph_id, *vr);
+                }
             }
-            _ => panic!("Bad single subst format {:?}", fmt),
+            _ => panic!("Bad single pos format {:?}", fmt),
         }
         Ok(SinglePos { mapping })
     }
@@ -93,7 +104,12 @@ impl From<&SinglePos> for SinglePosInternal {
                 valueRecord: *vr,
             })
         } else {
-            unimplemented!()
+            let vrs = val.mapping.values();
+            SinglePosInternal::Format2(SinglePosFormat2 {
+                posFormat: 2,
+                coverage: Offset16::to(coverage),
+                valueRecords: ValueRecords(vrs.copied().collect()),
+            })
         }
     }
 }
@@ -117,98 +133,25 @@ mod tests {
         };
     }
 
-    // #[test]
-    // fn test_single_subst_1_serde() {
-    //     let subst = SinglePos {
-    //         mapping: btreemap!(66 => 67, 68 => 69),
-    //     };
-    //     let binary_subst = vec![
-    //         0x00, 0x01, 0x00, 0x06, 0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 66, 0x00, 68,
-    //     ];
-    //     let serialized = otspec::ser::to_bytes(&subst).unwrap();
-    //     assert_eq!(serialized, binary_subst);
-    //     let de: SinglePos = otspec::de::from_bytes(&binary_subst).unwrap();
-    //     assert_eq!(de, subst);
-    // }
+    macro_rules! valuerecord {
+        ($($k:ident => $v:expr),* $(,)?) => {{
+            let mut v = ValueRecord::new();
+            $( v.$k = Some($v); )*
+            v
+        }};
+    }
 
-    // #[test]
-    // fn test_single_subst_2_ser() {
-    //     let subst = SinglePos {
-    //         mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
-    //     };
-    //     let binary_subst = vec![
-    //         0x00, 0x02, 0x00, 0x0C, 0x00, 0x03, 0x00, 0x42, 0x00, 0x42, 0x00, 0x42, 0x00, 0x01,
-    //         0x00, 0x03, 0x00, 0x22, 0x00, 0x23, 0x00, 0x24,
-    //     ];
-    //     let serialized = otspec::ser::to_bytes(&subst).unwrap();
-    //     assert_eq!(serialized, binary_subst);
-    //     assert_eq!(
-    //         otspec::de::from_bytes::<SinglePos>(&binary_subst).unwrap(),
-    //         subst
-    //     );
-    // }
-
-    // #[test]
-    // fn test_single_subst_internal_ser() {
-    //     let subst = SinglePos {
-    //         mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
-    //     };
-    //     let subst: SinglePosInternal = (&subst).into();
-    //     let binary_subst = vec![
-    //         0x00, 0x02, 0x00, 0x0C, 0x00, 0x03, 0x00, 0x42, 0x00, 0x42, 0x00, 0x42, 0x00, 0x01,
-    //         0x00, 0x03, 0x00, 0x22, 0x00, 0x23, 0x00, 0x24,
-    //     ];
-    //     let serialized = otspec::ser::to_bytes(&subst).unwrap();
-    //     assert_eq!(serialized, binary_subst);
-    // }
-
-    // #[derive(Serialize, Debug)]
-    // pub struct Test {
-    //     pub t1: Offset16<SinglePosInternal>,
-    // }
-
-    // #[test]
-    // fn test_single_subst_internal_ser2() {
-    //     let subst = SinglePos {
-    //         mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
-    //     };
-    //     let subst: SinglePosInternal = (&subst).into();
-    //     let test = Test {
-    //         t1: Offset16::to(subst),
-    //     };
-
-    //     let binary_subst = vec![
-    //         0x00, 0x02, 0x00, 0x02, 0x00, 0x0C, 0x00, 0x03, 0x00, 0x42, 0x00, 0x42, 0x00, 0x42,
-    //         0x00, 0x01, 0x00, 0x03, 0x00, 0x22, 0x00, 0x23, 0x00, 0x24,
-    //     ];
-    //     let serialized = otspec::ser::to_bytes(&test).unwrap();
-    //     assert_eq!(serialized, binary_subst);
-    // }
-
-    // #[derive(Serialize, Debug)]
-    // pub struct Test2 {
-    //     pub t1: Offset16<SinglePosFormat2>,
-    // }
-
-    // #[test]
-    // fn test_single_subst_internal_ser3() {
-    //     let subst = SinglePos {
-    //         mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
-    //     };
-    //     let subst: SinglePosInternal = (&subst).into();
-    //     if let SinglePosInternal::Format2(s) = subst {
-    //         let test = Test2 {
-    //             t1: Offset16::to(s),
-    //         };
-
-    //         let binary_subst = vec![
-    //             0x00, 0x02, 0x00, 0x02, 0x00, 0x0C, 0x00, 0x03, 0x00, 0x42, 0x00, 0x42, 0x00, 0x42,
-    //             0x00, 0x01, 0x00, 0x03, 0x00, 0x22, 0x00, 0x23, 0x00, 0x24,
-    //         ];
-    //         let serialized = otspec::ser::to_bytes(&test).unwrap();
-    //         assert_eq!(serialized, binary_subst);
-    //     } else {
-    //         panic!("Wrong format!");
-    //     }
-    // }
+    #[test]
+    fn test_single_pos_1_serde() {
+        let pos = SinglePos {
+            mapping: btreemap!(66 => valuerecord!(xAdvance=>10)),
+        };
+        let binary_pos = vec![
+            0x00, 0x01, 0x00, 0x08, 0x00, 0x04, 0x00, 0x0a, 0x00, 0x01, 0x00, 0x01, 0x00, 66,
+        ];
+        let serialized = otspec::ser::to_bytes(&pos).unwrap();
+        assert_eq!(serialized, binary_pos);
+        let de: SinglePos = otspec::de::from_bytes(&binary_pos).unwrap();
+        assert_eq!(de, pos);
+    }
 }
