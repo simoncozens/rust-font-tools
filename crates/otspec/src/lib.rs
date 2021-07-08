@@ -182,6 +182,28 @@ serde_primitive!(i16);
 serde_primitive!(i32);
 serde_primitive!(i64);
 
+impl<T> Serialize for Option<T>
+where
+    T: Serialize,
+{
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        if let Some(v) = self {
+            v.to_bytes(data)?
+        }
+        Ok(())
+    }
+    fn ot_binary_size(&self) -> usize {
+        self.iter().map(|x| x.ot_binary_size()).sum()
+    }
+    fn offset_fields(&self) -> Vec<&dyn types::OffsetMarkerTrait> {
+        if let Some(v) = self {
+            v.offset_fields()
+        } else {
+            vec![]
+        }
+    }
+}
+
 impl<T> Serialize for Vec<T>
 where
     T: Serialize,
