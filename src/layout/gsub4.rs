@@ -1,28 +1,30 @@
 use crate::layout::coverage::Coverage;
 use otspec::types::*;
-use otspec::DeserializationError;
-use otspec::Deserialize;
-use otspec::Deserializer;
-use otspec::ReaderContext;
-use otspec::SerializationError;
-use otspec::Serialize;
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Serializer,
+};
 use otspec_macros::tables;
 use std::collections::BTreeMap;
 
 tables!(
   LigatureSubstFormat1 {
+    [offset_base]
     uint16 substFormat
     Offset16(Coverage) coverage
     CountedOffset16(LigatureSet)  ligatureSet
   }
   LigatureSet {
-    Counted(uint16) ligatureOffsets
+    [offset_base]
+    CountedOffset16(Ligature) ligatureOffsets
   }
 );
 
+// We can't use the magic tables here because the component count is the array
+// length MINUS ONE.
 #[allow(non_camel_case_types, non_snake_case)]
-#[derive(Debug, PartialEq)]
-struct Ligature {
+#[derive(Debug, PartialEq, Clone)]
+pub struct Ligature {
     ligatureGlyph: uint16,
     componentGlyphIDs: Vec<uint16>,
 }
@@ -34,140 +36,103 @@ pub struct LigatureSubst {
     pub mapping: BTreeMap<Vec<uint16>, uint16>,
 }
 
-// deserialize_visitor!(
-//     LigatureSubst,
-//     LigatureSubstDeserializer,
-//     fn visit_seq<A>(self, mut seq: A) -> std::result::Result<LigatureSubst, A::Error>
-//     where
-//         A: SeqAccess<'de>,
-//     {
-//         let remainder = read_remainder!(seq, "a ligature substitution table");
-//         let mut mapping = BTreeMap::new();
-//         let sub: LigatureSubstFormat1 = otspec::de::from_bytes(&remainder).unwrap();
-//         let coverage: Coverage =
-//             otspec::de::from_bytes(&remainder[sub.coverageOffset as usize..]).unwrap();
-//         for (input, lig_set_offset) in coverage.glyphs.iter().zip(sub.ligatureSetOffsets.iter()) {
-//             let lig_set: LigatureSet =
-//                 otspec::de::from_bytes(&remainder[*lig_set_offset as usize..]).unwrap();
-//             for lig_off in lig_set.ligatureOffsets {
-//                 let ligature: Ligature =
-//                     otspec::de::from_bytes(&remainder[(lig_set_offset + lig_off) as usize..])
-//                         .unwrap();
-//                 let mut input_sequence: Vec<u16> = vec![*input];
-//                 input_sequence.extend(ligature.componentGlyphIDs);
-//                 mapping.insert(input_sequence, ligature.ligatureGlyph);
-//             }
-//         }
-//         Ok(LigatureSubst { mapping })
-//     }
-// );
+impl From<&LigatureSubst> for LigatureSubstFormat1 {
+    fn from(ls: &LigatureSubst) -> Self {
+        let mut split_map: BTreeMap<u16, Vec<Vec<u16>>> = BTreeMap::new();
+        for left in ls.mapping.keys() {
+            let covered = left.first().unwrap();
+            split_map
+                .entry(*covered)
+                .or_insert_with(std::vec::Vec::new)
+                .push(left.clone());
+        }
+        // println!("Split map {:?}", split_map);
 
-// deserialize_visitor!(
-//     Ligature,
-//     LigatureDeserializer,
-//     fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Ligature, A::Error>
-//     where
-//         A: SeqAccess<'de>,
-//     {
-//         let lig_glyph = read_field!(seq, uint16, "a ligature glyph");
-//         let comp_count = read_field!(seq, uint16, "a component count");
-//         if comp_count < 1 {
-//             return Err(serde::de::Error::custom("Overflow in ligature component"));
-//         }
-//         let component_glyph_ids: Vec<uint16> =
-//             read_field_counted!(seq, comp_count - 1, "component glyph IDs");
-//         Ok(Ligature {
-//             ligatureGlyph: lig_glyph,
-//             componentGlyphIDs: component_glyph_ids,
-//         })
-//     }
-// );
+        let coverage = Coverage {
+            glyphs: split_map.keys().copied().collect(),
+        };
+        let mut ligature_sets: Vec<Offset16<LigatureSet>> = vec![];
+        for first in &coverage.glyphs {
+            // println!("For covered glyph {:?}", first);
+            let relevant_keys = split_map.get(&first).unwrap();
+            let ligature_offsets: Vec<Offset16<Ligature>> = relevant_keys
+                .iter()
+                .map(|k| {
+                    Offset16::to(Ligature {
+                        ligatureGlyph: *ls.mapping.get(k).unwrap(),
+                        componentGlyphIDs: k[1..].to_vec(),
+                    })
+                })
+                .collect();
 
-// impl Serialize for Ligature {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         let mut seq = serializer.serialize_seq(None)?;
-//         seq.serialize_element(&self.ligatureGlyph)?;
-//         seq.serialize_element(&(self.componentGlyphIDs.len() as uint16 + 1))?;
-//         seq.serialize_element(&self.componentGlyphIDs)?;
-//         seq.end()
-//     }
-// }
+            let ls = LigatureSet {
+                ligatureOffsets: ligature_offsets.into(),
+            };
+            ligature_sets.push(Offset16::to(ls));
+        }
+        LigatureSubstFormat1 {
+            substFormat: 1,
+            coverage: Offset16::to(coverage),
+            ligatureSet: VecOffset16(ligature_sets),
+        }
+    }
+}
 
-// impl Serialize for LigatureSubst {
-//     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-//     where
-//         S: Serializer,
-//     {
-//         let mut seq = serializer.serialize_seq(None)?;
-//         seq.serialize_element(&1_u16)?;
+impl From<LigatureSubstFormat1> for LigatureSubst {
+    fn from(lsf1: LigatureSubstFormat1) -> Self {
+        let mut mapping = BTreeMap::new();
+        for (input, lig_set) in lsf1
+            .coverage
+            .link
+            .unwrap()
+            .glyphs
+            .iter()
+            .zip(lsf1.ligatureSet.0.iter())
+        {
+            for ligature in lig_set.link.as_ref().unwrap().ligatureOffsets.0.iter() {
+                let ligature = ligature.link.as_ref().unwrap();
+                let mut input_sequence: Vec<u16> = vec![*input];
+                input_sequence.extend(ligature.componentGlyphIDs.clone());
+                mapping.insert(input_sequence, ligature.ligatureGlyph);
+            }
+        }
+        LigatureSubst { mapping }
+    }
+}
 
-//         // Split the map by covered first glyph
-//         let mut split_map: BTreeMap<u16, Vec<Vec<u16>>> = BTreeMap::new();
-//         for left in self.mapping.keys() {
-//             let covered = left.first().unwrap();
-//             split_map
-//                 .entry(*covered)
-//                 .or_insert_with(std::vec::Vec::new)
-//                 .push(left.clone());
-//         }
-//         println!("Split map {:?}", split_map);
+impl Serialize for LigatureSubst {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        let lsf1: LigatureSubstFormat1 = self.into();
+        lsf1.to_bytes(data)
+    }
+}
 
-//         let coverage = Coverage {
-//             glyphs: split_map.keys().copied().collect(),
-//         };
-//         let ligature_set_count = coverage.glyphs.len() as uint16;
-//         println!("Ligature set count = {:?}", ligature_set_count);
-//         let mut offsets: Vec<uint16> = vec![];
-//         let mut seq_offset = 6 + ligature_set_count * 2;
-//         let serialized_cov = otspec::ser::to_bytes(&coverage).unwrap();
-//         println!("Offset to coverage = {:?}", seq_offset);
-//         seq.serialize_element(&seq_offset)?;
-//         seq_offset += serialized_cov.len() as uint16;
-//         let mut output: Vec<u8> = vec![];
+impl Deserialize for LigatureSubst {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let lsf1: LigatureSubstFormat1 = c.de()?;
+        Ok(lsf1.into())
+    }
+}
 
-//         for first in &coverage.glyphs {
-//             println!("For covered glyph {:?}", first);
-//             println!("Offset: {:?}", seq_offset + output.len() as u16);
-//             offsets.push(seq_offset + output.len() as u16);
-//             let mut ls = LigatureSet {
-//                 ligatureOffsets: vec![],
-//             };
-//             let relevant_keys = split_map.get(&first).unwrap();
-//             let ligatures: Vec<Ligature> = relevant_keys
-//                 .iter()
-//                 .map(|k| Ligature {
-//                     ligatureGlyph: *self.mapping.get(k).unwrap(),
-//                     componentGlyphIDs: k[1..].to_vec(),
-//                 })
-//                 .collect();
-//             println!("  Ligatures: {:?}", ligatures);
-//             let mut offset = 2 + 2 * ligatures.len();
-//             let mut serialized_ligatures: Vec<u8> = vec![];
-//             for liga in ligatures {
-//                 ls.ligatureOffsets.push(offset as u16);
-//                 let this = otspec::ser::to_bytes(&liga).unwrap();
-//                 offset += this.len();
-//                 serialized_ligatures.extend(this);
-//             }
-//             println!("  Ligature set: {:?}", ls);
-//             output.extend(otspec::ser::to_bytes(&ls).unwrap());
-//             println!(
-//                 "   Serialized ligature set {:?}",
-//                 otspec::ser::to_bytes(&ls).unwrap()
-//             );
-//             println!("   Serialized Ligatures {:?}", serialized_ligatures);
-//             output.extend(serialized_ligatures);
-//         }
-//         seq.serialize_element(&ligature_set_count)?;
-//         seq.serialize_element(&offsets)?;
-//         seq.serialize_element(&coverage)?;
-//         seq.serialize_element(&output)?;
-//         seq.end()
-//     }
-// }
+impl Serialize for Ligature {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        data.put(self.ligatureGlyph)?;
+        data.put(self.componentGlyphIDs.len() as uint16 + 1)?;
+        data.put(&self.componentGlyphIDs)
+    }
+}
+
+impl Deserialize for Ligature {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let ligature_glyph: uint16 = c.de()?;
+        let component_count: uint16 = c.de()?;
+        let components: Vec<uint16> = c.de_counted(component_count as usize - 1)?;
+        Ok(Ligature {
+            ligatureGlyph: ligature_glyph,
+            componentGlyphIDs: components,
+        })
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -199,5 +164,28 @@ mod tests {
                 0, 30, 0, 22, 0, 3, 0, 40, 0, 50
             ]
         );
+    }
+
+    #[test]
+    fn test_ligature_de() {
+        let expected = LigatureSubst {
+            mapping: btreemap!(
+                vec![ 10, 20, 30] => 11,
+                vec![ 10, 20, 31] => 12,
+                vec![ 20, 30] => 21,
+                vec![ 20, 40, 50] => 22,
+            ),
+        };
+        let binary_lig = vec![
+            0, 1, // subst format
+            0, 10, // coverage offset
+            0, 2, // ligature set count
+            0, 18, // ligature set offset (0)
+            0, 40, // ligature set offset (1)
+            0, 1, 0, 2, 0, 10, 0, 20, 0, 2, 0, 6, 0, 14, 0, 11, 0, 3, 0, 20, 0, 30, 0, 12, 0, 3, 0,
+            20, 0, 31, 0, 2, 0, 6, 0, 12, 0, 21, 0, 2, 0, 30, 0, 22, 0, 3, 0, 40, 0, 50,
+        ];
+        let deserialized: LigatureSubst = otspec::de::from_bytes(&binary_lig).unwrap();
+        assert_eq!(deserialized, expected);
     }
 }
