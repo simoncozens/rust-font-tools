@@ -1,11 +1,9 @@
 use bitflags::bitflags;
 use otspec::types::*;
-use otspec::DeserializationError;
-use otspec::Deserialize;
-use otspec::Deserializer;
-use otspec::ReaderContext;
-use otspec::SerializationError;
-use otspec::Serialize;
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Serializer,
+};
 use otspec_macros::{tables, Deserialize, Serialize};
 use std::collections::BTreeMap; // For predictable ordering
 use std::fmt::Debug;
@@ -270,6 +268,18 @@ pub struct Lookup<T> {
     pub rule: T,
 }
 
+#[allow(missing_docs, non_snake_case, non_camel_case_types)]
+#[derive(Debug, Serialize)]
+pub struct gsubgposoutgoing {
+    pub majorVersion: uint16,
+    pub minorVersion: uint16,
+    pub scriptList: Offset16<ScriptList>,
+    pub featureList: Offset16<FeatureList>,
+    pub lookupList: Offset16<LookupListOutgoing>,
+}
+
+// We have to do horrible things for the Lookup table because it has
+// a heterogenous subtable vec field.
 #[derive(Debug)]
 pub struct LookupInternal {
     pub lookupType: uint16,
@@ -311,6 +321,34 @@ impl otspec::Serialize for LookupInternal {
 impl Clone for LookupInternal {
     fn clone(&self) -> Self {
         panic!("Can't clone this")
+    }
+}
+
+#[allow(missing_docs, non_snake_case, non_camel_case_types)]
+#[derive(Debug)]
+pub struct LookupListOutgoing {
+    pub(crate) lookups: VecOffset16<LookupInternal>,
+}
+
+impl Serialize for LookupListOutgoing {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
+        let obj = otspec::offsetmanager::resolve_offsets(self);
+        self.to_bytes_shallow(data)?;
+        otspec::offsetmanager::resolve_offsets_and_serialize(obj, data, false)?;
+        Ok(())
+    }
+    fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
+        data.put(self.lookups.0.len() as uint16)?;
+        self.lookups.0.to_bytes_shallow(data)?;
+        Ok(())
+    }
+    fn ot_binary_size(&self) -> usize {
+        2 + 2 * self.lookups.0.len()
+    }
+    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
+        let mut v: Vec<&dyn OffsetMarkerTrait> = Vec::new();
+        v.extend(self.lookups.offset_fields());
+        v
     }
 }
 

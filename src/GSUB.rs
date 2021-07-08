@@ -9,9 +9,8 @@ use otspec::types::*;
 use otspec::Counted;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-    Serializer,
 };
-use otspec_macros::{Deserialize, Serialize};
+use otspec_macros::Deserialize;
 use std::convert::TryInto;
 
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
@@ -25,49 +24,11 @@ pub struct gsubcoreincoming {
 }
 
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
-#[derive(Debug, Serialize)]
-pub struct gsubcoreoutgoing {
-    pub majorVersion: uint16,
-    pub minorVersion: uint16,
-    pub scriptList: Offset16<ScriptList>,
-    pub featureList: Offset16<FeatureList>,
-    pub lookupList: Offset16<SubstLookupListOutgoing>,
-}
-
-#[allow(missing_docs, non_snake_case, non_camel_case_types)]
 #[derive(Debug, Clone, Deserialize)]
 pub struct SubstLookupListIncoming {
     #[serde(offset_base)]
     #[serde(with = "Counted")]
     pub lookups: VecOffset16<Lookup<Substitution>>,
-}
-
-#[allow(missing_docs, non_snake_case, non_camel_case_types)]
-#[derive(Debug)]
-pub struct SubstLookupListOutgoing {
-    lookups: VecOffset16<LookupInternal>,
-}
-
-impl Serialize for SubstLookupListOutgoing {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        let obj = otspec::offsetmanager::resolve_offsets(self);
-        self.to_bytes_shallow(data)?;
-        otspec::offsetmanager::resolve_offsets_and_serialize(obj, data, false)?;
-        Ok(())
-    }
-    fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        data.put(self.lookups.0.len() as uint16)?;
-        self.lookups.0.to_bytes_shallow(data)?;
-        Ok(())
-    }
-    fn ot_binary_size(&self) -> usize {
-        2 + 2 * self.lookups.0.len()
-    }
-    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
-        let mut v: Vec<&dyn OffsetMarkerTrait> = Vec::new();
-        v.extend(self.lookups.offset_fields());
-        v
-    }
 }
 
 impl Lookup<Substitution> {
@@ -168,9 +129,9 @@ impl Deserialize for GSUB {
     }
 }
 
-impl From<&GSUB> for gsubcoreoutgoing {
+impl From<&GSUB> for gsubgposoutgoing {
     fn from(val: &GSUB) -> Self {
-        let substlookuplist: SubstLookupListOutgoing = SubstLookupListOutgoing {
+        let substlookuplist: LookupListOutgoing = LookupListOutgoing {
             lookups: VecOffset16(val.lookups.iter().map(|x| Offset16::to(x.into())).collect()),
         };
         let featurelist: FeatureList = FeatureList {
@@ -189,7 +150,7 @@ impl From<&GSUB> for gsubcoreoutgoing {
                 })
                 .collect(),
         };
-        gsubcoreoutgoing {
+        gsubgposoutgoing {
             majorVersion: 1,
             minorVersion: 0,
             scriptList: Offset16::to(val.scripts.clone()),
@@ -250,7 +211,7 @@ impl<'a> From<&Lookup<Substitution>> for LookupInternal {
 
 impl Serialize for GSUB {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let gsc: gsubcoreoutgoing = self.into();
+        let gsc: gsubgposoutgoing = self.into();
         gsc.to_bytes(data)
     }
 }
