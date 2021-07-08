@@ -10,7 +10,7 @@ use std::cell::RefCell;
 use std::convert::TryInto;
 
 /// Represents an offset within a table to another subtable
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Offset16<T> {
     off: RefCell<Option<u16>>,
     /// The subtable referred to by this offset. Can be `None` (e.g. `Script.defaultLangSysOffset`)
@@ -155,6 +155,19 @@ impl<T> Deref for Offset16<T> {
     type Target = Option<T>;
     fn deref(&self) -> &Self::Target {
         &self.link
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for Offset16<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("<Obj")?;
+        if let Some(off) = *self.off.borrow() {
+            f.write_fmt(format_args!("@{:}", off))?;
+        }
+        if let Some(link) = &self.link {
+            f.write_fmt(format_args!(" {:?}", link))?;
+        }
+        f.write_str(">")
     }
 }
 
