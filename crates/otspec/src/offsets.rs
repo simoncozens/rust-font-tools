@@ -32,6 +32,7 @@ pub trait OffsetMarkerTrait: Serialize + std::fmt::Debug {
     fn needs_resolving(&self) -> bool;
     fn set(&self, off: uint16);
     fn serialize_contents(&self, output: &mut Vec<u8>) -> Result<(), SerializationError>;
+    fn serialize_offset(&self, output: &mut Vec<u8>) -> Result<(), SerializationError>;
 }
 
 impl<T: Serialize + std::fmt::Debug> OffsetMarkerTrait for Offset16<T> {
@@ -77,6 +78,9 @@ impl<T: Serialize + std::fmt::Debug> OffsetMarkerTrait for Offset16<T> {
             l.to_bytes_shallow(output)?
         }
         Ok(())
+    }
+    fn serialize_offset(&self, output: &mut Vec<u8>) -> Result<(), SerializationError> {
+        self.off.borrow().unwrap().to_bytes(output)
     }
 }
 
@@ -253,6 +257,24 @@ where
                     .ok_or_else(|| DeserializationError("Bad offset in offset array".to_string()))
             })
             .collect()
+    }
+}
+
+impl Serialize for Box<dyn OffsetMarkerTrait> {
+    fn to_bytes(&self, output: &mut Vec<u8>) -> Result<(), SerializationError> {
+        self.as_ref().to_bytes(output)
+    }
+
+    fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        self.as_ref().serialize_offset(data)
+    }
+
+    fn ot_binary_size(&self) -> usize {
+        0 // ?
+    }
+
+    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
+        vec![]
     }
 }
 #[cfg(test)]
