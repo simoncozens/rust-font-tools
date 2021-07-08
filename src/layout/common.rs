@@ -259,6 +259,61 @@ impl Serialize for ScriptList {
     }
 }
 
+/// A general lookup rule, of whatever type
+#[derive(Debug, PartialEq, Clone)]
+pub struct Lookup<T> {
+    /// Lookup flags
+    pub flags: LookupFlags,
+    /// The mark filtering set index in the `GDEF` table.
+    pub mark_filtering_set: Option<uint16>,
+    /// The concrete rule (set of subtables)
+    pub rule: T,
+}
+
+#[derive(Debug)]
+pub struct LookupInternal {
+    pub lookupType: uint16,
+    pub flags: LookupFlags,
+    pub subtables: Vec<Box<dyn OffsetMarkerTrait>>,
+    pub mark_filtering_set: Option<uint16>,
+}
+
+impl otspec::Serialize for LookupInternal {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
+        let obj = otspec::offsetmanager::resolve_offsets(self);
+        self.to_bytes_shallow(data)?;
+        otspec::offsetmanager::resolve_offsets_and_serialize(obj, data, false)?;
+        Ok(())
+    }
+    fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
+        let obj = self;
+        obj.lookupType.to_bytes(data)?;
+        obj.flags.to_bytes(data)?;
+        (obj.subtables.len() as uint16).to_bytes(data)?;
+        for st in &obj.subtables {
+            st.to_bytes_shallow(data)?;
+        }
+        obj.mark_filtering_set.to_bytes(data)?;
+        Ok(())
+    }
+    fn ot_binary_size(&self) -> usize {
+        self.lookupType.ot_binary_size()
+            + self.flags.ot_binary_size()
+            + 2
+            + 2 * self.subtables.len()
+            + self.mark_filtering_set.ot_binary_size()
+    }
+    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
+        self.subtables.iter().map(|x| x.as_ref()).collect()
+    }
+}
+
+impl Clone for LookupInternal {
+    fn clone(&self) -> Self {
+        panic!("Can't clone this")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

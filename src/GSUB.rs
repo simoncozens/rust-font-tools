@@ -1,17 +1,17 @@
+use crate::deserialize_lookup_match;
 use crate::layout::common::*;
 use crate::layout::gsub1::SingleSubst;
 use crate::layout::gsub1::SingleSubstInternal;
 use crate::layout::gsub2::MultipleSubst;
 use crate::layout::gsub3::AlternateSubst;
 use crate::layout::gsub4::LigatureSubst;
-
 use otspec::types::*;
 use otspec::Counted;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
     Serializer,
 };
-use otspec_macros::{tables, Deserialize, Serialize};
+use otspec_macros::{Deserialize, Serialize};
 use std::convert::TryInto;
 
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
@@ -39,7 +39,7 @@ pub struct gsubcoreoutgoing {
 pub struct SubstLookupListIncoming {
     #[serde(offset_base)]
     #[serde(with = "Counted")]
-    pub lookups: VecOffset16<SubstLookup>,
+    pub lookups: VecOffset16<Lookup<Substitution>>,
 }
 
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
@@ -48,8 +48,7 @@ pub struct SubstLookupListOutgoing {
     lookups: VecOffset16<LookupInternal>,
 }
 
-#[automatically_derived]
-impl otspec::Serialize for SubstLookupListOutgoing {
+impl Serialize for SubstLookupListOutgoing {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
         let obj = otspec::offsetmanager::resolve_offsets(self);
         self.to_bytes_shallow(data)?;
@@ -57,7 +56,6 @@ impl otspec::Serialize for SubstLookupListOutgoing {
         Ok(())
     }
     fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        let obj = self;
         data.put(self.lookups.0.len() as uint16)?;
         self.lookups.0.to_bytes_shallow(data)?;
         Ok(())
@@ -72,64 +70,9 @@ impl otspec::Serialize for SubstLookupListOutgoing {
     }
 }
 
-/// A general substitution lookup rule, of whatever type
-#[derive(Debug, PartialEq, Clone)]
-pub struct SubstLookup {
-    /// Lookup flags
-    pub flags: LookupFlags,
-    /// The mark filtering set index in the `GDEF` table.
-    pub mark_filtering_set: Option<uint16>,
-    /// The concrete substitution rule.
-    pub substitution: Substitution,
-}
-
-#[derive(Debug)]
-struct LookupInternal {
-    pub lookupType: uint16,
-    pub flags: LookupFlags,
-    pub subtables: Vec<Box<dyn OffsetMarkerTrait>>,
-    pub mark_filtering_set: Option<uint16>,
-}
-
-impl otspec::Serialize for LookupInternal {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        let obj = otspec::offsetmanager::resolve_offsets(self);
-        self.to_bytes_shallow(data)?;
-        otspec::offsetmanager::resolve_offsets_and_serialize(obj, data, false)?;
-        Ok(())
-    }
-    fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        let obj = self;
-        obj.lookupType.to_bytes(data)?;
-        obj.flags.to_bytes(data)?;
-        (obj.subtables.len() as uint16).to_bytes(data)?;
-        for st in &obj.subtables {
-            st.to_bytes_shallow(data)?;
-        }
-        obj.mark_filtering_set.to_bytes(data)?;
-        Ok(())
-    }
-    fn ot_binary_size(&self) -> usize {
-        self.lookupType.ot_binary_size()
-            + self.flags.ot_binary_size()
-            + 2
-            + 2 * self.subtables.len()
-            + self.mark_filtering_set.ot_binary_size()
-    }
-    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
-        self.subtables.iter().map(|x| x.as_ref()).collect()
-    }
-}
-
-impl Clone for LookupInternal {
-    fn clone(&self) -> Self {
-        panic!("Can't clone this")
-    }
-}
-
-impl SubstLookup {
+impl Lookup<Substitution> {
     fn lookup_type(&self) -> u16 {
-        match self.substitution {
+        match self.rule {
             Substitution::Single(_) => 1,
             Substitution::Multiple(_) => 2,
             Substitution::Alternate(_) => 3,
@@ -169,7 +112,7 @@ pub enum Substitution {
 /// The Glyph Substitution table
 pub struct GSUB {
     /// A list of substitution lookups
-    pub lookups: Vec<SubstLookup>,
+    pub lookups: Vec<Lookup<Substitution>>,
     /// A mapping between script tags and `Script` tables.
     pub scripts: ScriptList,
     /// The association between feature tags and the list of indices into the
@@ -187,7 +130,7 @@ impl Deserialize for GSUB {
             .scriptList
             .link
             .ok_or_else(|| DeserializationError("Bad script list in GSUB table".to_string()))?;
-        let lookups: Vec<SubstLookup> = core
+        let lookups: Vec<Lookup<Substitution>> = core
             .lookupList
             .link
             .ok_or_else(|| DeserializationError("Bad lookup list in GSUB table".to_string()))?
@@ -256,44 +199,32 @@ impl From<&GSUB> for gsubcoreoutgoing {
     }
 }
 
-impl Deserialize for SubstLookup {
+impl Deserialize for Lookup<Substitution> {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         c.push();
         let lookup_type: uint16 = c.de()?;
         let lookup_flag: LookupFlags = c.de()?;
-        let substitution = match lookup_type {
-            1 => {
-                let stuff: Counted<Offset16<SingleSubst>> = c.de()?;
-                Substitution::Single(stuff.try_into()?)
-            }
-            2 => {
-                let stuff: Counted<Offset16<MultipleSubst>> = c.de()?;
-                Substitution::Multiple(stuff.try_into()?)
-            }
-            3 => {
-                let stuff: Counted<Offset16<AlternateSubst>> = c.de()?;
-                Substitution::Alternate(stuff.try_into()?)
-            }
-            4 => {
-                let stuff: Counted<Offset16<LigatureSubst>> = c.de()?;
-                Substitution::Ligature(stuff.try_into()?)
-            }
-            _ => {
-                panic!("Bad lookup type: {}", lookup_type)
-            }
-        };
+        let rule = deserialize_lookup_match!(
+            lookup_type,
+            c,
+            (1, SingleSubst, Substitution::Single),
+            (2, MultipleSubst, Substitution::Multiple),
+            (3, AlternateSubst, Substitution::Alternate),
+            (4, LigatureSubst, Substitution::Ligature),
+        );
+
         c.pop();
-        Ok(SubstLookup {
+        Ok(Lookup {
             flags: lookup_flag,
             mark_filtering_set: None,
-            substitution,
+            rule,
         })
     }
 }
 
-impl<'a> From<&SubstLookup> for LookupInternal {
-    fn from(val: &SubstLookup) -> Self {
-        let subtables: Vec<Box<dyn OffsetMarkerTrait>> = match &val.substitution.clone() {
+impl<'a> From<&Lookup<Substitution>> for LookupInternal {
+    fn from(val: &Lookup<Substitution>) -> Self {
+        let subtables: Vec<Box<dyn OffsetMarkerTrait>> = match &val.rule.clone() {
             Substitution::Single(subs) => {
                 let mut v: Vec<Box<dyn OffsetMarkerTrait>> = vec![];
                 for s in subs {
@@ -327,8 +258,6 @@ impl Serialize for GSUB {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Offset;
-    use otspec::offsetmanager::OffsetManager;
     use pretty_assertions::assert_eq;
     use std::collections::BTreeMap;
     use std::iter::FromIterator;
@@ -378,38 +307,38 @@ mod tests {
         ];
         let expected = GSUB {
             lookups: vec![
-                SubstLookup {
+                Lookup {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
-                    substitution: Substitution::Single(vec![SingleSubst {
+                    rule: Substitution::Single(vec![SingleSubst {
                         mapping: btreemap!(66 => 67, 68 => 69),
                     }]),
                 },
-                SubstLookup {
+                Lookup {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
-                    substitution: Substitution::Single(vec![SingleSubst {
+                    rule: Substitution::Single(vec![SingleSubst {
                         mapping: btreemap!(34 => 66, 35 => 66, 36  => 66),
                     }]),
                 },
-                SubstLookup {
+                Lookup {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
-                    substitution: Substitution::Multiple(vec![MultipleSubst {
+                    rule: Substitution::Multiple(vec![MultipleSubst {
                         mapping: btreemap!(77 => vec![71,77], 74 => vec![71,74]),
                     }]),
                 },
-                SubstLookup {
+                Lookup {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
-                    substitution: Substitution::Alternate(vec![AlternateSubst {
+                    rule: Substitution::Alternate(vec![AlternateSubst {
                         mapping: btreemap!(66 => vec![67,68,69]),
                     }]),
                 },
-                SubstLookup {
+                Lookup {
                     flags: LookupFlags::empty(),
                     mark_filtering_set: None,
-                    substitution: Substitution::Ligature(vec![LigatureSubst {
+                    rule: Substitution::Ligature(vec![LigatureSubst {
                         mapping: btreemap!(vec![66,67] => 68),
                     }]),
                 },
@@ -444,10 +373,10 @@ mod tests {
     #[test]
     fn test_very_simple_gsub_ser() {
         let gsub = GSUB {
-            lookups: vec![SubstLookup {
+            lookups: vec![Lookup {
                 flags: LookupFlags::empty(),
                 mark_filtering_set: None,
-                substitution: Substitution::Single(vec![SingleSubst {
+                rule: Substitution::Single(vec![SingleSubst {
                     mapping: btreemap!(386 => 459),
                 }]),
             }],

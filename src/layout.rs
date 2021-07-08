@@ -12,3 +12,4 @@ pub mod gsub2;
 pub mod gsub3;
 /// GSUB4 ligature substitution
 pub mod gsub4;
+pub(crate) mod macros;
