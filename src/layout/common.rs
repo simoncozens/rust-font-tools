@@ -88,7 +88,7 @@ impl Debug for ScriptRecord {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 /// Feature parameter data.
 ///
 /// Certain OpenType features may have various ancillary data attached to them.
