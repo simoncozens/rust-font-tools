@@ -81,8 +81,8 @@ impl Serialize for PairPosInternal {
     }
 }
 
-type PairPositioningMap = BTreeMap<(uint16, uint16), (ValueRecord, ValueRecord)>;
-type SplitPairPositioningMap = BTreeMap<uint16, BTreeMap<uint16, (ValueRecord, ValueRecord)>>;
+pub type PairPositioningMap = BTreeMap<(uint16, uint16), (ValueRecord, ValueRecord)>;
+pub type SplitPairPositioningMap = BTreeMap<uint16, BTreeMap<uint16, (ValueRecord, ValueRecord)>>;
 
 #[derive(Debug, PartialEq, Clone)]
 /// A pair positioning subtable.

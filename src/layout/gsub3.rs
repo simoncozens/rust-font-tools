@@ -1,5 +1,5 @@
 use crate::layout::coverage::Coverage;
-use crate::layout::gsub2::MultipleSubst;
+
 use crate::layout::gsub2::MultipleSubstFormat1;
 use crate::layout::gsub2::Sequence;
 use otspec::types::*;
@@ -9,7 +9,7 @@ use otspec::Deserializer;
 use otspec::ReaderContext;
 use otspec::SerializationError;
 use otspec::Serialize;
-use otspec_macros::tables;
+
 use std::collections::BTreeMap;
 
 #[derive(Debug, PartialEq, Clone)]
