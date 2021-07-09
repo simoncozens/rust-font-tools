@@ -8,7 +8,12 @@ use fonttools::gvar::GlyphVariationData;
 use fonttools::hmtx;
 use kurbo::{Affine, Point};
 use norad::{Component, Contour, ContourPoint, Glyph, Layer};
+use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelIterator;
 use std::collections::{BTreeMap, HashSet};
+use unzip_n::unzip_n;
+
+unzip_n!(3);
 
 fn decomposed_components(glyph: &Glyph, glyphset: &Layer) -> Vec<Contour> {
     let mut contours = Vec::new();
@@ -113,44 +118,52 @@ pub fn build_font(input: &babelfont::Font, include: Option<HashSet<String>>) -> 
 
     let names = get_glyph_names_and_mapping(&input, &mut mapping, &mut name_to_id, &include);
 
-    let mut glyphs: Vec<glyf::Glyph> = vec![];
-    let mut metrics: Vec<hmtx::Metric> = vec![];
-    let mut variations: Vec<Option<GlyphVariationData>> = vec![];
     let variation_model = input
         .variation_model()
         .expect("Couldn't get variation model");
     let default_master_ix = input
         .default_master_index()
         .expect("Couldn't find default master");
-    for glif in input.glyphs.iter() {
-        if include.is_some() && !include.as_ref().unwrap().contains(&glif.name.to_string()) {
-            continue;
-        }
-        // Find other glyphs in designspace
-        let mut glif_variations = vec![];
-        for master in &input.masters {
-            let layer = input.master_layer_for(&glif.name, master);
-            glif_variations.push(layer);
-        }
-        let (glyph, variation) = glifs_to_glyph(
-            default_master_ix,
-            &name_to_id,
-            &glif_variations,
-            Some(&variation_model),
-            &glif.name,
-        );
-        let lsb = 0; // glyph.xMin;
-        let advance_width = input
-            .master_layer_for(&glif.name, input.default_master().unwrap())
-            .unwrap()
-            .width as u16;
-        glyphs.push(glyph);
-        metrics.push(hmtx::Metric {
-            advanceWidth: advance_width,
-            lsb,
-        });
-        variations.push(variation);
-    }
+    let result: Vec<(glyf::Glyph, hmtx::Metric, Option<GlyphVariationData>)> = input
+        .glyphs
+        .par_iter()
+        .map(|glif| {
+            if include.is_some() && !include.as_ref().unwrap().contains(&glif.name.to_string()) {
+                return None;
+            }
+            // Find other glyphs in designspace
+            let mut glif_variations = vec![];
+            for master in &input.masters {
+                let layer = input.master_layer_for(&glif.name, master);
+                glif_variations.push(layer);
+            }
+            let (glyph, variation) = glifs_to_glyph(
+                default_master_ix,
+                &name_to_id,
+                &glif_variations,
+                Some(&variation_model),
+                &glif.name,
+            );
+            let lsb = 0; // glyph.xMin;
+            let advance_width = input
+                .master_layer_for(&glif.name, input.default_master().unwrap())
+                .unwrap()
+                .width as u16;
+            Some((
+                glyph,
+                hmtx::Metric {
+                    advanceWidth: advance_width,
+                    lsb,
+                },
+                variation,
+            ))
+        })
+        .filter_map(|e| e)
+        .collect();
+    let (glyphs, mut metrics, variations) = result.into_iter().unzip_n_vec();
+    // let mut glyphs: Vec<glyf::Glyph> = vec![];
+    // let mut metrics: Vec<hmtx::Metric> = vec![];
+    // let mut variations: Vec<Option<GlyphVariationData>> = vec![];
 
     let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
     let mut font = fill_tables(&input, glyf_table, metrics, names, mapping);
