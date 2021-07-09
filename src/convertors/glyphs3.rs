@@ -42,7 +42,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
 
     let custom_parameters = get_custom_parameters(&plist);
     load_axes(&mut font, &plist);
-    // load_kern_groups(&mut font, &plist);
+    font.kern_groups = load_kern_groups(&plist);
     load_masters(&mut font, &plist)?;
     let default_master_id = custom_parameters
         .get(&"Variable Font Origin")
@@ -83,6 +83,34 @@ fn get_custom_parameters(plist: &PlistDictionary) -> HashMap<&str, &Plist> {
     }
 
     cp
+}
+
+fn load_kern_groups(plist: &PlistDictionary) -> HashMap<String, Vec<String>> {
+    let mut groups = HashMap::new();
+    if let Some(glyphs) = plist.get("glyphs").and_then(|a| a.array()) {
+        for g in glyphs {
+            if let Some(g) = g.dict() {
+                let glyphname = g.get("glyphname").and_then(|s| s.string()).unwrap();
+                let l_class = g
+                    .get("leftKerningGroup")
+                    .and_then(|s| s.string())
+                    .unwrap_or(glyphname);
+                let r_class = g
+                    .get("rightKerningGroup")
+                    .and_then(|s| s.string())
+                    .unwrap_or(glyphname);
+                groups
+                    .entry("MMK_L_".to_owned() + l_class)
+                    .or_insert_with(Vec::new)
+                    .push(glyphname.clone());
+                groups
+                    .entry("MMK_R_".to_owned() + r_class)
+                    .or_insert_with(Vec::new)
+                    .push(glyphname.clone());
+            }
+        }
+    }
+    groups
 }
 
 fn load_axes(font: &mut Font, plist: &PlistDictionary) {
@@ -145,8 +173,13 @@ fn load_masters(font: &mut Font, plist: &PlistDictionary) -> Result<(), Babelfon
             }
 
             load_metrics(&mut new_master, master, metrics);
-            if let Some(kerning) = master.get("kerningLTR").and_then(|a| a.dict()) {
-                // load_kerning(new_master, kerning);
+            if let Some(kerning) = plist
+                .get("kerningLTR")
+                .and_then(|a| a.dict())
+                .and_then(|d| d.get(id))
+                .and_then(|a| a.dict())
+            {
+                load_kerning(&mut new_master, kerning);
             }
             let custom_parameters = get_custom_parameters(master);
             load_custom_parameters(&mut new_master.custom_ot_values, custom_parameters);
@@ -178,6 +211,18 @@ fn load_metrics(new_master: &mut Master, master: &PlistDictionary, metrics: Opti
             }
         }
     }
+}
+
+fn load_kerning(new_master: &mut Master, kerning: &PlistDictionary) {
+    let mut out_kerning = HashMap::new();
+    for (left, thing) in kerning.iter() {
+        if let Some(right_dict) = thing.dict() {
+            for (right, value) in right_dict.iter() {
+                out_kerning.insert((left.clone(), right.clone()), i32::from(value) as i16);
+            }
+        }
+    }
+    new_master.kerning = out_kerning;
 }
 
 fn tuple_to_position(p: &[Plist]) -> Position {

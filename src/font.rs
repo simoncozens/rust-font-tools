@@ -30,6 +30,8 @@ pub struct Font {
     pub names: Names,
     pub custom_ot_values: Vec<OTValue>,
     // features: ????
+    // The below is temporary
+    pub kern_groups: HashMap<String, Vec<String>>,
 }
 impl Default for Font {
     fn default() -> Self {
@@ -50,6 +52,7 @@ impl Font {
             date: chrono::Local::now(),
             names: Names::new(),
             custom_ot_values: vec![],
+            kern_groups: HashMap::new(),
         }
     }
 
