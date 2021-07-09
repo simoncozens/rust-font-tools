@@ -12,6 +12,8 @@ use crate::maxp::maxp;
 use crate::name::name;
 use crate::os2::os2;
 use crate::post::post;
+use crate::GPOS::GPOS;
+use crate::GSUB::GSUB;
 use otspec::types::*;
 use otspec::ReaderContext;
 use otspec::{
@@ -37,6 +39,10 @@ pub enum Table {
     Fvar(fvar),
     /// Contains a grid-fitting and scan-conversion procedure table.
     Gasp(gasp),
+    /// Contains a glyph positioning table.
+    GPOS(GPOS),
+    /// Contains a glyph substitution table.
+    GSUB(GSUB),
     /// Contains a glyph data table.
     Glyf(glyf::glyf),
     /// Contains a glyph variations table.
@@ -81,6 +87,8 @@ impl Table {
     table_unchecked!(fvar_unchecked, Fvar, fvar);
     table_unchecked!(gasp_unchecked, Gasp, gasp);
     table_unchecked!(glyf_unchecked, Glyf, glyf::glyf);
+    table_unchecked!(gsub_unchecked, GSUB, GSUB);
+    table_unchecked!(gpos_unchecked, GPOS, GPOS);
     table_unchecked!(gvar_unchecked, Gvar, gvar::gvar);
     table_unchecked!(head_unchecked, Head, head);
     table_unchecked!(hhea_unchecked, Hhea, hhea);
@@ -100,6 +108,8 @@ impl Serialize for Table {
             Table::Cmap(expr) => expr.to_bytes(data),
             Table::Fvar(expr) => expr.to_bytes(data),
             Table::Gasp(expr) => expr.to_bytes(data),
+            Table::GSUB(expr) => expr.to_bytes(data),
+            Table::GPOS(expr) => expr.to_bytes(data),
             Table::Gvar(_) => unimplemented!(),
             Table::Head(expr) => expr.to_bytes(data),
             Table::Hhea(expr) => expr.to_bytes(data),
@@ -225,6 +235,8 @@ impl Font {
             b"hhea" => Ok(Table::Hhea(otspec::de::from_bytes(binary)?)),
             b"fvar" => Ok(Table::Fvar(otspec::de::from_bytes(binary)?)),
             b"gasp" => Ok(Table::Gasp(otspec::de::from_bytes(binary)?)),
+            b"GSUB" => Ok(Table::GSUB(otspec::de::from_bytes(binary)?)),
+            b"GPOS" => Ok(Table::GPOS(otspec::de::from_bytes(binary)?)),
             b"maxp" => Ok(Table::Maxp(otspec::de::from_bytes(binary)?)),
             b"name" => Ok(Table::Name(otspec::de::from_bytes(binary)?)),
             b"post" => Ok(Table::Post(otspec::de::from_bytes(binary)?)),
