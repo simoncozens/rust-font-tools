@@ -169,7 +169,7 @@ impl Font {
         let mut axes: Vec<VariationAxisRecord> = vec![];
         let mut maps: Vec<SegmentMap> = vec![];
 
-        let mut ix = 255;
+        let mut ix = 256;
 
         for axis in self.axes.iter() {
             axes.push(axis.to_variation_axis_record(ix as u16)?);
