@@ -230,7 +230,7 @@ fn cubics_to_quadratics(cubics: Vec<PathSeg>, glif_name: &str) -> Vec<Vec<PathEl
                         .collect(),
                 )
             } else {
-                log::error!("Incompatible contours in glyph {:?}", glif_name);
+                // log::error!("Incompatible contours in glyph {:?}", glif_name);
                 return itertools::repeat_n(vec![], cubics.len()).collect();
             }
         }
@@ -241,10 +241,10 @@ fn cubics_to_quadratics(cubics: Vec<PathSeg>, glif_name: &str) -> Vec<Vec<PathEl
         }
         error *= 1.5; // Exponential backoff
         if error > 20.0 && !warned {
-            log::warn!(
-                "{:} is proving difficult to interpolate - consider redesigning?",
-                glif_name
-            );
+            // log::warn!(
+            //     "{:} is proving difficult to interpolate - consider redesigning?",
+            //     glif_name
+            // );
             warned = true;
         }
     }
