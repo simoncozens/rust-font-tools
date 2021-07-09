@@ -6,3 +6,19 @@ pub fn int_list_to_num(int_list: &[u8]) -> u32 {
     }
     flags
 }
+
+/// Tests if all elements of an iterator have the same content
+pub fn is_all_the_same<T, U>(mut iter: T) -> bool
+where
+    T: Iterator<Item = U>,
+    U: PartialEq,
+{
+    if let Some(first) = iter.next() {
+        for n in iter {
+            if first != n {
+                return false;
+            }
+        }
+    }
+    true
+}

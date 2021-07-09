@@ -1,31 +1,34 @@
 use crate::layout::coverage::Coverage;
-use crate::layout::valuerecord::{ValueRecord, ValueRecords};
+use crate::layout::valuerecord::{coerce_to_same_format, ValueRecord, ValueRecordFlags};
+use crate::utils::is_all_the_same;
 use otspec::types::*;
-use otspec::DeserializationError;
-use otspec::Deserialize;
-use otspec::Deserializer;
-use otspec::ReaderContext;
-use otspec::SerializationError;
 use otspec::Serialize;
-use otspec::Serializer;
 
-use otspec_macros::tables;
+use otspec::{DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError};
+
+use otspec_macros::Serialize;
 use std::collections::BTreeMap;
 
-tables!(
-  SinglePosFormat1 {
-    [offset_base]
-    uint16 posFormat
-    Offset16(Coverage) coverage // Offset to Coverage table, from beginning of positioning subtable
-    ValueRecord valueRecord  // Positioning value (includes type)
-  }
-  SinglePosFormat2 {
-    [offset_base]
-    uint16 posFormat
-    Offset16(Coverage)  coverage  // Offset to Coverage table, from beginning of positioning subtable
-    ValueRecords valueRecords // Positioning values (includes type)
-  }
-);
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[allow(missing_docs, non_snake_case, non_camel_case_types)]
+pub struct SinglePosFormat1 {
+    #[serde(offset_base)]
+    pub posFormat: uint16,
+    pub coverage: Offset16<Coverage>,
+    pub valueFormat: ValueRecordFlags,
+    pub valueRecord: ValueRecord,
+}
+
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[allow(missing_docs, non_snake_case, non_camel_case_types)]
+pub struct SinglePosFormat2 {
+    #[serde(offset_base)]
+    pub posFormat: uint16,
+    pub coverage: Offset16<Coverage>,
+    pub valueFormat: ValueRecordFlags,
+    #[serde(with = "Counted")]
+    pub valueRecords: Vec<ValueRecord>,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SinglePosInternal {
@@ -49,42 +52,30 @@ pub struct SinglePos {
     pub mapping: BTreeMap<uint16, ValueRecord>,
 }
 
-impl SinglePos {
-    fn best_format(&self) -> uint16 {
-        let vals: Vec<ValueRecord> = self.mapping.values().copied().collect();
-        if vals.windows(2).all(|w| w[0] == w[1]) {
-            1
-        } else {
-            2
-        }
-    }
-}
-
 impl Deserialize for SinglePos {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let mut mapping = BTreeMap::new();
-        let fmt = c.peek(2)?;
-        match fmt {
-            [0x00, 0x01] => {
-                let pos: SinglePosFormat1 = c.de()?;
-                for glyph_id in &pos.coverage.as_ref().unwrap().glyphs {
-                    mapping.insert(*glyph_id, pos.valueRecord);
+        let format: uint16 = c.de()?;
+        let coverage: Offset16<Coverage> = c.de()?;
+        let value_format: ValueRecordFlags = c.de()?;
+        match format {
+            1 => {
+                let mut vr: ValueRecord = ValueRecord::from_bytes(c, value_format)?;
+                for glyph_id in &coverage.as_ref().unwrap().glyphs {
+                    vr.simplify();
+                    mapping.insert(*glyph_id, vr);
                 }
             }
-            [0x00, 0x02] => {
-                let pos: SinglePosFormat2 = c.de()?;
-                for (glyph_id, vr) in pos
-                    .coverage
-                    .as_ref()
-                    .unwrap()
-                    .glyphs
-                    .iter()
-                    .zip(pos.valueRecords.0.iter())
-                {
-                    mapping.insert(*glyph_id, *vr);
+            2 => {
+                // Not even used because there's one for each glyph in coverage
+                let _count: uint16 = c.de()?;
+                for glyph_id in coverage.as_ref().unwrap().glyphs.iter() {
+                    let mut vr: ValueRecord = ValueRecord::from_bytes(c, value_format)?;
+                    vr.simplify();
+                    mapping.insert(*glyph_id, vr);
                 }
             }
-            _ => panic!("Bad single pos format {:?}", fmt),
+            _ => panic!("Bad single pos format {:?}", format),
         }
         Ok(SinglePos { mapping })
     }
@@ -92,23 +83,29 @@ impl Deserialize for SinglePos {
 
 impl From<&SinglePos> for SinglePosInternal {
     fn from(val: &SinglePos) -> Self {
+        let mut mapping = val.mapping.clone();
+        for (_, val) in mapping.iter_mut() {
+            (*val).simplify()
+        }
         let coverage = Coverage {
-            glyphs: val.mapping.keys().copied().collect(),
+            glyphs: mapping.keys().copied().collect(),
         };
-        let format = val.best_format();
-        if format == 1 {
-            let vr = val.mapping.values().next().unwrap();
+        if is_all_the_same(mapping.values()) {
+            let vr = mapping.values().next().unwrap();
             SinglePosInternal::Format1(SinglePosFormat1 {
                 posFormat: 1,
                 coverage: Offset16::to(coverage),
+                valueFormat: vr.flags(),
                 valueRecord: *vr,
             })
         } else {
-            let vrs = val.mapping.values();
+            let vrs: Vec<ValueRecord> = mapping.values().copied().collect();
+            let vrs = coerce_to_same_format(vrs);
             SinglePosInternal::Format2(SinglePosFormat2 {
                 posFormat: 2,
                 coverage: Offset16::to(coverage),
-                valueRecords: ValueRecords(vrs.copied().collect()),
+                valueFormat: vrs[0].flags(),
+                valueRecords: vrs,
             })
         }
     }
@@ -124,7 +121,7 @@ impl Serialize for SinglePos {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use otspec_macros::Serialize;
+
     use std::iter::FromIterator;
 
     macro_rules! btreemap {
@@ -142,12 +139,82 @@ mod tests {
     }
 
     #[test]
-    fn test_single_pos_1_serde() {
+    fn test_single_pos_1_1_serde() {
         let pos = SinglePos {
             mapping: btreemap!(66 => valuerecord!(xAdvance=>10)),
         };
         let binary_pos = vec![
             0x00, 0x01, 0x00, 0x08, 0x00, 0x04, 0x00, 0x0a, 0x00, 0x01, 0x00, 0x01, 0x00, 66,
+        ];
+        let serialized = otspec::ser::to_bytes(&pos).unwrap();
+        assert_eq!(serialized, binary_pos);
+        let de: SinglePos = otspec::de::from_bytes(&binary_pos).unwrap();
+        assert_eq!(de, pos);
+    }
+
+    #[test]
+    fn test_single_pos_1_1_serde2() {
+        let pos = SinglePos {
+            mapping: btreemap!(66 => valuerecord!(xAdvance=>10),
+                67 => valuerecord!(xAdvance=>10, yPlacement => 0),
+            ),
+        };
+        let binary_pos = vec![
+            0x00, 0x01, 0x00, 0x08, 0x00, 0x04, 0x00, 0x0a, 0x00, 0x01, 0x00, 0x02, 0x00, 66, 0x00,
+            67,
+        ];
+        let serialized = otspec::ser::to_bytes(&pos).unwrap();
+        assert_eq!(serialized, binary_pos);
+        let de: SinglePos = otspec::de::from_bytes(&binary_pos).unwrap();
+        assert_eq!(
+            de,
+            SinglePos {
+                mapping: btreemap!(66 => valuerecord!(xAdvance=>10),
+                    67 => valuerecord!(xAdvance=>10), // This gets simplified
+                ),
+            }
+        );
+    }
+
+    #[test]
+    fn test_single_pos_1_2_serde() {
+        let pos = SinglePos {
+            mapping: btreemap!(66 => valuerecord!(xAdvance=>10),
+                67 => valuerecord!(xAdvance=>-20),
+            ),
+        };
+        let binary_pos = vec![
+            0x00, 0x02, // format
+            0x00, 0x0c, // offset to coverage
+            0x00, 0x04, // coverage format
+            0x00, 0x02, // count of VRs
+            0x00, 0x0a, // VR 1
+            0xff, 0xec, // VR 2
+            0x00, 0x01, 0x00, 0x02, 0x00, 66, 0x00, 67,
+        ];
+        let serialized = otspec::ser::to_bytes(&pos).unwrap();
+        assert_eq!(serialized, binary_pos);
+        let de: SinglePos = otspec::de::from_bytes(&binary_pos).unwrap();
+        assert_eq!(de, pos);
+    }
+
+    #[test]
+    fn test_single_pos_1_2_serde2() {
+        let pos = SinglePos {
+            mapping: btreemap!(66 => valuerecord!(xAdvance=>10),
+                67 => valuerecord!(xPlacement=>-20),
+            ),
+        };
+        let binary_pos = vec![
+            0x00, 0x02, // format
+            0x00, 0x10, // offset to coverage
+            0x00, 0x05, // coverage format (xAdvance|xPlacement)
+            0x00, 0x02, // count of VRs
+            0x00, 0x00, // VR 1 xPlacement
+            0x00, 0x0a, // VR 1 xAdvance
+            0xff, 0xec, // VR 2 xPlacement
+            0x00, 0x00, // VR 2 xAdvance
+            0x00, 0x01, 0x00, 0x02, 0x00, 66, 0x00, 67,
         ];
         let serialized = otspec::ser::to_bytes(&pos).unwrap();
         assert_eq!(serialized, binary_pos);

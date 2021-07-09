@@ -1,11 +1,17 @@
 use bitflags::bitflags;
-use otspec::{types::*, Deserialize, Serialize};
+use otspec::types::*;
 use otspec::{Deserializer, ReaderContext};
 use otspec_macros::{Deserialize, Serialize};
 
-// These things are serialized/deserialized weird, so we do it by hand
+use crate::utils::is_all_the_same;
 
-#[derive(Debug, Clone, PartialEq, Copy)]
+// These things have to be deserialized by hand because of annoying
+// data dependencies. (The flags required to deserialize them correctly
+// are stored outside the structure, how "clever" is that.)
+// Serialization is done automatically, but it is the owner's
+// responsibility to set the Options to reflect the flags they
+// have serialized elsewhere.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Default)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct ValueRecord {
     pub xPlacement: Option<int16>,
@@ -45,44 +51,29 @@ bitflags! {
 
 impl ValueRecord {
     pub fn new() -> ValueRecord {
-        ValueRecord {
-            xPlacement: None,
-            yPlacement: None,
-            xAdvance: None,
-            yAdvance: None,
-        }
+        ValueRecord::default()
     }
-    fn flags(&self) -> ValueRecordFlags {
+    pub fn flags(&self) -> ValueRecordFlags {
         let mut f = ValueRecordFlags::empty();
         if self.xPlacement.is_some() {
-            f = f | ValueRecordFlags::X_PLACEMENT
+            f |= ValueRecordFlags::X_PLACEMENT
         }
         if self.yPlacement.is_some() {
-            f = f | ValueRecordFlags::Y_PLACEMENT
+            f |= ValueRecordFlags::Y_PLACEMENT
         }
         if self.xAdvance.is_some() {
-            f = f | ValueRecordFlags::X_ADVANCE
+            f |= ValueRecordFlags::X_ADVANCE
         }
         if self.yAdvance.is_some() {
-            f = f | ValueRecordFlags::Y_ADVANCE
+            f |= ValueRecordFlags::Y_ADVANCE
         }
         f
     }
-}
 
-impl Serialize for ValueRecord {
-    fn to_bytes(&self, output: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        self.flags().to_bytes(output)?;
-        self.xPlacement.to_bytes(output)?;
-        self.yPlacement.to_bytes(output)?;
-        self.xAdvance.to_bytes(output)?;
-        self.yAdvance.to_bytes(output)
-    }
-}
-
-impl Deserialize for ValueRecord {
-    fn from_bytes(c: &mut ReaderContext) -> Result<Self, otspec::DeserializationError> {
-        let flags: ValueRecordFlags = c.de()?;
+    pub fn from_bytes(
+        c: &mut ReaderContext,
+        flags: ValueRecordFlags,
+    ) -> Result<Self, otspec::DeserializationError> {
         let mut vr = ValueRecord::new();
         if flags.contains(ValueRecordFlags::X_PLACEMENT) {
             vr.xPlacement = Some(c.de()?);
@@ -99,48 +90,61 @@ impl Deserialize for ValueRecord {
 
         Ok(vr)
     }
-}
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct ValueRecords(pub Vec<ValueRecord>);
+    // Only goes "up", never "down"!
+    fn coerce_to_format(&mut self, flags: ValueRecordFlags) {
+        if flags.contains(ValueRecordFlags::X_PLACEMENT) && self.xPlacement.is_none() {
+            self.xPlacement = Some(0);
+        }
+        if flags.contains(ValueRecordFlags::Y_PLACEMENT) && self.yPlacement.is_none() {
+            self.yPlacement = Some(0);
+        }
+        if flags.contains(ValueRecordFlags::X_ADVANCE) && self.xAdvance.is_none() {
+            self.xAdvance = Some(0);
+        }
+        if flags.contains(ValueRecordFlags::Y_ADVANCE) && self.yAdvance.is_none() {
+            self.yAdvance = Some(0);
+        }
+    }
 
-impl Serialize for ValueRecords {
-    fn to_bytes(&self, output: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        let mut flag = ValueRecordFlags::empty();
-        for vr in &self.0 {
-            flag |= vr.flags();
+    pub fn simplify(&mut self) {
+        if let Some(xp) = self.xPlacement {
+            if xp == 0 {
+                self.xPlacement = None;
+            }
         }
-        for _vr in &self.0 {
-            unimplemented!()
+        if let Some(yp) = self.yPlacement {
+            if yp == 0 {
+                self.yPlacement = None;
+            }
         }
-        Ok(())
+        if let Some(xa) = self.xAdvance {
+            if xa == 0 {
+                self.xAdvance = None;
+            }
+        }
+        if let Some(ya) = self.yAdvance {
+            if ya == 0 {
+                self.yAdvance = None;
+            }
+        }
     }
 }
 
-impl Deserialize for ValueRecords {
-    fn from_bytes(c: &mut ReaderContext) -> Result<Self, otspec::DeserializationError> {
-        let flags: ValueRecordFlags = c.de()?;
-        let count: uint16 = c.de()?;
-        let mut v = ValueRecords(vec![]);
-        for _ in 0..count {
-            let mut vr = ValueRecord::new();
-            if flags.contains(ValueRecordFlags::X_PLACEMENT) {
-                vr.xPlacement = Some(c.de()?);
-            }
-            if flags.contains(ValueRecordFlags::Y_PLACEMENT) {
-                vr.yPlacement = Some(c.de()?);
-            }
-            if flags.contains(ValueRecordFlags::X_ADVANCE) {
-                vr.xAdvance = Some(c.de()?);
-            }
-            if flags.contains(ValueRecordFlags::Y_ADVANCE) {
-                vr.yAdvance = Some(c.de()?);
-            }
-            v.0.push(vr)
-        }
-
-        Ok(v)
+/// Ensure that all value records in a list have the same format
+pub fn coerce_to_same_format(vrs: Vec<ValueRecord>) -> Vec<ValueRecord> {
+    // Needed?
+    if is_all_the_same(vrs.iter().map(|x| x.flags())) {
+        return vrs;
     }
+    let mut new_vec = vec![];
+    if let Some(maximum) = vrs.iter().map(|x| x.flags()).reduce(|a, b| a | b) {
+        for mut vr in vrs {
+            vr.coerce_to_format(maximum);
+            new_vec.push(vr);
+        }
+    }
+    new_vec
 }
 
 #[cfg(test)]
@@ -153,8 +157,10 @@ mod tests {
         vr.xAdvance = Some(-120);
         assert_eq!(vr.flags(), ValueRecordFlags::X_ADVANCE);
         let binary = otspec::ser::to_bytes(&vr).unwrap();
-        assert_eq!(binary, vec![0x00, 0x04, 0xff, 0x88,]);
-        let de: ValueRecord = otspec::de::from_bytes(&binary).unwrap();
+        assert_eq!(binary, vec![0xff, 0x88,]);
+        let mut rc = otspec::ReaderContext::new(binary);
+        let de: ValueRecord =
+            ValueRecord::from_bytes(&mut rc, ValueRecordFlags::X_ADVANCE).unwrap();
         assert_eq!(de, vr);
     }
 }
