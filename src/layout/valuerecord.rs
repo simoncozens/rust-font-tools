@@ -131,6 +131,16 @@ impl ValueRecord {
     }
 }
 
+/// Returns the "highest" value record format for an iter of valuerecords
+pub fn highest_format<'a, T>(iter: T) -> ValueRecordFlags
+where
+    T: Iterator<Item = &'a ValueRecord>,
+{
+    iter.map(|x| x.flags())
+        .reduce(|a, b| a | b)
+        .unwrap_or_else(ValueRecordFlags::empty)
+}
+
 /// Ensure that all value records in a list have the same format
 pub fn coerce_to_same_format(vrs: Vec<ValueRecord>) -> Vec<ValueRecord> {
     // Needed?
@@ -138,14 +148,23 @@ pub fn coerce_to_same_format(vrs: Vec<ValueRecord>) -> Vec<ValueRecord> {
         return vrs;
     }
     let mut new_vec = vec![];
-    if let Some(maximum) = vrs.iter().map(|x| x.flags()).reduce(|a, b| a | b) {
-        for mut vr in vrs {
-            vr.coerce_to_format(maximum);
-            new_vec.push(vr);
-        }
+    let maximum = highest_format(vrs.iter());
+    for mut vr in vrs {
+        vr.coerce_to_format(maximum);
+        new_vec.push(vr);
     }
     new_vec
 }
+
+#[macro_export]
+macro_rules! valuerecord {
+        ($($k:ident = $v:expr),* $(,)?) => {{
+	        	#[allow(unused_mut)]
+            let mut v = ValueRecord::new();
+            $( v.$k = Some($v); )*
+            v
+        }};
+    }
 
 #[cfg(test)]
 mod tests {

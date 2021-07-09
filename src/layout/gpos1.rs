@@ -61,8 +61,8 @@ impl Deserialize for SinglePos {
         match format {
             1 => {
                 let mut vr: ValueRecord = ValueRecord::from_bytes(c, value_format)?;
+                vr.simplify();
                 for glyph_id in &coverage.as_ref().unwrap().glyphs {
-                    vr.simplify();
                     mapping.insert(*glyph_id, vr);
                 }
             }
@@ -121,27 +121,13 @@ impl Serialize for SinglePos {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use crate::{btreemap, valuerecord};
     use std::iter::FromIterator;
-
-    macro_rules! btreemap {
-        ($($k:expr => $v:expr),* $(,)?) => {
-            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
-        };
-    }
-
-    macro_rules! valuerecord {
-        ($($k:ident => $v:expr),* $(,)?) => {{
-            let mut v = ValueRecord::new();
-            $( v.$k = Some($v); )*
-            v
-        }};
-    }
 
     #[test]
     fn test_single_pos_1_1_serde() {
         let pos = SinglePos {
-            mapping: btreemap!(66 => valuerecord!(xAdvance=>10)),
+            mapping: btreemap!(66 => valuerecord!(xAdvance=10)),
         };
         let binary_pos = vec![
             0x00, 0x01, 0x00, 0x08, 0x00, 0x04, 0x00, 0x0a, 0x00, 0x01, 0x00, 0x01, 0x00, 66,
@@ -155,8 +141,8 @@ mod tests {
     #[test]
     fn test_single_pos_1_1_serde2() {
         let pos = SinglePos {
-            mapping: btreemap!(66 => valuerecord!(xAdvance=>10),
-                67 => valuerecord!(xAdvance=>10, yPlacement => 0),
+            mapping: btreemap!(66 => valuerecord!(xAdvance=10),
+                67 => valuerecord!(xAdvance=10, yPlacement=0),
             ),
         };
         let binary_pos = vec![
@@ -169,8 +155,8 @@ mod tests {
         assert_eq!(
             de,
             SinglePos {
-                mapping: btreemap!(66 => valuerecord!(xAdvance=>10),
-                    67 => valuerecord!(xAdvance=>10), // This gets simplified
+                mapping: btreemap!(66 => valuerecord!(xAdvance=10),
+                    67 => valuerecord!(xAdvance=10), // This gets simplified
                 ),
             }
         );
@@ -179,8 +165,8 @@ mod tests {
     #[test]
     fn test_single_pos_1_2_serde() {
         let pos = SinglePos {
-            mapping: btreemap!(66 => valuerecord!(xAdvance=>10),
-                67 => valuerecord!(xAdvance=>-20),
+            mapping: btreemap!(66 => valuerecord!(xAdvance=10),
+                67 => valuerecord!(xAdvance=-20),
             ),
         };
         let binary_pos = vec![
@@ -201,8 +187,8 @@ mod tests {
     #[test]
     fn test_single_pos_1_2_serde2() {
         let pos = SinglePos {
-            mapping: btreemap!(66 => valuerecord!(xAdvance=>10),
-                67 => valuerecord!(xPlacement=>-20),
+            mapping: btreemap!(66 => valuerecord!(xAdvance=10),
+                67 => valuerecord!(xPlacement=-20),
             ),
         };
         let binary_pos = vec![

@@ -7,7 +7,7 @@ pub mod coverage;
 /// GPOS1 single positioning
 pub mod gpos1;
 /// GPOS2 pair positioning
-// pub mod gpos2;
+pub mod gpos2;
 /// GSUB1 single substitution
 pub mod gsub1;
 /// GSUB2 multiple substitution

@@ -1,6 +1,7 @@
 use crate::deserialize_lookup_match;
 use crate::layout::common::*;
 use crate::layout::gpos1::{SinglePos, SinglePosInternal};
+use crate::layout::gpos2::{PairPos, PairPosInternal};
 // use crate::layout::gpos2::PairPos;
 use otspec::types::*;
 use otspec::Counted;
@@ -32,7 +33,7 @@ impl Lookup<Positioning> {
     fn lookup_type(&self) -> u16 {
         match self.rule {
             Positioning::Single(_) => 1,
-            Positioning::Pair => 2,
+            Positioning::Pair(_) => 2,
             Positioning::Cursive => 3,
             Positioning::MarkToBase => 4,
             Positioning::MarkToLig => 5,
@@ -51,7 +52,7 @@ pub enum Positioning {
     /// Contains a single positioning rule.
     Single(Vec<SinglePos>),
     /// Contains a pair positioning rule.
-    Pair,
+    Pair(Vec<PairPos>),
     /// Contains an cursive positioning rule.
     Cursive,
     /// Contains a mark-to-base rule.
@@ -179,6 +180,14 @@ impl<'a> From<&Lookup<Positioning>> for LookupInternal {
                 let mut v: Vec<Box<dyn OffsetMarkerTrait>> = vec![];
                 for s in subs {
                     let si: SinglePosInternal = s.into();
+                    v.push(Box::new(Offset16::to(si)));
+                }
+                v
+            }
+            Positioning::Pair(subs) => {
+                let mut v: Vec<Box<dyn OffsetMarkerTrait>> = vec![];
+                for s in subs {
+                    let si: PairPosInternal = s.into();
                     v.push(Box::new(Offset16::to(si)));
                 }
                 v

@@ -22,3 +22,10 @@ where
     }
     true
 }
+
+#[macro_export]
+macro_rules! btreemap {
+        ($($k:expr => $v:expr),* $(,)?) => {
+            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+        };
+    }
