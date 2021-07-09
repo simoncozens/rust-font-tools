@@ -32,6 +32,22 @@ impl Debug for I18NDictionary {
     }
 }
 
+impl Into<I18NDictionary> for String {
+    fn into(self) -> I18NDictionary {
+        let mut f = I18NDictionary::new();
+        f.0.insert(*b"dflt", self);
+        f
+    }
+}
+
+impl Into<I18NDictionary> for &str {
+    fn into(self) -> I18NDictionary {
+        let mut f = I18NDictionary::new();
+        f.0.insert(*b"dflt", self.to_string());
+        f
+    }
+}
+
 impl Into<I18NDictionary> for &String {
     fn into(self) -> I18NDictionary {
         let mut f = I18NDictionary::new();

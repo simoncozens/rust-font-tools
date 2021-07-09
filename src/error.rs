@@ -1,4 +1,4 @@
-use openstep_plist::PlistError;
+use openstep_plist::Error;
 use snafu::Snafu;
 use std::{io, path::PathBuf};
 
@@ -13,8 +13,8 @@ pub enum BabelfontError {
     #[snafu(display("IO Error for file {}: {}", path.display(), source))]
     IO { source: io::Error, path: PathBuf },
 
-    #[snafu(display("Could not parse plist file {}: {}", path.display(), source))]
-    PlistParse { source: PlistError, path: PathBuf },
+    #[snafu(display("Could not parse plist file {}: {:?}", path.display(), orig))]
+    PlistParse { orig: Error, path: PathBuf },
 
     #[snafu(display("Ill-defined axis!: {:?}", axis_name))]
     IllDefinedAxis { axis_name: Option<String> },
