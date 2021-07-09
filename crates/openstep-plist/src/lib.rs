@@ -142,6 +142,11 @@ fn is_valid_unquoted_string_char(c: char) -> bool {
 }
 
 fn parse_unquoted_string(s: &str) -> Plist {
+    // Special case some horrible, horrible issues first:
+    // XXX there are probably more
+    if s == "inf" || s == "nan" || s == "infinity" {
+        return Plist::String(s.to_string());
+    }
     if let Ok(i) = s.parse::<i32>() {
         Plist::Integer(i)
     } else if let Ok(f) = s.parse::<f32>() {
