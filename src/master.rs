@@ -12,7 +12,7 @@ pub struct Master {
     pub location: Location,
     pub guides: Vec<Guide>,
     pub metrics: HashMap<String, i32>,
-    pub kerning: HashMap<(String, String), i32>,
+    pub kerning: HashMap<(String, String), i16>,
     pub custom_ot_values: Vec<OTValue>,
     // lib
 }
