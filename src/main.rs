@@ -3,6 +3,7 @@ mod basictables;
 mod buildbasic;
 mod fontinfo;
 mod glyph;
+mod kerning;
 mod utils;
 
 use buildbasic::build_font;

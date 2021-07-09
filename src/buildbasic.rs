@@ -1,5 +1,6 @@
 use crate::basictables::fill_tables;
 use crate::glyph::glifs_to_glyph;
+use crate::kerning::build_kerning;
 use fonttools::font;
 use fonttools::font::Table;
 use fonttools::glyf;
@@ -153,6 +154,8 @@ pub fn build_font(input: &babelfont::Font, include: Option<HashSet<String>>) -> 
 
     let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
     let mut font = fill_tables(&input, glyf_table, metrics, names, mapping);
+    let gpos_table = build_kerning(input, &name_to_id);
+    font.tables.insert(*b"GPOS", Table::GPOS(gpos_table));
     let gvar_table = fonttools::gvar::gvar { variations };
     font.tables
         .insert(*b"gvar", Table::Unknown(gvar_table.to_bytes(None)));
