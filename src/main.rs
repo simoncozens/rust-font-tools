@@ -45,48 +45,24 @@ fn main() {
             .map(|y| y.to_string())
             .collect::<HashSet<String>>()
     });
-    let mut font;
 
-    if filename.ends_with(".designspace") {
-        // let ds = designspace::from_file(filename).expect("Couldn't parse designspace");
-        // let default_location = ds.default_designspace_location();
-        // let dm_index = ds
-        //     .sources
-        //     .source
-        //     .iter()
-        //     .position(|s| ds.source_location(s) == default_location);
-        // if dm_index.is_none() {
-        //     default_master_not_found_error(ds);
-        // }
-        // let masters: Vec<norad::Font> = ds
-        //     .sources
-        //     .source
-        //     .par_iter()
-        //     .map(|s| s.ufo().expect("Couldn't open master file"))
-        //     .collect();
-        // if masters.len() > 1 {
-        //     font = build_fonts(dm_index.unwrap(), masters, ds.variation_model(), subset);
-        //     ds.add_to_font(&mut font)
-        //         .expect("Couldn't add variation tables");
-        // } else {
-        //     font = build_font(masters.into_iter().nth(0).unwrap(), subset);
-        // }
-        unimplemented!();
+    let in_font = if filename.ends_with(".designspace") {
+        babelfont::convertors::designspace::load(PathBuf::from(filename))
+            .expect("Couldn't load source")
     } else if filename.ends_with(".ufo") {
         // let ufo = norad::Font::load(filename).expect("Can't load UFO file");
         // font = build_font(ufo, subset);
         unimplemented!();
     } else if filename.ends_with(".glyphs") {
-        let in_font = babelfont::convertors::glyphs3::load(PathBuf::from(filename))
-            .expect("Couldn't load source");
-        font = build_font(&in_font, subset);
-        if in_font.masters.len() > 1 {
-            in_font
-                .add_variation_tables(&mut font)
-                .expect("Couldn't add variation tables")
-        }
+        babelfont::convertors::glyphs3::load(PathBuf::from(filename)).expect("Couldn't load source")
     } else {
         panic!("Unknown file type {:?}", filename);
+    };
+    let mut font = build_font(&in_font, subset);
+    if in_font.masters.len() > 1 {
+        in_font
+            .add_variation_tables(&mut font)
+            .expect("Couldn't add variation tables")
     }
 
     if matches.is_present("OUTPUT") {
