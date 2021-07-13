@@ -17,8 +17,6 @@ use lazy_static::lazy_static;
 use std::fs;
 use std::path::PathBuf;
 
-type PlistDictionary = HashMap<String, Plist>;
-
 pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     let s = fs::read_to_string(&path).map_err(|source| BabelfontError::IO {
         path: path.clone(),
@@ -313,7 +311,7 @@ fn load_glyph(g: &Plist) -> Result<Glyph, ()> {
 fn load_layer(l: &Plist) -> Result<Layer, ()> {
     let width = l.get("width").and_then(|x| x.as_i32()).unwrap_or(0);
     let mut layer = Layer::new(width);
-    if let Some(name) = l.get("width").and_then(|l| l.as_str()) {
+    if let Some(name) = l.get("name").and_then(|l| l.as_str()) {
         layer.name = Some(name.to_string());
     }
     if let Some(id) = l.get("layerId").and_then(|l| l.as_str()) {
