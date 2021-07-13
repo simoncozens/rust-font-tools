@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use chrono::Offset;
+
 pub type Tag = [u8; 4];
 
 #[derive(Debug)]
@@ -25,6 +27,17 @@ pub struct Color {
     g: i32,
     b: i32,
     a: i32,
+}
+
+impl From<&norad::Color> for Color {
+    fn from(c: &norad::Color) -> Self {
+        Color {
+            r: (c.red * 255.0) as i32,
+            g: (c.green * 255.0) as i32,
+            b: (c.blue * 255.0) as i32,
+            a: (c.alpha * 255.0) as i32,
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -131,6 +144,18 @@ pub enum NodeType {
     OffCurve,
     Curve,
 }
+
+impl From<&norad::PointType> for NodeType {
+    fn from(p: &norad::PointType) -> Self {
+        match p {
+            norad::PointType::Move => NodeType::Move,
+            norad::PointType::Line => NodeType::Line,
+            norad::PointType::OffCurve => NodeType::OffCurve,
+            _ => NodeType::Curve,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Node {
     pub x: f32,
@@ -142,5 +167,15 @@ pub struct Node {
 impl Node {
     pub fn to_kurbo(&self) -> kurbo::Point {
         kurbo::Point::new(self.x as f64, self.y as f64)
+    }
+}
+
+impl From<&norad::ContourPoint> for Node {
+    fn from(p: &norad::ContourPoint) -> Self {
+        Node {
+            x: p.x,
+            y: p.y,
+            nodetype: (&p.typ).into(),
+        }
     }
 }
