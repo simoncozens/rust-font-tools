@@ -55,7 +55,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     load_metadata(&mut font, &plist);
 
     load_custom_parameters(&mut font.custom_ot_values, custom_parameters);
-
+    std::mem::forget(plist);
     // load_features(&mut font, &plist);
     Ok(font)
 }
