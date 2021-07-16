@@ -45,11 +45,12 @@ pub fn glifs_to_glyph(
 
     /* Base case */
     if model.is_none() {
-        for contour in glif.paths().iter() {
-            let glyph_contour = babelfont_contours_to_glyf_contours(vec![contour], 0, glif_name)
-                .first()
-                .unwrap()
-                .clone();
+        for (contour_ix, contour) in glif.paths().iter().enumerate() {
+            let glyph_contour =
+                babelfont_contours_to_glyf_contours(contour_ix, vec![contour], 0, glif_name)
+                    .first()
+                    .unwrap()
+                    .clone();
             glyph.contours.push(glyph_contour);
         }
         return (glyph, None);
@@ -76,7 +77,7 @@ pub fn glifs_to_glyph(
             .map(|x| x.unwrap().paths()[index])
             .collect();
         let all_glyf_contours =
-            babelfont_contours_to_glyf_contours(all_contours, default_master, glif_name);
+            babelfont_contours_to_glyf_contours(index, all_contours, default_master, glif_name);
         // Now we put them into their respective master
         for (finished_contour, master_id) in all_glyf_contours
             .iter()
@@ -172,6 +173,7 @@ fn compute_deltas(
 }
 
 fn babelfont_contours_to_glyf_contours(
+    path_index: usize,
     paths: Vec<&babelfont::Path>,
     default_master: usize,
     glif_name: &str,
@@ -181,8 +183,20 @@ fn babelfont_contours_to_glyf_contours(
         .iter()
         .map(|x| x.to_kurbo().expect("Bad contour construction"))
         .collect();
+    // Ensure they are all the same size
+    let lengths: Vec<usize> = kurbo_paths.iter().map(|x| x.elements().len()).collect();
     let mut returned_contours: Vec<kurbo::BezPath> = paths.iter().map(|_| BezPath::new()).collect();
     let default_elements: &[PathEl] = kurbo_paths[default_master].elements();
+
+    if !is_all_same(&lengths) {
+        log::error!(
+            "Incompatible contour {:} in glyph {:}: {:?}",
+            path_index,
+            glif_name,
+            lengths
+        );
+        return vec![];
+    }
 
     for (el_ix, el) in default_elements.iter().enumerate() {
         match el {
