@@ -77,24 +77,45 @@ pub fn compile_post(font: &babelfont::Font, names: &[String]) -> post {
 }
 
 pub fn compile_cmap(mapping: BTreeMap<u32, u16>) -> cmap::cmap {
-    cmap::cmap {
-        subtables: vec![
-            cmap::CmapSubtable {
-                format: 4,
-                platformID: 0,
-                encodingID: 3,
-                languageID: 0,
-                mapping: mapping.clone(),
-            },
-            cmap::CmapSubtable {
-                format: 4,
-                platformID: 3,
-                encodingID: 1,
-                languageID: 0,
-                mapping,
-            },
-        ],
+    let u16_mapping: BTreeMap<u32, u16> = mapping
+        .iter()
+        .filter(|&(k, _)| *k <= u16::MAX as u32)
+        .map(|(k, v)| (*k, *v))
+        .collect();
+    let has_nonbmp = u16_mapping.len() < mapping.len();
+    let mut subtables = vec![
+        cmap::CmapSubtable {
+            format: 4,
+            platformID: 0,
+            encodingID: 3,
+            languageID: 0,
+            mapping: u16_mapping.clone(),
+        },
+        cmap::CmapSubtable {
+            format: 4,
+            platformID: 3,
+            encodingID: 1,
+            languageID: 0,
+            mapping: u16_mapping,
+        },
+    ];
+    if has_nonbmp {
+        subtables.push(cmap::CmapSubtable {
+            format: 12,
+            platformID: 0,
+            encodingID: 3,
+            languageID: 0,
+            mapping: mapping.clone(),
+        });
+        subtables.push(cmap::CmapSubtable {
+            format: 12,
+            platformID: 3,
+            encodingID: 1,
+            languageID: 0,
+            mapping,
+        });
     }
+    cmap::cmap { subtables }
 }
 
 pub fn compile_hhea(
