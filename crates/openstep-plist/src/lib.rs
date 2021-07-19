@@ -78,6 +78,7 @@ fn skip_ws(s: &str, mut ix: usize) -> usize {
 }
 
 fn escape_string(buf: &mut String, s: &str) {
+    buf.reserve(s.len());
     if !s.is_empty() && s.as_bytes().iter().all(|&b| is_alnum_strict(b)) {
         buf.push_str(s);
     } else {
@@ -217,7 +218,9 @@ impl Plist {
                 }
             }
             Token::OpenParen => {
-                let mut list = Vec::new();
+                let capacity = Token::guess_list_capacity(s, ix);
+                // log::debug!("capacity: {}", capacity);
+                let mut list = Vec::with_capacity(capacity);
                 if let Some(ix) = Token::expect(s, ix, b')') {
                     return Ok((Plist::Array(list), ix));
                 }
@@ -398,6 +401,34 @@ impl<'a> Token<'a> {
         }
         None
     }
+
+    fn guess_list_capacity(s: &str, ix: usize) -> usize {
+        // If the string isn't very big, it's probably not worth it
+        if s.len() < 500_000 {
+            return 3;
+        }
+        Token::_guess_list_capacity(s, ix)
+    }
+    fn _guess_list_capacity(s: &str, ix: usize) -> usize {
+        let mut level = 1;
+        let mut ix = ix;
+        let mut commas = 0;
+        while ix < s.len() {
+            let b = s.as_bytes()[ix];
+            if b == b'(' || b == b'{' {
+                level += 1;
+            } else if b == b')' || b == b'}' {
+                level -= 1;
+                if level == 0 {
+                    break;
+                }
+            } else if b == b',' && level == 1 {
+                commas += 1;
+            }
+            ix += 1;
+        }
+        commas + 1
+    }
 }
 
 impl From<String> for Plist {
@@ -433,6 +464,7 @@ impl From<HashMap<String, Plist>> for Plist {
 #[cfg(test)]
 mod tests {
     use crate::Plist;
+    use crate::Token;
     use std::fs;
 
     use std::iter::FromIterator;
@@ -443,6 +475,13 @@ mod tests {
             };
         }
 
+    #[test]
+    fn test_capacity_guesser() {
+        assert_eq!(Token::_guess_list_capacity("(1,2,3,4,5)", 1), 5);
+        assert_eq!(Token::_guess_list_capacity("(1,2,{},4,5)", 1), 5);
+        assert_eq!(Token::_guess_list_capacity("(1,2,{,},4,5)", 1), 5);
+        assert_eq!(Token::_guess_list_capacity("(1,2,(3,5,6,),4,5)", 1), 5);
+    }
     #[test]
     fn test_strings() {
         let input = "'foo'".to_string();
