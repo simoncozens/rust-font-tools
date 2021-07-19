@@ -324,6 +324,83 @@ impl Deserialize for cmap4 {
     }
 }
 
+tables!(
+cmap12 {
+    uint16 format
+    uint16 reserved
+    uint32 length
+    uint32 language
+    Counted32(SequentialMapGroup) groups
+}
+
+SequentialMapGroup {
+    uint32  startCharCode
+    uint32  endCharCode
+    uint32  startGlyphID
+}
+);
+
+fn in_run(gid: u16, last_gid: u16, code: u32, last_code: u32) -> bool {
+    (gid == 1 + last_gid) && (code == 1 + last_code)
+}
+impl cmap12 {
+    /// Creates a new cmap12 subtable for a given language ID, from a mapping of
+    /// Unicode codepoints to glyph IDs
+    pub fn from_mapping(language_id: uint16, map: &BTreeMap<uint32, uint16>) -> Self {
+        let mut char_codes: Vec<uint32> = map.keys().cloned().collect();
+        char_codes.sort_unstable();
+        let mut iter = char_codes.iter();
+        let mut start_code: u32 = *(iter.next().unwrap());
+        if start_code == 0 {
+            // Try again
+            start_code = *(iter.next().unwrap());
+        }
+        let mut last_code = start_code - 1;
+        let mut start_gid = map.get(&start_code).unwrap();
+        let mut last_gid = start_gid - 1;
+        let mut groups: Vec<SequentialMapGroup> = vec![];
+        for &code in iter {
+            let gid = map.get(&code).unwrap();
+            if !in_run(*gid, last_gid, code, last_code) {
+                groups.push(SequentialMapGroup {
+                    startCharCode: start_code,
+                    endCharCode: last_code,
+                    startGlyphID: *start_gid as u32,
+                });
+                start_code = code;
+                start_gid = gid;
+            }
+            last_gid = *gid;
+            last_code = code;
+        }
+        groups.push(SequentialMapGroup {
+            startCharCode: start_code,
+            endCharCode: last_code,
+            startGlyphID: *start_gid as u32,
+        });
+        cmap12 {
+            format: 12,
+            reserved: 0,
+            length: (16 + 12 * groups.len()) as uint32,
+            language: language_id as uint32,
+            groups,
+        }
+    }
+    fn to_mapping(&self) -> BTreeMap<uint32, uint16> {
+        let mut map = BTreeMap::new();
+        for group in &self.groups {
+            let items = 1 + (group.endCharCode - group.startCharCode);
+            for i in 0..items {
+                map.insert(
+                    group.startCharCode + i,
+                    group.startGlyphID as u16 + i as u16,
+                );
+            }
+        }
+        map
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[allow(non_snake_case)]
 /// A cmap subtable.
@@ -369,6 +446,7 @@ impl Serialize for CmapSubtable {
         match self.format {
             0 => cmap0::from_mapping(self.languageID, &self.mapping).to_bytes(data),
             4 => cmap4::from_mapping(self.languageID, &self.mapping).to_bytes(data),
+            12 => cmap12::from_mapping(self.languageID, &self.mapping).to_bytes(data),
             _ => unimplemented!(),
         }
     }
@@ -437,6 +515,16 @@ impl Deserialize for cmap {
                         platformID: er.platformID,
                         encodingID: er.encodingID,
                         languageID: subtable.language,
+                        mapping: subtable.to_mapping(),
+                    });
+                }
+                [0x0, 0x0a] => {
+                    let subtable: cmap12 = c.de()?;
+                    subtables.push(CmapSubtable {
+                        format: 12,
+                        platformID: er.platformID,
+                        encodingID: er.encodingID,
+                        languageID: subtable.language as u16,
                         mapping: subtable.to_mapping(),
                     });
                 }
