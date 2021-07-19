@@ -9,7 +9,9 @@ fn build_production_name(name: &str, unicodes: Option<&HashSet<u32>>) -> String 
         return name.to_string();
     }
     let first: u32 = *unicodes.unwrap().iter().sorted().next().unwrap();
-    if first > 0xFFFF {
+    if first == 0x20 {
+        "space".to_string()
+    } else if first > 0xFFFF {
         format!("u{:04X}", first)
     } else {
         format!("uni{:04X}", first)
