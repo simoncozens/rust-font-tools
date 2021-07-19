@@ -18,14 +18,17 @@ use std::fs;
 use std::path::PathBuf;
 
 pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
+    log::debug!("Reading to string");
     let s = fs::read_to_string(&path).map_err(|source| BabelfontError::IO {
         path: path.clone(),
         source,
     })?;
+    log::debug!("Parsing PLIST");
     let plist = Plist::parse(&s).map_err(|orig| BabelfontError::PlistParse {
         path: path.clone(),
         orig,
     })?;
+    log::debug!("Assembling babelfont");
     if plist.get(".formatVersion").is_none() {
         return Err(BabelfontError::WrongConvertor { path });
     }
@@ -84,12 +87,14 @@ fn load_kern_groups(plist: &Plist) -> HashMap<String, Vec<String>> {
             if let Some(glyphname) = g.get("glyphname").and_then(|s| s.as_str()) {
                 let l_class = g
                     .get("leftKerningGroup")
+                    .and_then(|s| s.as_str())
                     .map(|s| s.to_string())
-                    .unwrap_or(glyphname.to_string());
+                    .unwrap_or_else(|| glyphname.to_string());
                 let r_class = g
                     .get("rightKerningGroup")
+                    .and_then(|s| s.as_str())
                     .map(|s| s.to_string())
-                    .unwrap_or(glyphname.to_string());
+                    .unwrap_or_else(|| glyphname.to_string());
                 groups
                     .entry("MMK_L_".to_owned() + &l_class)
                     .or_insert_with(Vec::new)
@@ -374,11 +379,11 @@ fn load_shape(a: &Plist) -> Result<Shape, ()> {
         Ok(PathShape(path))
     } else {
         // It's a component
-        let reference = a.get("ref").map(|f| f.to_string()).ok_or(())?;
+        let reference = a.get("ref").and_then(|f| f.as_str()).ok_or(())?;
         let pos: Vec<f32> = a
             .get("pos")
             .and_then(|f| f.as_array())
-            .unwrap_or(&vec![Plist::Integer(0), Plist::Integer(0)])
+            .unwrap_or(&[Plist::Integer(0), Plist::Integer(0)])
             .iter()
             .map(|x| x.as_f32().unwrap_or(0.0))
             .collect();
@@ -386,7 +391,7 @@ fn load_shape(a: &Plist) -> Result<Shape, ()> {
         let scale: Vec<f32> = a
             .get("scale")
             .and_then(|f| f.as_array())
-            .unwrap_or(&vec![Plist::Integer(1), Plist::Integer(1)])
+            .unwrap_or(&[Plist::Integer(1), Plist::Integer(1)])
             .iter()
             .map(|x| x.as_f32().unwrap_or(0.0))
             .collect();
@@ -439,8 +444,8 @@ fn load_metadata(font: &mut Font, plist: &Plist) {
     );
     font.names.family_name = plist
         .get("familyName")
-        .map(|s| s.to_string())
-        .unwrap_or("New font".to_string())
+        .and_then(|s| s.as_str())
+        .unwrap_or(&"New font".to_string())
         .into();
     load_properties(font, &plist);
     font.date = plist
