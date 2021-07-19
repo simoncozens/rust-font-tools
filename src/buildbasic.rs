@@ -14,6 +14,7 @@ use std::collections::{BTreeMap, HashSet};
 use unzip_n::unzip_n;
 
 unzip_n!(3);
+unzip_n!(2);
 
 fn decomposed_components(glyph: &Glyph, glyphset: &Layer) -> Vec<Contour> {
     let mut contours = Vec::new();
@@ -110,7 +111,7 @@ fn get_glyph_names_and_mapping(
     names
 }
 
-pub fn build_font(input: &babelfont::Font, include: Option<HashSet<String>>) -> font::Font {
+pub fn build_font(input: &babelfont::Font, include: &Option<HashSet<String>>) -> font::Font {
     // input.decompose_mixed_glyphs();
 
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
@@ -161,9 +162,6 @@ pub fn build_font(input: &babelfont::Font, include: Option<HashSet<String>>) -> 
         .filter_map(|e| e)
         .collect();
     let (glyphs, mut metrics, variations) = result.into_iter().unzip_n_vec();
-    // let mut glyphs: Vec<glyf::Glyph> = vec![];
-    // let mut metrics: Vec<hmtx::Metric> = vec![];
-    // let mut variations: Vec<Option<GlyphVariationData>> = vec![];
 
     let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
     let mut font = fill_tables(&input, glyf_table, metrics, names, mapping);
@@ -175,5 +173,49 @@ pub fn build_font(input: &babelfont::Font, include: Option<HashSet<String>>) -> 
 
     // No optimization by default
 
+    font
+}
+
+pub fn build_static_master(
+    input: &babelfont::Font,
+    include: &Option<HashSet<String>>,
+    master: usize,
+) -> font::Font {
+    // input.decompose_mixed_glyphs();
+
+    let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
+    let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
+    let master = input.masters.get(master).expect("This can't be");
+    let names = get_glyph_names_and_mapping(&input, &mut mapping, &mut name_to_id, &include);
+    let result: Vec<(glyf::Glyph, hmtx::Metric)> = input
+        .glyphs
+        .par_iter()
+        .map(|glif| {
+            if include.is_some() && !include.as_ref().unwrap().contains(&glif.name.to_string()) {
+                return None;
+            }
+            let mut glif_variations = vec![input.master_layer_for(&glif.name, master)];
+            let (glyph, _) = glifs_to_glyph(0, &name_to_id, &glif_variations, None, &glif.name);
+            let lsb = 0; // glyph.xMin;
+            let advance_width = input
+                .master_layer_for(&glif.name, input.default_master().unwrap())
+                .unwrap()
+                .width as u16;
+            Some((
+                glyph,
+                hmtx::Metric {
+                    advanceWidth: advance_width,
+                    lsb,
+                },
+            ))
+        })
+        .filter_map(|e| e)
+        .collect();
+    let (glyphs, mut metrics) = result.into_iter().unzip_n_vec();
+
+    let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
+    let mut font = fill_tables(&input, glyf_table, metrics, names, mapping);
+    let gpos_table = build_kerning(input, &name_to_id);
+    font.tables.insert(*b"GPOS", Table::GPOS(gpos_table));
     font
 }

@@ -6,7 +6,7 @@ mod glyph;
 mod kerning;
 mod utils;
 
-use buildbasic::build_font;
+use buildbasic::{build_font, build_static_master};
 use clap::{App, Arg};
 use designspace::Designspace;
 // use rayon::prelude::*;
@@ -29,6 +29,13 @@ fn main() {
                 .long("subset"),
         )
         .arg(
+            Arg::with_name("masters")
+                .help("Don't make a variable font, make a static font for each master")
+                .required(false)
+                .takes_value(false)
+                .long("masters"),
+        )
+        .arg(
             Arg::with_name("INPUT")
                 .help("Sets the input file to use")
                 .required(true),
@@ -45,7 +52,7 @@ fn main() {
             .map(|y| y.to_string())
             .collect::<HashSet<String>>()
     });
-
+    let no_interpolate = matches.is_present("masters");
     let in_font = if filename.ends_with(".designspace") {
         babelfont::convertors::designspace::load(PathBuf::from(filename))
             .expect("Couldn't load source")
@@ -58,20 +65,40 @@ fn main() {
     } else {
         panic!("Unknown file type {:?}", filename);
     };
-    let mut font = build_font(&in_font, subset);
-    if in_font.masters.len() > 1 {
-        in_font
-            .add_variation_tables(&mut font)
-            .expect("Couldn't add variation tables")
-    }
 
-    if matches.is_present("OUTPUT") {
-        let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())
-            .expect("Could not open file for writing");
-        font.save(&mut outfile);
+    if no_interpolate {
+        let family_name = in_font
+            .names
+            .family_name
+            .default()
+            .unwrap_or("New Font".to_string());
+        for (ix, master) in in_font.masters.iter().enumerate() {
+            let mut out_font = build_static_master(&in_font, &subset, ix);
+            let master_name = master
+                .name
+                .default()
+                .unwrap_or_else(|| format!("Master{}", ix));
+            log::info!("Building {}", master_name);
+            let mut outfile = File::create(format!("{}-{}.ttf", family_name, master_name))
+                .expect("Could not open file for writing");
+            out_font.save(&mut outfile);
+        }
     } else {
-        font.save(&mut io::stdout());
-    };
+        let mut font = build_font(&in_font, &subset);
+        if in_font.masters.len() > 1 {
+            in_font
+                .add_variation_tables(&mut font)
+                .expect("Couldn't add variation tables")
+        }
+
+        if matches.is_present("OUTPUT") {
+            let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())
+                .expect("Could not open file for writing");
+            font.save(&mut outfile);
+        } else {
+            font.save(&mut io::stdout());
+        };
+    }
 }
 
 fn default_master_not_found_error(ds: Designspace) -> ! {
