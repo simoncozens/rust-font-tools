@@ -14,7 +14,7 @@ use fonttools::name::NameRecord;
 use fonttools::otvar::Location as OTVarLocation;
 use fonttools::otvar::{NormalizedLocation, VariationModel};
 use otspec::types::Tag;
-use serde_xml_rs::from_reader;
+pub use serde_xml_rs::from_reader;
 
 #[cfg(feature = "norad")]
 extern crate norad;
