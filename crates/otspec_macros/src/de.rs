@@ -78,6 +78,26 @@ fn deserialize_fields(fields: &[Field]) -> Vec<TokenStream> {
                     } else {
                         panic!("Can't happen");
                     }
+                } else if path.path.is_ident("Counted32") {
+                    if let syn::Type::Path(subvec) = ty {
+                        let vec_type = &subvec.path.segments.first().unwrap().ident;
+                        let subpath = get_vector_arg(subvec);
+                        if *vec_type == "VecOffset16" {
+                            quote! {
+                                #start
+                                let wrapped: otspec::Counted32<Offset16<#subpath>> = c.de()?;
+                                let #name: #ty = wrapped.into();
+                            }
+                        } else {
+                            quote! {
+                                #start
+                                let wrapped: otspec::Counted32<#subpath> = c.de()?;
+                                let #name: #ty = wrapped.into();
+                            }
+                        }
+                    } else {
+                        panic!("Can't happen");
+                    }
                 } else {
                     quote! {
                         #start

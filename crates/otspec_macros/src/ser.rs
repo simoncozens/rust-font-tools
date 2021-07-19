@@ -89,6 +89,11 @@ fn serialize_fields(fields: &[Field]) -> Vec<TokenStream> {
                         let wrapped = otspec::Counted(obj.#name.clone().into());
                         wrapped.to_bytes(data)?;
                     }
+                } else if path.path.is_ident("Counted32") {
+                    quote! {
+                        let wrapped = otspec::Counted32(obj.#name.clone().into());
+                        wrapped.to_bytes(data)?;
+                    }
                 } else {
                     quote! {
                         let wrapped = #path(obj.#name);
@@ -112,6 +117,13 @@ fn serialize_sizes(fields: &[Field]) -> Vec<TokenStream> {
                     quote! {
                          + {
                             let wrapped = otspec::Counted(self.#name.clone().into());
+                            wrapped.ot_binary_size()
+                        }
+                    }
+                } else if path.path.is_ident("Counted32") {
+                    quote! {
+                         + {
+                            let wrapped = otspec::Counted32(self.#name.clone().into());
                             wrapped.ot_binary_size()
                         }
                     }
