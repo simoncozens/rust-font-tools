@@ -362,8 +362,8 @@ fn load_shape(a: &Plist) -> Result<Shape, ()> {
             direction: crate::shape::PathDirection::Clockwise,
         };
         for node in a.get("nodes").unwrap().as_array().ok_or(())? {
-            let node = node.as_array().ok_or(())?;
-            let typ = node[2].to_string().chars().next().unwrap_or('l');
+            let (x, y, typ) = node.as_node().ok_or(())?;
+            let typ = typ.chars().next().unwrap_or('l');
             let nodetype = match typ {
                 'l' => NodeType::Line,
                 'o' => NodeType::OffCurve,
@@ -371,8 +371,8 @@ fn load_shape(a: &Plist) -> Result<Shape, ()> {
                 _ => NodeType::Line,
             };
             path.nodes.push(Node {
-                x: (&node[0]).as_f32().unwrap(),
-                y: (&node[1]).as_f32().unwrap(),
+                x: *x as f32,
+                y: *y as f32,
                 nodetype,
             })
         }

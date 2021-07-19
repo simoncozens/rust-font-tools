@@ -7,6 +7,7 @@ pub enum Plist {
     Dictionary(HashMap<String, Plist>),
     Array(Vec<Plist>),
     String(String),
+    Node((i64, i64, String)),
     Integer(i64),
     Float(f64),
 }
@@ -134,6 +135,14 @@ impl Plist {
     }
 
     #[allow(unused)]
+    pub fn as_node(&self) -> Option<&(i64, i64, String)> {
+        match self {
+            Plist::Node(a) => Some(a),
+            _ => None,
+        }
+    }
+
+    #[allow(unused)]
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Plist::String(s) => Some(s),
@@ -191,6 +200,57 @@ impl Plist {
         }
     }
 
+    fn try_parse_node(s: &str, mut ix: usize) -> Option<(Plist, usize)> {
+        let x;
+        let y;
+        let t;
+        if let Ok((Token::Atom(s), next_ix)) = Token::lex(s, ix) {
+            if let Plist::Integer(t1) = Plist::parse_atom(s) {
+                x = t1;
+            } else {
+                return None;
+            }
+            ix = next_ix;
+        } else {
+            return None;
+        }
+        if let Some(next_ix) = Token::expect(s, ix, b',') {
+            ix = next_ix;
+        } else {
+            return None;
+        }
+
+        if let Ok((Token::Atom(s), next_ix)) = Token::lex(s, ix) {
+            if let Plist::Integer(t2) = Plist::parse_atom(s) {
+                y = t2;
+            } else {
+                return None;
+            }
+            ix = next_ix;
+        } else {
+            return None;
+        }
+        if let Some(next_ix) = Token::expect(s, ix, b',') {
+            ix = next_ix;
+        } else {
+            return None;
+        }
+        if let Ok((Token::Atom(s), next_ix)) = Token::lex(s, ix) {
+            if let Plist::String(t2) = Plist::parse_atom(s) {
+                t = t2;
+            } else {
+                return None;
+            }
+            ix = next_ix;
+        } else {
+            return None;
+        }
+        if let Some(ix) = Token::expect(s, ix, b')') {
+            return Some((Plist::Node((x, y, t)), ix));
+        }
+        None
+    }
+
     fn parse_rec(s: &str, ix: usize) -> Result<(Plist, usize), Error> {
         let (tok, mut ix) = Token::lex(s, ix)?;
         match tok {
@@ -220,10 +280,15 @@ impl Plist {
             Token::OpenParen => {
                 let capacity = Token::guess_list_capacity(s, ix);
                 // log::debug!("capacity: {}", capacity);
-                let mut list = Vec::with_capacity(capacity);
                 if let Some(ix) = Token::expect(s, ix, b')') {
-                    return Ok((Plist::Array(list), ix));
+                    return Ok((Plist::Array(Vec::new()), ix));
                 }
+                if capacity == 3 {
+                    if let Some((node, ix)) = Plist::try_parse_node(s, ix) {
+                        return Ok((node, ix));
+                    }
+                }
+                let mut list = Vec::with_capacity(capacity);
                 loop {
                     let (val, next) = Self::parse_rec(s, ix)?;
                     list.push(val);
@@ -291,6 +356,9 @@ impl Plist {
             }
             Plist::Float(f) => {
                 s.push_str(&format!("{}", f));
+            }
+            Plist::Node((x, y, t)) => {
+                s.push_str(&format!("({},{},{})", x, y, t));
             }
         }
     }
@@ -403,13 +471,6 @@ impl<'a> Token<'a> {
     }
 
     fn guess_list_capacity(s: &str, ix: usize) -> usize {
-        // If the string isn't very big, it's probably not worth it
-        if s.len() < 500_000 {
-            return 3;
-        }
-        Token::_guess_list_capacity(s, ix)
-    }
-    fn _guess_list_capacity(s: &str, ix: usize) -> usize {
         let mut level = 1;
         let mut ix = ix;
         let mut commas = 0;
@@ -477,10 +538,10 @@ mod tests {
 
     #[test]
     fn test_capacity_guesser() {
-        assert_eq!(Token::_guess_list_capacity("(1,2,3,4,5)", 1), 5);
-        assert_eq!(Token::_guess_list_capacity("(1,2,{},4,5)", 1), 5);
-        assert_eq!(Token::_guess_list_capacity("(1,2,{,},4,5)", 1), 5);
-        assert_eq!(Token::_guess_list_capacity("(1,2,(3,5,6,),4,5)", 1), 5);
+        assert_eq!(Token::guess_list_capacity("(1,2,3,4,5)", 1), 5);
+        assert_eq!(Token::guess_list_capacity("(1,2,{},4,5)", 1), 5);
+        assert_eq!(Token::guess_list_capacity("(1,2,{,},4,5)", 1), 5);
+        assert_eq!(Token::guess_list_capacity("(1,2,(3,5,6,),4,5)", 1), 5);
     }
     #[test]
     fn test_strings() {
