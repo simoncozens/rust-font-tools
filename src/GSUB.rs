@@ -32,7 +32,7 @@ pub struct SubstLookupListIncoming {
 }
 
 impl Lookup<Substitution> {
-    fn lookup_type(&self) -> u16 {
+    pub fn lookup_type(&self) -> u16 {
         match self.rule {
             Substitution::Single(_) => 1,
             Substitution::Multiple(_) => 2,
