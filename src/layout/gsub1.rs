@@ -41,7 +41,7 @@ impl Serialize for SingleSubstInternal {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 /// A single substitution subtable.
 pub struct SingleSubst {
     /// The mapping of input glyph IDs to replacement glyph IDs.

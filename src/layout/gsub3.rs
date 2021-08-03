@@ -12,7 +12,7 @@ use otspec::Serialize;
 
 use std::collections::BTreeMap;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 /// A alternate substitution (`sub ... from ...`) subtable.
 pub struct AlternateSubst {
     /// The mapping of input glyph IDs to array of possible glyph IDs.

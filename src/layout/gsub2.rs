@@ -1,4 +1,5 @@
 use crate::layout::coverage::Coverage;
+use itertools::MultiPeek;
 use otspec::types::*;
 use otspec::DeserializationError;
 use otspec::Deserialize;
@@ -8,6 +9,7 @@ use otspec::SerializationError;
 use otspec::Serialize;
 use otspec_macros::tables;
 use std::collections::BTreeMap;
+use std::ops::Mul;
 
 tables!(
   MultipleSubstFormat1 {
@@ -21,7 +23,7 @@ tables!(
   }
 );
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 /// A multiple substitution (one-to-many) subtable.
 pub struct MultipleSubst {
     /// The mapping of input glyph IDs to sequence of replacement glyph IDs.

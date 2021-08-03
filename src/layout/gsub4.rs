@@ -29,7 +29,7 @@ pub struct Ligature {
     componentGlyphIDs: Vec<uint16>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 /// A ligature substitution (many-to-one) subtable.
 pub struct LigatureSubst {
     /// The mapping of sequences of input glyphs IDs to replacement glyph IDs.

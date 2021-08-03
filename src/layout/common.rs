@@ -125,6 +125,11 @@ bitflags! {
     }
 }
 
+impl Default for LookupFlags {
+    fn default() -> Self {
+        LookupFlags::empty()
+    }
+}
 /// A script list
 #[derive(Debug, PartialEq, Clone)]
 pub struct ScriptList {
