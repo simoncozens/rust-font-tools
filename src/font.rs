@@ -519,7 +519,7 @@ pub fn get_search_range(n: u16, itemsize: u16) -> (u16, u16, u16) {
         max_pow2 += 1;
     }
     let search_range = (1 << max_pow2) * itemsize;
-    let range_shift = cmp::max(0, n * itemsize - search_range);
+    let range_shift = cmp::max(search_range, n * itemsize) - search_range;
     (search_range, max_pow2, range_shift)
 }
 
