@@ -131,14 +131,14 @@ impl Default for LookupFlags {
     }
 }
 /// A script list
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct ScriptList {
     /// A mapping between script tags and `Script` tables.
     pub scripts: BTreeMap<Tag, Script>,
 }
 
 /// A Script table, containing information about language systems for a certain script.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct Script {
     /// Optionally, a default language system to be used when no specific
     /// language is selected.

@@ -70,8 +70,18 @@ pub enum Positioning {
 }
 
 #[allow(clippy::upper_case_acronyms)]
-/// The Glyph Substitution table
+/// The Glyph Positioning table
 pub type GPOS = GPOSGSUB<Positioning>;
+
+impl Default for GPOS {
+    fn default() -> Self {
+        GPOS {
+            lookups: vec![],
+            scripts: ScriptList::default(),
+            features: vec![],
+        }
+    }
+}
 
 impl Deserialize for GPOS {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {

@@ -72,6 +72,16 @@ pub enum Substitution {
 /// The Glyph Substitution table
 pub type GSUB = GPOSGSUB<Substitution>;
 
+impl Default for GSUB {
+    fn default() -> Self {
+        GSUB {
+            lookups: vec![],
+            scripts: ScriptList::default(),
+            features: vec![],
+        }
+    }
+}
+
 impl Deserialize for GSUB {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let core: gsubcoreincoming = c.de()?;

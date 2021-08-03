@@ -73,3 +73,5 @@ pub mod otvar;
 pub mod post;
 /// Useful utilities
 pub mod utils;
+
+pub use otspec::types;
