@@ -3,8 +3,10 @@ use crate::layout::common::*;
 use crate::layout::gsub1::SingleSubst;
 use crate::layout::gsub1::SingleSubstInternal;
 use crate::layout::gsub2::MultipleSubst;
+use crate::layout::gsub2::MultipleSubstFormat1;
 use crate::layout::gsub3::AlternateSubst;
 use crate::layout::gsub4::LigatureSubst;
+use crate::layout::gsub4::LigatureSubstFormat1;
 use otspec::types::*;
 use otspec::Counted;
 use otspec::{
@@ -195,9 +197,31 @@ impl<'a> From<&Lookup<Substitution>> for LookupInternal {
                 }
                 v
             }
-            // Substitution::Multiple(subs) => subs.offset_fields(),
-            // Substitution::Alternate(subs) => subs.offset_fields(),
-            // Substitution::Ligature(subs) => subs.offset_fields(),
+            Substitution::Multiple(subs) => {
+                let mut v: Vec<Box<dyn OffsetMarkerTrait>> = vec![];
+                for s in subs {
+                    let si: MultipleSubstFormat1 = s.into();
+                    v.push(Box::new(Offset16::to(si)));
+                }
+                v
+            }
+            Substitution::Alternate(subs) => {
+                let mut v: Vec<Box<dyn OffsetMarkerTrait>> = vec![];
+                for s in subs {
+                    let si: MultipleSubstFormat1 = s.into();
+                    v.push(Box::new(Offset16::to(si)));
+                }
+                v
+            }
+            Substitution::Ligature(subs) => {
+                let mut v: Vec<Box<dyn OffsetMarkerTrait>> = vec![];
+                for s in subs {
+                    let si: LigatureSubstFormat1 = s.into();
+                    v.push(Box::new(Offset16::to(si)));
+                }
+                v
+            }
+
             _ => unimplemented!(),
         };
 
