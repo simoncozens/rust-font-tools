@@ -145,7 +145,7 @@ pub fn build_font(input: &babelfont::Font, include: &Option<HashSet<String>>) ->
                 Some(&variation_model),
                 &glif.name,
             );
-            let lsb = 0; // glyph.xMin;
+            let lsb = glyph.xMin;
             let advance_width = input
                 .master_layer_for(&glif.name, input.default_master().unwrap())
                 .unwrap()
@@ -196,7 +196,7 @@ pub fn build_static_master(
             }
             let mut glif_variations = vec![input.master_layer_for(&glif.name, master)];
             let (glyph, _) = glifs_to_glyph(0, &name_to_id, &glif_variations, None, &glif.name);
-            let lsb = 0; // glyph.xMin;
+            let lsb = glyph.xMin;
             let advance_width = input
                 .master_layer_for(&glif.name, input.default_master().unwrap())
                 .unwrap()
