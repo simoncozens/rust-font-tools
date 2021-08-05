@@ -280,6 +280,6 @@ fn babelfont_component_to_glyf_component(
         glyph_index: *maybe_id.unwrap(),
         match_points: None,
         flags: glyf::ComponentFlags::empty(),
-        transformation: component.transform.into(),
+        transformation: component.transform,
     })
 }
