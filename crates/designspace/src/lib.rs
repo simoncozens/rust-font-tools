@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fs::File;
+use std::path::Path;
 extern crate fonttools;
 use fonttools::avar::{avar, SegmentMap};
 use fonttools::font::{Font, Table};
@@ -410,9 +411,9 @@ pub struct Source {
 impl Source {
     #[cfg(feature = "norad")]
     /// Load the source from a UFO file
-    pub fn ufo(&self) -> Result<norad::Font, norad::Error> {
+    pub fn ufo(&self, designspace_filename: &Path) -> Result<norad::Font, norad::Error> {
         log::info!("Loading {:}", self.filename);
-        norad::Font::load(&self.filename)
+        norad::Font::load(designspace_filename.parent().unwrap().join(&self.filename))
     }
 }
 
