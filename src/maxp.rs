@@ -70,8 +70,7 @@ impl maxp {
 
     #[allow(non_snake_case, non_camel_case_types)]
     /// Creates a new `maxp` table with version=1.0, given a set of
-    /// statistics. These statistics can be gathered from the `glyf` table
-    /// using the `maxp_statistics` method.
+    /// statistics.
     pub fn new10(
         numGlyphs: u16,
         maxPoints: u16,

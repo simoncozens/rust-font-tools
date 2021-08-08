@@ -1,3 +1,4 @@
+use crate::maxp::maxp;
 use otspec::{DeserializationError, Deserializer, ReaderContext};
 
 /// Structures for handling components within a composite glyph
@@ -155,10 +156,9 @@ impl glyf {
             }
         }
     }
-    /// Gathers statistics to be used in the `maxp` table, returning a tuple of
-    /// `(num_glyphs, max_points, max_contours, max_composite_points,
-    /// max_composite_contours, max_component_elements, max_component_depth)`
-    pub fn maxp_statistics(&self) -> (u16, u16, u16, u16, u16, u16, u16) {
+
+    /// Returns a maxp version 1.0 table reflecting the statistics in this glyf table
+    pub fn as_maxp10(&self) -> maxp {
         let num_glyphs = self.glyphs.len() as u16;
         let max_points = self
             .glyphs
@@ -182,7 +182,7 @@ impl glyf {
             .max()
             .unwrap_or(0) as u16;
         let max_component_depth = 1; // XXX
-        (
+        maxp::new10(
             num_glyphs,
             max_points,
             max_contours,
