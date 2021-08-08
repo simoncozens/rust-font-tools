@@ -120,14 +120,16 @@ pub fn unique_id(input: &babelfont::Font) -> String {
         |x| x.clone(),
     )
 }
+
 pub fn postscript_underline_thickness(input: &babelfont::Font) -> i16 {
     let upm = input.upm as f32;
     input
         .ot_value("post", "underlineThickness", true)
         .map_or_else(|| upm * 0.05, f32::from) as i16
 }
+
 pub fn get_panose(_input: &babelfont::Font) -> fonttools::os2::Panose {
-    // Struct not public, unfortunately.
+    // XXX
     fonttools::os2::Panose {
         panose0: 0,
         panose1: 0,
