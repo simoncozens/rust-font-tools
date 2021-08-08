@@ -14,7 +14,6 @@ use std::collections::{BTreeMap, HashSet};
 use unzip_n::unzip_n;
 
 unzip_n!(3);
-unzip_n!(2);
 
 // We collect here the information for the `cmap` table (`codepoint_to_gid`); a
 // mapping of glyph names to eventual glyph IDs (`name_to_id`) which will be used
@@ -79,7 +78,10 @@ pub fn build_font(
         default_master_ix = input
             .default_master_index()
             .expect("Couldn't find default master");
+
+        // Unused, but needs to have the same type...
         base_master = input.masters.get(default_master_ix).unwrap();
+
         variation_model = Some(true_model);
     }
 
@@ -94,9 +96,10 @@ pub fn build_font(
             }
 
             let all_layers: Vec<Option<&Layer>> = if just_one_master.is_some() {
+                // Nobody here but us chickens
                 vec![input.master_layer_for(&glif.name, base_master)]
             } else {
-                // Find all glyph layers
+                // Find all layers for this glyph across the designspace
                 input
                     .masters
                     .iter()
@@ -137,7 +140,7 @@ pub fn build_font(
 
     // We built the glyphs in parallel (FOR SPEED) which means that some glyphs
     // which used components may have been built before the component glyphs that
-    // they use. Obviously their glyph bounds will be undetermined until the
+    // they use. Obviously their glyph bounds will be undetermined until all the
     // components are available. Now that we're done building the glyphs, we have
     // to go over the whole glyf table again and recalculate the bounds.
     glyf_table.recalc_bounds();
