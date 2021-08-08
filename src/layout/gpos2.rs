@@ -84,7 +84,7 @@ impl Serialize for PairPosInternal {
 pub type PairPositioningMap = BTreeMap<(uint16, uint16), (ValueRecord, ValueRecord)>;
 pub type SplitPairPositioningMap = BTreeMap<uint16, BTreeMap<uint16, (ValueRecord, ValueRecord)>>;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 /// A pair positioning subtable.
 pub struct PairPos {
     /// The mapping of pair glyph IDs to pairs of value records.

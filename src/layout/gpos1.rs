@@ -45,7 +45,7 @@ impl Serialize for SinglePosInternal {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 /// A single positioning subtable.
 pub struct SinglePos {
     /// The mapping of input glyph IDs to value records.
