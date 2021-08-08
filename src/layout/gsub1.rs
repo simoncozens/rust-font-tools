@@ -6,7 +6,6 @@ use otspec::Deserializer;
 use otspec::ReaderContext;
 use otspec::SerializationError;
 use otspec::Serialize;
-use otspec::Serializer;
 
 use otspec_macros::tables;
 use std::collections::BTreeMap;

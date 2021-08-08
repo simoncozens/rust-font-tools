@@ -23,6 +23,7 @@ where
     true
 }
 
+/// Macro to assist constructing a btreemap from pairs
 #[macro_export]
 macro_rules! btreemap {
         ($($k:expr => $v:expr),* $(,)?) => {

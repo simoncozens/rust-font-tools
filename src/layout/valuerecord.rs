@@ -50,9 +50,12 @@ bitflags! {
 }
 
 impl ValueRecord {
+    /// Creates a value record
     pub fn new() -> ValueRecord {
         ValueRecord::default()
     }
+
+    /// Determines the appropriate flags to serialize a value record
     pub fn flags(&self) -> ValueRecordFlags {
         let mut f = ValueRecordFlags::empty();
         if self.xPlacement.is_some() {
@@ -70,7 +73,8 @@ impl ValueRecord {
         f
     }
 
-    pub fn from_bytes(
+    /// Deserializes a value record
+    pub(crate) fn from_bytes(
         c: &mut ReaderContext,
         flags: ValueRecordFlags,
     ) -> Result<Self, otspec::DeserializationError> {
@@ -107,6 +111,7 @@ impl ValueRecord {
         }
     }
 
+    /// Replaces Some(0) fields with None fields to provide a compact representation of a value record
     pub fn simplify(&mut self) {
         if let Some(xp) = self.xPlacement {
             if xp == 0 {
@@ -156,6 +161,7 @@ pub fn coerce_to_same_format(vrs: Vec<ValueRecord>) -> Vec<ValueRecord> {
     new_vec
 }
 
+/// Helper macro to create valuerecords from fields.
 #[macro_export]
 macro_rules! valuerecord {
         ($($k:ident = $v:expr),* $(,)?) => {{

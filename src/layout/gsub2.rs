@@ -1,5 +1,5 @@
 use crate::layout::coverage::Coverage;
-use itertools::MultiPeek;
+
 use otspec::types::*;
 use otspec::DeserializationError;
 use otspec::Deserialize;
@@ -9,7 +9,6 @@ use otspec::SerializationError;
 use otspec::Serialize;
 use otspec_macros::tables;
 use std::collections::BTreeMap;
-use std::ops::Mul;
 
 tables!(
   MultipleSubstFormat1 {

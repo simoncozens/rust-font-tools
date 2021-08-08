@@ -22,6 +22,7 @@ tables!(
 
 // We can't use the magic tables here because the component count is the array
 // length MINUS ONE.
+/// Internal representation of a ligature substitution for serialization/deserialization
 #[allow(non_camel_case_types, non_snake_case)]
 #[derive(Debug, PartialEq, Clone)]
 pub struct Ligature {

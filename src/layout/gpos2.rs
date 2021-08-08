@@ -1,8 +1,8 @@
 use crate::layout::classdef::ClassDef;
 use crate::layout::coverage::Coverage;
 use crate::layout::valuerecord::highest_format;
-use crate::layout::valuerecord::{coerce_to_same_format, ValueRecord, ValueRecordFlags};
-use crate::utils::is_all_the_same;
+use crate::layout::valuerecord::{ValueRecord, ValueRecordFlags};
+
 use otspec::types::*;
 use otspec::Serialize;
 
@@ -70,7 +70,9 @@ pub struct Class2Record {
 
 format_switching_lookup!(PairPos { Format1, Format2 });
 
+/// User-friendly mapping between glyph pairs and value record adjustments
 pub type PairPositioningMap = BTreeMap<(uint16, uint16), (ValueRecord, ValueRecord)>;
+/// Internal mapping between glyph pairs and value record adjustments, used for serialization
 pub type SplitPairPositioningMap = BTreeMap<uint16, BTreeMap<uint16, (ValueRecord, ValueRecord)>>;
 
 #[derive(Debug, PartialEq, Clone, Default)]

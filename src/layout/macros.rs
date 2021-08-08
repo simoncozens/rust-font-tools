@@ -1,5 +1,4 @@
-use paste::paste;
-
+/// Helper macro to deserialize lookups
 #[macro_export]
 macro_rules! deserialize_lookup_match {
     ($ty_in: expr, $c:expr, $( ($lookup_type:expr, $rule:ty, $variant:path) ),* $(,)*) => {
@@ -16,14 +15,17 @@ macro_rules! deserialize_lookup_match {
     };
 }
 
+/// Creates a ...Internal enum for serializing/deserializing lookups which have more than one format
 #[macro_export]
 macro_rules! format_switching_lookup {
     ($lookup:ty  { $($variant:ident),* }) => {
         paste::paste! {
 
             #[derive(Debug, Clone, PartialEq)]
+            /// Internal representation of $lookup
             pub enum [<$lookup Internal>] {
                 $(
+                    /// Internal representation of $lookup $variant
                     $variant([<$lookup $variant>]),
                 )*
             }
