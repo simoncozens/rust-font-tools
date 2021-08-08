@@ -6,7 +6,7 @@ mod glyph;
 mod kerning;
 mod utils;
 
-use buildbasic::{build_font, build_static_master};
+use buildbasic::build_font;
 use clap::{App, Arg, ArgMatches};
 
 // use rayon::prelude::*;
@@ -104,7 +104,7 @@ fn create_ttf_per_master(in_font: babelfont::Font, subset: Option<HashSet<String
         .default()
         .unwrap_or_else(|| "New Font".to_string());
     for (ix, master) in in_font.masters.iter().enumerate() {
-        let mut out_font = build_static_master(&in_font, &subset, ix);
+        let mut out_font = build_font(&in_font, &subset, Some(ix));
         let master_name = master
             .name
             .default()
@@ -121,7 +121,7 @@ fn create_variable_font(
     subset: Option<HashSet<String>>,
     matches: ArgMatches<'static>,
 ) {
-    let mut out_font = build_font(&in_font, &subset);
+    let mut out_font = build_font(&in_font, &subset, None);
     if in_font.masters.len() > 1 {
         // Ask babelfont to make fvar/avar
         in_font
