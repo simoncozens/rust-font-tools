@@ -99,13 +99,13 @@ fn form_glyf_and_fix_bounds(
     glyf_table
 }
 
-// We collect here the information for the `cmap` table (`mapping`); a mapping
-// of glyph names to eventual glyph IDs (`name_to_id`) which will be used when
-// resolving components; and the list of glyph names (return value) which will
-// be used in the `post` table.
+// We collect here the information for the `cmap` table (`codepoint_to_gid`); a
+// mapping of glyph names to eventual glyph IDs (`name_to_id`) which will be used
+// when resolving components; and the list of glyph names (return value) which
+// will be used in the `post` table.
 fn get_glyph_names_and_mapping(
     input: &babelfont::Font,
-    mapping: &mut BTreeMap<u32, u16>,
+    codepoint_to_gid: &mut BTreeMap<u32, u16>,
     name_to_id: &mut BTreeMap<String, u16>,
     subset: &Option<HashSet<String>>,
 ) -> Vec<String> {
@@ -119,7 +119,7 @@ fn get_glyph_names_and_mapping(
         name_to_id.insert(name, glyph_id as u16);
         let cp = &glyf.codepoints;
         if !cp.is_empty() {
-            mapping.insert(cp[0] as u32, glyph_id as u16);
+            codepoint_to_gid.insert(cp[0] as u32, glyph_id as u16);
         }
     }
     names
@@ -130,9 +130,10 @@ pub fn build_font(input: &babelfont::Font, subset: &Option<HashSet<String>>) -> 
     // input.decompose_mixed_glyphs();
 
     // First, find the glyphs we're dealing with
-    let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
+    let mut codepoint_to_gid: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
-    let names = get_glyph_names_and_mapping(&input, &mut mapping, &mut name_to_id, &subset);
+    let names =
+        get_glyph_names_and_mapping(&input, &mut codepoint_to_gid, &mut name_to_id, &subset);
 
     let variation_model = input
         .variation_model()
@@ -173,26 +174,26 @@ pub fn build_font(input: &babelfont::Font, subset: &Option<HashSet<String>>) -> 
                 .master_layer_for(&glif.name, input.default_master().unwrap())
                 .unwrap()
                 .width as u16;
+            let metric = hmtx::Metric {
+                advanceWidth: advance_width,
+                lsb: 0, // Dummy LSB because we will recalculate it later
+            };
 
             // Return them all together
-            Some((
-                glyph,
-                hmtx::Metric {
-                    advanceWidth: advance_width,
-                    lsb: 0, // Dummy LSB because we will recalculate it later
-                },
-                variation,
-            ))
+            Some((glyph, metric, variation))
         })
         .filter_map(|e| e)
         .collect();
 
+    // We build the per-glyph data in parallel tuples, but now we want them
+    // split into individual font-level vecs
     let (glyphs, mut metrics, variations) = result.into_iter().unzip_n_vec();
 
+    // Recalculate the LSBs as explained above
     let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
 
     // Build the font with glyf + static metadata tables
-    let mut font = fill_tables(&input, glyf_table, metrics, names, mapping);
+    let mut font = fill_tables(&input, glyf_table, metrics, names, codepoint_to_gid);
 
     // Feature writers (temporary hack)
     let gpos_table = build_kerning(input, &name_to_id);
@@ -202,8 +203,7 @@ pub fn build_font(input: &babelfont::Font, subset: &Option<HashSet<String>>) -> 
     let gvar_table = fonttools::gvar::gvar { variations };
     font.tables
         .insert(*b"gvar", Table::Unknown(gvar_table.to_bytes(None)));
-
-    // No optimization by default
+    // No gvar optimization by default (use ttf-optimize-gvar for IUP)
 
     font
 }
@@ -216,10 +216,11 @@ pub fn build_static_master(
 ) -> font::Font {
     // input.decompose_mixed_glyphs();
 
-    let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
+    let mut codepoint_to_gid: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
     let master = input.masters.get(master).expect("This can't be");
-    let names = get_glyph_names_and_mapping(&input, &mut mapping, &mut name_to_id, &subset);
+    let names =
+        get_glyph_names_and_mapping(&input, &mut codepoint_to_gid, &mut name_to_id, &subset);
     let result: Vec<(glyf::Glyph, hmtx::Metric)> = input
         .glyphs
         .par_iter()
@@ -247,7 +248,7 @@ pub fn build_static_master(
     let (glyphs, mut metrics) = result.into_iter().unzip_n_vec();
 
     let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
-    let mut font = fill_tables(&input, glyf_table, metrics, names, mapping);
+    let mut font = fill_tables(&input, glyf_table, metrics, names, codepoint_to_gid);
     let gpos_table = build_kerning(input, &name_to_id);
     font.tables.insert(*b"GPOS", Table::GPOS(gpos_table));
     font
