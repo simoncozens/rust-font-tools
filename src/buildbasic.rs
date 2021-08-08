@@ -60,7 +60,7 @@ pub fn build_font(
     let names =
         get_glyph_names_and_mapping(&input, &mut codepoint_to_gid, &mut name_to_id, &subset);
 
-    let true_model = &input
+    let true_model = input
         .variation_model()
         .expect("Couldn't get variation model");
 
@@ -69,7 +69,7 @@ pub fn build_font(
     let variation_model;
 
     if let Some(master_ix) = just_one_master {
-        // Oh, actually we're not building a variable font. Just pick a master
+        // Oh, actually, we're not building a variable font. Just pick a master
         // and pretend that's the only thing in the font.
         default_master_ix = 0;
         base_master = input.masters.get(master_ix).unwrap();
@@ -82,7 +82,7 @@ pub fn build_font(
         // Unused, but needs to have the same type...
         base_master = input.masters.get(default_master_ix).unwrap();
 
-        variation_model = Some(true_model);
+        variation_model = Some(&true_model);
     }
 
     // The guts of this thing is the big, parallel babelfont::Glyph to glyph::Glyph convertor.
@@ -95,16 +95,16 @@ pub fn build_font(
                 return None;
             }
 
-            let all_layers: Vec<Option<&Layer>> = if just_one_master.is_some() {
-                // Nobody here but us chickens
-                vec![input.master_layer_for(&glif.name, base_master)]
-            } else {
+            let all_layers: Vec<Option<&Layer>> = if just_one_master.is_none() {
                 // Find all layers for this glyph across the designspace
                 input
                     .masters
                     .iter()
                     .map(|master| input.master_layer_for(&glif.name, master))
                     .collect()
+            } else {
+                // Nobody here but us chickens
+                vec![input.master_layer_for(&glif.name, base_master)]
             };
 
             // Convert them to OT glyph objects, plus variation data

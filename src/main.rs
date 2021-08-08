@@ -19,12 +19,13 @@ use std::path::PathBuf;
     OK, here is the basic plan:
 
     1) This function handles command line stuff, uses babelfont-rs to load
-       the source file(s) into memory, and calls into basic_font.
+       the source file(s) into memory, and calls into buildbasic::build_font.
     2) The build_font function in buildbasic.rs coordinates the build.
-    3) basictables.rs creates the non-glyph, non-layout, non-variable metadata tables.
+    3) basictables.rs creates the non-glyph, non-layout, non-variable metadata tables
+       (that is: head, hhea, maxp, OS/2, hmtx, cmap, glyf, name, post, loca).
     3a) fontinfo.rs works out what some of the stuff in those tables should be.
     4) glyph.rs handles Babelfont->OT glyph conversion, creating the glyf and gvar
-       entries for each glyph.
+       table entries for each glyph.
     5) babelfont-rs creates the variable metadata tables (fvar,avar).
     6) We come back here and save the files at the end.
 */
