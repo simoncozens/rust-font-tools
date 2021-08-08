@@ -30,6 +30,7 @@ pub struct PosLookupListIncoming {
 }
 
 impl Lookup<Positioning> {
+    /// Return the integer GPOS lookup type for this lookup
     pub fn lookup_type(&self) -> u16 {
         match self.rule {
             Positioning::Single(_) => 1,

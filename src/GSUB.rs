@@ -34,6 +34,7 @@ pub struct SubstLookupListIncoming {
 }
 
 impl Lookup<Substitution> {
+    /// Return the integer GSUB lookup type for this lookup
     pub fn lookup_type(&self) -> u16 {
         match self.rule {
             Substitution::Single(_) => 1,

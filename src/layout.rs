@@ -1,4 +1,4 @@
-// /// Glyph class definition tables
+/// Glyph class definition tables
 pub mod classdef;
 /// Common tables for OpenType Layout
 pub mod common;
