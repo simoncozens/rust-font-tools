@@ -16,69 +16,6 @@ use unzip_n::unzip_n;
 unzip_n!(3);
 unzip_n!(2);
 
-// *This* function is unused, because...
-/*
-fn decomposed_components(glyph: &Glyph, glyphset: &Layer) -> Vec<Contour> {
-    let mut contours = Vec::new();
-
-    let mut stack: Vec<(&Component, Affine)> = Vec::new();
-
-    for component in &glyph.components {
-        stack.push((component, component.transform.into()));
-
-        while let Some((component, transform)) = stack.pop() {
-            let new_outline = match glyphset.get_glyph(&component.base) {
-                Some(g) => g,
-                None => continue,
-            };
-
-            for contour in &new_outline.contours {
-                let mut decomposed_contour = Contour::default();
-                for point in &contour.points {
-                    let new_point = transform * Point::new(point.x as f64, point.y as f64);
-                    decomposed_contour.points.push(ContourPoint::new(
-                        new_point.x as f32,
-                        new_point.y as f32,
-                        point.typ.clone(),
-                        point.smooth,
-                        point.name.clone(),
-                        None,
-                        None,
-                    ))
-                }
-                contours.push(decomposed_contour);
-            }
-
-            for new_component in new_outline.components.iter().rev() {
-                let new_transform: Affine = new_component.transform.into();
-                stack.push((new_component, transform * new_transform));
-            }
-        }
-    }
-
-    contours
-}
-
-// ... this function needs to be adapted to Babelfont.
-fn decompose_mixed_glyphs(ufo: &mut norad::Font) {
-    let layer = ufo.default_layer_mut();
-    let mut decomposed: BTreeMap<String, Vec<norad::Contour>> = BTreeMap::new();
-    for glif in layer.iter() {
-        decomposed.insert(glif.name.to_string(), decomposed_components(glif, layer));
-    }
-    for glif in layer.iter_mut() {
-        if glif.components.is_empty() || glif.contours.is_empty() {
-            continue;
-        }
-        if let Some(contours) = decomposed.get(&glif.name.to_string()) {
-            glif.contours.extend(contours.clone());
-            glif.components.clear();
-            log::info!("Decomposed mixed glyph {:?}", glif.name);
-        }
-    }
-}
-*/
-
 // We are going to be building the glyphs in parallel (FOR SPEED) which means
 // that some glyphs which use components might be built before the component
 // glyphs that they use. Obviously their glyph bounds will be undetermined
@@ -127,6 +64,11 @@ fn get_glyph_names_and_mapping(
 
 // This builds a complete variable font
 pub fn build_font(input: &babelfont::Font, subset: &Option<HashSet<String>>) -> font::Font {
+    // Previously, this function took a norad UFO font and could mutate it,
+    // to decompose any mixed glyphs (see functions below). But now we have moved
+    // to babelfont we would like to have a method on the font which does the
+    // decomposition, but this method has not been written yet.
+
     // input.decompose_mixed_glyphs();
 
     // First, find the glyphs we're dealing with
@@ -253,3 +195,66 @@ pub fn build_static_master(
     font.tables.insert(*b"GPOS", Table::GPOS(gpos_table));
     font
 }
+
+// *This* function is unused, because...
+/*
+fn decomposed_components(glyph: &Glyph, glyphset: &Layer) -> Vec<Contour> {
+    let mut contours = Vec::new();
+
+    let mut stack: Vec<(&Component, Affine)> = Vec::new();
+
+    for component in &glyph.components {
+        stack.push((component, component.transform.into()));
+
+        while let Some((component, transform)) = stack.pop() {
+            let new_outline = match glyphset.get_glyph(&component.base) {
+                Some(g) => g,
+                None => continue,
+            };
+
+            for contour in &new_outline.contours {
+                let mut decomposed_contour = Contour::default();
+                for point in &contour.points {
+                    let new_point = transform * Point::new(point.x as f64, point.y as f64);
+                    decomposed_contour.points.push(ContourPoint::new(
+                        new_point.x as f32,
+                        new_point.y as f32,
+                        point.typ.clone(),
+                        point.smooth,
+                        point.name.clone(),
+                        None,
+                        None,
+                    ))
+                }
+                contours.push(decomposed_contour);
+            }
+
+            for new_component in new_outline.components.iter().rev() {
+                let new_transform: Affine = new_component.transform.into();
+                stack.push((new_component, transform * new_transform));
+            }
+        }
+    }
+
+    contours
+}
+
+// ... this function needs to be adapted to Babelfont.
+fn decompose_mixed_glyphs(ufo: &mut norad::Font) {
+    let layer = ufo.default_layer_mut();
+    let mut decomposed: BTreeMap<String, Vec<norad::Contour>> = BTreeMap::new();
+    for glif in layer.iter() {
+        decomposed.insert(glif.name.to_string(), decomposed_components(glif, layer));
+    }
+    for glif in layer.iter_mut() {
+        if glif.components.is_empty() || glif.contours.is_empty() {
+            continue;
+        }
+        if let Some(contours) = decomposed.get(&glif.name.to_string()) {
+            glif.contours.extend(contours.clone());
+            glif.components.clear();
+            log::info!("Decomposed mixed glyph {:?}", glif.name);
+        }
+    }
+}
+*/
