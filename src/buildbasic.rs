@@ -1,13 +1,13 @@
 use crate::basictables::fill_tables;
 use crate::glyph::glifs_to_glyph;
 use crate::kerning::build_kerning;
+use babelfont::Layer;
 use fonttools::font;
 use fonttools::font::Table;
 use fonttools::glyf;
 use fonttools::gvar::GlyphVariationData;
 use fonttools::hmtx;
-use kurbo::{Affine, Point};
-use norad::{Component, Contour, ContourPoint, Glyph, Layer};
+
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 use std::collections::{BTreeMap, HashSet};
@@ -16,6 +16,8 @@ use unzip_n::unzip_n;
 unzip_n!(3);
 unzip_n!(2);
 
+// *This* function is unused, because...
+/*
 fn decomposed_components(glyph: &Glyph, glyphset: &Layer) -> Vec<Contour> {
     let mut contours = Vec::new();
 
@@ -57,6 +59,7 @@ fn decomposed_components(glyph: &Glyph, glyphset: &Layer) -> Vec<Contour> {
     contours
 }
 
+// ... this function needs to be adapted to Babelfont.
 fn decompose_mixed_glyphs(ufo: &mut norad::Font) {
     let layer = ufo.default_layer_mut();
     let mut decomposed: BTreeMap<String, Vec<norad::Contour>> = BTreeMap::new();
@@ -74,7 +77,14 @@ fn decompose_mixed_glyphs(ufo: &mut norad::Font) {
         }
     }
 }
+*/
 
+// We are going to be building the glyphs in parallel (FOR SPEED) which means
+// that some glyphs which use components might be built before the component
+// glyphs that they use. Obviously their glyph bounds will be undetermined
+// until the components are available. This means that once we're done building
+// the glyphs, we have to go over the whole glyf table again and recalculate the
+// bounds.
 fn form_glyf_and_fix_bounds(
     glyphs: Vec<glyf::Glyph>,
     metrics: &mut Vec<hmtx::Metric>,
@@ -89,6 +99,10 @@ fn form_glyf_and_fix_bounds(
     glyf_table
 }
 
+// We collect here the information for the `cmap` table (`mapping`); a mapping
+// of glyph names to eventual glyph IDs (`name_to_id`) which will be used when
+// resolving components; and the list of glyph names (return value) which will
+// be used in the `post` table.
 fn get_glyph_names_and_mapping(
     input: &babelfont::Font,
     mapping: &mut BTreeMap<u32, u16>,
@@ -111,62 +125,80 @@ fn get_glyph_names_and_mapping(
     names
 }
 
-pub fn build_font(input: &babelfont::Font, include: &Option<HashSet<String>>) -> font::Font {
+// This builds a complete variable font
+pub fn build_font(input: &babelfont::Font, subset: &Option<HashSet<String>>) -> font::Font {
     // input.decompose_mixed_glyphs();
 
+    // First, find the glyphs we're dealing with
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
-
-    let names = get_glyph_names_and_mapping(&input, &mut mapping, &mut name_to_id, &include);
+    let names = get_glyph_names_and_mapping(&input, &mut mapping, &mut name_to_id, &subset);
 
     let variation_model = input
         .variation_model()
         .expect("Couldn't get variation model");
+
     let default_master_ix = input
         .default_master_index()
         .expect("Couldn't find default master");
+
+    // The guts of this thing is the big, parallel babelfont::Glyph to glyph::Glyph convertor.
     let result: Vec<(glyf::Glyph, hmtx::Metric, Option<GlyphVariationData>)> = input
         .glyphs
         .par_iter()
         .map(|glif| {
-            if include.is_some() && !include.as_ref().unwrap().contains(&glif.name.to_string()) {
+            // Check if we are included in the subset
+            if subset.is_some() && !subset.as_ref().unwrap().contains(&glif.name.to_string()) {
                 return None;
             }
-            // Find other glyphs in designspace
-            let mut glif_variations = vec![];
-            for master in &input.masters {
-                let layer = input.master_layer_for(&glif.name, master);
-                glif_variations.push(layer);
-            }
+
+            // Find all glyph layers
+            let all_layers: Vec<Option<&Layer>> = input
+                .masters
+                .iter()
+                .map(|master| input.master_layer_for(&glif.name, master))
+                .collect();
+
+            // Convert them to OT glyph objects, plus variation data
             let (glyph, variation) = glifs_to_glyph(
                 default_master_ix,
                 &name_to_id,
-                &glif_variations,
+                &all_layers,
                 Some(&variation_model),
                 &glif.name,
             );
-            let lsb = glyph.xMin;
+
+            // Build a basic hmtx entry
             let advance_width = input
                 .master_layer_for(&glif.name, input.default_master().unwrap())
                 .unwrap()
                 .width as u16;
+
+            // Return them all together
             Some((
                 glyph,
                 hmtx::Metric {
                     advanceWidth: advance_width,
-                    lsb,
+                    lsb: 0, // Dummy LSB because we will recalculate it later
                 },
                 variation,
             ))
         })
         .filter_map(|e| e)
         .collect();
+
     let (glyphs, mut metrics, variations) = result.into_iter().unzip_n_vec();
 
     let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
+
+    // Build the font with glyf + static metadata tables
     let mut font = fill_tables(&input, glyf_table, metrics, names, mapping);
+
+    // Feature writers (temporary hack)
     let gpos_table = build_kerning(input, &name_to_id);
     font.tables.insert(*b"GPOS", Table::GPOS(gpos_table));
+
+    // Put the gvar table in there
     let gvar_table = fonttools::gvar::gvar { variations };
     font.tables
         .insert(*b"gvar", Table::Unknown(gvar_table.to_bytes(None)));
@@ -176,9 +208,10 @@ pub fn build_font(input: &babelfont::Font, include: &Option<HashSet<String>>) ->
     font
 }
 
+// Basically the same as the variable version, but without the variations...
 pub fn build_static_master(
     input: &babelfont::Font,
-    include: &Option<HashSet<String>>,
+    subset: &Option<HashSet<String>>,
     master: usize,
 ) -> font::Font {
     // input.decompose_mixed_glyphs();
@@ -186,16 +219,16 @@ pub fn build_static_master(
     let mut mapping: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
     let master = input.masters.get(master).expect("This can't be");
-    let names = get_glyph_names_and_mapping(&input, &mut mapping, &mut name_to_id, &include);
+    let names = get_glyph_names_and_mapping(&input, &mut mapping, &mut name_to_id, &subset);
     let result: Vec<(glyf::Glyph, hmtx::Metric)> = input
         .glyphs
         .par_iter()
         .map(|glif| {
-            if include.is_some() && !include.as_ref().unwrap().contains(&glif.name.to_string()) {
+            if subset.is_some() && !subset.as_ref().unwrap().contains(&glif.name.to_string()) {
                 return None;
             }
-            let mut glif_variations = vec![input.master_layer_for(&glif.name, master)];
-            let (glyph, _) = glifs_to_glyph(0, &name_to_id, &glif_variations, None, &glif.name);
+            let all_layers = vec![input.master_layer_for(&glif.name, master)];
+            let (glyph, _) = glifs_to_glyph(0, &name_to_id, &all_layers, None, &glif.name);
             let lsb = glyph.xMin;
             let advance_width = input
                 .master_layer_for(&glif.name, input.default_master().unwrap())
