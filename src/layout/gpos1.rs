@@ -9,6 +9,22 @@ use otspec::{DeserializationError, Deserialize, Deserializer, ReaderContext, Ser
 use otspec_macros::Serialize;
 use std::collections::BTreeMap;
 
+/* This struct is the user-facing representation of single-pos. A mapping of
+GID -> valuerecord is a friendly way to represent what's going on. */
+#[derive(Debug, PartialEq, Clone, Default)]
+/// A single positioning subtable.
+pub struct SinglePos {
+    /// The mapping of input glyph IDs to value records.
+    pub mapping: BTreeMap<uint16, ValueRecord>,
+}
+
+/*
+When we serialize, we have to translate that friendly representation to
+OpenType's binary, which has two potential formats. We will choose the best
+one behind the scenes, but we need to represent them here as structs to
+facilitate serialization.
+*/
+
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct SinglePosFormat1 {
@@ -30,6 +46,7 @@ pub struct SinglePosFormat2 {
     pub valueRecords: Vec<ValueRecord>,
 }
 
+/* ...Internal gives us an entry point for the lower-level format */
 #[derive(Debug, Clone, PartialEq)]
 pub enum SinglePosInternal {
     Format1(SinglePosFormat1),
@@ -45,12 +62,7 @@ impl Serialize for SinglePosInternal {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Default)]
-/// A single positioning subtable.
-pub struct SinglePos {
-    /// The mapping of input glyph IDs to value records.
-    pub mapping: BTreeMap<uint16, ValueRecord>,
-}
+/* We will load directly into our user-facing mapping. */
 
 impl Deserialize for SinglePos {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
@@ -67,7 +79,7 @@ impl Deserialize for SinglePos {
                 }
             }
             2 => {
-                // Not even used because there's one for each glyph in coverage
+                // Count is not even used because there's one for each glyph in coverage
                 let _count: uint16 = c.de()?;
                 for glyph_id in coverage.as_ref().unwrap().glyphs.iter() {
                     let mut vr: ValueRecord = ValueRecord::from_bytes(c, value_format)?;
@@ -81,6 +93,7 @@ impl Deserialize for SinglePos {
     }
 }
 
+/* On serialization, move to the outgoing representation by choosing the best format */
 impl From<&SinglePos> for SinglePosInternal {
     fn from(val: &SinglePos) -> Self {
         let mut mapping = val.mapping.clone();

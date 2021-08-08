@@ -11,6 +11,23 @@ use otspec::Serializer;
 use otspec_macros::tables;
 use std::collections::BTreeMap;
 
+/* This struct is the user-facing representation of single-subst. A mapping of
+GID -> GID is a friendly way to represent what's going on. */
+
+#[derive(Debug, PartialEq, Clone, Default)]
+/// A single substitution subtable.
+pub struct SingleSubst {
+    /// The mapping of input glyph IDs to replacement glyph IDs.
+    pub mapping: BTreeMap<uint16, uint16>,
+}
+
+/*
+When we read/write, we have to translate that friendly representation to
+OpenType's binary, which has two potential formats. We will choose the best
+one behind the scenes, but we need to represent them here as structs to
+facilitate serialization/deserialization.
+*/
+
 tables!(
   SingleSubstFormat1 {
     [offset_base]
@@ -26,6 +43,7 @@ tables!(
   }
 );
 
+/* ...Internal gives us an entry point for the lower-level format */
 #[derive(Debug, Clone, PartialEq)]
 pub enum SingleSubstInternal {
     Format1(SingleSubstFormat1),
@@ -39,13 +57,6 @@ impl Serialize for SingleSubstInternal {
             SingleSubstInternal::Format2(s) => s.to_bytes(data),
         }
     }
-}
-
-#[derive(Debug, PartialEq, Clone, Default)]
-/// A single substitution subtable.
-pub struct SingleSubst {
-    /// The mapping of input glyph IDs to replacement glyph IDs.
-    pub mapping: BTreeMap<uint16, uint16>,
 }
 
 impl SingleSubst {
@@ -99,6 +110,7 @@ impl Deserialize for SingleSubst {
     }
 }
 
+/* On serialization, move to the outgoing representation by choosing the best format */
 impl From<&SingleSubst> for SingleSubstInternal {
     fn from(val: &SingleSubst) -> Self {
         let coverage = Coverage {
