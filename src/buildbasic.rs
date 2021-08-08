@@ -1,5 +1,5 @@
 use crate::basictables::fill_tables;
-use crate::glyph::glifs_to_glyph;
+use crate::glyph::layers_to_glyph;
 use crate::kerning::build_kerning;
 use babelfont::Layer;
 use fonttools::font;
@@ -160,7 +160,7 @@ pub fn build_font(input: &babelfont::Font, subset: &Option<HashSet<String>>) -> 
                 .collect();
 
             // Convert them to OT glyph objects, plus variation data
-            let (glyph, variation) = glifs_to_glyph(
+            let (glyph, variation) = layers_to_glyph(
                 default_master_ix,
                 &name_to_id,
                 &all_layers,
@@ -228,7 +228,7 @@ pub fn build_static_master(
                 return None;
             }
             let all_layers = vec![input.master_layer_for(&glif.name, master)];
-            let (glyph, _) = glifs_to_glyph(0, &name_to_id, &all_layers, None, &glif.name);
+            let (glyph, _) = layers_to_glyph(0, &name_to_id, &all_layers, None, &glif.name);
             let lsb = glyph.xMin;
             let advance_width = input
                 .master_layer_for(&glif.name, input.default_master().unwrap())
