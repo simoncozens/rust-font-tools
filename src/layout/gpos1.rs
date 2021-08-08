@@ -9,6 +9,8 @@ use otspec::{DeserializationError, Deserialize, Deserializer, ReaderContext, Ser
 use otspec_macros::Serialize;
 use std::collections::BTreeMap;
 
+use crate::format_switching_lookup;
+
 /* This struct is the user-facing representation of single-pos. A mapping of
 GID -> valuerecord is a friendly way to represent what's going on. */
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -46,21 +48,11 @@ pub struct SinglePosFormat2 {
     pub valueRecords: Vec<ValueRecord>,
 }
 
-/* ...Internal gives us an entry point for the lower-level format */
-#[derive(Debug, Clone, PartialEq)]
-pub enum SinglePosInternal {
-    Format1(SinglePosFormat1),
-    Format2(SinglePosFormat2),
-}
-
-impl Serialize for SinglePosInternal {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        match self {
-            SinglePosInternal::Format1(s) => s.to_bytes(data),
-            SinglePosInternal::Format2(s) => s.to_bytes(data),
-        }
-    }
-}
+/*
+   This macro creates a SinglePosInternal enum, which
+   gives us an entry point for the lower-level format
+*/
+format_switching_lookup!(SinglePos { Format1, Format2 });
 
 /* We will load directly into our user-facing mapping. */
 
@@ -121,13 +113,6 @@ impl From<&SinglePos> for SinglePosInternal {
                 valueRecords: vrs,
             })
         }
-    }
-}
-
-impl Serialize for SinglePos {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let ssi: SinglePosInternal = self.into();
-        ssi.to_bytes(data)
     }
 }
 

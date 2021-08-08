@@ -11,6 +11,8 @@ use otspec::Serializer;
 use otspec_macros::tables;
 use std::collections::BTreeMap;
 
+use crate::format_switching_lookup;
+
 /* This struct is the user-facing representation of single-subst. A mapping of
 GID -> GID is a friendly way to represent what's going on. */
 
@@ -43,21 +45,11 @@ tables!(
   }
 );
 
-/* ...Internal gives us an entry point for the lower-level format */
-#[derive(Debug, Clone, PartialEq)]
-pub enum SingleSubstInternal {
-    Format1(SingleSubstFormat1),
-    Format2(SingleSubstFormat2),
-}
-
-impl Serialize for SingleSubstInternal {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        match self {
-            SingleSubstInternal::Format1(s) => s.to_bytes(data),
-            SingleSubstInternal::Format2(s) => s.to_bytes(data),
-        }
-    }
-}
+/*
+   This macro creates a SingleSubstInternal enum, which
+   gives us an entry point for the lower-level format
+*/
+format_switching_lookup!(SingleSubst { Format1, Format2 });
 
 impl SingleSubst {
     fn best_format(&self) -> (uint16, i16) {
@@ -130,13 +122,6 @@ impl From<&SingleSubst> for SingleSubstInternal {
                 substituteGlyphIDs: val.mapping.values().copied().collect(),
             })
         }
-    }
-}
-
-impl Serialize for SingleSubst {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let ssi: SingleSubstInternal = self.into();
-        ssi.to_bytes(data)
     }
 }
 

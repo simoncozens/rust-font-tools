@@ -11,6 +11,8 @@ use otspec::{DeserializationError, Deserialize, Deserializer, ReaderContext, Ser
 use otspec_macros::Serialize;
 use std::collections::BTreeMap;
 
+use crate::format_switching_lookup;
+
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct PairPosFormat1 {
@@ -66,20 +68,7 @@ pub struct Class2Record {
     pub valueRecord2: ValueRecord,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum PairPosInternal {
-    Format1(PairPosFormat1),
-    Format2(PairPosFormat2),
-}
-
-impl Serialize for PairPosInternal {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        match self {
-            PairPosInternal::Format1(s) => s.to_bytes(data),
-            PairPosInternal::Format2(s) => s.to_bytes(data),
-        }
-    }
-}
+format_switching_lookup!(PairPos { Format1, Format2 });
 
 pub type PairPositioningMap = BTreeMap<(uint16, uint16), (ValueRecord, ValueRecord)>;
 pub type SplitPairPositioningMap = BTreeMap<uint16, BTreeMap<uint16, (ValueRecord, ValueRecord)>>;
@@ -191,13 +180,6 @@ impl From<&PairPos> for PairPosInternal {
         } else {
             unimplemented!()
         }
-    }
-}
-
-impl Serialize for PairPos {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let ssi: PairPosInternal = self.into();
-        ssi.to_bytes(data)
     }
 }
 
