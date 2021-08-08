@@ -85,7 +85,7 @@ pub fn build_font(
         variation_model = Some(&true_model);
     }
 
-    // The guts of this thing is the big, parallel babelfont::Glyph to glyph::Glyph convertor.
+    // The guts of this thing is the big, parallel babelfont::Glyph to glyf::Glyph convertor.
     let result: Vec<(glyf::Glyph, hmtx::Metric, Option<GlyphVariationData>)> = input
         .glyphs
         .par_iter()
