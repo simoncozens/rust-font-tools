@@ -16,26 +16,6 @@ use unzip_n::unzip_n;
 unzip_n!(3);
 unzip_n!(2);
 
-// We are going to be building the glyphs in parallel (FOR SPEED) which means
-// that some glyphs which use components might be built before the component
-// glyphs that they use. Obviously their glyph bounds will be undetermined
-// until the components are available. This means that once we're done building
-// the glyphs, we have to go over the whole glyf table again and recalculate the
-// bounds.
-fn form_glyf_and_fix_bounds(
-    glyphs: Vec<glyf::Glyph>,
-    metrics: &mut Vec<hmtx::Metric>,
-) -> glyf::glyf {
-    let mut glyf_table = glyf::glyf { glyphs };
-    glyf_table.recalc_bounds();
-
-    // Do LSBs again
-    for (id, glyph) in glyf_table.glyphs.iter().enumerate() {
-        metrics[id].lsb = glyph.xMin;
-    }
-    glyf_table
-}
-
 // We collect here the information for the `cmap` table (`codepoint_to_gid`); a
 // mapping of glyph names to eventual glyph IDs (`name_to_id`) which will be used
 // when resolving components; and the list of glyph names (return value) which
@@ -84,10 +64,14 @@ pub fn build_font(
     let true_model = &input
         .variation_model()
         .expect("Couldn't get variation model");
+
     let default_master_ix;
     let base_master;
     let variation_model;
+
     if let Some(master_ix) = just_one_master {
+        // Oh, actually we're not building a variable font. Just pick a master
+        // and pretend that's the only thing in the font.
         default_master_ix = 0;
         base_master = input.masters.get(master_ix).unwrap();
         variation_model = None;
@@ -149,8 +133,17 @@ pub fn build_font(
     // split into individual font-level vecs
     let (glyphs, mut metrics, variations) = result.into_iter().unzip_n_vec();
 
-    // Recalculate the LSBs as explained above
-    let glyf_table = form_glyf_and_fix_bounds(glyphs, &mut metrics);
+    let mut glyf_table = glyf::glyf { glyphs };
+
+    // We built the glyphs in parallel (FOR SPEED) which means that some glyphs
+    // which used components may have been built before the component glyphs that
+    // they use. Obviously their glyph bounds will be undetermined until the
+    // components are available. Now that we're done building the glyphs, we have
+    // to go over the whole glyf table again and recalculate the bounds.
+    glyf_table.recalc_bounds();
+    for (id, glyph) in glyf_table.glyphs.iter().enumerate() {
+        metrics[id].lsb = glyph.xMin;
+    }
 
     // Build the font with glyf + static metadata tables
     let mut font = fill_tables(&input, glyf_table, metrics, names, codepoint_to_gid);
