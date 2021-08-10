@@ -1,25 +1,13 @@
-use crate::common::OTValue;
-use crate::glyph::GlyphCategory;
-use crate::i18ndictionary::I18NDictionary;
-use crate::OTScalar::Signed;
-use crate::Shape::{ComponentShape, PathShape};
-use crate::{Anchor, OTScalar};
-use crate::{
-    Axis, BabelfontError, Component, Font, Glyph, Guide, Instance, Layer, Location, Master, Node,
-    NodeType, Path, Position, Shape,
-};
-use designspace::Axis as DSAxis;
-use designspace::Instance as DSInstance;
-use designspace::{Designspace, Source};
-use std::collections::HashMap;
-use std::convert::TryInto;
-use std::sync::Arc;
-
-use chrono::TimeZone;
-
-use std::fs;
 use std::fs::File;
 use std::path::PathBuf;
+
+use chrono::TimeZone;
+use designspace::{Axis as DSAxis, Designspace, Instance as DSInstance};
+
+use crate::glyph::GlyphCategory;
+use crate::{
+    Axis, BabelfontError, Component, Font, Glyph, Layer, Location, Master, OTScalar, Path, Shape,
+};
 
 pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     let ds_file = File::open(path.clone()).map_err(|source| BabelfontError::IO {
@@ -228,7 +216,7 @@ fn load_font_info(font: &mut Font, info: &norad::FontInfo) {
     }
 }
 
-fn load_instances(font: &mut Font, instances: &[DSInstance]) {
+fn load_instances(_font: &mut Font, _instances: &[DSInstance]) {
     // unimplemented!()
 }
 
