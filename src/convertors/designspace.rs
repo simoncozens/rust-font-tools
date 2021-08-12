@@ -216,7 +216,7 @@ fn load_font_info(font: &mut Font, info: &norad::FontInfo) {
     }
 }
 
-fn load_instances(_font: &mut Font, _instances: &[DSInstance]) {
+fn load_instances(font: &mut Font, _instances: &[DSInstance]) {
     // unimplemented!()
 }
 
