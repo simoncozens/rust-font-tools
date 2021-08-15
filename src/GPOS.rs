@@ -44,6 +44,11 @@ impl Lookup<Positioning> {
             Positioning::Extension => 9,
         }
     }
+
+    /// Add subtable break
+    pub fn add_subtable_break(&mut self) {
+        self.rule.add_subtable_break()
+    }
 }
 /// A container which represents a generic positioning rule
 ///
@@ -68,6 +73,23 @@ pub enum Positioning {
     ChainedContextual,
     /// Contains an extension subtable.
     Extension,
+}
+
+impl Positioning {
+    /// Adds a subtable break to this rule
+    pub fn add_subtable_break(&mut self) {
+        match self {
+            Positioning::Single(v) => v.push(SinglePos::default()),
+            Positioning::Pair(v) => v.push(PairPos::default()),
+            Positioning::Cursive => todo!(),
+            Positioning::MarkToBase => todo!(),
+            Positioning::MarkToLig => todo!(),
+            Positioning::MarkToMark => todo!(),
+            Positioning::Contextual => todo!(),
+            Positioning::ChainedContextual => todo!(),
+            Positioning::Extension => todo!(),
+        }
+    }
 }
 
 #[allow(clippy::upper_case_acronyms)]

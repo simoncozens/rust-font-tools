@@ -47,7 +47,13 @@ impl Lookup<Substitution> {
             Substitution::ReverseChaining => 8,
         }
     }
+
+    /// Add subtable break
+    pub fn add_subtable_break(&mut self) {
+        self.rule.add_subtable_break()
+    }
 }
+
 /// A container which represents a generic substitution rule
 ///
 /// Each rule is expressed as a vector of subtables.
@@ -69,6 +75,22 @@ pub enum Substitution {
     Extension,
     /// Contains a reverse chaining single substitution rule.
     ReverseChaining,
+}
+
+impl Substitution {
+    /// Adds a subtable break to this rule
+    pub fn add_subtable_break(&mut self) {
+        match self {
+            Substitution::Single(v) => v.push(SingleSubst::default()),
+            Substitution::Multiple(v) => v.push(MultipleSubst::default()),
+            Substitution::Alternate(v) => v.push(AlternateSubst::default()),
+            Substitution::Ligature(v) => v.push(LigatureSubst::default()),
+            Substitution::Contextual => todo!(),
+            Substitution::ChainedContextual => todo!(),
+            Substitution::Extension => todo!(),
+            Substitution::ReverseChaining => todo!(),
+        }
+    }
 }
 
 #[allow(clippy::upper_case_acronyms)]
