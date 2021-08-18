@@ -147,15 +147,24 @@ fn serialize_offset_fields(fields: &[Field]) -> Vec<TokenStream> {
         .map(|field| {
             let name = &field.original.ident;
             let ty = &field.original.ty;
+            let mut result = quote! {};
             if let syn::Type::Path(path) = ty {
-                if path.path.segments.first().unwrap().ident == "Offset16" {
-                    quote! { &self.#name, }
-                } else {
-                    quote! {}
+                let first = path.path.segments.first().unwrap();
+                if first.ident == "Offset16" {
+                    result = quote! { &self.#name, };
+                } else if first.ident == "Option" {
+                    if let syn::PathArguments::AngleBracketed(args) = &first.arguments {
+                        if let syn::GenericArgument::Type(syn::Type::Path(tp)) =
+                            args.args.first().unwrap()
+                        {
+                            if tp.path.segments.first().unwrap().ident == "Offset16" {
+                                result = quote! { &self.#name, };
+                            }
+                        }
+                    }
                 }
-            } else {
-                quote! {}
             }
+            result
         })
         .collect()
 }

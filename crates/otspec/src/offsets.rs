@@ -282,6 +282,53 @@ impl Serialize for Box<dyn OffsetMarkerTrait> {
         vec![]
     }
 }
+
+impl<T: Serialize + std::fmt::Debug> OffsetMarkerTrait for Option<Offset16<T>> {
+    fn children(&self) -> Vec<&dyn OffsetMarkerTrait> {
+        self.as_ref().map_or_else(Vec::new, |x| x.children())
+    }
+    fn object_size(&self) -> usize {
+        self.as_ref().map_or(0, |x| x.object_size())
+    }
+    fn total_size_with_descendants(&self) -> usize {
+        self.as_ref().map_or(0, |x| x.total_size_with_descendants())
+    }
+
+    fn needs_resolving(&self) -> bool {
+        self.as_ref().map_or(false, |x| x.needs_resolving())
+    }
+
+    fn is_explicitly_zero(&self) -> bool {
+        self.as_ref().map_or(true, |x| x.is_explicitly_zero())
+    }
+
+    fn set(&self, off: uint16) {
+        if let Some(x) = self {
+            x.off.replace(Some(off));
+        } else {
+            panic!(
+                "Attempted to set an offset on a None Option<Offset16> {:?}",
+                self
+            )
+        }
+    }
+
+    fn serialize_contents(&self, output: &mut Vec<u8>) -> Result<(), SerializationError> {
+        if let Some(x) = self {
+            x.serialize_contents(output)
+        } else {
+            Ok(())
+        }
+    }
+    fn serialize_offset(&self, output: &mut Vec<u8>) -> Result<(), SerializationError> {
+        if let Some(x) = self {
+            x.serialize_offset(output)
+        } else {
+            Ok(())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
