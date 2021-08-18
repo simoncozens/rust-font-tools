@@ -122,11 +122,11 @@ impl Deserialize for PairPos {
 
 fn split_into_two_layer(in_hash: PairPositioningMap) -> SplitPairPositioningMap {
     let mut out_hash = BTreeMap::new();
-    for (&(l, r), &vs) in in_hash.iter() {
+    for (&(l, r), vs) in in_hash.iter() {
         out_hash
             .entry(l)
             .or_insert_with(BTreeMap::new)
-            .insert(r, vs);
+            .insert(r, vs.clone());
     }
     out_hash
 }
@@ -163,8 +163,8 @@ impl From<&PairPos> for PairPosInternal {
                 for (right, (vr1, vr2)) in split_mapping.get(&left).unwrap() {
                     pair_value_records.push(PairValueRecord {
                         secondGlyph: *right,
-                        valueRecord1: *vr1,
-                        valueRecord2: *vr2,
+                        valueRecord1: vr1.clone(),
+                        valueRecord2: vr2.clone(),
                     })
                 }
                 pair_sets.push(Offset16::to(PairSet {

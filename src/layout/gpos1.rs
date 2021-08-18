@@ -67,7 +67,7 @@ impl Deserialize for SinglePos {
                 let mut vr: ValueRecord = ValueRecord::from_bytes(c, value_format)?;
                 vr.simplify();
                 for glyph_id in &coverage.as_ref().unwrap().glyphs {
-                    mapping.insert(*glyph_id, vr);
+                    mapping.insert(*glyph_id, vr.clone());
                 }
             }
             2 => {
@@ -101,10 +101,10 @@ impl From<&SinglePos> for SinglePosInternal {
                 posFormat: 1,
                 coverage: Offset16::to(coverage),
                 valueFormat: vr.flags(),
-                valueRecord: *vr,
+                valueRecord: vr.clone(),
             })
         } else {
-            let vrs: Vec<ValueRecord> = mapping.values().copied().collect();
+            let vrs: Vec<ValueRecord> = mapping.values().cloned().collect();
             let vrs = coerce_to_same_format(vrs);
             SinglePosInternal::Format2(SinglePosFormat2 {
                 posFormat: 2,

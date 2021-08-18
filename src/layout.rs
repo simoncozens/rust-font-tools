@@ -6,6 +6,8 @@ pub mod classdef;
 pub mod common;
 /// Glyph coverage tables
 pub mod coverage;
+/// Device tables
+pub mod device;
 /// GPOS1 single positioning
 pub mod gpos1;
 /// GPOS2 pair positioning

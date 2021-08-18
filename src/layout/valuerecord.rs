@@ -1,3 +1,4 @@
+use crate::layout::device::Device;
 use bitflags::bitflags;
 use otspec::types::*;
 use otspec::{Deserializer, ReaderContext};
@@ -11,17 +12,20 @@ use crate::utils::is_all_the_same;
 // Serialization is done automatically, but it is the owner's
 // responsibility to set the Options to reflect the flags they
 // have serialized elsewhere.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Default)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct ValueRecord {
+    // This is *not* an offset base!!!
     pub xPlacement: Option<int16>,
     pub yPlacement: Option<int16>,
     pub xAdvance: Option<int16>,
     pub yAdvance: Option<int16>,
-    // xPlaDeviceOffset: Offset16<Device>,
-    // yPlaDeviceOffset: Offset16<Device>,
-    // xAdvDeviceOffset: Offset16<Device>,
-    // yAdvDeviceOffset: Offset16<Device>,
+    // "Offset to Device table... from beginning of the immediate parent table"
+    // I can't even.
+    pub xPlaDevice: Option<Offset16<Device>>,
+    pub yPlaDevice: Option<Offset16<Device>>,
+    pub xAdvDevice: Option<Offset16<Device>>,
+    pub yAdvDevice: Option<Offset16<Device>>,
 }
 
 bitflags! {
@@ -70,6 +74,18 @@ impl ValueRecord {
         if self.yAdvance.is_some() {
             f |= ValueRecordFlags::Y_ADVANCE
         }
+        if self.xPlaDevice.is_some() {
+            f |= ValueRecordFlags::X_PLACEMENT_DEVICE
+        }
+        if self.xPlaDevice.is_some() {
+            f |= ValueRecordFlags::Y_PLACEMENT_DEVICE
+        }
+        if self.xAdvDevice.is_some() {
+            f |= ValueRecordFlags::X_ADVANCE_DEVICE
+        }
+        if self.yAdvDevice.is_some() {
+            f |= ValueRecordFlags::Y_ADVANCE_DEVICE
+        }
         f
     }
 
@@ -90,6 +106,21 @@ impl ValueRecord {
         }
         if flags.contains(ValueRecordFlags::Y_ADVANCE) {
             vr.yAdvance = Some(c.de()?);
+        }
+        println!("Base vr: {:?}", vr);
+        if flags.contains(ValueRecordFlags::X_PLACEMENT_DEVICE) {
+            vr.xPlaDevice = Some(c.de()?);
+            println!("X pla device: {:?}", vr.xPlaDevice);
+        }
+        if flags.contains(ValueRecordFlags::Y_PLACEMENT_DEVICE) {
+            vr.yPlaDevice = Some(c.de()?);
+            println!("Y pla device: {:?}", vr.yPlaDevice);
+        }
+        if flags.contains(ValueRecordFlags::X_ADVANCE_DEVICE) {
+            vr.xAdvDevice = Some(c.de()?);
+        }
+        if flags.contains(ValueRecordFlags::Y_ADVANCE_DEVICE) {
+            vr.yAdvDevice = Some(c.de()?);
         }
 
         Ok(vr)
@@ -175,6 +206,9 @@ macro_rules! valuerecord {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout::gpos1::SinglePos;
+    use crate::valuerecord;
+    use otspec::Deserialize;
 
     #[test]
     fn test_valuerecord_serde() {
@@ -187,5 +221,44 @@ mod tests {
         let de: ValueRecord =
             ValueRecord::from_bytes(&mut rc, ValueRecordFlags::X_ADVANCE).unwrap();
         assert_eq!(de, vr);
+    }
+
+    #[test]
+    fn test_valuerecord_device_deser() {
+        let binary_gpos1 = vec![
+            0x00, 0x01, 0x00, 0x16, 0x00, 0xFF, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04,
+            0x00, 0x1C, 0x00, 0x24, 0x00, 0x2C, 0x00, 0x34, 0x00, 0x01, 0x00, 0x01, 0x00, 0x42,
+            0x00, 0x0B, 0x00, 0x0E, 0x00, 0x01, 0x81, 0x00, 0x00, 0x0D, 0x00, 0x0F, 0x00, 0x02,
+            0xD0, 0x10, 0x00, 0x0B, 0x00, 0x0E, 0x00, 0x02, 0x80, 0x07, 0x00, 0x0D, 0x00, 0x0F,
+            0x00, 0x03, 0x08, 0x00, 0x01, 0x00, 0x00, 0x00,
+        ];
+
+        let de: SinglePos = otspec::de::from_bytes(&binary_gpos1).unwrap();
+        let mut vr = valuerecord!(xPlacement = 1, yPlacement = 2, xAdvance = 3, yAdvance = 4);
+        vr.xPlaDevice = Some(Offset16::to(Device {
+            startSize: 11,
+            endSize: 14,
+            deltaFormat: Some(1),
+            deltaValues: vec![-2, 0, 0, 1],
+        }));
+        vr.yPlaDevice = Some(Offset16::to(Device {
+            startSize: 13,
+            endSize: 15,
+            deltaFormat: Some(2),
+            deltaValues: vec![-3, 0, 1],
+        }));
+        vr.xAdvDevice = Some(Offset16::to(Device {
+            startSize: 11,
+            endSize: 14,
+            deltaFormat: Some(2),
+            deltaValues: vec![-8, 0, 0, 7],
+        }));
+        vr.yAdvDevice = Some(Offset16::to(Device {
+            startSize: 13,
+            endSize: 15,
+            deltaFormat: Some(3),
+            deltaValues: vec![8, 0, 1],
+        }));
+        assert_eq!(de.mapping.values().next().unwrap(), &vr);
     }
 }
