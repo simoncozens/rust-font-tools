@@ -23,9 +23,6 @@ impl Deserialize for Device {
         let format: uint16 = c.de()?;
         let mut values: Vec<i8> = vec![];
         if format != 0x8000 {
-            println!("End size: {:?}", endSize);
-            println!("Start size: {:?}", startSize);
-            println!("Format: {:?}", format);
             let mut count = endSize - startSize + 1;
             let num_bits = 1 << format;
             let minus_offset: i16 = 1 << num_bits;
