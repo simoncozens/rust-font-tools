@@ -14,6 +14,7 @@ use crate::utils::is_all_the_same;
 // have serialized elsewhere.
 #[derive(Debug, Clone, PartialEq, Serialize, Default)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
+#[serde(embedded)]
 pub struct ValueRecord {
     // This is *not* an offset base!!!
     pub xPlacement: Option<int16>,
@@ -107,14 +108,11 @@ impl ValueRecord {
         if flags.contains(ValueRecordFlags::Y_ADVANCE) {
             vr.yAdvance = Some(c.de()?);
         }
-        println!("Base vr: {:?}", vr);
         if flags.contains(ValueRecordFlags::X_PLACEMENT_DEVICE) {
             vr.xPlaDevice = Some(c.de()?);
-            println!("X pla device: {:?}", vr.xPlaDevice);
         }
         if flags.contains(ValueRecordFlags::Y_PLACEMENT_DEVICE) {
             vr.yPlaDevice = Some(c.de()?);
-            println!("Y pla device: {:?}", vr.yPlaDevice);
         }
         if flags.contains(ValueRecordFlags::X_ADVANCE_DEVICE) {
             vr.xAdvDevice = Some(c.de()?);
@@ -230,7 +228,7 @@ mod tests {
             0x00, 0x1C, 0x00, 0x24, 0x00, 0x2C, 0x00, 0x34, 0x00, 0x01, 0x00, 0x01, 0x00, 0x42,
             0x00, 0x0B, 0x00, 0x0E, 0x00, 0x01, 0x81, 0x00, 0x00, 0x0D, 0x00, 0x0F, 0x00, 0x02,
             0xD0, 0x10, 0x00, 0x0B, 0x00, 0x0E, 0x00, 0x02, 0x80, 0x07, 0x00, 0x0D, 0x00, 0x0F,
-            0x00, 0x03, 0x08, 0x00, 0x01, 0x00, 0x00, 0x00,
+            0x00, 0x03, 0x08, 0x00, 0x01, 0x00,
         ];
 
         let de: SinglePos = otspec::de::from_bytes(&binary_gpos1).unwrap();
@@ -260,5 +258,7 @@ mod tests {
             deltaValues: vec![8, 0, 1],
         }));
         assert_eq!(de.mapping.values().next().unwrap(), &vr);
+
+        assert_eq!(otspec::ser::to_bytes(&de).unwrap(), binary_gpos1);
     }
 }

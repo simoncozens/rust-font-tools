@@ -34,6 +34,7 @@ pub struct SinglePosFormat1 {
     pub posFormat: uint16,
     pub coverage: Offset16<Coverage>,
     pub valueFormat: ValueRecordFlags,
+    #[serde(embed)]
     pub valueRecord: ValueRecord,
 }
 

@@ -28,6 +28,7 @@ pub struct PairPosFormat1 {
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct PairSet {
+    #[serde(offset_base)]
     #[serde(with = "Counted")]
     pub pairValueRecords: Vec<PairValueRecord>,
 }
@@ -36,7 +37,9 @@ pub struct PairSet {
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct PairValueRecord {
     pub secondGlyph: uint16,
+    #[serde(embed)]
     pub valueRecord1: ValueRecord,
+    #[serde(embed)]
     pub valueRecord2: ValueRecord,
 }
 
@@ -64,7 +67,9 @@ pub struct Class1Record {
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct Class2Record {
+    #[serde(embed)]
     pub valueRecord1: ValueRecord,
+    #[serde(embed)]
     pub valueRecord2: ValueRecord,
 }
 
