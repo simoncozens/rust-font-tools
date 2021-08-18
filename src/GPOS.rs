@@ -2,7 +2,7 @@ use crate::deserialize_lookup_match;
 use crate::layout::common::*;
 use crate::layout::gpos1::{SinglePos, SinglePosInternal};
 use crate::layout::gpos2::{PairPos, PairPosInternal};
-// use crate::layout::gpos2::PairPos;
+use crate::layout::gpos3::{CursivePos, CursivePosFormat1};
 use otspec::types::*;
 use otspec::Counted;
 use otspec::{
@@ -35,7 +35,7 @@ impl Lookup<Positioning> {
         match self.rule {
             Positioning::Single(_) => 1,
             Positioning::Pair(_) => 2,
-            Positioning::Cursive => 3,
+            Positioning::Cursive(_) => 3,
             Positioning::MarkToBase => 4,
             Positioning::MarkToLig => 5,
             Positioning::MarkToMark => 6,
@@ -60,7 +60,7 @@ pub enum Positioning {
     /// Contains a pair positioning rule.
     Pair(Vec<PairPos>),
     /// Contains an cursive positioning rule.
-    Cursive,
+    Cursive(Vec<CursivePos>),
     /// Contains a mark-to-base rule.
     MarkToBase,
     /// Contains a mark-to-lig rule.
@@ -81,7 +81,7 @@ impl Positioning {
         match self {
             Positioning::Single(v) => v.push(SinglePos::default()),
             Positioning::Pair(v) => v.push(PairPos::default()),
-            Positioning::Cursive => todo!(),
+            Positioning::Cursive(v) => v.push(CursivePos::default()),
             Positioning::MarkToBase => todo!(),
             Positioning::MarkToLig => todo!(),
             Positioning::MarkToMark => todo!(),
@@ -194,7 +194,8 @@ impl Deserialize for Lookup<Positioning> {
             lookup_type,
             c,
             (1, SinglePos, Positioning::Single),
-            // (2, PairPos, Positioning::Pair),
+            (2, PairPos, Positioning::Pair),
+            (3, CursivePos, Positioning::Cursive),
         );
 
         c.pop();
@@ -225,7 +226,14 @@ impl<'a> From<&Lookup<Positioning>> for LookupInternal {
                 }
                 v
             }
-            // Positioning::Multiple(subs) => subs.offset_fields(),
+            Positioning::Cursive(subs) => {
+                let mut v: Vec<Box<dyn OffsetMarkerTrait>> = vec![];
+                for s in subs {
+                    let si: CursivePosFormat1 = s.into();
+                    v.push(Box::new(Offset16::to(si)));
+                }
+                v
+            } // Positioning::Multiple(subs) => subs.offset_fields(),
             // Positioning::Alternate(subs) => subs.offset_fields(),
             // Positioning::Ligature(subs) => subs.offset_fields(),
             _ => unimplemented!(),

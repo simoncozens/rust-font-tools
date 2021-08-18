@@ -1,3 +1,5 @@
+/// GPOS anchors
+pub mod anchor;
 /// Glyph class definition tables
 pub mod classdef;
 /// Common tables for OpenType Layout
@@ -8,6 +10,8 @@ pub mod coverage;
 pub mod gpos1;
 /// GPOS2 pair positioning
 pub mod gpos2;
+/// GPOS3 cursive positioning
+pub mod gpos3;
 /// GSUB1 single substitution
 pub mod gsub1;
 /// GSUB2 multiple substitution
