@@ -77,12 +77,12 @@ impl Serialize for Device {
         data.put(format)?;
         // Horrible bit-packing time
         let num_bits = 1 << format;
-        let mask = (1 << num_bits) - 1;
+        let mask: i16 = (1 << num_bits) - 1;
         let mut tmp: uint16 = 0;
         let mut shift: uint16 = 16;
         for &value in &self.deltaValues {
             shift -= num_bits;
-            tmp |= ((value & mask) as u16) << shift;
+            tmp |= ((value as i16 & mask) as u16) << shift;
             if shift == 0 {
                 data.put(tmp)?;
                 tmp = 0;
