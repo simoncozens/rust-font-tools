@@ -30,6 +30,7 @@ pub trait OffsetMarkerTrait: Serialize + std::fmt::Debug {
     fn object_size(&self) -> usize;
     fn total_size_with_descendants(&self) -> usize;
     fn needs_resolving(&self) -> bool;
+    fn is_explicitly_zero(&self) -> bool;
     fn set(&self, off: uint16);
     fn serialize_contents(&self, output: &mut Vec<u8>) -> Result<(), SerializationError>;
     fn serialize_offset(&self, output: &mut Vec<u8>) -> Result<(), SerializationError>;
@@ -68,6 +69,10 @@ impl<T: Serialize + std::fmt::Debug> OffsetMarkerTrait for Offset16<T> {
         false
     }
 
+    fn is_explicitly_zero(&self) -> bool {
+        self.link.is_none() && self.off.borrow().is_some() && self.off.borrow().unwrap() == 0
+    }
+
     // Finally, when we have resolved all the offsets, we use interior
     // mutability to replace the offset within the `Offset16` struct.
     fn set(&self, off: uint16) {
@@ -97,7 +102,7 @@ impl<T> Offset16<T> {
     /// Create a new offset pointing to nothing.
     pub fn to_nothing() -> Self {
         Offset16 {
-            off: RefCell::new(None),
+            off: RefCell::new(Some(0)),
             link: None,
         }
     }
