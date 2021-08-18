@@ -40,7 +40,9 @@ pub struct LigatureSubst {
 impl From<&LigatureSubst> for LigatureSubstFormat1 {
     fn from(ls: &LigatureSubst) -> Self {
         let mut split_map: BTreeMap<u16, Vec<Vec<u16>>> = BTreeMap::new();
-        for left in ls.mapping.keys() {
+        let mut mapping_keys: Vec<&Vec<uint16>> = ls.mapping.keys().collect();
+        mapping_keys.sort_by_key(|a| -(a.len() as isize));
+        for left in mapping_keys {
             let covered = left.first().unwrap();
             split_map
                 .entry(*covered)
