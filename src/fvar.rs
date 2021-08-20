@@ -27,7 +27,7 @@ tables!(
 );
 
 /// Struct representing a named instance within the variable font's design space
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 #[allow(non_snake_case)]
 pub struct InstanceRecord {
     /// The name ID for entries in the 'name' table that provide subfamily names for this instance.
