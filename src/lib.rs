@@ -34,6 +34,8 @@
 
 //#[allow(non_snake_case)]
 
+/// The `GDEF` (Glyph definition) table
+pub mod GDEF;
 /// The `GPOS` (Glyph positioning) table
 pub mod GPOS;
 /// The `GSUB` (Glyph substitution) table
