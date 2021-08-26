@@ -318,14 +318,10 @@ impl VariationModel {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hashmap;
     use assert_approx_eq::assert_approx_eq;
     use std::iter::FromIterator;
 
-    macro_rules! hashmap {
-        ($($k:expr => $v:expr),* $(,)?) => {
-            std::collections::HashMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
-        };
-    }
     #[test]
     fn test_support_scalar() {
         assert_approx_eq!(support_scalar(&Location::new(), &Support::new()), 1.0);

@@ -30,3 +30,11 @@ macro_rules! btreemap {
             std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
         };
     }
+
+/// Macro to assist constructing a hashmap from pairs
+#[macro_export]
+macro_rules! hashmap {
+    ($($k:expr => $v:expr),* $(,)?) => {
+        std::collections::HashMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+    };
+}

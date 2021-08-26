@@ -38,6 +38,8 @@
 pub mod GPOS;
 /// The `GSUB` (Glyph substitution) table
 pub mod GSUB;
+/// The `STAT` (Style attributes) table
+pub mod STAT;
 /// The `avar` (Axis variations) table
 pub mod avar;
 /// The `cmap` (Character To Glyph Index Mapping) table

@@ -14,6 +14,7 @@ use crate::os2::os2;
 use crate::post::post;
 use crate::GPOS::GPOS;
 use crate::GSUB::GSUB;
+use crate::STAT::STAT;
 use otspec::types::*;
 use otspec::ReaderContext;
 use otspec::{
@@ -63,6 +64,8 @@ pub enum Table {
     Os2(os2),
     /// Contains a postscript table.
     Post(post),
+    /// Contains a style attributes table.
+    STAT(STAT),
 }
 
 macro_rules! table_unchecked {
@@ -98,6 +101,7 @@ impl Table {
     table_unchecked!(name_unchecked, Name, name);
     table_unchecked!(os2_unchecked, Os2, os2);
     table_unchecked!(post_unchecked, Post, post);
+    table_unchecked!(STAT_unchecked, STAT, STAT);
 }
 
 impl Serialize for Table {
@@ -120,6 +124,7 @@ impl Serialize for Table {
             Table::Name(expr) => expr.to_bytes(data),
             Table::Os2(expr) => expr.to_bytes(data),
             Table::Post(expr) => expr.to_bytes(data),
+            Table::STAT(expr) => expr.to_bytes(data),
         }
     }
 }
@@ -241,6 +246,7 @@ impl Font {
             b"name" => Ok(Table::Name(otspec::de::from_bytes(binary)?)),
             b"post" => Ok(Table::Post(otspec::de::from_bytes(binary)?)),
             b"OS/2" => Ok(Table::Os2(otspec::de::from_bytes(binary)?)),
+            b"STAT" => Ok(Table::STAT(otspec::de::from_bytes(binary)?)),
             b"hmtx" => {
                 let number_of_hmetrics = self._number_of_hmetrics();
                 if number_of_hmetrics.is_none() {
