@@ -150,14 +150,15 @@ fn serialize_offset_fields(fields: &[Field]) -> Vec<TokenStream> {
             let mut result = quote! {};
             if let syn::Type::Path(path) = ty {
                 let first = path.path.segments.first().unwrap();
-                if first.ident == "Offset16" {
+                if first.ident == "Offset16" || first.ident == "Offset32" {
                     result = quote! { &self.#name, };
                 } else if first.ident == "Option" {
                     if let syn::PathArguments::AngleBracketed(args) = &first.arguments {
                         if let syn::GenericArgument::Type(syn::Type::Path(tp)) =
                             args.args.first().unwrap()
                         {
-                            if tp.path.segments.first().unwrap().ident == "Offset16" {
+                            let ident = &tp.path.segments.first().unwrap().ident;
+                            if ident == "Offset16" || ident == "Offset32" {
                                 result = quote! { &self.#name, };
                             }
                         }
@@ -177,6 +178,7 @@ fn serialize_embed_fields(fields: &[Field]) -> Vec<TokenStream> {
             let ty = &field.original.ty;
             let is_vec = if let syn::Type::Path(path) = ty {
                 path.path.segments.first().unwrap().ident == "VecOffset16"
+                    || path.path.segments.first().unwrap().ident == "VecOffset32"
             } else {
                 false
             };

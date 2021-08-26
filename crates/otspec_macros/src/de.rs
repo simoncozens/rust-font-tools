@@ -68,6 +68,12 @@ fn deserialize_fields(fields: &[Field]) -> Vec<TokenStream> {
                                 let wrapped: otspec::Counted<Offset16<#subpath>> = c.de()?;
                                 let #name: #ty = wrapped.into();
                             }
+                        } else if *vec_type == "VecOffset32" {
+                            quote! {
+                                #start
+                                let wrapped: otspec::Counted<Offset32<#subpath>> = c.de()?;
+                                let #name: #ty = wrapped.into();
+                            }
                         } else {
                             quote! {
                                 #start
@@ -86,6 +92,12 @@ fn deserialize_fields(fields: &[Field]) -> Vec<TokenStream> {
                             quote! {
                                 #start
                                 let wrapped: otspec::Counted32<Offset16<#subpath>> = c.de()?;
+                                let #name: #ty = wrapped.into();
+                            }
+                        } else if *vec_type == "VecOffset32" {
+                            quote! {
+                                #start
+                                let wrapped: otspec::Counted32<Offset32<#subpath>> = c.de()?;
                                 let #name: #ty = wrapped.into();
                             }
                         } else {
