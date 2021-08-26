@@ -212,5 +212,5 @@ impl From<LONGDATETIME> for chrono::NaiveDateTime {
     }
 }
 
-pub use crate::offsets::{Offset16, VecOffset16};
+pub use crate::offsets::{Offset16, Offset32, VecOffset, VecOffset16, VecOffset32};
 // OK, the offset type is going to be terrifying.

@@ -85,7 +85,7 @@ impl<'a> OffsetManager<'a> {
                 let target_id = c.target();
                 let target_node = self.dag.node_weight(target_id).unwrap();
                 if !target_node.is_explicitly_zero() {
-                    target_node.set(offset as u16);
+                    target_node.set(offset as u32);
                 }
             }
             node = topo.next(&self.dag);

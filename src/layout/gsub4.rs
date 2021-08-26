@@ -76,7 +76,7 @@ impl From<&LigatureSubst> for LigatureSubstFormat1 {
         LigatureSubstFormat1 {
             substFormat: 1,
             coverage: Offset16::to(coverage),
-            ligatureSet: VecOffset16(ligature_sets),
+            ligatureSet: VecOffset16 { v: ligature_sets },
         }
     }
 }
@@ -90,9 +90,9 @@ impl From<LigatureSubstFormat1> for LigatureSubst {
             .unwrap()
             .glyphs
             .iter()
-            .zip(lsf1.ligatureSet.0.iter())
+            .zip(lsf1.ligatureSet.v.iter())
         {
-            for ligature in lig_set.link.as_ref().unwrap().ligatureOffsets.0.iter() {
+            for ligature in lig_set.link.as_ref().unwrap().ligatureOffsets.v.iter() {
                 let ligature = ligature.link.as_ref().unwrap();
                 let mut input_sequence: Vec<u16> = vec![*input];
                 input_sequence.extend(ligature.componentGlyphIDs.clone());

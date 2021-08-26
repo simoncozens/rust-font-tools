@@ -359,12 +359,12 @@ impl Serialize for LookupListOutgoing {
         Ok(())
     }
     fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        data.put(self.lookups.0.len() as uint16)?;
-        self.lookups.0.to_bytes_shallow(data)?;
+        data.put(self.lookups.v.len() as uint16)?;
+        self.lookups.v.to_bytes_shallow(data)?;
         Ok(())
     }
     fn ot_binary_size(&self) -> usize {
-        2 + 2 * self.lookups.0.len()
+        2 + 2 * self.lookups.v.len()
     }
     fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
         let mut v: Vec<&dyn OffsetMarkerTrait> = Vec::new();

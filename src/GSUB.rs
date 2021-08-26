@@ -158,7 +158,9 @@ impl Deserialize for GSUB {
 impl From<&GSUB> for gsubgposoutgoing {
     fn from(val: &GSUB) -> Self {
         let substlookuplist: LookupListOutgoing = LookupListOutgoing {
-            lookups: VecOffset16(val.lookups.iter().map(|x| Offset16::to(x.into())).collect()),
+            lookups: VecOffset16 {
+                v: val.lookups.iter().map(|x| Offset16::to(x.into())).collect(),
+            },
         };
         let featurelist: FeatureList = FeatureList {
             featureRecords: val

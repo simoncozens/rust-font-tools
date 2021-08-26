@@ -181,7 +181,7 @@ impl From<&PairPos> for PairPosInternal {
                 coverage: Offset16::to(coverage),
                 valueFormat1: value_format_1,
                 valueFormat2: value_format_2,
-                pairSets: VecOffset16(pair_sets),
+                pairSets: VecOffset16 { v: pair_sets },
             };
             PairPosInternal::Format1(format1)
         } else {

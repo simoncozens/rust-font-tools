@@ -39,7 +39,7 @@ impl Deserialize for MultipleSubst {
             .unwrap()
             .glyphs
             .iter()
-            .zip(msf1.sequences.0.iter())
+            .zip(msf1.sequences.v.iter())
         {
             mapping.insert(
                 *input,
