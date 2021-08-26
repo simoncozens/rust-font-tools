@@ -36,6 +36,33 @@ impl SegmentMap {
             axisValueMaps: maps,
         }
     }
+
+    pub fn piecewise_linear_map(&self, val: f32) -> f32 {
+        let from: Vec<f32> = self
+            .axisValueMaps
+            .iter()
+            .map(|x| x.fromCoordinate)
+            .collect();
+        let to: Vec<f32> = self.axisValueMaps.iter().map(|x| x.toCoordinate).collect();
+        if val <= -1.0 {
+            return -1.0;
+        }
+        if val >= 1.0 {
+            return 1.0;
+        }
+        if let Some(ix) = from.iter().position(|&r| r == val) {
+            return to[ix];
+        }
+        if let Some(ix) = from.iter().position(|&r| r > val) {
+            let a = from[ix - 1];
+            let b = from[ix];
+            let va = to[ix - 1];
+            let vb = to[ix];
+            return va + (vb - va) * (val - a) / (b - a);
+        } else {
+            panic!("Can't happen")
+        }
+    }
 }
 
 #[cfg(test)]
@@ -87,5 +114,26 @@ mod tests {
 
         let deserialized: avar::avar = otspec::de::from_bytes(&binary_avar).unwrap();
         assert_eq!(deserialized, favar);
+    }
+
+    #[test]
+    fn test_piecewise_linear_map() {
+        let seg = avar::SegmentMap::new(vec![
+            (-1.0, -1.0),
+            (0.0, 0.0),
+            (0.125, 0.11444092),
+            (0.25, 0.23492432),
+            (0.5, 0.3554077),
+            (0.625, 0.5),
+            (0.75, 0.6566162),
+            (0.875, 0.8192749),
+            (1.0, 1.0),
+        ]);
+        assert!((seg.piecewise_linear_map(-2.5) - -1.0).abs() < f32::EPSILON);
+        assert!((seg.piecewise_linear_map(0.0) - 0.0).abs() < f32::EPSILON);
+        assert!((seg.piecewise_linear_map(1.0) - 1.0).abs() < f32::EPSILON);
+        assert!((seg.piecewise_linear_map(2.0) - 1.0).abs() < f32::EPSILON);
+        assert!((seg.piecewise_linear_map(0.625) - 0.5).abs() < f32::EPSILON);
+        assert!((seg.piecewise_linear_map(0.6) - 0.47108155).abs() < f32::EPSILON);
     }
 }
