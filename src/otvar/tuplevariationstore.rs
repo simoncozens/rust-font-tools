@@ -15,7 +15,7 @@ use std::collections::VecDeque;
 /// This is a low-level representation of variation data, consisting of a
 /// TupleVariationHeader (which serves to locate the deltas in the design space)
 /// and an optimized set of deltas, some of which may be omitted due to IUP.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct TupleVariation(pub TupleVariationHeader, pub Vec<Option<Delta>>);
 
 impl TupleVariation {
@@ -64,7 +64,7 @@ impl TupleVariation {
 ///
 /// A tuple variation store is the way that OpenType internally represents
 /// variation records in the `gvar` and `cvt` tables.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct TupleVariationStore(pub Vec<TupleVariation>);
 
 impl TupleVariationStore {
