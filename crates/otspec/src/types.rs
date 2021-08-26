@@ -56,9 +56,21 @@ fn ot_round(value: f32) -> i32 {
     (value + 0.5).floor() as i32
 }
 
+impl Fixed {
+    pub fn as_packed(&self) -> i32 {
+        ot_round(self.0 * 65536.0)
+    }
+    pub fn from_packed(packed: i32) -> Self {
+        Fixed(packed as f32 / 65536.0)
+    }
+
+    pub fn round(f: f32) -> f32 {
+        Fixed::from_packed(Fixed(f).as_packed()).0
+    }
+}
 impl Serialize for Fixed {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let packed: i32 = ot_round(self.0 * 65536.0);
+        let packed: i32 = self.as_packed();
         packed.to_bytes(data)
     }
     fn ot_binary_size(&self) -> usize {
@@ -68,7 +80,7 @@ impl Serialize for Fixed {
 impl Deserialize for Fixed {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let packed: i32 = c.de()?;
-        Ok(Fixed(packed as f32 / 65536.0))
+        Ok(Fixed::from_packed(packed))
     }
 }
 
@@ -93,6 +105,10 @@ impl F2DOT14 {
     pub fn from_packed(packed: i16) -> Self {
         F2DOT14(packed as f32 / 16384.0)
     }
+
+    pub fn round(f: f32) -> f32 {
+        F2DOT14::from_packed(F2DOT14(f).as_packed().unwrap()).0
+    }
 }
 impl PartialEq for F2DOT14 {
     fn eq(&self, other: &Self) -> bool {
@@ -100,6 +116,18 @@ impl PartialEq for F2DOT14 {
     }
 }
 impl Eq for F2DOT14 {}
+impl PartialOrd for F2DOT14 {
+    fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
+        self.as_packed()
+            .unwrap()
+            .partial_cmp(&other.as_packed().unwrap())
+    }
+}
+impl Ord for F2DOT14 {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.as_packed().unwrap().cmp(&other.as_packed().unwrap())
+    }
+}
 
 impl std::hash::Hash for F2DOT14 {
     fn hash<H>(&self, state: &mut H)
