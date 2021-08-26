@@ -238,6 +238,7 @@ impl Font {
             b"cmap" => Ok(Table::Cmap(otspec::de::from_bytes(binary)?)),
             b"head" => Ok(Table::Head(otspec::de::from_bytes(binary)?)),
             b"hhea" => Ok(Table::Hhea(otspec::de::from_bytes(binary)?)),
+            b"avar" => Ok(Table::Avar(otspec::de::from_bytes(binary)?)),
             b"fvar" => Ok(Table::Fvar(otspec::de::from_bytes(binary)?)),
             b"gasp" => Ok(Table::Gasp(otspec::de::from_bytes(binary)?)),
             b"GSUB" => Ok(Table::GSUB(otspec::de::from_bytes(binary)?)),
