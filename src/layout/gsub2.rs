@@ -26,7 +26,7 @@ tables!(
 /// A multiple substitution (one-to-many) subtable.
 pub struct MultipleSubst {
     /// The mapping of input glyph IDs to sequence of replacement glyph IDs.
-    pub mapping: BTreeMap<uint16, Vec<uint16>>,
+    pub mapping: BTreeMap<GlyphID, Vec<GlyphID>>,
 }
 
 impl Deserialize for MultipleSubst {

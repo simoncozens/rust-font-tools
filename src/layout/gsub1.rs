@@ -19,7 +19,7 @@ GID -> GID is a friendly way to represent what's going on. */
 /// A single substitution subtable.
 pub struct SingleSubst {
     /// The mapping of input glyph IDs to replacement glyph IDs.
-    pub mapping: BTreeMap<uint16, uint16>,
+    pub mapping: BTreeMap<GlyphID, GlyphID>,
 }
 
 /*

@@ -17,7 +17,7 @@ GID -> valuerecord is a friendly way to represent what's going on. */
 /// A single positioning subtable.
 pub struct SinglePos {
     /// The mapping of input glyph IDs to value records.
-    pub mapping: BTreeMap<uint16, ValueRecord>,
+    pub mapping: BTreeMap<GlyphID, ValueRecord>,
 }
 
 /*

@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 /// A alternate substitution (`sub ... from ...`) subtable.
 pub struct AlternateSubst {
     /// The mapping of input glyph IDs to array of possible glyph IDs.
-    pub mapping: BTreeMap<uint16, Vec<uint16>>,
+    pub mapping: BTreeMap<GlyphID, Vec<GlyphID>>,
 }
 
 // This is very naughty. AltSubst is the same layout as MultipleSubst, so we

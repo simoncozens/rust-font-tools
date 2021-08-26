@@ -19,6 +19,8 @@ pub type FWORD = i16;
 #[allow(clippy::upper_case_acronyms)]
 pub type UFWORD = u16;
 pub type Tag = [u8; 4];
+#[allow(non_camel_case_types)]
+pub type GlyphID = u16;
 
 pub use fixed::types::U16F16;
 

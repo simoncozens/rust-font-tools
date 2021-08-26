@@ -27,7 +27,7 @@ tables!(
 /// A cursive positioning subtable.
 pub struct CursivePos {
     /// The mapping of glyph IDs to entry and exit anchor records.
-    pub mapping: BTreeMap<uint16, (Option<Anchor>, Option<Anchor>)>,
+    pub mapping: BTreeMap<GlyphID, (Option<Anchor>, Option<Anchor>)>,
 }
 
 impl Deserialize for CursivePos {

@@ -34,7 +34,7 @@ pub struct Ligature {
 /// A ligature substitution (many-to-one) subtable.
 pub struct LigatureSubst {
     /// The mapping of sequences of input glyphs IDs to replacement glyph IDs.
-    pub mapping: BTreeMap<Vec<uint16>, uint16>,
+    pub mapping: BTreeMap<Vec<GlyphID>, GlyphID>,
 }
 
 impl From<&LigatureSubst> for LigatureSubstFormat1 {

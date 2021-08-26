@@ -76,9 +76,9 @@ pub struct Class2Record {
 format_switching_lookup!(PairPos { Format1, Format2 });
 
 /// User-friendly mapping between glyph pairs and value record adjustments
-pub type PairPositioningMap = BTreeMap<(uint16, uint16), (ValueRecord, ValueRecord)>;
+pub type PairPositioningMap = BTreeMap<(GlyphID, GlyphID), (ValueRecord, ValueRecord)>;
 /// Internal mapping between glyph pairs and value record adjustments, used for serialization
-pub type SplitPairPositioningMap = BTreeMap<uint16, BTreeMap<uint16, (ValueRecord, ValueRecord)>>;
+pub type SplitPairPositioningMap = BTreeMap<GlyphID, BTreeMap<GlyphID, (ValueRecord, ValueRecord)>>;
 
 #[derive(Debug, PartialEq, Clone, Default)]
 /// A pair positioning subtable.
