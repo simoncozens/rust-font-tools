@@ -1,4 +1,4 @@
-use otspec::{types::*, Deserialize};
+use otspec::{types::*, Deserialize, Serialize, Serializer};
 use otspec::{DeserializationError, Deserializer, ReaderContext};
 use otspec_macros::tables;
 
@@ -13,10 +13,15 @@ tables!(
         uint16	shortDeltaCount
         Counted(uint16) regionIndexes
     }
+    ItemVariationStoreInternal {
+        uint16 format
+        Offset32(VariationRegionList) variationRegionList
+        CountedOffset32(ItemVariationData) itemVariationData
+    }
 
 );
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 /// Represents variation data inside an item variation store
 pub struct ItemVariationData {
     /// Indices into the IVS's region array.
@@ -35,7 +40,7 @@ impl Deserialize for ItemVariationData {
         for _ in 0..header.itemCount {
             let mut v: Vec<i16> = Vec::new();
             for col in 0..region_index_count {
-                if col <= header.shortDeltaCount as usize {
+                if col < header.shortDeltaCount as usize {
                     let delta: i16 = c.de()?;
                     v.push(delta);
                 } else {
@@ -52,7 +57,29 @@ impl Deserialize for ItemVariationData {
     }
 }
 
+impl Serialize for ItemVariationData {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
+        let shortDeltaCount = self.region_indexes.len(); // XXX
+        ItemVariationDataHeader {
+            itemCount: self.delta_values.len() as u16,
+            shortDeltaCount: shortDeltaCount as u16,
+            regionIndexes: self.region_indexes.clone(),
+        }
+        .to_bytes(data)?;
+        for deltaset in &self.delta_values {
+            for (ix, &delta) in deltaset.iter().enumerate() {
+                if ix < shortDeltaCount {
+                    data.put(delta as i16)?;
+                } else {
+                    data.put(delta as i8)?;
+                }
+            }
+        }
+        Ok(())
+    }
+}
 #[allow(non_snake_case, non_camel_case_types)]
+#[derive(Debug, Clone, PartialEq)]
 /// A set of regions used in a variation
 pub struct VariationRegionList {
     /// The number of variation axes for this font. This must be the same number as axisCount in the 'fvar' table.
@@ -80,8 +107,16 @@ impl Deserialize for VariationRegionList {
     }
 }
 
+impl Serialize for VariationRegionList {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
+        data.put(&self.axisCount)?;
+        data.put(&self.regionCount)?;
+        data.put(&self.variationRegions)
+    }
+}
+
 #[allow(non_snake_case, non_camel_case_types)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 /// An item variation store, collecting a set of variation data for scalar values.
 pub struct ItemVariationStore {
     /// Format - set to 1
@@ -96,23 +131,39 @@ pub struct ItemVariationStore {
 
 impl Deserialize for ItemVariationStore {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        c.push();
-        let format: uint16 = c.de()?;
-        let offset: uint32 = c.de()?;
-        let vardatacount: uint16 = c.de()?;
-        let variation_data_offsets: Vec<uint32> = c.de_counted(vardatacount.into())?;
-        c.ptr = c.top_of_table() + offset as usize;
-        let variation_regions: VariationRegionList = c.de()?;
-        let mut variation_data = Vec::with_capacity(vardatacount.into());
-        for off in variation_data_offsets {
-            c.ptr = c.top_of_table() + off as usize;
-            variation_data.push(c.de()?);
-        }
+        let internal: ItemVariationStoreInternal = c.de()?;
+        let regions = internal.variationRegionList.link.unwrap();
         Ok(ItemVariationStore {
-            format,
-            axisCount: variation_regions.axisCount,
-            variationRegions: variation_regions.variationRegions,
-            variationData: variation_data,
+            format: internal.format,
+            axisCount: regions.axisCount,
+            variationRegions: regions.variationRegions,
+            variationData: internal
+                .itemVariationData
+                .v
+                .iter()
+                .map(|x| x.link.as_ref().unwrap().clone())
+                .collect(),
         })
+    }
+}
+
+impl Serialize for ItemVariationStore {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
+        ItemVariationStoreInternal {
+            format: 1,
+            variationRegionList: Offset32::to(VariationRegionList {
+                axisCount: self.axisCount,
+                regionCount: self.variationRegions.len() as u16,
+                variationRegions: self.variationRegions.clone(),
+            }),
+            itemVariationData: VecOffset32 {
+                v: self
+                    .variationData
+                    .iter()
+                    .map(|x| Offset32::to(x.clone()))
+                    .collect(),
+            },
+        }
+        .to_bytes(data)
     }
 }

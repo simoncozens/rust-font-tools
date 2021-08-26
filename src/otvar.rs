@@ -50,7 +50,7 @@ mod tests {
     use crate::otvar;
 
     #[test]
-    fn otvar_de_ivd() {
+    fn otvar_serde_ivd() {
         let binary_ivd = vec![
             0x00, 0x04, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0x38, 0xFF, 0xCE, 0x00, 0x64,
             0x00, 0xC8,
@@ -61,10 +61,12 @@ mod tests {
         };
         let deserialized: otvar::ItemVariationData = otspec::de::from_bytes(&binary_ivd).unwrap();
         assert_eq!(deserialized, fivd);
+        let binary_ser = otspec::ser::to_bytes(&fivd).unwrap();
+        assert_eq!(binary_ser, binary_ivd);
     }
 
     #[test]
-    fn otvar_de_ivs() {
+    fn otvar_serde_ivs() {
         let binary_ivs = vec![
             0x00, 0x01, 0x00, 0x00, 0x00, 0x0C, 0x00, 0x01, 0x00, 0x00, 0x00, 0x16, 0x00, 0x01,
             0x00, 0x01, 0x00, 0x00, 0x40, 0x00, 0x40, 0x00, 0x00, 0x04, 0x00, 0x01, 0x00, 0x01,
@@ -86,5 +88,8 @@ mod tests {
             variationData: vec![fivd],
         };
         assert_eq!(deserialized, fivs);
+
+        let binary_ser = otspec::ser::to_bytes(&fivs).unwrap();
+        assert_eq!(binary_ser, binary_ivs);
     }
 }
