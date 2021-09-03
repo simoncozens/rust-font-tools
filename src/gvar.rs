@@ -10,7 +10,7 @@ use std::convert::TryInto;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
-type Coords = Vec<(int16, int16)>;
+pub(crate) type Coords = Vec<(int16, int16)>;
 pub(crate) type CoordsAndEndsVec = Vec<(Coords, Vec<usize>)>;
 
 tables!( gvarcore {
@@ -117,6 +117,18 @@ impl DeltaSet {
             }
         }
         TupleVariation(tvh, deltas)
+    }
+
+    pub(crate) fn combine(&self, other: &Self) -> Self {
+        let mut new = self.clone();
+        if new.deltas.len() != other.deltas.len() {
+            panic!("Tried to add deltas with different lengths")
+        }
+        for (ix, (x, y)) in new.deltas.iter_mut().enumerate() {
+            *x += other.deltas[ix].0;
+            *y += other.deltas[ix].1;
+        }
+        new
     }
 }
 
