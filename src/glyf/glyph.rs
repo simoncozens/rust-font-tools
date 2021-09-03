@@ -370,7 +370,7 @@ impl Glyph {
         for comp in &self.components {
             let [_, _, _, _, translate_x, translate_y] = comp.transformation.as_coeffs();
             coords.push((translate_x as i16, translate_y as i16));
-            ends.push(ends.iter().max().unwrap_or(&0) + 1);
+            ends.push(ends.iter().max().map(|x| x + 1).unwrap_or(0));
         }
 
         // Phantom points
@@ -379,13 +379,21 @@ impl Glyph {
         let top_side_y = 0;
         let bottom_side_y = 0;
         coords.push((left_side_x, 0));
-        ends.push(ends.iter().max().unwrap_or(&0) + 1);
+        ends.push(ends.iter().max().map(|x| x + 1).unwrap_or(0));
         coords.push((right_side_x, 0));
         ends.push(ends.iter().max().unwrap() + 1);
         coords.push((0, top_side_y));
         ends.push(ends.iter().max().unwrap() + 1);
         coords.push((0, bottom_side_y));
         ends.push(ends.iter().max().unwrap() + 1);
+        assert_eq!(
+            *ends.last().unwrap(),
+            coords.len() - 1,
+            "Coords: {:?}\nEnds: {:?}\nGlyf: {:#?}",
+            coords,
+            ends,
+            self
+        );
         (coords, ends)
     }
 }
