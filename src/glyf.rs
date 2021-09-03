@@ -16,7 +16,7 @@ pub use point::Point;
 
 /// The glyf table
 #[allow(non_camel_case_types)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct glyf {
     /// A list of glyph objects in the font
     pub glyphs: Vec<Glyph>,

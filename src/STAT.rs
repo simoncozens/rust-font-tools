@@ -80,7 +80,7 @@ bitflags! {
 // to the right underlying format. There are times when people *do* know and care,
 // hence the new_format_... functions below, but this allows for maximum flexibility.
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct AxisValue {
     pub axis_index: Option<uint16>,
     pub flags: AxisValueFlags,
