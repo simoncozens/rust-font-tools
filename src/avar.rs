@@ -32,9 +32,13 @@ impl SegmentMap {
                 toCoordinate: i.1,
             })
             .collect();
-        SegmentMap {
+        let new_thing = SegmentMap {
             axisValueMaps: maps,
+        };
+        if !new_thing.is_valid() {
+            panic!("Created an invalid segment map {:?}", new_thing);
         }
+        new_thing
     }
 
     pub fn piecewise_linear_map(&self, val: f32) -> f32 {
@@ -62,6 +66,40 @@ impl SegmentMap {
         } else {
             panic!("Can't happen")
         }
+    }
+
+    /// Check that this segment map is valid
+    /// This means that it contains entries for -1,0,1 and that the entries are in order
+    pub fn is_valid(&self) -> bool {
+        let mut saw_zero = 0;
+        let mut saw_minus1 = 0;
+        let mut saw_plus1 = 0;
+        let mut prev_to_coordinate = -2.0;
+        for axm in &self.axisValueMaps {
+            if axm.fromCoordinate == 0.0 && axm.toCoordinate == 0.0 {
+                saw_zero += 1;
+            }
+            if (axm.fromCoordinate - -1.0).abs() < f32::EPSILON
+                && (axm.toCoordinate - -1.0).abs() < f32::EPSILON
+            {
+                saw_minus1 += 1;
+            }
+            if (axm.fromCoordinate - 1.0).abs() < f32::EPSILON
+                && (axm.toCoordinate - 1.0).abs() < f32::EPSILON
+            {
+                saw_plus1 += 1;
+            }
+
+            // Check for sortedness
+            if axm.toCoordinate < prev_to_coordinate {
+                return false;
+            }
+            prev_to_coordinate = axm.toCoordinate;
+        }
+        if saw_zero != 1 || saw_plus1 != 1 || saw_minus1 != 1 {
+            return false;
+        }
+        return true;
     }
 }
 
