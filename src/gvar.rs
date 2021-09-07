@@ -216,8 +216,18 @@ pub fn from_bytes(
                     .0
                     .peakTuple
                     .unwrap_or_else(|| shared_tuples[index].clone());
-                let start_tuple = tvh.0.startTuple.unwrap_or_else(|| peak_tuple.clone());
-                let end_tuple = tvh.0.endTuple.unwrap_or_else(|| peak_tuple.clone());
+                let start_tuple = tvh.0.startTuple.unwrap_or_else(|| {
+                    peak_tuple
+                        .iter()
+                        .map(|&x| if x > 0.0 { 0.0 } else { -1.0 })
+                        .collect()
+                });
+                let end_tuple = tvh.0.endTuple.unwrap_or_else(|| {
+                    peak_tuple
+                        .iter()
+                        .map(|&x| if x > 0.0 { 1.0 } else { 0.0 })
+                        .collect()
+                });
                 deltasets.push(DeltaSet {
                     deltas,
                     peak: peak_tuple,
