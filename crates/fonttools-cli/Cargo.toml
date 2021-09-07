@@ -17,3 +17,5 @@ env_logger = "0.8"
 rayon = "1.0.1"
 kurbo = { version = "0.8.1" }
 indicatif = {version = "0", features = ["rayon"]}
+simple_logger = "1.13.0"
+regex = "1.5.4"

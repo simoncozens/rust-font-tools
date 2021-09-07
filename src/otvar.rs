@@ -15,6 +15,8 @@ mod tuplevariationheader;
 /// Tuple Variation Store
 mod tuplevariationstore;
 
+pub mod instancer;
+
 use otspec::types::int16;
 
 /// Represents either a two-dimensional (`gvar`) or one-dimensional (`cvt`) delta value
