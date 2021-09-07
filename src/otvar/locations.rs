@@ -3,7 +3,7 @@ use otspec::types::{Tag, Tuple, F2DOT14};
 use permutation::Permutation;
 use std::array::IntoIter;
 use std::cmp::Ordering;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 /// Structs to store locations (user and normalized)
 
@@ -11,10 +11,10 @@ use std::collections::{HashMap, HashSet};
 #[derive(Debug)]
 pub struct NormalizedLocation(pub Tuple);
 
-type Support = HashMap<Tag, (f32, f32, f32)>;
+type Support = BTreeMap<Tag, (f32, f32, f32)>;
 /// A location as a mapping of tags to user-space values
-pub type Location = HashMap<Tag, f32>;
-type AxisPoints = HashMap<Tag, HashSet<F2DOT14>>;
+pub type Location = BTreeMap<Tag, f32>;
+type AxisPoints = BTreeMap<Tag, HashSet<F2DOT14>>;
 
 /// An OpenType variation model helps to determine and interpolate the correct
 /// supports and deltasets when there are intermediate masters.
@@ -29,10 +29,10 @@ pub struct VariationModel {
     pub axis_order: Vec<Tag>,
     /// The original, unordered list of locations
     pub original_locations: Vec<Location>,
-    delta_weights: Vec<HashMap<usize, f32>>,
+    delta_weights: Vec<BTreeMap<usize, f32>>,
 }
 
-fn support_scalar(loc: &Location, support: &Support) -> f32 {
+pub fn support_scalar(loc: &Location, support: &Support) -> f32 {
     let mut scalar = 1.0;
     for (&axis, &(lower, peak, upper)) in support.iter() {
         if peak == 0.0 {
@@ -62,8 +62,8 @@ fn support_scalar(loc: &Location, support: &Support) -> f32 {
 }
 
 fn locations_to_regions(locations: &[Location]) -> Vec<Support> {
-    let mut axis_minimum: HashMap<Tag, f32> = HashMap::new();
-    let mut axis_maximum: HashMap<Tag, f32> = HashMap::new();
+    let mut axis_minimum: BTreeMap<Tag, f32> = BTreeMap::new();
+    let mut axis_maximum: BTreeMap<Tag, f32> = BTreeMap::new();
     for (tag, value) in locations.iter().flatten() {
         axis_maximum
             .entry(*tag)
@@ -274,7 +274,7 @@ impl VariationModel {
     fn _compute_delta_weights(&mut self) {
         self.delta_weights.clear();
         for (i, loc) in self.locations.iter().enumerate() {
-            let mut delta_weight: HashMap<usize, f32> = HashMap::new();
+            let mut delta_weight: BTreeMap<usize, f32> = BTreeMap::new();
             for (j, support) in self.supports[..i].iter().enumerate() {
                 let scalar = support_scalar(loc, support);
                 if scalar != 0.0 {
@@ -318,7 +318,7 @@ impl VariationModel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hashmap;
+    use crate::btreemap;
     use assert_approx_eq::assert_approx_eq;
     use std::iter::FromIterator;
 
@@ -326,20 +326,20 @@ mod tests {
     fn test_support_scalar() {
         assert_approx_eq!(support_scalar(&Location::new(), &Support::new()), 1.0);
         assert_approx_eq!(
-            support_scalar(&hashmap!( *b"wght" => 0.2), &Support::new()),
+            support_scalar(&btreemap!( *b"wght" => 0.2), &Support::new()),
             1.0
         );
         assert_approx_eq!(
             support_scalar(
-                &hashmap!( *b"wght" => 0.2),
-                &hashmap!( *b"wght" => (0_f32,2_f32,3_f32))
+                &btreemap!( *b"wght" => 0.2),
+                &btreemap!( *b"wght" => (0_f32,2_f32,3_f32))
             ),
             0.1
         );
         assert_approx_eq!(
             support_scalar(
-                &hashmap!( *b"wght" => 2.5),
-                &hashmap!( *b"wght" => (0_f32,2_f32,4_f32))
+                &btreemap!( *b"wght" => 2.5),
+                &btreemap!( *b"wght" => (0_f32,2_f32,4_f32))
             ),
             0.75
         );
@@ -348,51 +348,51 @@ mod tests {
     #[test]
     fn test_variation_model() {
         let locations = vec![
-            hashmap!(*b"wght" => 0.55, *b"wdth" => 0.0),
-            hashmap!(*b"wght" => -0.55, *b"wdth" => 0.0),
-            hashmap!(*b"wght" => -1.0, *b"wdth" => 0.0),
-            hashmap!(*b"wght" => 0.0, *b"wdth" => 1.0),
-            hashmap!(*b"wght" => 0.66, *b"wdth" => 1.0),
-            hashmap!(*b"wght" => 0.66, *b"wdth" => 0.66),
-            hashmap!(*b"wght" => 0.0, *b"wdth" => 0.0),
-            hashmap!(*b"wght" => 1.0, *b"wdth" => 1.0),
-            hashmap!(*b"wght" => 1.0, *b"wdth" => 0.0),
+            btreemap!(*b"wght" => 0.55, *b"wdth" => 0.0),
+            btreemap!(*b"wght" => -0.55, *b"wdth" => 0.0),
+            btreemap!(*b"wght" => -1.0, *b"wdth" => 0.0),
+            btreemap!(*b"wght" => 0.0, *b"wdth" => 1.0),
+            btreemap!(*b"wght" => 0.66, *b"wdth" => 1.0),
+            btreemap!(*b"wght" => 0.66, *b"wdth" => 0.66),
+            btreemap!(*b"wght" => 0.0, *b"wdth" => 0.0),
+            btreemap!(*b"wght" => 1.0, *b"wdth" => 1.0),
+            btreemap!(*b"wght" => 1.0, *b"wdth" => 0.0),
         ];
         let axis_order = vec![*b"wght"];
         let vm = VariationModel::new(locations, axis_order);
         let expected_locations = vec![
-            hashmap!(),
-            hashmap!(*b"wght" => -0.55),
-            hashmap!(*b"wght" => -1.0),
-            hashmap!(*b"wght" => 0.55),
-            hashmap!(*b"wght" => 1.0),
-            hashmap!(*b"wdth" => 1.0),
-            hashmap!(*b"wdth" => 1.0, *b"wght" => 1.0),
-            hashmap!(*b"wdth" => 1.0, *b"wght" => 0.66),
-            hashmap!(*b"wdth" => 0.66, *b"wght" => 0.66),
+            btreemap!(),
+            btreemap!(*b"wght" => -0.55),
+            btreemap!(*b"wght" => -1.0),
+            btreemap!(*b"wght" => 0.55),
+            btreemap!(*b"wght" => 1.0),
+            btreemap!(*b"wdth" => 1.0),
+            btreemap!(*b"wdth" => 1.0, *b"wght" => 1.0),
+            btreemap!(*b"wdth" => 1.0, *b"wght" => 0.66),
+            btreemap!(*b"wdth" => 0.66, *b"wght" => 0.66),
         ];
         assert_eq!(vm.locations, expected_locations);
 
         let expected_supports = vec![
-            hashmap!(),
-            hashmap!(*b"wght" => (-1.0, -0.55, 0.0)),
-            hashmap!(*b"wght" => (-1.0, -1.0, -0.55)),
-            hashmap!(*b"wght" => (0.0, 0.55, 1.0)),
-            hashmap!(*b"wght" => (0.55, 1.0, 1.0)),
-            hashmap!(*b"wdth" => (0.0, 1.0, 1.0)),
-            hashmap!(*b"wdth" => (0.0, 1.0, 1.0), *b"wght" => (0.0, 1.0, 1.0)),
-            hashmap!(*b"wdth" => (0.0, 1.0, 1.0), *b"wght" => (0.0, 0.66, 1.0)),
-            hashmap!(*b"wdth" => (0.0, 0.66, 1.0), *b"wght" => (0.0, 0.66, 1.0)),
+            btreemap!(),
+            btreemap!(*b"wght" => (-1.0, -0.55, 0.0)),
+            btreemap!(*b"wght" => (-1.0, -1.0, -0.55)),
+            btreemap!(*b"wght" => (0.0, 0.55, 1.0)),
+            btreemap!(*b"wght" => (0.55, 1.0, 1.0)),
+            btreemap!(*b"wdth" => (0.0, 1.0, 1.0)),
+            btreemap!(*b"wdth" => (0.0, 1.0, 1.0), *b"wght" => (0.0, 1.0, 1.0)),
+            btreemap!(*b"wdth" => (0.0, 1.0, 1.0), *b"wght" => (0.0, 0.66, 1.0)),
+            btreemap!(*b"wdth" => (0.0, 0.66, 1.0), *b"wght" => (0.0, 0.66, 1.0)),
         ];
         assert_eq!(vm.supports, expected_supports);
 
-        assert_eq!(vm.delta_weights[0], hashmap!());
-        assert_eq!(vm.delta_weights[1], hashmap!(0 => 1.0));
-        assert_eq!(vm.delta_weights[2], hashmap!(0 => 1.0));
-        assert_eq!(vm.delta_weights[3], hashmap!(0 => 1.0));
-        assert_eq!(vm.delta_weights[4], hashmap!(0 => 1.0));
-        assert_eq!(vm.delta_weights[5], hashmap!(0 => 1.0));
-        assert_eq!(vm.delta_weights[6], hashmap!(0 => 1.0, 4 => 1.0, 5 => 1.0));
+        assert_eq!(vm.delta_weights[0], btreemap!());
+        assert_eq!(vm.delta_weights[1], btreemap!(0 => 1.0));
+        assert_eq!(vm.delta_weights[2], btreemap!(0 => 1.0));
+        assert_eq!(vm.delta_weights[3], btreemap!(0 => 1.0));
+        assert_eq!(vm.delta_weights[4], btreemap!(0 => 1.0));
+        assert_eq!(vm.delta_weights[5], btreemap!(0 => 1.0));
+        assert_eq!(vm.delta_weights[6], btreemap!(0 => 1.0, 4 => 1.0, 5 => 1.0));
         assert_approx_eq!(vm.delta_weights[7].get(&3).unwrap(), 0.755_555_57);
         assert_approx_eq!(vm.delta_weights[7].get(&4).unwrap(), 0.244_444_49);
         assert_approx_eq!(vm.delta_weights[7].get(&5).unwrap(), 1.0);
