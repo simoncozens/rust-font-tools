@@ -35,12 +35,16 @@
 //#[allow(non_snake_case)]
 
 /// The `GDEF` (Glyph definition) table
+#[allow(non_snake_case)]
 pub mod GDEF;
 /// The `GPOS` (Glyph positioning) table
+#[allow(non_snake_case)]
 pub mod GPOS;
 /// The `GSUB` (Glyph substitution) table
+#[allow(non_snake_case)]
 pub mod GSUB;
 /// The `STAT` (Style attributes) table
+#[allow(non_snake_case)]
 pub mod STAT;
 /// The `avar` (Axis variations) table
 pub mod avar;

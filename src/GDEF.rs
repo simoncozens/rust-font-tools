@@ -69,22 +69,31 @@ tables!(
     }
 );
 
+#[allow(non_snake_case)]
 #[derive(Debug, Clone, PartialEq)]
+/// A low-level caret value in a GDEF table
 pub enum CaretValue {
+    /// A format 1 caret value
     Format1 {
+        /// X or Y value, in design units
         coordinate: int16,
     },
+    /// A format 2 caret value
     Format2 {
+        /// Contour point index on glyph
         pointIndex: uint16,
     },
+    /// A format 3 caret value
     Format3 {
+        /// X or Y value, in design units
         coordinate: int16,
+        ///  Device table (non-variable font) / Variation Index table (variable font) for X or Y value
         device: Offset16<Device>,
     },
 }
 
 impl Serialize for CaretValue {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+    fn to_bytes(&self, _data: &mut Vec<u8>) -> Result<(), SerializationError> {
         todo!()
     }
 
@@ -127,10 +136,15 @@ impl Deserialize for CaretValue {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
+/// A glyph class definition in the GDEF table
 pub enum GlyphClass {
+    /// Base glyph (single character, spacing glyph)
     BaseGlyph = 1,
+    /// Ligature glyph (multiple character, spacing glyph)
     LigatureGlyph,
+    /// Mark glyph (non-spacing combining glyph)
     MarkGlyph,
+    /// Component glyph (part of single character, spacing glyph)
     ComponentGlyph,
 }
 impl From<u16> for GlyphClass {
@@ -189,8 +203,8 @@ impl From<AttachList> for BTreeMap<GlyphID, Vec<uint16>> {
 }
 
 impl From<LigCaretList> for BTreeMap<GlyphID, Vec<CaretValue>> {
-    fn from(al: LigCaretList) -> Self {
-        let mut map = BTreeMap::new();
+    fn from(_al: LigCaretList) -> Self {
+        let map = BTreeMap::new();
         log::warn!("Sucks to be you!");
         map
     }

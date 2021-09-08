@@ -206,7 +206,6 @@ mod tests {
     use super::*;
     use crate::layout::gpos1::SinglePos;
     use crate::valuerecord;
-    use otspec::Deserialize;
 
     #[test]
     fn test_valuerecord_serde() {

@@ -78,6 +78,7 @@ macro_rules! table_unchecked {
         /// Panics if the table object contains a different kind of table.
         /// You are responsible for ensuring that the table is deserialized
         /// in the correct order (i.e. with any dependencies already deserialized).
+        #[allow(non_snake_case)]
         pub fn $name(&self) -> &$t {
             if let Table::$enum(thing) = self {
                 return thing;

@@ -11,7 +11,8 @@ use std::collections::{BTreeMap, HashSet};
 #[derive(Debug)]
 pub struct NormalizedLocation(pub Tuple);
 
-type Support = BTreeMap<Tag, (f32, f32, f32)>;
+/// A region of the designspace, consisting of a set of per-axis triangular tents
+pub type Support = BTreeMap<Tag, (f32, f32, f32)>;
 /// A location as a mapping of tags to user-space values
 pub type Location = BTreeMap<Tag, f32>;
 type AxisPoints = BTreeMap<Tag, HashSet<F2DOT14>>;
@@ -32,6 +33,7 @@ pub struct VariationModel {
     delta_weights: Vec<BTreeMap<usize, f32>>,
 }
 
+/// Returns the contribution value of a region at a given location
 pub fn support_scalar(loc: &Location, support: &Support) -> f32 {
     let mut scalar = 1.0;
     for (&axis, &(lower, peak, upper)) in support.iter() {

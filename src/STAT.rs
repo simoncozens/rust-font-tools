@@ -81,13 +81,21 @@ bitflags! {
 // hence the new_format_... functions below, but this allows for maximum flexibility.
 
 #[derive(Debug, PartialEq, Clone)]
+/// An axis value table (underlying format resolved on write)
 pub struct AxisValue {
+    /// Zero-base index into the axis record array identifying the axis of design variation to which the axis value table applies.
     pub axis_index: Option<uint16>,
+    /// Flags
     pub flags: AxisValueFlags,
+    /// The name ID for entries in the 'name' table that provide a display string for this attribute value.
     pub name_id: uint16,
+    /// A numeric value for this attribute value.
     pub nominal_value: Option<f32>,
+    /// The minimum and maximum values for a range associated with the specified name ID.
     pub range_min_max: Option<(f32, f32)>,
+    /// The numeric value for a style-linked mapping from this value.
     pub linked_value: Option<f32>,
+    /// A location at which this value applies.
     pub locations: Option<BTreeMap<uint16, f32>>,
 }
 

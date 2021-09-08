@@ -59,16 +59,16 @@ impl Deserialize for ItemVariationData {
 
 impl Serialize for ItemVariationData {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        let shortDeltaCount = self.region_indexes.len(); // XXX
+        let short_delta_count = self.region_indexes.len(); // XXX
         ItemVariationDataHeader {
             itemCount: self.delta_values.len() as u16,
-            shortDeltaCount: shortDeltaCount as u16,
+            shortDeltaCount: short_delta_count as u16,
             regionIndexes: self.region_indexes.clone(),
         }
         .to_bytes(data)?;
         for deltaset in &self.delta_values {
             for (ix, &delta) in deltaset.iter().enumerate() {
-                if ix < shortDeltaCount {
+                if ix < short_delta_count {
                     data.put(delta as i16)?;
                 } else {
                     data.put(delta as i8)?;

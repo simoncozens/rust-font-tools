@@ -256,23 +256,3 @@ impl Serialize for GPOS {
         gsc.to_bytes(data)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use pretty_assertions::assert_eq;
-    use std::collections::BTreeMap;
-    use std::iter::FromIterator;
-
-    macro_rules! hashmap {
-        ($($k:expr => $v:expr),* $(,)?) => {
-            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
-        };
-    }
-
-    macro_rules! btreemap {
-        ($($k:expr => $v:expr),* $(,)?) => {
-            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
-        };
-    }
-}

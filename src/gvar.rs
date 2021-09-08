@@ -131,7 +131,7 @@ impl DeltaSet {
         new
     }
 
-    pub fn scale_deltas(&mut self, factor: f32) {
+    pub(crate) fn scale_deltas(&mut self, factor: f32) {
         for (x, y) in self.deltas.iter_mut() {
             *x = (*x as f32 * factor) as i16;
             *y = (*y as f32 * factor) as i16;

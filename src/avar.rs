@@ -41,6 +41,7 @@ impl SegmentMap {
         new_thing
     }
 
+    /// Map a (normalized, i.e. `-1.0<=val<=1.0`) value using this segment map.
     pub fn piecewise_linear_map(&self, val: f32) -> f32 {
         let from: Vec<f32> = self
             .axisValueMaps
@@ -54,7 +55,7 @@ impl SegmentMap {
         if val >= 1.0 {
             return 1.0;
         }
-        if let Some(ix) = from.iter().position(|&r| r == val) {
+        if let Some(ix) = from.iter().position(|&r| (r - val).abs() < f32::EPSILON) {
             return to[ix];
         }
         if let Some(ix) = from.iter().position(|&r| r > val) {
@@ -62,7 +63,7 @@ impl SegmentMap {
             let b = from[ix];
             let va = to[ix - 1];
             let vb = to[ix];
-            return va + (vb - va) * (val - a) / (b - a);
+            va + (vb - va) * (val - a) / (b - a)
         } else {
             panic!("Can't happen")
         }

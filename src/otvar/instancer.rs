@@ -1,12 +1,7 @@
-use crate::font::Font;
-
-use otspec::types::*;
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::ops::Index;
-
+#![allow(missing_docs)]
 use crate::avar;
 use crate::avar::SegmentMap;
+use crate::font::Font;
 use crate::font::Table;
 use crate::fvar;
 use crate::glyf;
@@ -14,9 +9,8 @@ use crate::gvar;
 use crate::gvar::{Coords, DeltaSet, GlyphVariationData};
 use crate::otvar::support_scalar;
 use crate::types::Tag;
-use crate::STAT::STAT;
+use otspec::types::*;
 use std::collections::BTreeMap;
-use std::iter;
 
 type Location = BTreeMap<Tag, f32>;
 
@@ -40,20 +34,10 @@ struct NormalizedAxisRange {
     maximum: f32,
 }
 
-impl NormalizedAxisRange {
-    fn new(minimum: f32, maximum: f32) -> Self {
-        if minimum <= -1.0 || maximum > 1.0 || minimum > 0.0 || maximum < 0.0 {
-            panic!("Normalized values out of range");
-        }
-        NormalizedAxisRange { minimum, maximum }
-    }
-}
-
 #[derive(Debug, Clone)]
 enum NormalizedAxisLimit {
     Full(f32),
     Partial(NormalizedAxisRange),
-    Drop,
 }
 
 #[derive(Debug)]
@@ -73,7 +57,6 @@ impl NormalizedAxisLimits {
                 NormalizedAxisLimit::Partial(NormalizedAxisRange { minimum, maximum }) => {
                     partial.insert(tag, (*minimum, *maximum));
                 }
-                NormalizedAxisLimit::Drop => {}
             };
         }
         (full, partial)
@@ -118,13 +101,13 @@ impl UserAxisLimits {
     }
 }
 
-#[derive(Debug)]
-enum OverlapMode {
-    KeepAndDontSetFlags,
-    KeepAndSetFlags,
-    Remove,
-    RemoveAndIgnoreErrors,
-}
+// #[derive(Debug)]
+// enum OverlapMode {
+//     KeepAndDontSetFlags,
+//     KeepAndSetFlags,
+//     Remove,
+//     RemoveAndIgnoreErrors,
+// }
 
 fn instantiate_gvar_data(
     variations: &mut GlyphVariationData,
@@ -221,8 +204,8 @@ fn pin_tuple_variation_axes(
 }
 
 fn limit_tuple_variation_axis_ranges(
-    tvs: GlyphVariationData,
-    axis_ranges: PartialNormalizedAxisLimits,
+    _tvs: GlyphVariationData,
+    _axis_ranges: PartialNormalizedAxisLimits,
 ) -> GlyphVariationData {
     unimplemented!()
 }
@@ -291,7 +274,7 @@ fn instantiate_gvar(font: &mut Font, axis_limits: &NormalizedAxisLimits) {
 }
 
 fn instantiate_avar(font: &mut Font, axis_limits: &UserAxisLimits) {
-    let (location, axis_ranges): (FullUserAxisLimits, PartialUserAxisLimits) =
+    let (location, _axis_ranges): (FullUserAxisLimits, PartialUserAxisLimits) =
         axis_limits.split_up();
     let (_, normalized_ranges) = normalize_axis_limits(font, axis_limits, false).split_up();
 
@@ -468,6 +451,7 @@ fn instantiate_fvar(font: &mut Font, axis_limits: &UserAxisLimits) {
     }
 }
 
+#[allow(non_snake_case)]
 fn instantiate_STAT(font: &mut Font, axis_limits: &UserAxisLimits) {
     let stat_table = font.get_table(b"STAT").unwrap().unwrap();
     if let Table::STAT(stat) = stat_table {
@@ -673,7 +657,7 @@ pub fn instantiate_variable_font(font: &mut Font, limits: UserAxisLimits) -> boo
             set_mac_overlap_flags(glyf)
         }
     }
-    let (full, _) = limits.split_up();
+    // let (full, _) = limits.split_up();
     // set_default_weight_width_slant(font, full);
     true
 }
