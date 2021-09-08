@@ -450,13 +450,13 @@ mod tests {
                 deltasets: vec![
                     gvar::DeltaSet {
                         peak: vec![1.0, 0.0],
-                        start: vec![1.0, 0.0],
+                        start: vec![0.0, -1.0],
                         end: vec![1.0, 0.0],
                         deltas: vec![(0, -46), (0, -46), (0, 46), (0, 0), (0, 0), (0, 0), (0, 0)]
                     },
                     gvar::DeltaSet {
                         peak: vec![0.0, 1.0],
-                        start: vec![0.0, 1.0],
+                        start: vec![-1.0, 0.0],
                         end: vec![0.0, 1.0],
                         deltas: vec![(82, 0), (-82, 0), (-9, 0), (0, 0), (0, 0), (0, 0), (0, 0)]
                     }
@@ -469,7 +469,7 @@ mod tests {
                 deltasets: vec![
                     gvar::DeltaSet {
                         peak: vec![1.0, 0.0],
-                        start: vec![1.0, 0.0],
+                        start: vec![0.0, -1.0],
                         end: vec![1.0, 0.0],
                         deltas: vec![
                             (38, 125),   // IUP
@@ -484,7 +484,7 @@ mod tests {
                     },
                     gvar::DeltaSet {
                         peak: vec![0.0, 1.0],
-                        start: vec![0.0, 1.0],
+                        start: vec![-1.0, 0.0],
                         end: vec![0.0, 1.0],
                         deltas: vec![
                             (38, 0),
@@ -499,7 +499,7 @@ mod tests {
                     },
                     gvar::DeltaSet {
                         peak: vec![1.0, 1.0],
-                        start: vec![1.0, 1.0],
+                        start: vec![0.0, 0.0],
                         end: vec![1.0, 1.0],
                         deltas: vec![
                             (19, 0),
