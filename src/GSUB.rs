@@ -15,24 +15,6 @@ use otspec::{
 use otspec_macros::Deserialize;
 use std::convert::TryInto;
 
-#[allow(missing_docs, non_snake_case, non_camel_case_types)]
-#[derive(Debug, Clone, Deserialize)]
-pub struct gsubcoreincoming {
-    pub majorVersion: uint16,
-    pub minorVersion: uint16,
-    pub scriptList: Offset16<ScriptList>,
-    pub featureList: Offset16<FeatureList>,
-    pub lookupList: Offset16<SubstLookupListIncoming>,
-}
-
-#[allow(missing_docs, non_snake_case, non_camel_case_types)]
-#[derive(Debug, Clone, Deserialize)]
-pub struct SubstLookupListIncoming {
-    #[serde(offset_base)]
-    #[serde(with = "Counted")]
-    pub lookups: VecOffset16<Lookup<Substitution>>,
-}
-
 impl Lookup<Substitution> {
     /// Return the integer GSUB lookup type for this lookup
     pub fn lookup_type(&self) -> u16 {
@@ -109,7 +91,24 @@ impl Default for GSUB {
 
 impl Deserialize for GSUB {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        let core: gsubcoreincoming = c.de()?;
+        #[derive(Deserialize)]
+        struct GsubCore {
+            #[allow(dead_code)]
+            majorVersion: uint16,
+            minorVersion: uint16,
+            scriptList: Offset16<ScriptList>,
+            featureList: Offset16<FeatureList>,
+            lookupList: Offset16<RawLookupList>,
+        }
+
+        #[derive(Debug, Deserialize)]
+        struct RawLookupList {
+            #[serde(offset_base)]
+            #[serde(with = "Counted")]
+            lookups: VecOffset16<Lookup<Substitution>>,
+        }
+
+        let core: GsubCore = c.de()?;
         if core.minorVersion == 1 {
             let _feature_variations_offset: uint16 = c.de()?;
         }

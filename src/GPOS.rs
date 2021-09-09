@@ -11,24 +11,6 @@ use otspec::{
 use otspec_macros::Deserialize;
 use std::convert::TryInto;
 
-#[allow(missing_docs, non_snake_case, non_camel_case_types)]
-#[derive(Debug, Clone, Deserialize)]
-pub struct gposcoreincoming {
-    pub majorVersion: uint16,
-    pub minorVersion: uint16,
-    pub scriptList: Offset16<ScriptList>,
-    pub featureList: Offset16<FeatureList>,
-    pub lookupList: Offset16<PosLookupListIncoming>,
-}
-
-#[allow(missing_docs, non_snake_case, non_camel_case_types)]
-#[derive(Debug, Clone, Deserialize)]
-pub struct PosLookupListIncoming {
-    #[serde(offset_base)]
-    #[serde(with = "Counted")]
-    pub lookups: VecOffset16<Lookup<Positioning>>,
-}
-
 impl Lookup<Positioning> {
     /// Return the integer GPOS lookup type for this lookup
     pub fn lookup_type(&self) -> u16 {
@@ -108,7 +90,24 @@ impl Default for GPOS {
 
 impl Deserialize for GPOS {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        let core: gposcoreincoming = c.de()?;
+        #[derive(Debug, Deserialize)]
+        struct RawLookupList {
+            #[serde(offset_base)]
+            #[serde(with = "Counted")]
+            pub lookups: VecOffset16<Lookup<Positioning>>,
+        }
+
+        #[derive(Deserialize)]
+        struct GposCore {
+            #[allow(dead_code)]
+            majorVersion: uint16,
+            minorVersion: uint16,
+            scriptList: Offset16<ScriptList>,
+            featureList: Offset16<FeatureList>,
+            lookupList: Offset16<RawLookupList>,
+        }
+
+        let core: GposCore = c.de()?;
         if core.minorVersion == 1 {
             let _feature_variations_offset: uint16 = c.de()?;
         }
