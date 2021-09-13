@@ -116,6 +116,8 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
 
     loop {
         let mut do_debug = true;
+        let mut do_serialize = true;
+        let mut do_deserialize = true;
         // First parse table name
         let maybe_table_name = iter.next();
         if maybe_table_name.is_none() {
@@ -131,6 +133,10 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     out_s.push_str("#[serde(embedded)]");
                 } else if pragma == "[nodebug]" {
                     do_debug = false;
+                } else if pragma == "[noserialize]" {
+                    do_serialize = false;
+                } else if pragma == "[nodeserialize]" {
+                    do_deserialize = false;
                 } else {
                     panic!("Unknown pragma '{:?}'", pragma);
                 }
@@ -143,8 +149,18 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
         out_s.push_str(&format!(
             "/// Low-level structure used for serializing/deserializing table\n\
             #[allow(missing_docs, non_snake_case, non_camel_case_types)]\n\
-            #[derive(otspec_macros::Serialize, otspec_macros::Deserialize, {} PartialEq, Clone)]\n\
+            #[derive({} {} {} PartialEq, Clone)]\n\
             pub struct {} {{",
+            if do_serialize {
+                "otspec_macros::Serialize,"
+            } else {
+                ""
+            },
+            if do_deserialize {
+                "otspec_macros::Deserialize,"
+            } else {
+                ""
+            },
             if do_debug { "Debug," } else { "" },
             table_name,
         ));
