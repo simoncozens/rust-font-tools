@@ -1,3 +1,4 @@
+use crate::layout::anchor::Anchor;
 use bitflags::bitflags;
 use otspec::types::*;
 use otspec::{
@@ -64,6 +65,16 @@ tables!(
         uint16 largest
     }
 
+    MarkArray {
+        [offset_base]
+        [embed]
+        Counted(MarkRecord) markRecords
+    }
+
+    MarkRecord [embedded] {
+        uint16 markClass
+        Offset16(Anchor) markAnchor
+    }
 );
 
 impl Debug for ScriptRecord {

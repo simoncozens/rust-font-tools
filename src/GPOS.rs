@@ -1,8 +1,12 @@
+use crate::convert_outgoing_subtables;
 use crate::deserialize_lookup_match;
 use crate::layout::common::*;
 use crate::layout::gpos1::{SinglePos, SinglePosInternal};
 use crate::layout::gpos2::{PairPos, PairPosInternal};
 use crate::layout::gpos3::{CursivePos, CursivePosFormat1};
+use crate::layout::gpos4::{MarkBasePos, MarkBasePosFormat1};
+// use crate::layout::gpos5::{MarkLigPos, MarkLigPosFormat1};
+// use crate::layout::gpos6::{MarkMarkPos, MarkMarkPosFormat1};
 use otspec::types::*;
 use otspec::Counted;
 use otspec::{
@@ -18,7 +22,7 @@ impl Lookup<Positioning> {
             Positioning::Single(_) => 1,
             Positioning::Pair(_) => 2,
             Positioning::Cursive(_) => 3,
-            Positioning::MarkToBase => 4,
+            Positioning::MarkToBase(_) => 4,
             Positioning::MarkToLig => 5,
             Positioning::MarkToMark => 6,
             Positioning::Contextual => 7,
@@ -44,10 +48,12 @@ pub enum Positioning {
     /// Contains an cursive positioning rule.
     Cursive(Vec<CursivePos>),
     /// Contains a mark-to-base rule.
-    MarkToBase,
+    MarkToBase(Vec<MarkBasePos>),
     /// Contains a mark-to-lig rule.
+    // MarkToLig(Vec<MarkLigPos>),
     MarkToLig,
     /// Contains a mark-to-mark rule.
+    // MarkToMark(Vec<MarkMarkPos>),
     MarkToMark,
     /// Contains a contextual positioning rule.
     Contextual,
@@ -64,9 +70,11 @@ impl Positioning {
             Positioning::Single(v) => v.push(SinglePos::default()),
             Positioning::Pair(v) => v.push(PairPos::default()),
             Positioning::Cursive(v) => v.push(CursivePos::default()),
-            Positioning::MarkToBase => todo!(),
+            Positioning::MarkToBase(v) => v.push(MarkBasePos::default()),
             Positioning::MarkToLig => todo!(),
             Positioning::MarkToMark => todo!(),
+            // Positioning::MarkToLig(v) => v.push(MarkLigPos::default()),
+            // Positioning::MarkToMark(v) => v.push(MarkMarkPos::default()),
             Positioning::Contextual => todo!(),
             Positioning::ChainedContextual => todo!(),
             Positioning::Extension => todo!(),
@@ -197,6 +205,9 @@ impl Deserialize for Lookup<Positioning> {
             (1, SinglePos, Positioning::Single),
             (2, PairPos, Positioning::Pair),
             (3, CursivePos, Positioning::Cursive),
+            (4, MarkBasePos, Positioning::MarkToBase),
+            // (5, MarkLigPos, Positioning::MarkToLig),
+            // (6, MarkMarkPos, Positioning::MarkToMark),
         );
 
         c.pop();
@@ -210,35 +221,15 @@ impl Deserialize for Lookup<Positioning> {
 
 impl<'a> From<&Lookup<Positioning>> for LookupInternal {
     fn from(val: &Lookup<Positioning>) -> Self {
-        let subtables: Vec<Box<dyn OffsetMarkerTrait>> = match &val.rule.clone() {
-            Positioning::Single(subs) => {
-                let mut v: Vec<Box<dyn OffsetMarkerTrait>> = vec![];
-                for s in subs {
-                    let si: SinglePosInternal = s.into();
-                    v.push(Box::new(Offset16::to(si)));
-                }
-                v
-            }
-            Positioning::Pair(subs) => {
-                let mut v: Vec<Box<dyn OffsetMarkerTrait>> = vec![];
-                for s in subs {
-                    let si: PairPosInternal = s.into();
-                    v.push(Box::new(Offset16::to(si)));
-                }
-                v
-            }
-            Positioning::Cursive(subs) => {
-                let mut v: Vec<Box<dyn OffsetMarkerTrait>> = vec![];
-                for s in subs {
-                    let si: CursivePosFormat1 = s.into();
-                    v.push(Box::new(Offset16::to(si)));
-                }
-                v
-            } // Positioning::Multiple(subs) => subs.offset_fields(),
-            // Positioning::Alternate(subs) => subs.offset_fields(),
-            // Positioning::Ligature(subs) => subs.offset_fields(),
-            _ => unimplemented!(),
-        };
+        let subtables: Vec<Box<dyn OffsetMarkerTrait>> = convert_outgoing_subtables!(
+            val.rule.clone(),
+            (Positioning::Single, SinglePosInternal),
+            (Positioning::Pair, PairPosInternal),
+            (Positioning::Cursive, CursivePosFormat1),
+            (Positioning::MarkToBase, MarkBasePosFormat1),
+            // (Positioning::MarkToLig, MarkLigPosFormat1),
+            // (Positioning::MarkToMark, MarkMarkPosFormat1),
+        );
 
         LookupInternal {
             flags: val.flags,

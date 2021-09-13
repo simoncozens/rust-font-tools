@@ -10,7 +10,26 @@ macro_rules! deserialize_lookup_match {
 
                 }
             )*,
-            _ => panic!("Bad lookup type: {}", $ty_in)
+            _ => panic!("Could not deserialize lookup type: {}", $ty_in)
+        }
+    };
+}
+
+/// Helper macro for converting lookups from internal to external representation
+#[macro_export]
+macro_rules! convert_outgoing_subtables {
+    ($rule:expr, $( ($lookup_type:path, $outgoing_type:ty) ),* $(,)*) => {
+        match $rule {
+            $(
+                $lookup_type(subtables) => {
+                    let mut v: Vec<Box<dyn OffsetMarkerTrait>> = vec![];
+                    for sub in subtables {
+                        v.push(Box::new(Offset16::to(sub)));
+                    }
+                    v
+                }
+            )*,
+            _ => panic!("Could not convert lookup to binary representation")
         }
     };
 }
