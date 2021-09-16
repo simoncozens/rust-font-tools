@@ -13,6 +13,7 @@ otspec_macros = { path = "../otspec_macros", version = "0" }
 chrono = { version = "0.4.3" }
 fixed = "1"
 petgraph = "0.5.1"
+num-bigint = "0.4.2"
 num = "0.4.0"
 
 [dev-dependencies]
