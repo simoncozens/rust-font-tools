@@ -16,6 +16,16 @@ pub struct Anchor {
     // yDeviceOffset: Option<Offset16<Device>>,
 }
 
+impl Anchor {
+    /// Returns a new anchor with no anchor point
+    pub fn new(x: int16, y: int16) -> Anchor {
+        Anchor {
+            xCoordinate: x,
+            yCoordinate: y,
+            anchorPoint: None,
+        }
+    }
+}
 impl Deserialize for Anchor {
     #[allow(non_snake_case)]
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
