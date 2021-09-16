@@ -30,6 +30,7 @@ tables!(
 );
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(non_snake_case)]
 pub struct BaseRecord {
     pub baseAnchors: Vec<Offset16<Anchor>>,
 }
@@ -133,6 +134,7 @@ impl Deserialize for MarkBasePos {
 }
 
 impl From<&MarkBasePos> for MarkBasePosFormat1 {
+    #[allow(non_snake_case)]
     fn from(lookup: &MarkBasePos) -> Self {
         let mut markClassCount = 0;
         let markArray = Offset16::to(MarkArray {
