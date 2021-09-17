@@ -1,15 +1,9 @@
-use crate::uint16;
-use crate::uint32;
-use crate::Counted;
-use crate::DeserializationError;
-use crate::Deserialize;
-use crate::Deserializer;
-use crate::ReaderContext;
-use crate::SerializationError;
-use crate::Serialize;
+use crate::{
+    uint16, uint32, Counted, DeserializationError, Deserialize, Deserializer, ReaderContext,
+    SerializationError, Serialize,
+};
 use core::convert::TryFrom;
-use fmt::Debug;
-use fmt::Display;
+use fmt::{Debug, Display};
 use num::cast::AsPrimitive;
 use num::traits::Unsigned;
 use num::FromPrimitive;
@@ -226,7 +220,11 @@ where
             f.write_fmt(format_args!("@{:}", off))?;
         }
         if let Some(link) = &self.link {
-            f.write_fmt(format_args!(" {:?}", link))?;
+            if f.alternate() {
+                f.write_fmt(format_args!(" {:#?}", link))?;
+            } else {
+                f.write_fmt(format_args!(" {:?}", link))?;
+            }
         }
         f.write_str(">")
     }
