@@ -2,12 +2,8 @@ use crate::avar::avar;
 use crate::cmap::cmap;
 use crate::fvar::fvar;
 use crate::gasp::gasp;
-use crate::glyf;
-use crate::gvar;
 use crate::head::head;
 use crate::hhea::hhea;
-use crate::hmtx;
-use crate::loca;
 use crate::maxp::maxp;
 use crate::name::name;
 use crate::os2::os2;
@@ -16,10 +12,11 @@ use crate::GDEF::GDEF;
 use crate::GPOS::GPOS;
 use crate::GSUB::GSUB;
 use crate::STAT::STAT;
+use crate::{glyf, gvar, hmtx, loca};
 use otspec::types::*;
-use otspec::ReaderContext;
 use otspec::{
-    DeserializationError, Deserialize, Deserializer, SerializationError, Serialize, Serializer,
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Serializer,
 };
 use otspec_macros::{Deserialize, Serialize};
 use std::cmp;
@@ -612,10 +609,9 @@ impl Deserialize for Font {
 #[cfg(test)]
 mod tests {
 
-    use crate::font;
     use crate::head::head;
     use crate::hhea::hhea;
-    use crate::maxp;
+    use crate::{font, maxp};
     use otspec::types::U16F16;
 
     use otspec::ser;
