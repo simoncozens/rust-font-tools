@@ -1,11 +1,11 @@
 use crate::layout::anchor::Anchor;
-use crate::layout::common::MarkArray;
-use crate::layout::common::MarkRecord;
+use crate::layout::common::{MarkArray, MarkRecord};
 use crate::layout::coverage::Coverage;
 
-use otspec::{types::*, Serializer};
+use otspec::types::*;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Serializer,
 };
 use otspec_macros::tables;
 
@@ -47,8 +47,6 @@ impl Serialize for BaseRecord {
     }
 
     fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
-        println!("My base anchors: {:?}", self.baseAnchors);
-        println!("My offset fields: {:?}", self.baseAnchors.offset_fields());
         self.baseAnchors
             .iter()
             .map(|x| {
