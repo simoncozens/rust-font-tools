@@ -11,6 +11,7 @@ use crate::post::post;
 use crate::GDEF::GDEF;
 use crate::GPOS::GPOS;
 use crate::GSUB::GSUB;
+use crate::MATH::MATH;
 use crate::STAT::STAT;
 use crate::{glyf, gvar, hmtx, loca};
 use otspec::types::*;
@@ -56,6 +57,8 @@ pub enum Table {
     Hmtx(hmtx::hmtx),
     /// Contains an index-to-location table.
     Loca(loca::loca),
+    /// Contains a math typesetting table.
+    MATH(MATH),
     /// Contains a maximum profile table.
     Maxp(maxp),
     /// Contains a naming table.
@@ -100,6 +103,7 @@ impl Table {
     table_unchecked!(hmtx_unchecked, Hmtx, hmtx::hmtx);
     table_unchecked!(loca_unchecked, Loca, loca::loca);
     table_unchecked!(maxp_unchecked, Maxp, maxp);
+    table_unchecked!(MATH_unchecked, MATH, MATH);
     table_unchecked!(name_unchecked, Name, name);
     table_unchecked!(os2_unchecked, Os2, os2);
     table_unchecked!(post_unchecked, Post, post);
@@ -124,6 +128,7 @@ impl Serialize for Table {
             Table::Glyf(_) => unimplemented!(),
             Table::Loca(_) => unimplemented!(),
             Table::Maxp(expr) => expr.to_bytes(data),
+            Table::MATH(_) => unimplemented!(),
             Table::Name(expr) => expr.to_bytes(data),
             Table::Os2(expr) => expr.to_bytes(data),
             Table::Post(expr) => expr.to_bytes(data),
@@ -238,19 +243,20 @@ impl Font {
 
     fn _deserialize(&self, tag: &Tag, binary: &[u8]) -> Result<Table, DeserializationError> {
         match tag {
-            b"cmap" => Ok(Table::Cmap(otspec::de::from_bytes(binary)?)),
-            b"head" => Ok(Table::Head(otspec::de::from_bytes(binary)?)),
-            b"hhea" => Ok(Table::Hhea(otspec::de::from_bytes(binary)?)),
             b"avar" => Ok(Table::Avar(otspec::de::from_bytes(binary)?)),
+            b"cmap" => Ok(Table::Cmap(otspec::de::from_bytes(binary)?)),
             b"fvar" => Ok(Table::Fvar(otspec::de::from_bytes(binary)?)),
             b"gasp" => Ok(Table::Gasp(otspec::de::from_bytes(binary)?)),
             b"GDEF" => Ok(Table::GDEF(otspec::de::from_bytes(binary)?)),
-            b"GSUB" => Ok(Table::GSUB(otspec::de::from_bytes(binary)?)),
             b"GPOS" => Ok(Table::GPOS(otspec::de::from_bytes(binary)?)),
+            b"GSUB" => Ok(Table::GSUB(otspec::de::from_bytes(binary)?)),
+            b"head" => Ok(Table::Head(otspec::de::from_bytes(binary)?)),
+            b"hhea" => Ok(Table::Hhea(otspec::de::from_bytes(binary)?)),
+            b"MATH" => Ok(Table::MATH(otspec::de::from_bytes(binary)?)),
             b"maxp" => Ok(Table::Maxp(otspec::de::from_bytes(binary)?)),
             b"name" => Ok(Table::Name(otspec::de::from_bytes(binary)?)),
-            b"post" => Ok(Table::Post(otspec::de::from_bytes(binary)?)),
             b"OS/2" => Ok(Table::Os2(otspec::de::from_bytes(binary)?)),
+            b"post" => Ok(Table::Post(otspec::de::from_bytes(binary)?)),
             b"STAT" => Ok(Table::STAT(otspec::de::from_bytes(binary)?)),
             b"hmtx" => {
                 let number_of_hmetrics = self._number_of_hmetrics();
