@@ -38,3 +38,11 @@ macro_rules! hashmap {
         std::collections::HashMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
     };
 }
+
+/// Macro to assist constructing a btreeset from items
+#[macro_export]
+macro_rules! btreeset {
+    ($($k:expr),* $(,)?) => {
+        std::collections::BTreeSet::<_, >::from_iter(std::array::IntoIter::new([$($k,)*]))
+    };
+}
