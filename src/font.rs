@@ -322,17 +322,11 @@ impl Font {
     }
 
     fn get_table_simple<'a>(&'a self, tag: &Tag) -> Option<&'a Table> {
-        if !self.tables.contains_key(tag) {
-            return None;
-        }
-        Some(self.tables.get(tag).unwrap())
+        self.tables.get(tag)
     }
 
     fn get_table_mut_simple<'a>(&'a mut self, tag: &Tag) -> Option<&'a mut Table> {
-        if !self.tables.contains_key(tag) {
-            return None;
-        }
-        Some(self.tables.get_mut(tag).unwrap())
+        self.tables.get_mut(tag)
     }
 
     /// Retrieve a table from the font
