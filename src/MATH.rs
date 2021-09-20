@@ -9,8 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 tables!(
     MathValueRecord [embedded] {
         FWORD value
-        uint16 device
-        // Offset16(Device) device
+        Offset16(Device) device
     }
     MATHinternal {
         uint16 majorVersion
@@ -128,7 +127,10 @@ tables!(
 
 impl MathValueRecord {
     pub fn new(value: FWORD) -> Self {
-        Self { value, device: 0 }
+        Self {
+            value,
+            device: Offset16::to_nothing(),
+        }
     }
 }
 // Needs to be handled manually because of awkward layout
