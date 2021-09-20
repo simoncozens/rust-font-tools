@@ -54,10 +54,10 @@ tables!(
     }
     ChainedSequenceContextFormat3 {
         uint16 format
-        CountedOffset16(Coverage) backtraceCoverages
+        CountedOffset16(Coverage) backtrackCoverages
         CountedOffset16(Coverage) inputCoverages
         CountedOffset16(Coverage) lookaheadCoverages
-        CountedOffset16(SequenceLookupRecord) sequenceLookupRecords
+        Counted(SequenceLookupRecord) sequenceLookupRecords
     }
 );
 
@@ -167,8 +167,10 @@ format_switching_lookup!(SequenceContext {
 
 /// A helpful alias which makes the type a bit more self-documenting
 pub type LookupID = uint16;
+/// A sequence position in a sequence context rule
+pub type Slot = BTreeSet<GlyphID>;
 /// A sequence context rule: each "slot" matches zero or more glyph IDs and may dispatch to zero or more lookups
-pub type SequenceContextRule = Vec<(BTreeSet<GlyphID>, Vec<LookupID>)>;
+pub type SequenceContextRule = Vec<(Slot, Vec<LookupID>)>;
 
 /* This struct is the user-facing representation of sequence context. */
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -186,7 +188,7 @@ fn coverage_or_nah(off: Offset16<Coverage>) -> Vec<GlyphID> {
         .copied()
         .collect()
 }
-fn coverage_to_slot(off: Offset16<Coverage>) -> BTreeSet<GlyphID> {
+fn coverage_to_slot(off: Offset16<Coverage>) -> Slot {
     off.link
         .map(|x| x.glyphs)
         .iter()
@@ -194,12 +196,12 @@ fn coverage_to_slot(off: Offset16<Coverage>) -> BTreeSet<GlyphID> {
         .copied()
         .collect()
 }
-fn single_glyph_slot(gid: GlyphID) -> BTreeSet<GlyphID> {
+fn single_glyph_slot(gid: GlyphID) -> Slot {
     std::iter::once(gid).collect()
 }
 
 fn collate_lookup_records(
-    slots: Vec<BTreeSet<GlyphID>>,
+    slots: Vec<Slot>,
     lookup_records: &[SequenceLookupRecord],
 ) -> SequenceContextRule {
     let mut rule: SequenceContextRule = vec![];
@@ -234,9 +236,9 @@ impl Deserialize for SequenceContext {
                     if let Some(ruleset) = &ruleset.link {
                         for rule in &ruleset.sequenceRules.v {
                             if let Some(rule) = &rule.link {
-                                let mut input_glyphs: Vec<BTreeSet<GlyphID>> =
+                                let mut input_glyphs: Vec<Slot> =
                                     vec![single_glyph_slot(*first_glyph)];
-                                let later_glyphs: Vec<BTreeSet<GlyphID>> = rule
+                                let later_glyphs: Vec<Slot> = rule
                                     .inputSequence
                                     .iter()
                                     .map(|gid| single_glyph_slot(*gid))
@@ -273,13 +275,147 @@ impl Deserialize for SequenceContext {
             }
             [0x00, 0x03] => {
                 let sub: SequenceContextFormat3 = c.de()?;
-                let slots: Vec<BTreeSet<GlyphID>> =
-                    sub.coverages.into_iter().map(coverage_to_slot).collect();
+                let slots: Vec<Slot> = sub.coverages.into_iter().map(coverage_to_slot).collect();
                 rules.push(collate_lookup_records(slots, &sub.seqLookupRecords));
             }
             _ => panic!("Bad sequence context format {:?}", fmt),
         }
         Ok(SequenceContext { rules })
+    }
+}
+
+#[derive(Debug, PartialEq, Clone, Default)]
+/// A chained contextual rule, with backtrack and lookahead
+pub struct ChainedSequenceContextRule {
+    backtrack: Vec<Slot>,
+    lookahead: Vec<Slot>,
+    input: SequenceContextRule,
+}
+
+/* This struct is the user-facing representation of chained sequence context. */
+#[derive(Debug, PartialEq, Clone, Default)]
+/// A chained contextual substitution/positioning table (GSUB6/GPOS8).
+pub struct ChainedSequenceContext {
+    /// A set of sequence context rules
+    pub rules: Vec<ChainedSequenceContextRule>,
+}
+
+format_switching_lookup!(ChainedSequenceContext {
+    Format1,
+    Format2,
+    Format3
+});
+
+/* On serialization, move to the outgoing representation by choosing the best format */
+impl From<&ChainedSequenceContext> for ChainedSequenceContextInternal {
+    fn from(val: &ChainedSequenceContext) -> Self {
+        unimplemented!()
+    }
+}
+
+impl Deserialize for ChainedSequenceContext {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let fmt = c.peek(2)?;
+        let mut rules: Vec<ChainedSequenceContextRule> = vec![];
+        match fmt {
+            [0x00, 0x01] => {
+                let sub: ChainedSequenceContextFormat1 = c.de()?;
+                for (first_glyph, ruleset) in coverage_or_nah(sub.coverage)
+                    .iter()
+                    .zip(sub.chainedSeqRuleSets.v.iter())
+                {
+                    if let Some(ruleset) = &ruleset.link {
+                        for rule in &ruleset.chainedSequenceRules.v {
+                            if let Some(rule) = &rule.link {
+                                let mut input_glyphs: Vec<Slot> =
+                                    vec![single_glyph_slot(*first_glyph)];
+                                let later_glyphs: Vec<Slot> = rule
+                                    .inputSequence
+                                    .iter()
+                                    .map(|gid| single_glyph_slot(*gid))
+                                    .collect();
+                                input_glyphs.extend(later_glyphs);
+                                rules.push(ChainedSequenceContextRule {
+                                    backtrack: rule
+                                        .backtrackSequence
+                                        .iter()
+                                        .map(|gid| single_glyph_slot(*gid))
+                                        .collect(),
+                                    lookahead: rule
+                                        .lookaheadSequence
+                                        .iter()
+                                        .map(|gid| single_glyph_slot(*gid))
+                                        .collect(),
+                                    input: collate_lookup_records(
+                                        input_glyphs,
+                                        &rule.seqLookupRecords,
+                                    ),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            [0x00, 0x02] => {
+                let sub: ChainedSequenceContextFormat2 = c.de()?;
+                let classdef = sub.inputClassDef.link.unwrap_or_default();
+                let backtrack_classdef = sub.backtrackClassDef.link.unwrap_or_default();
+                let lookahead_classdef = sub.lookaheadClassDef.link.unwrap_or_default();
+                for (first_class, ruleset) in sub.chainedClassSeqRuleSets.v.iter().enumerate() {
+                    if let Some(ruleset) = &ruleset.link {
+                        for rule in ruleset.chainedSequenceRules.v.iter() {
+                            if let Some(rule) = &rule.link {
+                                let mut slots = vec![classdef.get_glyphs(first_class as u16)];
+                                slots.extend(
+                                    rule.inputSequence
+                                        .iter()
+                                        .map(|&class| classdef.get_glyphs(class)),
+                                );
+                                rules.push(ChainedSequenceContextRule {
+                                    backtrack: rule
+                                        .backtrackSequence
+                                        .iter()
+                                        .map(|&class| backtrack_classdef.get_glyphs(class))
+                                        .collect(),
+                                    lookahead: rule
+                                        .lookaheadSequence
+                                        .iter()
+                                        .map(|&class| lookahead_classdef.get_glyphs(class))
+                                        .collect(),
+                                    input: collate_lookup_records(slots, &rule.seqLookupRecords),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            [0x00, 0x03] => {
+                let sub: ChainedSequenceContextFormat3 = c.de()?;
+                let slots: Vec<Slot> = sub
+                    .inputCoverages
+                    .v
+                    .into_iter()
+                    .map(coverage_to_slot)
+                    .collect();
+                rules.push(ChainedSequenceContextRule {
+                    backtrack: sub
+                        .backtrackCoverages
+                        .v
+                        .into_iter()
+                        .map(coverage_to_slot)
+                        .collect(),
+                    lookahead: sub
+                        .lookaheadCoverages
+                        .v
+                        .into_iter()
+                        .map(coverage_to_slot)
+                        .collect(),
+                    input: collate_lookup_records(slots, &sub.sequenceLookupRecords),
+                });
+            }
+            _ => panic!("Bad sequence context format {:?}", fmt),
+        }
+        Ok(ChainedSequenceContext { rules })
     }
 }
 
