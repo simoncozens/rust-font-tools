@@ -31,7 +31,9 @@ tables!(
 
 #[derive(Debug, Clone, PartialEq)]
 #[allow(non_snake_case)]
+/// Information about anchor positioning on a base
 pub struct BaseRecord {
+    /// A list of base anchors
     pub baseAnchors: Vec<Offset16<Anchor>>,
 }
 
@@ -60,8 +62,12 @@ impl Serialize for BaseRecord {
 #[derive(Debug, PartialEq, Clone, Default)]
 /// A mark-to-base subtable.
 pub struct MarkBasePos {
-    pub marks: BTreeMap<GlyphID, (uint16, Anchor)>,
+    /// Base glyphs to be attached in this subtable
+    /// Each base glyph is mapped to a mapping of (anchor class, anchor position)
     pub bases: BTreeMap<GlyphID, BTreeMap<uint16, Anchor>>,
+    /// Mark glyphs to be attached in this subtable
+    /// Each mark glyph is associated with an anchor class and anchor position
+    pub marks: BTreeMap<GlyphID, (uint16, Anchor)>,
 }
 
 // We need to deserialize this thing manually because of the data dependency:
@@ -186,7 +192,6 @@ impl Serialize for MarkBasePos {
 mod tests {
     use super::*;
     use crate::btreemap;
-    use otspec::offsetmanager::OffsetManager;
     use pretty_assertions::assert_eq;
     use std::iter::FromIterator;
 

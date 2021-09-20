@@ -126,6 +126,7 @@ tables!(
 );
 
 impl MathValueRecord {
+    /// Create a new MATH value record, with no device table
     pub fn new(value: FWORD) -> Self {
         Self {
             value,
@@ -219,14 +220,23 @@ impl Deserialize for MathKern {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+/// The Mathematical Typesetting table
 pub struct MATH {
+    /// Global constants for the mathematical typesetter
     pub constants: MathConstants,
+    /// A set of italic correction information for each glyph
     pub italic_correction: BTreeMap<GlyphID, MathValueRecord>,
+    /// A set of top accent attachment correction information for each glyph
     pub top_accent_attachment: BTreeMap<GlyphID, MathValueRecord>,
+    /// Which glyph IDs are considered extended shapes
     pub extended_shapes: BTreeSet<GlyphID>,
+    /// Math kerning information for each shape
     pub kerning: BTreeMap<GlyphID, MathKernInfoRecord>,
+    /// The number of units by which two glyphs need to overlap with each other when used to construct a larger shape
     pub min_overlap: Option<UFWORD>,
+    /// Information about glyphs which grow in the vertical direction
     pub vertical_extensions: BTreeMap<GlyphID, MathGlyphConstruction>,
+    /// Information about glyphs which grow in the horizontal direction
     pub horizontal_extensions: BTreeMap<GlyphID, MathGlyphConstruction>,
 }
 
