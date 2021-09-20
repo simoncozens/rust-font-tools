@@ -1,16 +1,16 @@
-use crate::convert_outgoing_subtables;
-use crate::deserialize_lookup_match;
 use crate::layout::common::*;
-use crate::layout::gpos1::{SinglePos, SinglePosInternal};
-use crate::layout::gpos2::{PairPos, PairPosInternal};
-use crate::layout::gpos3::{CursivePos, CursivePosFormat1};
-use crate::layout::gpos4::{MarkBasePos, MarkBasePosFormat1};
+use crate::layout::contextual::SequenceContext;
+use crate::layout::gpos1::SinglePos;
+use crate::layout::gpos2::PairPos;
+use crate::layout::gpos3::CursivePos;
+use crate::layout::gpos4::MarkBasePos;
+use crate::{convert_outgoing_subtables, deserialize_lookup_match};
 // use crate::layout::gpos5::{MarkLigPos, MarkLigPosFormat1};
 // use crate::layout::gpos6::{MarkMarkPos, MarkMarkPosFormat1};
 use otspec::types::*;
-use otspec::Counted;
 use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Counted, DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError,
+    Serialize,
 };
 use otspec_macros::Deserialize;
 use std::convert::TryInto;
@@ -25,7 +25,7 @@ impl Lookup<Positioning> {
             Positioning::MarkToBase(_) => 4,
             Positioning::MarkToLig => 5,
             Positioning::MarkToMark => 6,
-            Positioning::Contextual => 7,
+            Positioning::Contextual(_) => 7,
             Positioning::ChainedContextual => 8,
             Positioning::Extension => 9,
         }
@@ -56,7 +56,7 @@ pub enum Positioning {
     // MarkToMark(Vec<MarkMarkPos>),
     MarkToMark,
     /// Contains a contextual positioning rule.
-    Contextual,
+    Contextual(Vec<SequenceContext>),
     /// Contains a chained contextual positioning rule.
     ChainedContextual,
     /// Contains an extension subtable.
@@ -75,7 +75,7 @@ impl Positioning {
             Positioning::MarkToMark => todo!(),
             // Positioning::MarkToLig(v) => v.push(MarkLigPos::default()),
             // Positioning::MarkToMark(v) => v.push(MarkMarkPos::default()),
-            Positioning::Contextual => todo!(),
+            Positioning::Contextual(v) => v.push(SequenceContext::default()),
             Positioning::ChainedContextual => todo!(),
             Positioning::Extension => todo!(),
         }
@@ -85,16 +85,6 @@ impl Positioning {
 #[allow(clippy::upper_case_acronyms)]
 /// The Glyph Positioning table
 pub type GPOS = GPOSGSUB<Positioning>;
-
-impl Default for GPOS {
-    fn default() -> Self {
-        GPOS {
-            lookups: vec![],
-            scripts: ScriptList::default(),
-            features: vec![],
-        }
-    }
-}
 
 impl Deserialize for GPOS {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
@@ -208,6 +198,7 @@ impl Deserialize for Lookup<Positioning> {
             (4, MarkBasePos, Positioning::MarkToBase),
             // (5, MarkLigPos, Positioning::MarkToLig),
             // (6, MarkMarkPos, Positioning::MarkToMark),
+            (7, SequenceContext, Positioning::Contextual),
         );
 
         c.pop();

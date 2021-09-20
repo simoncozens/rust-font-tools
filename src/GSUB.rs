@@ -1,16 +1,14 @@
 use crate::deserialize_lookup_match;
 use crate::layout::common::*;
-use crate::layout::gsub1::SingleSubst;
-use crate::layout::gsub1::SingleSubstInternal;
-use crate::layout::gsub2::MultipleSubst;
-use crate::layout::gsub2::MultipleSubstFormat1;
+use crate::layout::contextual::SequenceContext;
+use crate::layout::gsub1::{SingleSubst, SingleSubstInternal};
+use crate::layout::gsub2::{MultipleSubst, MultipleSubstFormat1};
 use crate::layout::gsub3::AlternateSubst;
-use crate::layout::gsub4::LigatureSubst;
-use crate::layout::gsub4::LigatureSubstFormat1;
+use crate::layout::gsub4::{LigatureSubst, LigatureSubstFormat1};
 use otspec::types::*;
-use otspec::Counted;
 use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Counted, DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError,
+    Serialize,
 };
 use otspec_macros::Deserialize;
 use std::convert::TryInto;
@@ -23,7 +21,7 @@ impl Lookup<Substitution> {
             Substitution::Multiple(_) => 2,
             Substitution::Alternate(_) => 3,
             Substitution::Ligature(_) => 4,
-            Substitution::Contextual => 5,
+            Substitution::Contextual(_) => 5,
             Substitution::ChainedContextual => 6,
             Substitution::Extension => 7,
             Substitution::ReverseChaining => 8,
@@ -50,7 +48,7 @@ pub enum Substitution {
     /// Contains a ligature substitution rule.
     Ligature(Vec<LigatureSubst>),
     /// Contains a contextual substitution rule.
-    Contextual,
+    Contextual(Vec<SequenceContext>),
     /// Contains a chained contextual substitution rule.
     ChainedContextual,
     /// Contains an extension subtable.
@@ -67,7 +65,7 @@ impl Substitution {
             Substitution::Multiple(v) => v.push(MultipleSubst::default()),
             Substitution::Alternate(v) => v.push(AlternateSubst::default()),
             Substitution::Ligature(v) => v.push(LigatureSubst::default()),
-            Substitution::Contextual => todo!(),
+            Substitution::Contextual(v) => v.push(SequenceContext::default()),
             Substitution::ChainedContextual => todo!(),
             Substitution::Extension => todo!(),
             Substitution::ReverseChaining => todo!(),
@@ -78,16 +76,6 @@ impl Substitution {
 #[allow(clippy::upper_case_acronyms)]
 /// The Glyph Substitution table
 pub type GSUB = GPOSGSUB<Substitution>;
-
-impl Default for GSUB {
-    fn default() -> Self {
-        GSUB {
-            lookups: vec![],
-            scripts: ScriptList::default(),
-            features: vec![],
-        }
-    }
-}
 
 impl Deserialize for GSUB {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
@@ -199,6 +187,7 @@ impl Deserialize for Lookup<Substitution> {
             (2, MultipleSubst, Substitution::Multiple),
             (3, AlternateSubst, Substitution::Alternate),
             (4, LigatureSubst, Substitution::Ligature),
+            (5, SequenceContext, Substitution::Contextual),
         );
 
         c.pop();
