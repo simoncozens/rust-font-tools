@@ -1,6 +1,6 @@
 use crate::deserialize_lookup_match;
 use crate::layout::common::*;
-use crate::layout::contextual::SequenceContext;
+use crate::layout::contextual::{ChainedSequenceContext, SequenceContext};
 use crate::layout::gsub1::{SingleSubst, SingleSubstInternal};
 use crate::layout::gsub2::{MultipleSubst, MultipleSubstFormat1};
 use crate::layout::gsub3::AlternateSubst;
@@ -22,7 +22,7 @@ impl Lookup<Substitution> {
             Substitution::Alternate(_) => 3,
             Substitution::Ligature(_) => 4,
             Substitution::Contextual(_) => 5,
-            Substitution::ChainedContextual => 6,
+            Substitution::ChainedContextual(_) => 6,
             Substitution::Extension => 7,
             Substitution::ReverseChaining => 8,
         }
@@ -50,7 +50,7 @@ pub enum Substitution {
     /// Contains a contextual substitution rule.
     Contextual(Vec<SequenceContext>),
     /// Contains a chained contextual substitution rule.
-    ChainedContextual,
+    ChainedContextual(Vec<ChainedSequenceContext>),
     /// Contains an extension subtable.
     Extension,
     /// Contains a reverse chaining single substitution rule.
@@ -66,7 +66,7 @@ impl Substitution {
             Substitution::Alternate(v) => v.push(AlternateSubst::default()),
             Substitution::Ligature(v) => v.push(LigatureSubst::default()),
             Substitution::Contextual(v) => v.push(SequenceContext::default()),
-            Substitution::ChainedContextual => todo!(),
+            Substitution::ChainedContextual(v) => v.push(ChainedSequenceContext::default()),
             Substitution::Extension => todo!(),
             Substitution::ReverseChaining => todo!(),
         }
@@ -188,6 +188,7 @@ impl Deserialize for Lookup<Substitution> {
             (3, AlternateSubst, Substitution::Alternate),
             (4, LigatureSubst, Substitution::Ligature),
             (5, SequenceContext, Substitution::Contextual),
+            (6, ChainedSequenceContext, Substitution::ChainedContextual),
         );
 
         c.pop();

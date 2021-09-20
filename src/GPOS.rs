@@ -1,5 +1,5 @@
 use crate::layout::common::*;
-use crate::layout::contextual::SequenceContext;
+use crate::layout::contextual::{ChainedSequenceContext, SequenceContext};
 use crate::layout::gpos1::SinglePos;
 use crate::layout::gpos2::PairPos;
 use crate::layout::gpos3::CursivePos;
@@ -26,7 +26,7 @@ impl Lookup<Positioning> {
             Positioning::MarkToLig => 5,
             Positioning::MarkToMark => 6,
             Positioning::Contextual(_) => 7,
-            Positioning::ChainedContextual => 8,
+            Positioning::ChainedContextual(_) => 8,
             Positioning::Extension => 9,
         }
     }
@@ -58,7 +58,7 @@ pub enum Positioning {
     /// Contains a contextual positioning rule.
     Contextual(Vec<SequenceContext>),
     /// Contains a chained contextual positioning rule.
-    ChainedContextual,
+    ChainedContextual(Vec<ChainedSequenceContext>),
     /// Contains an extension subtable.
     Extension,
 }
@@ -76,7 +76,7 @@ impl Positioning {
             // Positioning::MarkToLig(v) => v.push(MarkLigPos::default()),
             // Positioning::MarkToMark(v) => v.push(MarkMarkPos::default()),
             Positioning::Contextual(v) => v.push(SequenceContext::default()),
-            Positioning::ChainedContextual => todo!(),
+            Positioning::ChainedContextual(v) => v.push(ChainedSequenceContext::default()),
             Positioning::Extension => todo!(),
         }
     }
@@ -199,6 +199,7 @@ impl Deserialize for Lookup<Positioning> {
             // (5, MarkLigPos, Positioning::MarkToLig),
             // (6, MarkMarkPos, Positioning::MarkToMark),
             (7, SequenceContext, Positioning::Contextual),
+            (8, ChainedSequenceContext, Positioning::ChainedContextual),
         );
 
         c.pop();
