@@ -286,7 +286,7 @@ pub struct Lookup<T> {
 
 // GPOS and GSUB tables
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 #[allow(clippy::upper_case_acronyms)]
 /// The Glyph Positioning table
 pub struct GPOSGSUB<T> {

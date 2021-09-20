@@ -1,11 +1,9 @@
 use otspec::types::*;
-use otspec::DeserializationError;
-use otspec::Deserialize;
-use otspec::Deserializer;
-use otspec::ReaderContext;
-use otspec::SerializationError;
-use otspec::Serialize;
-use otspec::Serializer;
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Serializer,
+};
+use std::collections::BTreeSet;
 
 use otspec_macros::tables;
 use std::collections::BTreeMap;
@@ -25,14 +23,27 @@ tables!(
     }
 );
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 /// A class definition table.
 ///
 /// Class definitions, used to define glyph contexts in the GSUB and GPOS tables,
 /// map a glyph ID to a glyph class integer.
 pub struct ClassDef {
     /// Stores the mapping between glyph IDs and classes.
-    pub classes: BTreeMap<uint16, uint16>,
+    pub classes: BTreeMap<GlyphID, uint16>,
+}
+
+impl ClassDef {
+    /// Get a set of glyph IDs corresponding to the given class
+    pub fn get_glyphs(&self, class_id: uint16) -> BTreeSet<GlyphID> {
+        // "Doing linear scans over an associative array is like trying to
+        // club someone to death with a loaded Uzi." - Larry Wall
+        self.classes
+            .iter()
+            .filter(|(_, &v)| v == class_id)
+            .map(|(&k, _)| k)
+            .collect()
+    }
 }
 
 impl Deserialize for ClassDef {

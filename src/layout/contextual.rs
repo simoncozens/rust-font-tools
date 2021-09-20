@@ -186,7 +186,14 @@ fn coverage_or_nah(off: Offset16<Coverage>) -> Vec<GlyphID> {
         .copied()
         .collect()
 }
-
+fn coverage_to_slot(off: Offset16<Coverage>) -> BTreeSet<GlyphID> {
+    off.link
+        .map(|x| x.glyphs)
+        .iter()
+        .flatten()
+        .copied()
+        .collect()
+}
 fn single_glyph_slot(gid: GlyphID) -> BTreeSet<GlyphID> {
     std::iter::once(gid).collect()
 }
@@ -247,11 +254,28 @@ impl Deserialize for SequenceContext {
             }
             [0x00, 0x02] => {
                 let sub: SequenceContextFormat2 = c.de()?;
-                unimplemented!()
+                let classdef = sub.classDef.link.unwrap_or_default();
+                for (first_class, ruleset) in sub.classSeqRuleSets.v.iter().enumerate() {
+                    if let Some(ruleset) = &ruleset.link {
+                        for rule in ruleset.sequenceRules.v.iter() {
+                            if let Some(rule) = &rule.link {
+                                let mut slots = vec![classdef.get_glyphs(first_class as u16)];
+                                slots.extend(
+                                    rule.inputSequence
+                                        .iter()
+                                        .map(|&class| classdef.get_glyphs(class)),
+                                );
+                                rules.push(collate_lookup_records(slots, &rule.seqLookupRecords));
+                            }
+                        }
+                    }
+                }
             }
             [0x00, 0x03] => {
                 let sub: SequenceContextFormat3 = c.de()?;
-                unimplemented!()
+                let slots: Vec<BTreeSet<GlyphID>> =
+                    sub.coverages.into_iter().map(coverage_to_slot).collect();
+                rules.push(collate_lookup_records(slots, &sub.seqLookupRecords));
             }
             _ => panic!("Bad sequence context format {:?}", fmt),
         }
@@ -293,6 +317,68 @@ mod tests {
             sequence,
             SequenceContext {
                 rules: vec![rule_one, rule_two, rule_three]
+            }
+        );
+    }
+
+    #[test]
+    fn test_gsub_format_2() {
+        /*
+        feature test {
+            sub [d e f]' lookup two [a b c]' lookup one;
+            sub [d e f]' lookup two [d e f]' lookup two;
+            sub [a b c]' lookup one [a b c]' lookup one;
+        } test;
+        */
+        let binary_lookup = vec![
+            0x00, 0x02, 0x00, 0x0E, 0x00, 0x18, 0x00, 0x03, 0x00, 0x28, 0x00, 0x2A, 0x00, 0x4C,
+            0x00, 0x02, 0x00, 0x01, 0x00, 0x42, 0x00, 0x47, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02,
+            0x00, 0x42, 0x00, 0x44, 0x00, 0x02, 0x00, 0x45, 0x00, 0x47, 0x00, 0x01, 0x00, 0x00,
+            0x00, 0x02, 0x00, 0x06, 0x00, 0x14, 0x00, 0x02, 0x00, 0x02, 0x00, 0x02, 0x00, 0x00,
+            0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x01, 0x00, 0x00,
+            0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x04, 0x00, 0x02, 0x00, 0x02,
+            0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
+        ];
+        let sequence: SequenceContext = otspec::de::from_bytes(&binary_lookup).unwrap();
+        let rule_one: SequenceContextRule = vec![
+            (btreeset!(69, 70, 71), vec![1]),
+            (btreeset!(66, 67, 68), vec![0]),
+        ];
+        let rule_two: SequenceContextRule = vec![
+            (btreeset!(69, 70, 71), vec![1]),
+            (btreeset!(69, 70, 71), vec![1]),
+        ];
+        let rule_three: SequenceContextRule = vec![
+            (btreeset!(66, 67, 68), vec![0]),
+            (btreeset!(66, 67, 68), vec![0]),
+        ];
+        assert_eq!(
+            sequence,
+            SequenceContext {
+                rules: vec![rule_one, rule_two, rule_three]
+            }
+        );
+    }
+
+    #[test]
+    fn test_gsub_format_3() {
+        /*
+        feature test {
+               sub [a d]' lookup one b' lookup two;
+        }test;
+        */
+        let binary_lookup = vec![
+            0x00, 0x03, 0x00, 0x02, 0x00, 0x02, 0x00, 0x12, 0x00, 0x1A, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x02, 0x00, 0x42, 0x00, 0x45, 0x00, 0x01,
+            0x00, 0x01, 0x00, 0x43,
+        ];
+        let sequence: SequenceContext = otspec::de::from_bytes(&binary_lookup).unwrap();
+        let rule_one: SequenceContextRule =
+            vec![(btreeset!(66, 69), vec![0]), (btreeset!(67), vec![1])];
+        assert_eq!(
+            sequence,
+            SequenceContext {
+                rules: vec![rule_one]
             }
         );
     }
