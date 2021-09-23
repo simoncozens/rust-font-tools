@@ -177,6 +177,15 @@ pub fn compile_hhea(
         .ot_value("hhea", "caretOffset", true)
         .map(i16::from)
         .unwrap_or(0);
+    let caretSlopeRise = input
+        .ot_value("hhea", "caretSlopeRise", true)
+        .map(i16::from)
+        .unwrap_or_else(|| caret_slope_rise(input));
+    let caretSlopeRun = input
+        .ot_value("hhea", "caretSlopeRun", true)
+        .map(i16::from)
+        .unwrap_or_else(|| caret_slope_run(input));
+
     let advanceWidthMax = metrics.iter().map(|x| x.advanceWidth).max().unwrap_or(0);
     let minLeftSideBearing = metrics.iter().map(|x| x.lsb).min().unwrap_or(0);
     let minRightSideBearing = metrics
@@ -197,8 +206,8 @@ pub fn compile_hhea(
         minLeftSideBearing,
         minRightSideBearing,
         xMaxExtent,
-        caretSlopeRise: 1, // XXX
-        caretSlopeRun: 0,  // XXX
+        caretSlopeRise,
+        caretSlopeRun,
         caretOffset,
         reserved0: 0,
         reserved1: 0,

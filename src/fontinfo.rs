@@ -163,3 +163,29 @@ pub fn get_selection(input: &babelfont::Font) -> u16 {
     };
     int_list_to_num(&selection) as u16
 }
+
+pub fn caret_slope_rise(input: &babelfont::Font) -> i16 {
+    let italic_angle = input.default_metric("italic angle").unwrap_or(0) as i32;
+    if italic_angle == 0 {
+        return 1;
+    }
+    if let Some(slope_run) = input.ot_value("hhea", "caretSlopeRun", true).map(i16::from) {
+        if slope_run > 0 {
+            (slope_run as f64 / f64::to_radians(-italic_angle as f64).tan()) as i16
+        } else {
+            1000
+        }
+    } else {
+        1000
+    }
+}
+
+pub fn caret_slope_run(input: &babelfont::Font) -> i16 {
+    let italic_angle = input.default_metric("italic angle").unwrap_or(0) as i32;
+    if italic_angle != 0 {
+        let slope_rise = caret_slope_rise(input);
+        (slope_rise as f64 * f64::to_radians(-italic_angle as f64).tan()) as i16
+    } else {
+        0
+    }
+}
