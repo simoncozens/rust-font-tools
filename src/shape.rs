@@ -1,18 +1,23 @@
 use crate::common::{Node, NodeType};
 use crate::BabelfontError;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum PathDirection {
     Clockwise = 1,
     Anticlockwise = 0,
 }
-#[derive(Debug)]
+impl Default for PathDirection {
+    fn default() -> Self {
+        PathDirection::Clockwise
+    }
+}
+#[derive(Debug, Clone)]
 pub struct Component {
     pub reference: String,
     pub transform: kurbo::Affine,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct Path {
     pub nodes: Vec<Node>,
     pub closed: bool,

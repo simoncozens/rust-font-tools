@@ -1,10 +1,8 @@
 use std::collections::HashMap;
 
-use chrono::Offset;
-
 pub type Tag = [u8; 4];
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -21,7 +19,7 @@ impl Position {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Color {
     r: i32,
     g: i32,
@@ -40,7 +38,7 @@ impl From<&norad::Color> for Color {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Location(pub HashMap<String, f32>);
 impl Location {
     pub fn new() -> Self {
@@ -137,7 +135,7 @@ pub enum Direction {
     TopToBottom,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum NodeType {
     Move,
     Line,
@@ -156,7 +154,7 @@ impl From<&norad::PointType> for NodeType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Node {
     pub x: f32,
     pub y: f32,
