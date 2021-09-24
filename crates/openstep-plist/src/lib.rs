@@ -207,6 +207,8 @@ impl Plist {
         if let Ok((Token::Atom(s), next_ix)) = Token::lex(s, ix) {
             if let Plist::Integer(t1) = Plist::parse_atom(s) {
                 x = t1;
+            } else if let Plist::Float(t1) = Plist::parse_atom(s) {
+                x = t1 as i64;
             } else {
                 return None;
             }
@@ -223,6 +225,8 @@ impl Plist {
         if let Ok((Token::Atom(s), next_ix)) = Token::lex(s, ix) {
             if let Plist::Integer(t2) = Plist::parse_atom(s) {
                 y = t2;
+            } else if let Plist::Float(t2) = Plist::parse_atom(s) {
+                y = t2 as i64;
             } else {
                 return None;
             }
