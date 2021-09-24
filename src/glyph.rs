@@ -4,7 +4,8 @@ use fonttools::glyf::contourutils::kurbo_contour_to_glyf_contour;
 use fonttools::gvar::DeltaSet;
 use fonttools::gvar::GlyphVariationData;
 use fonttools::otvar::VariationModel;
-use kurbo::{BezPath, PathEl, PathSeg};
+use kurbo::cubics_to_quadratic_splines;
+use kurbo::{BezPath, CubicBez, PathEl, PathSeg};
 use std::collections::BTreeMap;
 use unzip_n::unzip_n;
 
@@ -194,87 +195,62 @@ fn babelfont_contours_to_glyf_contours(
 
     // XXX ensure they are all compatible, type-wise.
 
-    // We're going to turn the list of cubic bezpaths into quadratic bezpaths
-    let mut quadratic_paths: Vec<kurbo::BezPath> = paths.iter().map(|_| BezPath::new()).collect();
+    // We're going to turn the list of cubic bezpaths into Vec<Point> expected by Glyf
+    let mut quadratic_paths: Vec<Vec<glyf::Point>> = paths.iter().map(|_| vec![]).collect();
 
     let default_elements: &[PathEl] = kurbo_paths[default_master].elements();
     for (el_ix, el) in default_elements.iter().enumerate() {
         match el {
             PathEl::CurveTo(_, _, _) => {
                 // Convert all the cubics to quadratics in one go, across layers
-                let all_curves: Vec<PathSeg> = kurbo_paths
+                let all_curves: Vec<CubicBez> = kurbo_paths
                     .iter()
-                    .map(|x| x.get_seg(el_ix).unwrap())
+                    .filter_map(|x| match x.get_seg(el_ix).unwrap() {
+                        PathSeg::Cubic(c) => Some(c),
+                        _ => None,
+                    })
                     .collect();
-                let all_quadratics = cubics_to_quadratics(all_curves, glif_name);
-                for (c_ix, contour) in quadratic_paths.iter_mut().enumerate() {
-                    for &quad in &all_quadratics[c_ix] {
-                        contour.push(quad);
+                if let Some(all_quadratics) = cubics_to_quadratic_splines(&all_curves, 1.0) {
+                    for (c_ix, contour) in quadratic_paths.iter_mut().enumerate() {
+                        let spline_points = all_quadratics[c_ix].points();
+                        // Skip the spline start, because we already have a point for that
+                        for pt in spline_points.iter().skip(1) {
+                            contour.push(glyf::Point {
+                                x: pt.x as i16,
+                                y: pt.y as i16,
+                                on_curve: false,
+                            });
+                        }
+                        // Last one is on-curve
+                        if let Some(last) = contour.last_mut() {
+                            last.on_curve = true
+                        }
                     }
+                } else {
+                    log::warn!("Could not compatibly interpolate {:}", glif_name)
                 }
             }
             _ => {
                 for (c_ix, contour) in quadratic_paths.iter_mut().enumerate() {
-                    contour.push(kurbo_paths[c_ix].elements()[el_ix]);
+                    let this_path_el = kurbo_paths[c_ix].elements()[el_ix];
+                    match this_path_el {
+                        PathEl::MoveTo(pt) | PathEl::LineTo(pt) => contour.push(glyf::Point {
+                            x: pt.x as i16,
+                            y: pt.y as i16,
+                            on_curve: true,
+                        }),
+                        PathEl::QuadTo(_, _) => panic!("No you don't"),
+                        PathEl::CurveTo(_, _, _) => panic!("Incompatible contour"),
+                        PathEl::ClosePath => {
+                            contour.pop();
+                        }
+                    }
                 }
             }
         }
     }
 
-    // Now turn our kurbo quadratic bezpaths into glyf contours
     quadratic_paths
-        .iter()
-        .map(|x| {
-            let mut c = kurbo_contour_to_glyf_contour(x, 0.5);
-            // Ideally we should remove any implied oncurves here, but only if
-            // we can do it in an interpolation-compatible way! See notes below.
-            // remove_implied_oncurves(&mut c);
-            c
-        })
-        .collect()
-}
-
-// Convert a list of cubic *segments* (not contours, individual cubic curves)
-// to quadratic segments, in an interpolation-compatible way. Unfortunately,
-// because we are working on individual curves, this is not aware of the
-// existence of implied oncurves.
-fn cubics_to_quadratics(cubics: Vec<PathSeg>, _glif_name: &str) -> Vec<Vec<PathEl>> {
-    let mut error = 0.05;
-    let mut warned = false;
-    while error < 50.0 {
-        let mut quads: Vec<Vec<kurbo::PathEl>> = vec![];
-
-        // Try it once
-        for pathseg in &cubics {
-            if let PathSeg::Cubic(cubic) = pathseg {
-                quads.push(
-                    cubic
-                        .to_quads(error)
-                        .map(|(_, _, x)| PathEl::QuadTo(x.p1, x.p2))
-                        .collect(),
-                )
-            } else {
-                // log::error!("Incompatible contours in glyph {:?}", glif_name);
-                return itertools::repeat_n(vec![], cubics.len()).collect();
-            }
-        }
-
-        // Was it a compatible collection of quads?
-        let lengths: Vec<usize> = quads.iter().map(|x| x.len()).collect();
-        if is_all_same(&lengths) {
-            return quads;
-        }
-
-        error *= 1.5; // Exponential backoff
-        if error > 20.0 && !warned {
-            // log::warn!(
-            //     "{:} is proving difficult to interpolate - consider redesigning?",
-            //     glif_name
-            // );
-            warned = true;
-        }
-    }
-    panic!("Couldn't compatibly interpolate contours");
 }
 
 fn babelfont_component_to_glyf_component(
