@@ -66,6 +66,9 @@ impl Path {
                 }
             }
         }
+        if self.closed {
+            path.close_path()
+        }
         Ok(path)
     }
 }
