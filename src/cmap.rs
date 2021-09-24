@@ -401,6 +401,98 @@ impl cmap12 {
     }
 }
 
+tables!(
+    cmap14 {
+        [offset_base]
+        uint16  format
+        uint32  length
+        [embed]
+        Counted32(VariationSelector) varSelector
+    }
+    VariationSelector [embedded] {
+        uint24 varSelector
+        Offset32(DefaultUVS) defaultUVS
+        Offset32(NonDefaultUVS) nonDefaultUVS
+    }
+    DefaultUVS {
+        Counted32(UnicodeRange) ranges
+    }
+    UnicodeRange {
+        uint24  startUnicodeValue
+        uint8   additionalCount
+    }
+    NonDefaultUVS {
+        Counted32(UVSMapping) uvsMappings
+    }
+    UVSMapping {
+        uint24  unicodeValue
+        uint16  glyphID
+    }
+);
+
+impl cmap14 {
+    pub fn from_uvs_mapping(map: &Option<BTreeMap<(uint32, uint32), uint16>>) -> Self {
+        let mut table = cmap14 {
+            format: 14,
+            length: 10,
+            varSelector: vec![],
+        };
+        if map.is_none() {
+            return table;
+        }
+        let mut total_length = 10;
+        let map = map.as_ref().unwrap();
+
+        let mut split_map: BTreeMap<uint32, Vec<(uint32, uint16)>> = BTreeMap::new();
+        for ((codepoint, selector), gid) in map.iter() {
+            split_map
+                .entry(*selector)
+                .or_insert_with(std::vec::Vec::new)
+                .push((*codepoint, *gid));
+        }
+
+        for (selector, records) in split_map.iter() {
+            let nduvs = NonDefaultUVS {
+                uvsMappings: records
+                    .iter()
+                    .map(|&(unicode_value, glyph_id)| UVSMapping {
+                        unicodeValue: unicode_value.into(),
+                        glyphID: glyph_id,
+                    })
+                    .collect(),
+            };
+            table.varSelector.push(VariationSelector {
+                varSelector: (*selector).into(),
+                defaultUVS: Offset32::to_nothing(),
+                nonDefaultUVS: Offset32::to(nduvs),
+            });
+            // Each UVS mapping is 5 bytes
+            // Plus the 4-byte count in NonDefaultUVS
+            // Plus the 11-byte VariationSelector structure itself
+            total_length += 5 * records.len() as u32 + 4 + 11;
+        }
+
+        table.length = total_length;
+        table
+    }
+
+    fn to_uvs_mapping(&self) -> BTreeMap<(uint32, uint32), uint16> {
+        let mut map: BTreeMap<(uint32, uint32), uint16> = BTreeMap::new();
+        for vs in &self.varSelector {
+            let selector = vs.varSelector.into();
+            if let Some(_default_map) = &vs.defaultUVS.link {
+                // I think this doesn't convey any useful information?
+            }
+            if let Some(non_default_map) = &vs.nonDefaultUVS.link {
+                for record in &non_default_map.uvsMappings {
+                    map.insert((record.unicodeValue.into(), selector), record.glyphID);
+                }
+            }
+        }
+        map
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[allow(non_snake_case)]
 /// A cmap subtable.
@@ -424,6 +516,8 @@ pub struct CmapSubtable {
     pub languageID: uint16,
     /// A mapping between Unicode codepoints and glyph IDs.
     pub mapping: BTreeMap<uint32, uint16>,
+    /// A mapping of Unicode codepoints + glyph selectors to glyph IDs.
+    pub uvs_mapping: Option<BTreeMap<(uint32, uint32), uint16>>,
 }
 
 impl CmapSubtable {
@@ -447,6 +541,7 @@ impl Serialize for CmapSubtable {
             0 => cmap0::from_mapping(self.languageID, &self.mapping).to_bytes(data),
             4 => cmap4::from_mapping(self.languageID, &self.mapping).to_bytes(data),
             12 => cmap12::from_mapping(self.languageID, &self.mapping).to_bytes(data),
+            14 => cmap14::from_uvs_mapping(&self.uvs_mapping).to_bytes(data),
             _ => unimplemented!(),
         }
     }
@@ -506,6 +601,7 @@ impl Deserialize for cmap {
                         encodingID: er.encodingID,
                         languageID: subtable.language,
                         mapping: subtable.to_mapping(),
+                        uvs_mapping: None,
                     });
                 }
                 [0x0, 0x04] => {
@@ -516,9 +612,10 @@ impl Deserialize for cmap {
                         encodingID: er.encodingID,
                         languageID: subtable.language,
                         mapping: subtable.to_mapping(),
+                        uvs_mapping: None,
                     });
                 }
-                [0x0, 0x0a] => {
+                [0x0, 0x0c] => {
                     let subtable: cmap12 = c.de()?;
                     subtables.push(CmapSubtable {
                         format: 12,
@@ -526,10 +623,25 @@ impl Deserialize for cmap {
                         encodingID: er.encodingID,
                         languageID: subtable.language as u16,
                         mapping: subtable.to_mapping(),
-                    });
+                        uvs_mapping: None,
+                    })
+                }
+                [0x0, 0x0e] => {
+                    let subtable: cmap14 = c.de()?;
+                    subtables.push(CmapSubtable {
+                        format: 14,
+                        platformID: 0,
+                        encodingID: 5,
+                        languageID: 0, // ??
+                        mapping: BTreeMap::new(),
+                        uvs_mapping: Some(subtable.to_uvs_mapping()),
+                    })
+                }
+                [a, b] => {
+                    panic!("Unknown cmap format {:}{:}", a, b);
                 }
                 _ => {
-                    println!("Unknown format",);
+                    panic!("Reading cmap format failed");
                 }
             }
         }
@@ -596,6 +708,7 @@ impl cmap {
 mod tests {
     use crate::cmap;
     use pretty_assertions::assert_eq;
+    use std::collections::BTreeMap;
     use std::iter::FromIterator;
 
     macro_rules! btreemap {
@@ -613,6 +726,7 @@ mod tests {
                     encodingID: 3,
                     languageID: 0,
                     mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
+                    uvs_mapping: None,
                 },
                 cmap::CmapSubtable {
                     format: 4,
@@ -620,6 +734,7 @@ mod tests {
                     encodingID: 1,
                     languageID: 0,
                     mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
+                    uvs_mapping: None,
                 },
             ],
         };
@@ -644,6 +759,7 @@ mod tests {
                     encodingID: 3,
                     languageID: 0,
                     mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
+                    uvs_mapping: None,
                 },
                 cmap::CmapSubtable {
                     format: 4,
@@ -651,6 +767,7 @@ mod tests {
                     encodingID: 1,
                     languageID: 0,
                     mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
+                    uvs_mapping: None,
                 },
             ],
         };
@@ -685,6 +802,7 @@ mod tests {
                 encodingID: 1,
                 languageID: 0,
                 mapping: bt,
+                uvs_mapping: None,
             }],
         };
         let deserialized: cmap::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
@@ -702,6 +820,7 @@ mod tests {
                     encodingID: 3,
                     languageID: 0,
                     mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
+                    uvs_mapping: None,
                 },
                 cmap::CmapSubtable {
                     format: 4,
@@ -709,6 +828,7 @@ mod tests {
                     encodingID: 1,
                     languageID: 0,
                     mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
+                    uvs_mapping: None,
                 },
             ],
         };
@@ -728,6 +848,34 @@ mod tests {
         ];
         let deserialized: cmap::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
         assert_eq!(deserialized.subtables[0].mapping.len(), 8);
+        let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
+        assert_eq!(serialized, binary_cmap);
+    }
+
+    #[test]
+    fn cmap_deser_14() {
+        let binary_cmap = vec![
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x0e,
+            0x00, 0x00, 0x00, 0x3c, 0x00, 0x00, 0x00, 0x02, 0x0e, 0x01, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x20, 0x0e, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x2e, 0x00, 0x00, 0x00, 0x02, 0x00, 0x53, 0xc9, 0x20, 0xb3, 0x00, 0x54, 0xac,
+            0x21, 0x26, 0x00, 0x00, 0x00, 0x02, 0x00, 0x50, 0x26, 0x20, 0xb7, 0x00, 0x50, 0xc5,
+            0x20, 0xb8,
+        ];
+        let deserialized: cmap::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
+        assert_eq!(
+            deserialized.subtables[0],
+            cmap::CmapSubtable {
+                format: 14,
+                platformID: 0,
+                encodingID: 5,
+                languageID: 0,
+                mapping: BTreeMap::new(),
+                uvs_mapping: Some(
+                    btreemap!( (20518, 917761) => 8375, (20677, 917761) => 8376, (21449, 917760) => 8371, (21676, 917760) => 8486 )
+                )
+            }
+        );
         let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
         assert_eq!(serialized, binary_cmap);
     }

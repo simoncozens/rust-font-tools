@@ -1,15 +1,14 @@
 pub use crate::offsets::OffsetMarkerTrait;
-use crate::DeserializationError;
-use crate::Deserialize;
-use crate::Deserializer;
-use crate::ReaderContext;
-use crate::SerializationError;
-use crate::Serialize;
+use crate::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+};
 
 use std::convert::TryInto;
 
 #[allow(non_camel_case_types)]
 pub type uint16 = u16;
+#[allow(non_camel_case_types)]
+pub type uint8 = u8;
 #[allow(non_camel_case_types)]
 pub type uint32 = u32;
 #[allow(non_camel_case_types)]
@@ -21,6 +20,44 @@ pub type UFWORD = u16;
 pub type Tag = [u8; 4];
 #[allow(non_camel_case_types)]
 pub type GlyphID = u16;
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+#[allow(non_camel_case_types)]
+pub struct uint24(u32);
+
+impl Serialize for uint24 {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        if self.0 > (1 << 24) - 1 {
+            return Err(SerializationError(format!(
+                "Could not fit {:} into uint24",
+                self.0
+            )));
+        }
+        data.extend(&self.0.to_be_bytes()[1..]);
+        Ok(())
+    }
+}
+
+impl From<u32> for uint24 {
+    fn from(val: u32) -> Self {
+        uint24(val)
+    }
+}
+
+impl From<uint24> for u32 {
+    fn from(val: uint24) -> Self {
+        val.0
+    }
+}
+
+impl Deserialize for uint24 {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let bytes: Vec<u8> = c.de_counted(3)?;
+        Ok(uint24(
+            ((bytes[0] as u32) << 16) + ((bytes[1] as u32) << 8) + bytes[2] as u32,
+        ))
+    }
+}
 
 pub use fixed::types::U16F16;
 
@@ -207,8 +244,7 @@ impl From<Version16Dot16> for U16F16 {
 #[allow(clippy::upper_case_acronyms)]
 pub struct LONGDATETIME(pub chrono::NaiveDateTime);
 
-use chrono::Duration;
-use chrono::NaiveDate;
+use chrono::{Duration, NaiveDate};
 
 impl Serialize for LONGDATETIME {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
