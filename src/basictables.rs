@@ -88,10 +88,8 @@ pub fn compile_head(font: &babelfont::Font, glyf: &glyf::glyf) -> head {
         head_table.lowestRecPPEM = u16::from(lowest_rec_ppm);
     }
 
-    // // misc
-    // if let Some(flags) = &info.open_type_head_flags {
-    //     head_table.flags = int_list_to_num(flags) as u16;
-    // }
+    head_table.flags = head_flags(font);
+    head_table.macStyle = head_mac_style(font);
 
     head_table
 }

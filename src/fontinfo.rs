@@ -189,3 +189,28 @@ pub fn caret_slope_run(input: &babelfont::Font) -> i16 {
         0
     }
 }
+
+fn bitfield_to_flags(bits: &[u8]) -> u16 {
+    let mut out = 0;
+    for b in bits {
+        out += 1 << b;
+    }
+    out
+}
+
+pub fn head_flags(input: &babelfont::Font) -> u16 {
+    let flags: Vec<u8> = input
+        .ot_value("head", "flags", true)
+        .and_then(|x| x.as_bitfield())
+        .unwrap_or_else(|| vec![0, 1]);
+    bitfield_to_flags(&flags)
+}
+
+pub fn head_mac_style(input: &babelfont::Font) -> u16 {
+    match style_map_style_name(input).as_str() {
+        "bold" => 1,
+        "bold italic" => 3,
+        "italic" => 2,
+        _ => 0,
+    }
+}
