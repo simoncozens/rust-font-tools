@@ -13,8 +13,7 @@ babelfont = { path = "../babelfont-rs",  version = "0" }
 designspace = { path = "../fonttools-rs/crates/designspace", features = ["norad"], version="0" }
 clap = "2.33.3"
 itertools = "0.10.0"
-norad = { version="0.4", git="https://github.com/linebender/norad", features = ["rayon", "kurbo"] }
-kurbo = { version = "0.8.1" }
+kurbo = { git="https://github.com/linebender/kurbo"  }
 chrono = { version = "0.4.3" }
 log = "0.4.14"
 env_logger = "0.8"
