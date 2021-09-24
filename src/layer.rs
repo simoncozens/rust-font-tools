@@ -38,31 +38,47 @@ impl Layer {
         }
     }
 
-    pub fn components(&self) -> Vec<&Component> {
-        self.shapes
-            .iter()
-            .map(|x| {
-                if let Shape::ComponentShape(c) = x {
-                    Some(c)
-                } else {
-                    None
-                }
-            })
-            .flatten()
-            .collect()
+    pub fn components(&self) -> impl Iterator<Item = &Component> {
+        self.shapes.iter().filter_map(|x| {
+            if let Shape::ComponentShape(c) = x {
+                Some(c)
+            } else {
+                None
+            }
+        })
     }
 
-    pub fn paths(&self) -> Vec<&Path> {
+    pub fn paths(&self) -> impl Iterator<Item = &Path> {
+        self.shapes.iter().filter_map(|x| {
+            if let Shape::PathShape(p) = x {
+                Some(p)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn clear_components(&mut self) {
+        self.shapes.retain(|sh| matches!(sh, Shape::PathShape(_)));
+    }
+
+    pub fn push_component(&mut self, c: Component) {
+        self.shapes.push(Shape::ComponentShape(c))
+    }
+
+    pub fn push_path(&mut self, p: Path) {
+        self.shapes.push(Shape::PathShape(p))
+    }
+
+    pub fn has_components(&self) -> bool {
         self.shapes
             .iter()
-            .map(|x| {
-                if let Shape::PathShape(p) = x {
-                    Some(p)
-                } else {
-                    None
-                }
-            })
-            .flatten()
-            .collect()
+            .any(|sh| matches!(sh, Shape::ComponentShape(_)))
+    }
+
+    pub fn has_paths(&self) -> bool {
+        self.shapes
+            .iter()
+            .any(|sh| matches!(sh, Shape::PathShape(_)))
     }
 }

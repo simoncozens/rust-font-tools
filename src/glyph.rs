@@ -41,3 +41,12 @@ pub struct Glyph {
     pub exported: bool,
     pub direction: Option<Direction>,
 }
+
+impl Glyph {
+    pub fn get_layer(&self, id: &str) -> Option<&Layer> {
+        self.layers.iter().find(|l| l.id.as_deref() == Some(id))
+    }
+    pub fn get_layer_mut(&mut self, id: &str) -> Option<&mut Layer> {
+        self.layers.iter_mut().find(|l| l.id.as_deref() == Some(id))
+    }
+}
