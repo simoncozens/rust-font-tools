@@ -214,3 +214,11 @@ pub fn head_mac_style(input: &babelfont::Font) -> u16 {
         _ => 0,
     }
 }
+
+pub fn os2_fstype(input: &babelfont::Font) -> u16 {
+    let flags: Vec<u8> = input
+        .ot_value("OS2", "fsType", true)
+        .and_then(|x| x.as_bitfield())
+        .unwrap_or_else(|| vec![2]);
+    bitfield_to_flags(&flags)
+}

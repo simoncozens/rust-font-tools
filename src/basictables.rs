@@ -82,8 +82,6 @@ pub fn compile_head(font: &babelfont::Font, glyf: &glyf::glyf) -> head {
     // dates (modified is set to now by default)
     head_table.created = font.date.naive_local();
 
-    // XXX mac style
-
     if let Some(lowest_rec_ppm) = font.ot_value("head", "lowestRecPPEM", true) {
         head_table.lowestRecPPEM = u16::from(lowest_rec_ppm);
     }
@@ -317,14 +315,16 @@ pub fn compile_os2(
     let usWinDescent = input
         .ot_value("OS2", "usWinDescent", true)
         .map_or(font_descender.abs(), i16::from) as u16;
+    let sFamilyClass = input
+        .ot_value("OS2", "familyClass", true)
+        .map(i16::from)
+        .unwrap_or(0);
     let mut table = os2 {
         version: 4,
         xAvgCharWidth,
         usWeightClass,
         usWidthClass,
-        // XXX OS2 fsType should be taken from babelfont, but check babelfont
-        // actually sets it! Default should be zero?
-        fsType: int_list_to_num(&[2]) as u16,
+        fsType: os2_fstype(input),
         ySubscriptXSize,
         ySubscriptYSize,
         ySubscriptYOffset,
@@ -350,7 +350,7 @@ pub fn compile_os2(
         usBreakChar: Some(32), // Yes, these are constants
         usDefaultChar: Some(0), // this too
         // sFamilyClass: input.open_type_os2_family_class... (not public)
-        sFamilyClass: 0,
+        sFamilyClass,
         panose: get_panose(input),
         ulCodePageRange1: Some(0),
         ulCodePageRange2: Some(0),
