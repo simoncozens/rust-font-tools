@@ -1,7 +1,8 @@
 use crate::basictables::fill_tables;
 use crate::glyph::layers_to_glyph;
 use crate::kerning::build_kerning;
-use babelfont::Layer;
+use babelfont::Node;
+use babelfont::{Component, Font, Layer, Path};
 use fonttools::font;
 use fonttools::font::Table;
 use fonttools::glyf;
@@ -43,7 +44,7 @@ fn get_glyph_names_and_mapping(
 
 // This builds a complete variable font
 pub fn build_font(
-    input: &babelfont::Font,
+    input: &mut babelfont::Font,
     subset: &Option<HashSet<String>>,
     just_one_master: Option<usize>,
 ) -> font::Font {
@@ -52,13 +53,12 @@ pub fn build_font(
     // to babelfont we would like to have a method on the font which does the
     // decomposition, but this method has not been written yet.
 
-    // input.decompose_mixed_glyphs();
+    decompose_mixed_glyphs(input);
 
     // First, find the glyphs we're dealing with
     let mut codepoint_to_gid: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
-    let names =
-        get_glyph_names_and_mapping(&input, &mut codepoint_to_gid, &mut name_to_id, &subset);
+    let names = get_glyph_names_and_mapping(input, &mut codepoint_to_gid, &mut name_to_id, subset);
 
     let true_model = input
         .variation_model()
@@ -149,7 +149,7 @@ pub fn build_font(
     }
 
     // Build the font with glyf + static metadata tables
-    let mut font = fill_tables(&input, glyf_table, metrics, names, codepoint_to_gid);
+    let mut font = fill_tables(input, glyf_table, metrics, names, codepoint_to_gid);
 
     // Feature writers (temporary hack)
     let gpos_table = build_kerning(input, &name_to_id);
@@ -166,41 +166,41 @@ pub fn build_font(
     font
 }
 
-// *This* function is unused, because...
-/*
-fn decomposed_components(glyph: &Glyph, glyphset: &Layer) -> Vec<Contour> {
+fn decomposed_components(layer: &Layer, font: &Font) -> Vec<Path> {
     let mut contours = Vec::new();
 
-    let mut stack: Vec<(&Component, Affine)> = Vec::new();
+    let mut stack: Vec<(&Component, kurbo::Affine)> = Vec::new();
 
-    for component in &glyph.components {
-        stack.push((component, component.transform.into()));
+    for component in layer.components() {
+        stack.push((component, component.transform));
 
         while let Some((component, transform)) = stack.pop() {
-            let new_outline = match glyphset.get_glyph(&component.base) {
+            let referenced_glyph = match font.glyphs.get(&component.reference) {
+                Some(g) => g,
+                None => continue,
+            };
+            let new_outline = match referenced_glyph.get_layer(layer.id.as_ref().unwrap()) {
                 Some(g) => g,
                 None => continue,
             };
 
-            for contour in &new_outline.contours {
-                let mut decomposed_contour = Contour::default();
-                for point in &contour.points {
-                    let new_point = transform * Point::new(point.x as f64, point.y as f64);
-                    decomposed_contour.points.push(ContourPoint::new(
-                        new_point.x as f32,
-                        new_point.y as f32,
-                        point.typ.clone(),
-                        point.smooth,
-                        point.name.clone(),
-                        None,
-                        None,
-                    ))
+            for contour in new_outline.paths() {
+                let mut decomposed_contour = Path::default();
+                for node in &contour.nodes {
+                    let new_point = transform * kurbo::Point::new(node.x as f64, node.y as f64);
+                    decomposed_contour.nodes.push(Node {
+                        x: new_point.x as f32,
+                        y: new_point.y as f32,
+                        nodetype: node.nodetype,
+                    })
                 }
                 contours.push(decomposed_contour);
             }
 
-            for new_component in new_outline.components.iter().rev() {
-                let new_transform: Affine = new_component.transform.into();
+            // We need to do this backwards.
+            let components: Vec<&Component> = new_outline.components().collect();
+            for new_component in components.into_iter().rev() {
+                let new_transform: kurbo::Affine = new_component.transform;
                 stack.push((new_component, transform * new_transform));
             }
         }
@@ -209,22 +209,28 @@ fn decomposed_components(glyph: &Glyph, glyphset: &Layer) -> Vec<Contour> {
     contours
 }
 
-// ... this function needs to be adapted to Babelfont.
-fn decompose_mixed_glyphs(ufo: &mut norad::Font) {
-    let layer = ufo.default_layer_mut();
-    let mut decomposed: BTreeMap<String, Vec<norad::Contour>> = BTreeMap::new();
-    for glif in layer.iter() {
-        decomposed.insert(glif.name.to_string(), decomposed_components(glif, layer));
-    }
-    for glif in layer.iter_mut() {
-        if glif.components.is_empty() || glif.contours.is_empty() {
-            continue;
+fn decompose_mixed_glyphs(input: &mut babelfont::Font) {
+    for master in &input.masters {
+        let mut decomposed: BTreeMap<String, Vec<babelfont::Path>> = BTreeMap::new();
+        for glif in input.glyphs.iter() {
+            if let Some(layer) = glif.get_layer(&master.id) {
+                decomposed.insert(glif.name.to_string(), decomposed_components(layer, input));
+            }
         }
-        if let Some(contours) = decomposed.get(&glif.name.to_string()) {
-            glif.contours.extend(contours.clone());
-            glif.components.clear();
-            log::info!("Decomposed mixed glyph {:?}", glif.name);
+        for glif in input.glyphs.iter_mut() {
+            let name = glif.name.to_string();
+            if let Some(layer) = glif.get_layer_mut(&master.id) {
+                if !layer.has_components() || !layer.has_paths() {
+                    continue;
+                }
+                if let Some(contours) = decomposed.get(&name) {
+                    for c in contours {
+                        layer.push_path(c.clone());
+                    }
+                    layer.clear_components();
+                    log::info!("Decomposed mixed glyph {:?}", glif.name);
+                }
+            }
         }
     }
 }
-*/

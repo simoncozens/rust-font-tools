@@ -45,13 +45,13 @@ fn main() {
         .value_of("subset")
         .map(|x| x.split(',').map(|y| y.to_string()).collect());
 
-    let in_font = load_with_babelfont(filename);
+    let mut in_font = load_with_babelfont(filename);
 
     // --masters means we produce a TTF for each master and don't do interpolation
     if matches.is_present("masters") {
-        create_ttf_per_master(in_font, subset);
+        create_ttf_per_master(&mut in_font, subset);
     } else {
-        create_variable_font(in_font, subset, matches);
+        create_variable_font(&mut in_font, subset, matches);
     }
 }
 
@@ -98,18 +98,25 @@ fn load_with_babelfont(filename: &str) -> babelfont::Font {
     }
 }
 
-fn create_ttf_per_master(in_font: babelfont::Font, subset: Option<HashSet<String>>) {
+fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: Option<HashSet<String>>) {
     let family_name = in_font
         .names
         .family_name
         .default()
         .unwrap_or_else(|| "New Font".to_string());
-    for (ix, master) in in_font.masters.iter().enumerate() {
-        let mut out_font = build_font(&in_font, &subset, Some(ix));
-        let master_name = master
-            .name
-            .default()
-            .unwrap_or_else(|| format!("Master{}", ix));
+    let master_names: Vec<String> = in_font
+        .masters
+        .iter()
+        .enumerate()
+        .map(|(ix, master)| {
+            master
+                .name
+                .default()
+                .unwrap_or_else(|| format!("Master{}", ix))
+        })
+        .collect();
+    for (ix, master_name) in master_names.iter().enumerate() {
+        let mut out_font = build_font(in_font, &subset, Some(ix));
         log::info!("Building {}", master_name);
         let mut outfile = File::create(format!("{}-{}.ttf", family_name, master_name))
             .expect("Could not open file for writing");
@@ -118,11 +125,11 @@ fn create_ttf_per_master(in_font: babelfont::Font, subset: Option<HashSet<String
 }
 
 fn create_variable_font(
-    in_font: babelfont::Font,
+    in_font: &mut babelfont::Font,
     subset: Option<HashSet<String>>,
     matches: ArgMatches<'static>,
 ) {
-    let mut out_font = build_font(&in_font, &subset, None);
+    let mut out_font = build_font(in_font, &subset, None);
     if in_font.masters.len() > 1 {
         // Ask babelfont to make fvar/avar
         in_font

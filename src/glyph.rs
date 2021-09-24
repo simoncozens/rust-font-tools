@@ -50,12 +50,12 @@ pub fn layers_to_glyph(
         .expect("No glif in default master!");
 
     /* Dispatch empty glyphs (space, etc.) straight away */
-    if default_layer.components().is_empty() && default_layer.paths().is_empty() {
+    if !default_layer.has_components() && !default_layer.has_paths() {
         return (glyph, None);
     }
 
     /* Do components */
-    for component in &default_layer.components() {
+    for component in default_layer.components() {
         if let Some(glyf_component) = babelfont_component_to_glyf_component(component, mapping) {
             glyph.components.push(glyf_component);
         }
@@ -69,7 +69,7 @@ pub fn layers_to_glyph(
 
     /* Handle the simple case of a static font. */
     if model.is_none() {
-        for (contour_ix, contour) in default_layer.paths().iter().enumerate() {
+        for (contour_ix, contour) in default_layer.paths().enumerate() {
             let glyph_contour =
                 babelfont_contours_to_glyf_contours(contour_ix, vec![contour], 0, glif_name)
                     .first()
@@ -95,10 +95,10 @@ pub fn layers_to_glyph(
     }
 
     // Convert each contour in turn (across layers)
-    for (index, _) in default_layer.paths().iter().enumerate() {
+    for (index, _) in default_layer.paths().enumerate() {
         for o in layers {
             // If this contour doesn't exist in a given layer, we have a problem
-            if o.is_some() && index >= o.unwrap().paths().len() {
+            if o.is_some() && index >= o.unwrap().paths().count() {
                 log::error!("Incompatible contour count in glyph {:}", glif_name);
                 return (glyph, None);
             }
@@ -108,7 +108,7 @@ pub fn layers_to_glyph(
         let all_contours: Vec<&babelfont::Path> = layers
             .iter()
             .filter(|g| g.is_some())
-            .map(|x| x.unwrap().paths()[index])
+            .map(|x| x.unwrap().paths().skip(index).next().unwrap())
             .collect();
 
         // Convert them together into OT contours
