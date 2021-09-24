@@ -15,6 +15,7 @@ use fonttools::fvar::{fvar, InstanceRecord, VariationAxisRecord};
 use fonttools::name::NameRecord;
 use fonttools::otvar::Location as OTVarLocation;
 use fonttools::otvar::{NormalizedLocation, VariationModel};
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -29,6 +30,7 @@ pub struct Font {
     pub date: chrono::DateTime<Local>,
     pub names: Names,
     pub custom_ot_values: Vec<OTValue>,
+    pub variation_sequences: BTreeMap<(u32, u32), String>,
     // features: ????
     // The below is temporary
     pub kern_groups: HashMap<String, Vec<String>>,
@@ -52,6 +54,7 @@ impl Font {
             date: chrono::Local::now(),
             names: Names::new(),
             custom_ot_values: vec![],
+            variation_sequences: BTreeMap::new(),
             kern_groups: HashMap::new(),
         }
     }

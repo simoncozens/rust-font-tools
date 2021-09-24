@@ -44,7 +44,6 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     if let Some(info) = default_ufo.font_info {
         load_font_info(&mut font, &info);
     }
-
     Ok(font)
 }
 
@@ -262,6 +261,31 @@ fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
                 exported: true, // urgh
                 direction: None,
             })
+        }
+    }
+    add_uvs_sequences(font, ufo);
+}
+
+fn add_uvs_sequences(font: &mut Font, ufo: &norad::Font) {
+    if let Some(uvs) = ufo
+        .lib
+        .get("public.unicodeVariationSequences")
+        .and_then(|x| x.as_dictionary())
+    {
+        // Lasciate ogne speranza, voi ch'intrate
+        for (selector_s, records_plist) in uvs.iter() {
+            if let Ok(selector) = u32::from_str_radix(selector_s, 16) {
+                if let Some(records) = records_plist.as_dictionary() {
+                    for (codepoint_s, glyphname_plist) in records {
+                        if let Ok(codepoint) = u32::from_str_radix(codepoint_s, 16) {
+                            if let Some(glyphname) = glyphname_plist.as_string() {
+                                font.variation_sequences
+                                    .insert((selector, codepoint), glyphname.to_string());
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
