@@ -29,7 +29,7 @@ pub fn fill_tables(
     let head_table = compile_head(input, &glyf_table);
     let post_table = compile_post(input, &glyph_names);
     let os2_table = compile_os2(input, &metrics, &glyf_table, &codepoint_to_gid_mapping);
-    let cmap_table = compile_cmap(codepoint_to_gid_mapping);
+    let cmap_table = compile_cmap(input, &glyph_names, codepoint_to_gid_mapping);
     let name_table = compile_name(input);
     let mut hhea_table = compile_hhea(input, &metrics, &glyf_table);
 
@@ -115,7 +115,11 @@ pub fn compile_post(font: &babelfont::Font, glyph_names: &[String]) -> post {
     )
 }
 
-pub fn compile_cmap(codepoint_to_gid_mapping: BTreeMap<u32, u16>) -> cmap::cmap {
+pub fn compile_cmap(
+    font: &babelfont::Font,
+    glyph_names: &[String],
+    codepoint_to_gid_mapping: BTreeMap<u32, u16>,
+) -> cmap::cmap {
     // See which mappings cover the BMP
     let u16_mapping: BTreeMap<u32, u16> = codepoint_to_gid_mapping
         .iter()
@@ -131,6 +135,7 @@ pub fn compile_cmap(codepoint_to_gid_mapping: BTreeMap<u32, u16>) -> cmap::cmap 
             encodingID: 3,
             languageID: 0,
             mapping: u16_mapping.clone(),
+            uvs_mapping: None,
         },
         cmap::CmapSubtable {
             format: 4,
@@ -138,6 +143,7 @@ pub fn compile_cmap(codepoint_to_gid_mapping: BTreeMap<u32, u16>) -> cmap::cmap 
             encodingID: 1,
             languageID: 0,
             mapping: u16_mapping,
+            uvs_mapping: None,
         },
     ];
     if has_nonbmp {
@@ -147,6 +153,7 @@ pub fn compile_cmap(codepoint_to_gid_mapping: BTreeMap<u32, u16>) -> cmap::cmap 
             encodingID: 3,
             languageID: 0,
             mapping: codepoint_to_gid_mapping.clone(),
+            uvs_mapping: None,
         });
         subtables.push(cmap::CmapSubtable {
             format: 12,
@@ -154,7 +161,25 @@ pub fn compile_cmap(codepoint_to_gid_mapping: BTreeMap<u32, u16>) -> cmap::cmap 
             encodingID: 1,
             languageID: 0,
             mapping: codepoint_to_gid_mapping,
+            uvs_mapping: None,
         });
+    }
+
+    if !font.variation_sequences.is_empty() {
+        let mut uvs_mapping: BTreeMap<(u32, u32), u16> = BTreeMap::new();
+        for ((variation, codepoint), glyphname) in font.variation_sequences.iter() {
+            if let Some(gid) = glyph_names.iter().position(|x| x == glyphname) {
+                uvs_mapping.insert((*variation, *codepoint), gid as u16);
+            }
+        }
+        subtables.push(cmap::CmapSubtable {
+            format: 14,
+            platformID: 0,
+            encodingID: 5,
+            languageID: 0,
+            mapping: BTreeMap::new(),
+            uvs_mapping: Some(uvs_mapping),
+        })
     }
     cmap::cmap { subtables }
 }
