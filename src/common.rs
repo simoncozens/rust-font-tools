@@ -56,6 +56,16 @@ pub enum OTScalar {
     BitField(Vec<u8>),
 }
 
+impl OTScalar {
+    pub fn as_bitfield(&self) -> Option<Vec<u8>> {
+        if let OTScalar::BitField(u) = self {
+            Some(u.to_vec())
+        } else {
+            None
+        }
+    }
+}
+
 impl From<OTScalar> for f32 {
     fn from(p: OTScalar) -> f32 {
         match p {
