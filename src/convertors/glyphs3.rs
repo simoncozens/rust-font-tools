@@ -284,14 +284,19 @@ fn load_glyphs(font: &mut Font, plist: &Plist) {
     }
 }
 
-fn load_glyph(g: &Plist) -> Result<Glyph, ()> {
-    let name = g.get("glyphname").and_then(|f| f.as_str()).ok_or(())?;
+fn load_glyph(g: &Plist) -> Result<Glyph, BabelfontError> {
+    let name = g
+        .get("glyphname")
+        .and_then(|f| f.as_str())
+        .ok_or(BabelfontError::General {
+            msg: "Couldn't read a glyph name!".to_string(),
+        })?;
     let category = g.get("category").and_then(|f| f.as_str());
     let subcategory = g.get("subcategory").and_then(|f| f.as_str());
     let codepoints = get_codepoints(g);
-    let gc = if subcategory == Some(&"Ligature") {
+    let gc = if subcategory == Some("Ligature") {
         GlyphCategory::Ligature
-    } else if category == Some(&"Mark") {
+    } else if category == Some("Mark") {
         GlyphCategory::Mark
     } else {
         GlyphCategory::Base
@@ -299,7 +304,7 @@ fn load_glyph(g: &Plist) -> Result<Glyph, ()> {
     let mut layers = vec![];
     if let Some(plist_layers) = g.get("layers") {
         for layer in plist_layers.as_array().unwrap() {
-            layers.push(load_layer(layer)?);
+            layers.push(load_layer(layer, name)?);
         }
     }
     Ok(Glyph {
@@ -308,12 +313,12 @@ fn load_glyph(g: &Plist) -> Result<Glyph, ()> {
         production_name: None,
         codepoints,
         layers,
-        exported: !g.get("export").is_some(),
+        exported: g.get("export").is_none(),
         direction: None,
     })
 }
 
-fn load_layer(l: &Plist) -> Result<Layer, ()> {
+fn load_layer(l: &Plist, glyph_name: &str) -> Result<Layer, BabelfontError> {
     let width = l.get("width").and_then(|x| x.as_i32()).unwrap_or(0);
     let mut layer = Layer::new(width);
     if let Some(name) = l.get("name").and_then(|l| l.as_str()) {
@@ -332,7 +337,10 @@ fn load_layer(l: &Plist) -> Result<Layer, ()> {
     }
     if let Some(shapes) = l.get("shapes").and_then(|l| l.as_array()) {
         for shape in shapes {
-            layer.shapes.push(load_shape(shape)?);
+            match load_shape(shape, glyph_name) {
+                Ok(shape) => layer.shapes.push(shape),
+                Err(e) => log::error!("{:}", e),
+            }
         }
     }
 
@@ -353,7 +361,7 @@ fn load_anchor(a: &Plist) -> Anchor {
     }
 }
 
-fn load_shape(a: &Plist) -> Result<Shape, ()> {
+fn load_shape(a: &Plist, glyph_name: &str) -> Result<Shape, BabelfontError> {
     if a.get("nodes").is_some() {
         // It's a path
         let mut path = Path {
@@ -361,8 +369,20 @@ fn load_shape(a: &Plist) -> Result<Shape, ()> {
             closed: true,
             direction: crate::shape::PathDirection::Clockwise,
         };
-        for node in a.get("nodes").unwrap().as_array().ok_or(())? {
-            let (x, y, typ) = node.as_node().ok_or(())?;
+        for node in a
+            .get("nodes")
+            .unwrap()
+            .as_array()
+            .ok_or(BabelfontError::General {
+                msg: format!("Couldn't read nodes array in glyph {:}", glyph_name),
+            })?
+        {
+            let (x, y, typ) = node.as_node().ok_or(BabelfontError::General {
+                msg: format!(
+                    "Couldn't convert {:?} to nodes in glyph {:}",
+                    node, glyph_name
+                ),
+            })?;
             let typ = typ.chars().next().unwrap_or('l');
             let nodetype = match typ {
                 'l' => NodeType::Line,
@@ -379,7 +399,15 @@ fn load_shape(a: &Plist) -> Result<Shape, ()> {
         Ok(PathShape(path))
     } else {
         // It's a component
-        let reference = a.get("ref").and_then(|f| f.as_str()).ok_or(())?;
+        let reference = a
+            .get("ref")
+            .and_then(|f| f.as_str())
+            .ok_or(BabelfontError::General {
+                msg: format!(
+                    "Couldn't understand component reference in glyph {:}",
+                    glyph_name
+                ),
+            })?;
         let pos: Vec<f32> = a
             .get("pos")
             .and_then(|f| f.as_array())
