@@ -138,9 +138,17 @@ fn norad_glyph_to_babelfont_layer(glyph: &norad::Glyph, master_id: &str) -> Laye
 }
 
 fn load_component(c: &norad::Component) -> Component {
+    let t = c.transform;
     Component {
         reference: c.base.to_string(),
-        transform: c.transform.into(),
+        transform: kurbo::Affine::new([
+            t.x_scale.into(),
+            t.xy_scale.into(),
+            t.yx_scale.into(),
+            t.y_scale.into(),
+            t.x_offset.into(),
+            t.y_offset.into(),
+        ]),
     }
 }
 
