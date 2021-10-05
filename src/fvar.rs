@@ -153,7 +153,7 @@ mod tests {
         let ffvar = fvar::fvar {
             axes: vec![
                 fvar::VariationAxisRecord {
-                    axisTag: tag("wght"),
+                    axisTag: tag!("wght"),
                     flags: 0,
                     minValue: 200.0,
                     defaultValue: 200.0,
@@ -161,7 +161,7 @@ mod tests {
                     axisNameID: 256,
                 },
                 fvar::VariationAxisRecord {
-                    axisTag: *b"ital",
+                    axisTag: tag!("ital"),
                     flags: 0,
                     minValue: 0.0,
                     defaultValue: 0.0,

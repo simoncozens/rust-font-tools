@@ -378,7 +378,7 @@ mod tests {
         let mut deserialized: font::Font = otspec::de::from_bytes(&binary_font).unwrap();
         deserialized.fully_deserialize();
         let glyf = deserialized
-            .get_table(b"glyf")
+            .get_table(otspec::types::tag!("glyf"))
             .unwrap()
             .unwrap()
             .glyf_unchecked();

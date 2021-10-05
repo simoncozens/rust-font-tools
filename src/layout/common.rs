@@ -80,19 +80,9 @@ tables!(
 impl Debug for ScriptRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
-            write!(
-                f,
-                "{} => {:#?}",
-                std::str::from_utf8(&self.scriptTag).unwrap(),
-                self.scriptOffset.link
-            )
+            write!(f, "{} => {:#?}", self.scriptTag, self.scriptOffset.link)
         } else {
-            write!(
-                f,
-                "{} => {:?}",
-                std::str::from_utf8(&self.scriptTag).unwrap(),
-                self.scriptOffset.link
-            )
+            write!(f, "{} => {:?}", self.scriptTag, self.scriptOffset.link)
         }
     }
 }
@@ -409,7 +399,7 @@ mod tests {
         let deserialized: ScriptList = otspec::de::from_bytes(&binary_scriptlist).unwrap();
         let script_list: ScriptList = ScriptList {
             scripts: hashmap!(
-                *b"arab" => Script {
+                tag!("arab") => Script {
                     default_language_system: Some(
                         LanguageSystem {
                             required_feature: None,
@@ -424,7 +414,7 @@ mod tests {
                             ],
                         },
                     ),
-                    language_systems: hashmap!(*b"URD " =>
+                    language_systems: hashmap!(tag!("URD ") =>
                         LanguageSystem {
                             required_feature: None,
                             feature_indices: vec![
@@ -439,7 +429,7 @@ mod tests {
                         },
                     ),
                 },
-                *b"latn" => Script {
+                tag!("latn") => Script {
                     default_language_system: Some(
                         LanguageSystem {
                             required_feature: None,
@@ -474,7 +464,7 @@ mod tests {
         ];
         let script_list: ScriptList = ScriptList {
             scripts: hashmap!(
-                *b"arab" => Script {
+                tag!("arab") => Script {
                     default_language_system: Some(
                         LanguageSystem {
                             required_feature: None,
@@ -489,7 +479,7 @@ mod tests {
                             ],
                         },
                     ),
-                    language_systems: hashmap!(*b"URD " =>
+                    language_systems: hashmap!(tag!("URD ") =>
                         LanguageSystem {
                             required_feature: None,
                             feature_indices: vec![
@@ -504,7 +494,7 @@ mod tests {
                         },
                     ),
                 },
-                *b"latn" => Script {
+                tag!("latn") => Script {
                     default_language_system: Some(
                         LanguageSystem {
                             required_feature: None,

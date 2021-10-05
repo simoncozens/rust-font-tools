@@ -28,7 +28,7 @@ fn main() {
 
     let graph = if table_name == "GSUB" {
         let gsub = infont
-            .get_table(tag("GSUB"))
+            .get_table(tag!("GSUB"))
             .expect("Error reading GSUB table")
             .expect("No GSUB table found")
             .gsub_unchecked();
@@ -48,7 +48,7 @@ fn main() {
         format!("{:?}", Dot::with_config(&dag, &[Config::EdgeNoLabel]))
     } else {
         let gpos = infont
-            .get_table(tag("GPOS"))
+            .get_table(tag!("GPOS"))
             .expect("Error reading GPOS table")
             .expect("No GPOS table found")
             .gpos_unchecked();

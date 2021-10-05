@@ -24,7 +24,7 @@ pub type GlyphID = u16;
 #[allow(non_camel_case_types)]
 pub struct uint24(u32);
 
-pub use super::tag::{InvalidTag, Tag, tag};
+pub use super::tag::{tag, InvalidTag, Tag};
 
 impl Serialize for uint24 {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
@@ -61,11 +61,6 @@ impl Deserialize for uint24 {
 }
 
 pub use fixed::types::U16F16;
-
-#[deprecated(since = "0.1.0", note = "use Tag::from_raw or tag! macro instead")]
-pub fn tag(s: &str) -> super::tag::Tag {
-    super::tag::Tag::from_raw(s).unwrap()
-}
 
 #[derive(Shrinkwrap, Debug, PartialEq, Copy, Clone)]
 pub struct Fixed(pub f32);
