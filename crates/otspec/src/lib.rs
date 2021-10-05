@@ -8,6 +8,7 @@ mod counted;
 pub mod offsetmanager;
 mod offsets;
 pub use counted::{Counted, Counted32};
+mod tag;
 pub mod types;
 
 #[derive(Debug)]

@@ -1,7 +1,7 @@
 use clap::{App, Arg};
 use fonttools::font::{Font, Table};
 use fonttools::MATH::MATHinternal;
-use otspec::types::{Offset16, OffsetMarkerTrait};
+use otspec::types::{tag, Offset16, OffsetMarkerTrait};
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
 
@@ -28,7 +28,7 @@ fn main() {
 
     let graph = if table_name == "GSUB" {
         let gsub = infont
-            .get_table(b"GSUB")
+            .get_table(tag("GSUB"))
             .expect("Error reading GSUB table")
             .expect("No GSUB table found")
             .gsub_unchecked();
@@ -48,7 +48,7 @@ fn main() {
         format!("{:?}", Dot::with_config(&dag, &[Config::EdgeNoLabel]))
     } else {
         let gpos = infont
-            .get_table(b"GPOS")
+            .get_table(tag("GPOS"))
             .expect("Error reading GPOS table")
             .expect("No GPOS table found")
             .gpos_unchecked();

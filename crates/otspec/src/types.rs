@@ -17,13 +17,14 @@ pub type int16 = i16;
 pub type FWORD = i16;
 #[allow(clippy::upper_case_acronyms)]
 pub type UFWORD = u16;
-pub type Tag = [u8; 4];
 #[allow(non_camel_case_types)]
 pub type GlyphID = u16;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[allow(non_camel_case_types)]
 pub struct uint24(u32);
+
+pub use super::tag::{InvalidTag, Tag};
 
 impl Serialize for uint24 {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
@@ -61,27 +62,9 @@ impl Deserialize for uint24 {
 
 pub use fixed::types::U16F16;
 
-pub fn tag(s: &str) -> Tag {
-    (*s).as_bytes().try_into().unwrap()
-}
-
-impl Serialize for Tag {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        self[0].to_bytes(data)?;
-        self[1].to_bytes(data)?;
-        self[2].to_bytes(data)?;
-        self[3].to_bytes(data)?;
-        Ok(())
-    }
-    fn ot_binary_size(&self) -> usize {
-        4
-    }
-}
-
-impl Deserialize for Tag {
-    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        Ok(c.consume(4)?.try_into().unwrap())
-    }
+#[deprecated(since = "0.1.0", note = "use Tag::from_raw or tag! macro instead")]
+pub fn tag(s: &str) -> super::tag::Tag {
+    super::tag::Tag::from_raw(s).unwrap()
 }
 
 #[derive(Shrinkwrap, Debug, PartialEq, Copy, Clone)]
