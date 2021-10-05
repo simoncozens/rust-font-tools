@@ -1,5 +1,5 @@
 use fonttools::font::Table;
-use fonttools::{glyf, gvar};
+use fonttools::{glyf, gvar, types::tag};
 use fonttools_cli::{open_font, read_args, save_font};
 
 fn main() {
@@ -13,10 +13,10 @@ fn main() {
         save_font(infont, &matches);
         return;
     }
-    infont.get_table(b"head").unwrap();
-    infont.get_table(b"maxp").unwrap();
+    infont.get_table(tag!("head")).unwrap();
+    infont.get_table(tag!("maxp")).unwrap();
     let loca_offsets = infont
-        .get_table(b"loca")
+        .get_table(tag!("loca"))
         .unwrap()
         .unwrap()
         .loca_unchecked()
@@ -24,8 +24,8 @@ fn main() {
         .clone();
 
     // This mad dance is necessary to avoid mutably deserializing twice.
-    if let Table::Unknown(binary_gvar) = infont.tables.get(b"gvar").unwrap() {
-        if let Table::Unknown(binary_glyf) = infont.tables.get(b"glyf").unwrap() {
+    if let Table::Unknown(binary_gvar) = infont.tables.get(&tag!("gvar")).unwrap() {
+        if let Table::Unknown(binary_glyf) = infont.tables.get(&tag!("glyf")).unwrap() {
             let glyf =
                 glyf::from_bytes(binary_glyf, loca_offsets).expect("Could not read glyf table");
             let coords_and_ends = glyf
@@ -38,7 +38,7 @@ fn main() {
 
             // Passing in the glyf table here is what causes the IUP optimization
             let new_gvar = Table::Unknown(gvar.to_bytes(Some(&glyf)));
-            infont.tables.insert(*b"gvar", new_gvar);
+            infont.tables.insert(tag!("gvar"), new_gvar);
         }
     }
     save_font(infont, &matches);

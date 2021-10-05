@@ -87,4 +87,3 @@ pub mod post;
 pub mod utils;
 
 pub use otspec::types;
-pub use otspec_macros::tag;

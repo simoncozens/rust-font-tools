@@ -4,11 +4,13 @@
 //! C++. For more information on the algorithm, [see the fontcrunch repo][repo].
 //!
 //! [repo]: https://github.com/googlefonts/fontcrunch
-use fonttools::font::Table;
-use fonttools::glyf::contourutils::{
-    glyf_contour_to_kurbo_contour, kurbo_contour_to_glyf_contour, remove_implied_oncurves,
+use fonttools::glyf::{
+    contourutils::{
+        glyf_contour_to_kurbo_contour, kurbo_contour_to_glyf_contour, remove_implied_oncurves,
+    },
+    Glyph,
 };
-use fonttools::glyf::Glyph;
+use fonttools::{font::Table, types::tag};
 use fonttools_cli::{open_font, read_args, save_font};
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use kurbo::{BezPath, PathSeg, Point, QuadBez};
@@ -659,7 +661,7 @@ fn main() {
         return;
     }
     let glyphnames = if let Table::Post(post) = infont
-        .get_table(b"post")
+        .get_table("post".parse().unwrap())
         .expect("Error reading post table")
         .expect("No post table found")
     {
@@ -671,7 +673,7 @@ fn main() {
 
     log::info!("Parsing glyf table");
     if let Table::Glyf(glyf) = infont
-        .get_table(b"glyf")
+        .get_table(tag!("glyf"))
         .expect("Error reading glyf table")
         .expect("No glyf table found")
     {

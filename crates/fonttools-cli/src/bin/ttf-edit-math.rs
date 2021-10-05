@@ -285,7 +285,7 @@ fn main() {
     let mut infont = open_font(&matches);
 
     let glyph_names = if let Table::Post(post) = infont
-        .get_table(b"post")
+        .get_table(tag!("post"))
         .expect("Error reading post table")
         .expect("No post table found")
     {
@@ -296,7 +296,7 @@ fn main() {
 
     if matches.value_of("mode").unwrap() == "dump" {
         let math = infont
-            .get_table(b"MATH")
+            .get_table(tag!("MATH"))
             .expect("No math table")
             .expect("Couldn't parse MATH table")
             .MATH_unchecked();
