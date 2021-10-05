@@ -77,7 +77,7 @@ impl glyf {
         for comp in &g.components {
             let component_glyph = &self.glyphs[comp.glyph_index as usize];
             if component_glyph.has_components() {
-                let mut flattened = self.flat_components(&component_glyph, depth + 1);
+                let mut flattened = self.flat_components(component_glyph, depth + 1);
                 for f in flattened.iter_mut() {
                     f.transformation = comp.transformation * f.transformation;
                     // This may be the wrong way around...
