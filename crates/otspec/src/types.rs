@@ -24,7 +24,7 @@ pub type GlyphID = u16;
 #[allow(non_camel_case_types)]
 pub struct uint24(u32);
 
-pub use super::tag::{InvalidTag, Tag};
+pub use super::tag::{InvalidTag, Tag, tag};
 
 impl Serialize for uint24 {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {

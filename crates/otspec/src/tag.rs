@@ -3,6 +3,8 @@
 use crate::{DeserializationError, Deserialize, ReaderContext, SerializationError, Serialize};
 use std::{borrow::Borrow, ops::Deref, str::FromStr};
 
+pub use otspec_macros::tag;
+
 /// An OpenType tag.
 ///
 /// A tag is a 4-byte array where each byte is in the printable ascii range
@@ -12,6 +14,9 @@ pub struct Tag([u8; 4]);
 
 impl Tag {
     /// Attempt to create a `Tag` from raw bytes.
+    ///
+    /// If the bytes are known at compile time, you should prefer the
+    /// [`tag`][`tag!`] macro.
     ///
     /// The argument may be a slice of bytes, a `&str`, or any other type that
     /// impls `AsRef<[u8]>`.

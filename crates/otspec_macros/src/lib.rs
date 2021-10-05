@@ -20,6 +20,7 @@ mod de;
 mod ser;
 
 mod tables;
+mod tag;
 
 fn to_compile_errors(errors: Vec<syn::Error>) -> proc_macro2::TokenStream {
     let compile_errors = errors.iter().map(syn::Error::to_compile_error);
@@ -45,4 +46,17 @@ pub fn derive_deserialize(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn tables(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     tables::expand_tables(input)
+}
+
+/// Generate a `Tag` from a string literal, verifying it conforms to the
+/// OpenType spec.
+///
+/// The argument must be a non-empty string literal. Containing at most four
+/// characters in the printable ascii range, `0x20..=0x7E`.
+///
+/// If the input has fewer than four characters, it will be padded with the space
+/// (' ', `0x20`) character.
+#[proc_macro]
+pub fn tag(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    tag::expand_tag(input)
 }
