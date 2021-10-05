@@ -181,8 +181,8 @@ impl Node {
 impl From<&norad::ContourPoint> for Node {
     fn from(p: &norad::ContourPoint) -> Self {
         Node {
-            x: p.x,
-            y: p.y,
+            x: p.x as f32,
+            y: p.y as f32,
             nodetype: (&p.typ).into(),
         }
     }
