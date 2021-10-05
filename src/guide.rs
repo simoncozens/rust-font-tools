@@ -29,7 +29,7 @@ impl From<&norad::Guideline> for Guide {
                 out.pos = Position {
                     x: x as i32,
                     y: y as i32,
-                    angle: degrees,
+                    angle: degrees as f32,
                 }
             }
             norad::Line::Horizontal(y) => {
