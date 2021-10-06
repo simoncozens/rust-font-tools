@@ -223,7 +223,7 @@ impl cmap4 {
             }
             if is_contiguous_list(&indices) {
                 // println!("Contiguous list {:?}", indices);
-                id_delta.push((indices[0] as i16 - start_code[i] as i16) as i16);
+                id_delta.push((indices[0] as i32 - start_code[i] as i32) as i16);
                 id_range_offsets.push(0);
             } else {
                 // println!("Non contiguous list {:?}", indices);
@@ -262,17 +262,17 @@ impl cmap4 {
             let end = self.endCode[i];
             let delta = self.idDelta[i];
             let range_offset = self.idRangeOffsets[i];
-            let partial = ((range_offset / 2) as i16 - (start as i16) + (i as i16)
-                - (self.idRangeOffsets.len() as i16)) as i16;
+            let partial = ((range_offset / 2) as i32 - (start as i32) + (i as i32)
+                - (self.idRangeOffsets.len() as i32)) as i32;
             if end == 0xffff {
                 break;
             }
             let range_char_codes = start..(1 + end);
             for char_code in range_char_codes {
                 if range_offset == 0 {
-                    map.insert(char_code as u32, (char_code as i16 + delta) as u16);
+                    map.insert(char_code as u32, (char_code as i32 + delta as i32) as u16);
                 } else {
-                    let index = (char_code as i16 + partial) as usize;
+                    let index = (char_code as i32 + partial) as usize;
                     if index >= self.glyphIdArray.len() {
                         break;
                     }
