@@ -13,7 +13,6 @@ use fonttools::{
 };
 use std::cmp::{max, min};
 
-use fonttools::utils::int_list_to_num;
 use std::collections::BTreeMap;
 use std::convert::TryInto;
 

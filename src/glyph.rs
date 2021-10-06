@@ -1,6 +1,5 @@
 use crate::utils::is_all_same;
 use fonttools::glyf;
-use fonttools::glyf::contourutils::kurbo_contour_to_glyf_contour;
 use fonttools::gvar::DeltaSet;
 use fonttools::gvar::GlyphVariationData;
 use fonttools::otvar::VariationModel;
