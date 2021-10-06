@@ -9,8 +9,7 @@ use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
 };
 use otspec_macros::tables;
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 // Having version-specific tables makes it so much easier to keep track of
 // the offset fields
@@ -242,7 +241,10 @@ impl Deserialize for GDEF {
                 .ligCaretList
                 .link
                 .map_or_else(BTreeMap::new, |m| m.into()),
-            mark_attachment_class: core.markAttachClassDef.link.unwrap().classes,
+            mark_attachment_class: core
+                .markAttachClassDef
+                .link
+                .map_or_else(BTreeMap::new, |m| m.classes),
             mark_glyph_sets,
             item_variation_store: ivs,
         })
