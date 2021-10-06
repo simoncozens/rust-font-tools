@@ -11,7 +11,6 @@ use clap::{App, Arg, ArgMatches};
 
 // use rayon::prelude::*;
 use std::collections::HashSet;
-use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 
@@ -118,9 +117,9 @@ fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: Option<HashSet<S
     for (ix, master_name) in master_names.iter().enumerate() {
         let mut out_font = build_font(in_font, &subset, Some(ix));
         log::info!("Building {}", master_name);
-        let mut outfile = File::create(format!("{}-{}.ttf", family_name, master_name))
-            .expect("Could not open file for writing");
-        out_font.save(&mut outfile);
+        out_font
+            .save(format!("{}-{}.ttf", family_name, master_name))
+            .expect("Could not write font");
     }
 }
 
@@ -138,10 +137,10 @@ fn create_variable_font(
     }
 
     if matches.is_present("OUTPUT") {
-        let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())
-            .expect("Could not open file for writing");
-        out_font.save(&mut outfile);
+        out_font
+            .save(matches.value_of("OUTPUT").unwrap())
+            .expect("Could not write font");
     } else {
-        out_font.save(&mut io::stdout());
+        out_font.write(io::stdout()).expect("Could not write font");
     };
 }
