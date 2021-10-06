@@ -403,7 +403,9 @@ impl Font {
         }
         let keys: Vec<Tag> = self.tables.keys().copied().collect();
         for t in keys {
-            self.get_table(t).unwrap();
+            if self.get_table(t).is_err() {
+                log::warn!("Couldn't deserialize {}", t);
+            }
         }
     }
 
@@ -642,7 +644,8 @@ mod tests {
     use crate::{font, maxp};
     use otspec::types::U16F16;
 
-    use otspec::{ser, types::*};
+    use otspec::ser;
+    use otspec::types::*;
 
     #[test]
     fn test_checksum() {
