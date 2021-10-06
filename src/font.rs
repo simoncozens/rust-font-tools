@@ -23,7 +23,6 @@ use otspec_macros::{Deserialize, Serialize};
 use std::cmp;
 use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
-use std::io::Write;
 use std::num::Wrapping;
 use std::path::Path;
 
@@ -207,6 +206,13 @@ impl Font {
                 let _ = f.get_table(b"loca");
                 f
             })
+    }
+
+    /// Attempt to load a font from any reader.
+    pub fn from_reader(mut reader: impl std::io::Read) -> Result<Self, Box<dyn Error>> {
+        let mut buf = Vec::new();
+        let _ = reader.read_to_end(&mut buf)?;
+        Self::from_bytes(&buf)
     }
 
     fn _loca_is32bit(&self) -> Option<bool> {
@@ -405,9 +411,15 @@ impl Font {
 
     /// Attempt to save the font to the provided path.
     pub fn save(&mut self, path: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
+        let file = std::fs::File::create(path)?;
+        self.write(file)
+    }
+
+    /// Attempt to write the font into the provided [`Writer`][std::io::Write];
+    pub fn write(&mut self, mut writer: impl std::io::Write) -> Result<(), Box<dyn Error>> {
         self.compile_glyf_loca_maxp();
         let serialized = ser::to_bytes(self).unwrap();
-        std::fs::write(path, &serialized).map_err(Into::into)
+        writer.write_all(&serialized).map_err(Into::into)
     }
 
     /// Total number of glyphs in the font, from the maxp table.

@@ -17,8 +17,7 @@
 //!  * `ttf-rename-glyphs` - Renames glyphs to production names
 
 use clap::{App, Arg};
-use fonttools::font::{self, Font};
-use std::fs::File;
+use fonttools::font::Font;
 use std::io;
 
 pub fn read_args(name: &str, description: &str) -> clap::ArgMatches<'static> {
@@ -40,20 +39,18 @@ pub fn read_args(name: &str, description: &str) -> clap::ArgMatches<'static> {
 pub fn open_font(matches: &clap::ArgMatches) -> Font {
     if matches.is_present("INPUT") {
         let filename = matches.value_of("INPUT").unwrap();
-        let infile = File::open(filename).unwrap();
-        font::load(infile)
+        Font::load(filename)
     } else {
-        font::load(io::stdin())
+        Font::from_reader(io::stdin())
     }
     .expect("Could not parse font")
 }
 
 pub fn save_font(mut font: Font, matches: &clap::ArgMatches) {
-    if matches.is_present("OUTPUT") {
-        let mut outfile = File::create(matches.value_of("OUTPUT").unwrap())
-            .expect("Could not open file for writing");
-        font.save(&mut outfile);
+    if let Some(path) = matches.value_of("OUTPUT") {
+        font.save(path)
     } else {
-        font.save(&mut io::stdout());
-    };
+        font.write(io::stdout())
+    }
+    .expect("cound not save font")
 }
