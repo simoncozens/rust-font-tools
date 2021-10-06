@@ -189,7 +189,7 @@ fn pin_tuple_variation_axes(
             );
             support.insert(*tag, support_for_this_axis);
         }
-        let scalar = support_scalar(&location, &support);
+        let scalar = support_scalar(location, &support);
         println!("Support scalar for {:?}: {:?}", location, scalar);
         if scalar == 0.0 {
             continue;

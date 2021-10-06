@@ -165,7 +165,7 @@ impl From<&PairPos> for PairPosInternal {
             let mut pair_sets: Vec<Offset16<PairSet>> = vec![];
             for left in &coverage.glyphs {
                 let mut pair_value_records: Vec<PairValueRecord> = vec![];
-                for (right, (vr1, vr2)) in split_mapping.get(&left).unwrap() {
+                for (right, (vr1, vr2)) in split_mapping.get(left).unwrap() {
                     pair_value_records.push(PairValueRecord {
                         secondGlyph: *right,
                         valueRecord1: vr1.clone(),

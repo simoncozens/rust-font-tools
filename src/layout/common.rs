@@ -239,8 +239,7 @@ impl Deserialize for ScriptList {
         let sl: ScriptListInternal = c.de()?;
         let mut scripts = BTreeMap::new();
         for rec in sl.scriptRecords {
-            let si: &ScriptInternal = &rec.scriptOffset.as_ref().unwrap();
-            let script: Script = si.into();
+            let script = rec.scriptOffset.as_ref().map(Script::from).unwrap();
             scripts.insert(rec.scriptTag, script);
         }
         Ok(ScriptList { scripts })

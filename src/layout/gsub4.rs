@@ -57,7 +57,7 @@ impl From<&LigatureSubst> for LigatureSubstFormat1 {
         let mut ligature_sets: Vec<Offset16<LigatureSet>> = vec![];
         for first in &coverage.glyphs {
             // println!("For covered glyph {:?}", first);
-            let relevant_keys = split_map.get(&first).unwrap();
+            let relevant_keys = split_map.get(first).unwrap();
             let ligature_offsets: Vec<Offset16<Ligature>> = relevant_keys
                 .iter()
                 .map(|k| {

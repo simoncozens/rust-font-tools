@@ -100,7 +100,7 @@ impl SegmentMap {
         if saw_zero != 1 || saw_plus1 != 1 || saw_minus1 != 1 {
             return false;
         }
-        return true;
+        true
     }
 }
 
