@@ -23,8 +23,8 @@ use otspec_macros::{Deserialize, Serialize};
 use std::cmp;
 use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
-use std::io::Write;
 use std::num::Wrapping;
+use std::path::Path;
 
 /// A generic container for a font table, either known (deserialized) or unknown (binary)
 #[derive(Debug, PartialEq)]
@@ -191,6 +191,30 @@ pub struct Font {
 use otspec::ser;
 
 impl Font {
+    /// Attempt to load a font from disk.
+    pub fn load(path: impl AsRef<Path>) -> Result<Self, Box<dyn Error>> {
+        let bytes = std::fs::read(path.as_ref())?;
+        Self::from_bytes(&bytes)
+    }
+
+    /// Attempt to load a font from a raw byte slice.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
+        otspec::de::from_bytes(&bytes)
+            .map_err(|e| e.into())
+            .map(|mut f: Font| {
+                let _ = f.get_table(b"head");
+                let _ = f.get_table(b"loca");
+                f
+            })
+    }
+
+    /// Attempt to load a font from any reader.
+    pub fn from_reader(mut reader: impl std::io::Read) -> Result<Self, Box<dyn Error>> {
+        let mut buf = Vec::new();
+        let _ = reader.read_to_end(&mut buf)?;
+        Self::from_bytes(&buf)
+    }
+
     fn _loca_is32bit(&self) -> Option<bool> {
         let head = self.get_table_simple(b"head")?;
         if self._table_needs_deserializing(head) {
@@ -385,14 +409,17 @@ impl Font {
         }
     }
 
-    /// Writes the font to the given file handle
-    pub fn save<T>(&mut self, file: &mut T)
-    where
-        T: Write,
-    {
+    /// Attempt to save the font to the provided path.
+    pub fn save(&mut self, path: impl AsRef<Path>) -> Result<(), Box<dyn Error>> {
+        let file = std::fs::File::create(path)?;
+        self.write(file)
+    }
+
+    /// Attempt to write the font into the provided [`Writer`][std::io::Write];
+    pub fn write(&mut self, mut writer: impl std::io::Write) -> Result<(), Box<dyn Error>> {
         self.compile_glyf_loca_maxp();
         let serialized = ser::to_bytes(self).unwrap();
-        file.write_all(&serialized).unwrap();
+        writer.write_all(&serialized).map_err(Into::into)
     }
 
     /// Total number of glyphs in the font, from the maxp table.
@@ -470,6 +497,7 @@ use std::error::Error;
 use std::io::Read;
 
 /// Loads a binary font from the given filehandle.
+#[deprecated(since = "0.1.0", note = "use Font::load instead")]
 pub fn load<T>(mut file: T) -> Result<Font, Box<dyn Error>>
 where
     T: Read,

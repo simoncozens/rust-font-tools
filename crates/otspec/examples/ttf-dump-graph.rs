@@ -1,11 +1,9 @@
 use clap::{App, Arg};
-use fonttools::font;
-use fonttools::font::Table;
+use fonttools::font::{Font, Table};
 use fonttools::MATH::MATHinternal;
 use otspec::types::{Offset16, OffsetMarkerTrait};
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
-use std::fs::File;
 
 fn main() {
     let matches = App::new("ttf-dump-graph")
@@ -22,9 +20,8 @@ fn main() {
         )
         .get_matches();
     let filename = matches.value_of("INPUT").unwrap();
-    let infile = File::open(filename).unwrap();
 
-    let mut infont = font::load(infile).unwrap();
+    let mut infont = Font::load(filename).unwrap();
     let table_name = matches.value_of("TABLE").unwrap();
 
     let mut dag: Graph<String, ()> = Graph::new();

@@ -3,10 +3,9 @@ use fonttools::otvar::instancer::{
     instantiate_variable_font, AxisRange, UserAxisLimit, UserAxisLimits,
 };
 use fonttools::types::*;
-use fonttools_cli::{open_font, save_font};
+use fonttools_cli::open_font;
 use regex::Regex;
 use std::collections::BTreeMap;
-use std::fs::File;
 use std::path::Path;
 
 fn main() {
@@ -53,19 +52,18 @@ fn main() {
 
     log::debug!("Axis limits = {:?}", limits);
     if instantiate_variable_font(&mut infont, limits) {
-        let mut out_fh = if let Some(out_fn) = matches.value_of("output") {
+        if let Some(out_fn) = matches.value_of("output") {
             log::info!("Saving on {}", out_fn);
-            File::create(out_fn)
+            infont.save(out_fn)
         } else {
             let input_filename = matches.value_of("INPUT").unwrap();
             let out_fn = Path::new(input_filename)
                 .with_extension("")
                 .with_extension("partial.ttf");
             log::info!("Saving on {}", out_fn.to_str().unwrap());
-            File::create(out_fn)
+            infont.save(out_fn)
         }
         .unwrap();
-        infont.save(&mut out_fh);
     }
 }
 

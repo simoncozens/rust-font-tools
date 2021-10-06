@@ -10,9 +10,7 @@
 //! use fonttools::name::{name, NameRecord, NameRecordID};
 //!
 //! // Load a font (tables are lazy-loaded)
-//! let fontfile = File::open("Test.otf").unwrap();
-//! use std::fs::File;
-//! let mut myfont = font::load(fontfile).expect("Could not load font");
+//! let mut myfont = Font::load("Test.otf").expect("Could not load font");
 //!
 //! // Access an existing table
 //! if let Table::Name(name_table) = myfont.get_table(b"name")
@@ -24,8 +22,8 @@
 //!             "http://opensource.org/licenses/OFL-1.1"
 //!         ));
 //! }
-//! let mut outfile = File::create("Test-with-OFL.otf").expect("Could not create file");
-//! myfont.save(&mut outfile);
+//!
+//! myfont.save("Test-with-OFL.otf").expect("Could not create file");
 //! ```
 //! For information about creating and manipulating structures for
 //! each specific OpenType table, see the modules below. See
