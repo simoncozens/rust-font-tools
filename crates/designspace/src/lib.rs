@@ -14,7 +14,7 @@ use fonttools::fvar::{fvar, InstanceRecord, VariationAxisRecord};
 use fonttools::name::NameRecord;
 use fonttools::otvar::Location as OTVarLocation;
 use fonttools::otvar::{NormalizedLocation, VariationModel};
-use otspec::types::Tag;
+use otspec::types::{tag, Tag};
 pub use serde_xml_rs::from_reader;
 
 #[cfg(feature = "norad")]
@@ -74,7 +74,7 @@ impl Designspace {
         for axis in self.axes.axis.iter() {
             axes.push(axis.to_variation_axis_record(ix as u16)?);
             if let Table::Name(name) = font
-                .get_table(b"name")
+                .get_table(tag!("name"))
                 .expect("No name table?")
                 .expect("Couldn't open name table")
             {
@@ -106,7 +106,7 @@ impl Designspace {
         if let Some(i) = &self.instances {
             for instance in &i.instance {
                 if let Table::Name(name) = font
-                    .get_table(b"name")
+                    .get_table(tag!("name"))
                     .expect("No name table?")
                     .expect("Couldn't open name table")
                 {
@@ -121,7 +121,7 @@ impl Designspace {
                 ix += 1;
                 if let Some(psname) = &instance.postscriptfontname {
                     if let Table::Name(name) = font
-                        .get_table(b"name")
+                        .get_table(tag!("name"))
                         .expect("No name table?")
                         .expect("Couldn't open name table")
                     {
@@ -135,7 +135,7 @@ impl Designspace {
             }
         }
         let fvar_table = Table::Fvar(fvar { axes, instances });
-        font.tables.insert(*b"fvar", fvar_table);
+        font.tables.insert(tag!("fvar"), fvar_table);
 
         // Handle avar here
         let avar_table = avar {
@@ -144,7 +144,7 @@ impl Designspace {
             reserved: 0,
             axisSegmentMaps: maps,
         };
-        font.tables.insert(*b"avar", Table::Avar(avar_table));
+        font.tables.insert(tag!("avar"), Table::Avar(avar_table));
 
         Ok(())
     }
@@ -273,7 +273,7 @@ impl Axis {
             return Err("Badly formatted axis tag");
         }
         Ok(VariationAxisRecord {
-            axisTag: self.tag.as_bytes()[0..4].try_into().unwrap(),
+            axisTag: Tag::from_raw(&self.tag).unwrap(),
             defaultValue: self.default as f32,
             maxValue: self.maximum as f32,
             minValue: self.minimum as f32,
@@ -334,7 +334,7 @@ impl Axis {
     }
 
     fn tag_as_tag(&self) -> Tag {
-        self.tag.as_bytes()[0..4].try_into().unwrap()
+        Tag::from_raw(&self.tag).unwrap()
     }
 
     fn normalize_designspace_value(&self, mut l: f32) -> f32 {

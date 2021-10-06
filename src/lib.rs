@@ -6,14 +6,18 @@
 //!
 //! # Example usage
 //! ```no_run
+//! # // we need an explicit main fn to use macros:
+//! # #[macro_use] extern crate otspec;
+//! # fn main() {
 //! use fonttools::font::{self, Font, Table};
 //! use fonttools::name::{name, NameRecord, NameRecordID};
+//! use otspec::types::tag;
 //!
 //! // Load a font (tables are lazy-loaded)
 //! let mut myfont = Font::load("Test.otf").expect("Could not load font");
 //!
 //! // Access an existing table
-//! if let Table::Name(name_table) = myfont.get_table(b"name")
+//! if let Table::Name(name_table) = myfont.get_table(tag!("name"))
 //!         .expect("Error reading name table")
 //!         .expect("There was no name table") {
 //!     // Manipulate the table (table-specific)
@@ -24,13 +28,12 @@
 //! }
 //!
 //! myfont.save("Test-with-OFL.otf").expect("Could not create file");
+//! # }
 //! ```
 //! For information about creating and manipulating structures for
 //! each specific OpenType table, see the modules below. See
 //! the [font] module as the entry point to creating, parsing and
 //! saving an OpenType font.
-
-//#[allow(non_snake_case)]
 
 /// The `GDEF` (Glyph definition) table
 #[allow(non_snake_case)]

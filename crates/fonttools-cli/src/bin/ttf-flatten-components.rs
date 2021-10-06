@@ -1,4 +1,4 @@
-use fonttools::font::Table;
+use fonttools::{font::Table, types::tag};
 use fonttools_cli::{open_font, read_args, save_font};
 
 fn main() {
@@ -10,7 +10,7 @@ fn main() {
     let mut infont = open_font(&matches);
 
     if let Table::Glyf(glyf) = infont
-        .get_table(b"glyf")
+        .get_table(tag!("glyf"))
         .expect("Error reading glyf table")
         .expect("No glyf table found")
     {

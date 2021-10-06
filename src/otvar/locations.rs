@@ -322,26 +322,27 @@ mod tests {
     use super::*;
     use crate::btreemap;
     use assert_approx_eq::assert_approx_eq;
+    use otspec::types::*;
     use std::iter::FromIterator;
 
     #[test]
     fn test_support_scalar() {
         assert_approx_eq!(support_scalar(&Location::new(), &Support::new()), 1.0);
         assert_approx_eq!(
-            support_scalar(&btreemap!( *b"wght" => 0.2), &Support::new()),
+            support_scalar(&btreemap!( tag!("wght") => 0.2), &Support::new()),
             1.0
         );
         assert_approx_eq!(
             support_scalar(
-                &btreemap!( *b"wght" => 0.2),
-                &btreemap!( *b"wght" => (0_f32,2_f32,3_f32))
+                &btreemap!( tag!("wght") => 0.2),
+                &btreemap!( tag!("wght") => (0_f32,2_f32,3_f32))
             ),
             0.1
         );
         assert_approx_eq!(
             support_scalar(
-                &btreemap!( *b"wght" => 2.5),
-                &btreemap!( *b"wght" => (0_f32,2_f32,4_f32))
+                &btreemap!( tag!("wght") => 2.5),
+                &btreemap!( tag!("wght") => (0_f32,2_f32,4_f32))
             ),
             0.75
         );
@@ -350,41 +351,41 @@ mod tests {
     #[test]
     fn test_variation_model() {
         let locations = vec![
-            btreemap!(*b"wght" => 0.55, *b"wdth" => 0.0),
-            btreemap!(*b"wght" => -0.55, *b"wdth" => 0.0),
-            btreemap!(*b"wght" => -1.0, *b"wdth" => 0.0),
-            btreemap!(*b"wght" => 0.0, *b"wdth" => 1.0),
-            btreemap!(*b"wght" => 0.66, *b"wdth" => 1.0),
-            btreemap!(*b"wght" => 0.66, *b"wdth" => 0.66),
-            btreemap!(*b"wght" => 0.0, *b"wdth" => 0.0),
-            btreemap!(*b"wght" => 1.0, *b"wdth" => 1.0),
-            btreemap!(*b"wght" => 1.0, *b"wdth" => 0.0),
+            btreemap!(tag!("wght") => 0.55, tag!("wdth") => 0.0),
+            btreemap!(tag!("wght") => -0.55, tag!("wdth") => 0.0),
+            btreemap!(tag!("wght") => -1.0, tag!("wdth") => 0.0),
+            btreemap!(tag!("wght") => 0.0, tag!("wdth") => 1.0),
+            btreemap!(tag!("wght") => 0.66, tag!("wdth") => 1.0),
+            btreemap!(tag!("wght") => 0.66, tag!("wdth") => 0.66),
+            btreemap!(tag!("wght") => 0.0, tag!("wdth") => 0.0),
+            btreemap!(tag!("wght") => 1.0, tag!("wdth") => 1.0),
+            btreemap!(tag!("wght") => 1.0, tag!("wdth") => 0.0),
         ];
-        let axis_order = vec![*b"wght"];
+        let axis_order = vec![tag!("wght")];
         let vm = VariationModel::new(locations, axis_order);
         let expected_locations = vec![
             btreemap!(),
-            btreemap!(*b"wght" => -0.55),
-            btreemap!(*b"wght" => -1.0),
-            btreemap!(*b"wght" => 0.55),
-            btreemap!(*b"wght" => 1.0),
-            btreemap!(*b"wdth" => 1.0),
-            btreemap!(*b"wdth" => 1.0, *b"wght" => 1.0),
-            btreemap!(*b"wdth" => 1.0, *b"wght" => 0.66),
-            btreemap!(*b"wdth" => 0.66, *b"wght" => 0.66),
+            btreemap!(tag!("wght") => -0.55),
+            btreemap!(tag!("wght") => -1.0),
+            btreemap!(tag!("wght") => 0.55),
+            btreemap!(tag!("wght") => 1.0),
+            btreemap!(tag!("wdth") => 1.0),
+            btreemap!(tag!("wdth") => 1.0, tag!("wght") => 1.0),
+            btreemap!(tag!("wdth") => 1.0, tag!("wght") => 0.66),
+            btreemap!(tag!("wdth") => 0.66, tag!("wght") => 0.66),
         ];
         assert_eq!(vm.locations, expected_locations);
 
         let expected_supports = vec![
             btreemap!(),
-            btreemap!(*b"wght" => (-1.0, -0.55, 0.0)),
-            btreemap!(*b"wght" => (-1.0, -1.0, -0.55)),
-            btreemap!(*b"wght" => (0.0, 0.55, 1.0)),
-            btreemap!(*b"wght" => (0.55, 1.0, 1.0)),
-            btreemap!(*b"wdth" => (0.0, 1.0, 1.0)),
-            btreemap!(*b"wdth" => (0.0, 1.0, 1.0), *b"wght" => (0.0, 1.0, 1.0)),
-            btreemap!(*b"wdth" => (0.0, 1.0, 1.0), *b"wght" => (0.0, 0.66, 1.0)),
-            btreemap!(*b"wdth" => (0.0, 0.66, 1.0), *b"wght" => (0.0, 0.66, 1.0)),
+            btreemap!(tag!("wght") => (-1.0, -0.55, 0.0)),
+            btreemap!(tag!("wght") => (-1.0, -1.0, -0.55)),
+            btreemap!(tag!("wght") => (0.0, 0.55, 1.0)),
+            btreemap!(tag!("wght") => (0.55, 1.0, 1.0)),
+            btreemap!(tag!("wdth") => (0.0, 1.0, 1.0)),
+            btreemap!(tag!("wdth") => (0.0, 1.0, 1.0), tag!("wght") => (0.0, 1.0, 1.0)),
+            btreemap!(tag!("wdth") => (0.0, 1.0, 1.0), tag!("wght") => (0.0, 0.66, 1.0)),
+            btreemap!(tag!("wdth") => (0.0, 0.66, 1.0), tag!("wght") => (0.0, 0.66, 1.0)),
         ];
         assert_eq!(vm.supports, expected_supports);
 

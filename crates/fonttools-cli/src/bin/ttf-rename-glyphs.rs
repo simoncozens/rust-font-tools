@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use fonttools::font::Table;
+use fonttools::{font::Table, types::tag};
 use fonttools_cli::{open_font, save_font};
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashSet};
@@ -40,14 +40,14 @@ fn main() {
     let mut reversed_map = BTreeMap::new();
 
     if let Table::Cmap(cmap) = infont
-        .get_table(b"cmap")
+        .get_table(tag!("cmap"))
         .expect("Error reading cmap table")
         .expect("No cmap table found")
     {
         reversed_map = cmap.reversed();
     }
     if let Table::Post(post) = infont
-        .get_table(b"post")
+        .get_table(tag!("post"))
         .expect("Error reading post table")
         .expect("No post table found")
     {

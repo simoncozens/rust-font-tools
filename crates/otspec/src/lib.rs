@@ -1,6 +1,10 @@
 //! This library is used by the fonttools crate. No user-serviceable parts inside.
 #[macro_use]
 extern crate shrinkwraprs;
+
+// necessary for us to use macros defined in otspec_macros
+extern crate self as otspec;
+
 use crate::types::*;
 use std::convert::TryInto;
 use std::mem;
@@ -8,6 +12,7 @@ mod counted;
 pub mod offsetmanager;
 mod offsets;
 pub use counted::{Counted, Counted32};
+mod tag;
 pub mod types;
 
 #[derive(Debug)]
@@ -334,7 +339,7 @@ mod tests {
 
     #[test]
     fn ser_tag() {
-        let t = tag("GSUB");
+        let t = tag!("GSUB");
         let mut out = vec![];
         out.put(t).unwrap();
         assert_eq!(out, [0x47, 0x53, 0x55, 0x42]);
@@ -344,7 +349,7 @@ mod tests {
     fn de_tag() {
         let mut rc = ReaderContext::new(vec![0x47, 0x53, 0x55, 0x42]);
         let t: Tag = rc.de().unwrap();
-        assert_eq!(t, tag("GSUB"));
+        assert_eq!(t, tag!("GSUB"));
     }
 
     // use otspec_macros::{Deserialize, Serialize};

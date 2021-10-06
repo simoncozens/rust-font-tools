@@ -182,11 +182,7 @@ fn pin_tuple_variation_axes(
                 .position(|t| t == tag)
                 .expect("Axis in location wasn't in font");
             let support_for_this_axis = (var.start[index], var.peak[index], var.end[index]);
-            println!(
-                "Support for {:?}: {:?}",
-                std::str::from_utf8(tag).unwrap(),
-                support_for_this_axis
-            );
+            println!("Support for {}: {:?}", tag, support_for_this_axis);
             support.insert(*tag, support_for_this_axis);
         }
         let scalar = support_scalar(location, &support);
@@ -259,7 +255,7 @@ fn instantiate_gvar(font: &mut Font, axis_limits: &NormalizedAxisLimits) {
         .map(|x| x.axisTag)
         .collect();
     let mut glyf: glyf::glyf = font.tables.get(b"glyf").unwrap().glyf_unchecked().clone();
-    let gvar_table = font.get_table(b"gvar").unwrap().unwrap();
+    let gvar_table = font.get_table(tag!("gvar")).unwrap().unwrap();
 
     if let Table::Gvar(gvar) = gvar_table {
         for gid in 0..glyf.glyphs.len() {
@@ -270,7 +266,7 @@ fn instantiate_gvar(font: &mut Font, axis_limits: &NormalizedAxisLimits) {
             font.tables.remove(b"gvar");
         }
     }
-    font.tables.insert(*b"glyf", Table::Glyf(glyf));
+    font.tables.insert(tag!("glyf"), Table::Glyf(glyf));
 }
 
 fn instantiate_avar(font: &mut Font, axis_limits: &UserAxisLimits) {
@@ -296,7 +292,7 @@ fn instantiate_avar(font: &mut Font, axis_limits: &UserAxisLimits) {
         }
     }
 
-    if let Table::Avar(avar_table) = font.get_table(b"avar").unwrap().unwrap() {
+    if let Table::Avar(avar_table) = font.get_table(tag!("avar")).unwrap().unwrap() {
         // We are doing avar first, so the fvar table contains the full set of axes.
 
         let mut segments_map: BTreeMap<Tag, SegmentMap> = axis_tags
@@ -374,7 +370,7 @@ fn instantiate_fvar(font: &mut Font, axis_limits: &UserAxisLimits) {
     let (location, axis_ranges): (FullUserAxisLimits, PartialUserAxisLimits) =
         axis_limits.split_up();
 
-    let fvar_table = font.get_table(b"fvar").unwrap().unwrap();
+    let fvar_table = font.get_table(tag!("fvar")).unwrap().unwrap();
     if let Table::Fvar(fvar) = fvar_table {
         if fvar
             .axes
@@ -453,7 +449,7 @@ fn instantiate_fvar(font: &mut Font, axis_limits: &UserAxisLimits) {
 
 #[allow(non_snake_case)]
 fn instantiate_STAT(font: &mut Font, axis_limits: &UserAxisLimits) {
-    let stat_table = font.get_table(b"STAT").unwrap().unwrap();
+    let stat_table = font.get_table(tag!("STAT")).unwrap().unwrap();
     if let Table::STAT(stat) = stat_table {
         if stat.design_axes.is_empty() || stat.axis_values.is_empty() {
             return;
@@ -516,7 +512,11 @@ fn set_mac_overlap_flags(glyf: &mut glyf::glyf) {
 
 fn populate_axis_defaults(font: &mut Font, limits: UserAxisLimits) -> UserAxisLimits {
     let mut limits = limits;
-    let fvar: &fvar::fvar = font.get_table(b"fvar").unwrap().unwrap().fvar_unchecked();
+    let fvar: &fvar::fvar = font
+        .get_table(tag!("fvar"))
+        .unwrap()
+        .unwrap()
+        .fvar_unchecked();
     let defaults: Location = fvar
         .axes
         .iter()
@@ -546,14 +546,15 @@ fn normalize_axis_limits(
     limits: &UserAxisLimits,
     use_avar: bool,
 ) -> NormalizedAxisLimits {
-    let fvar: &fvar::fvar = font.get_table(b"fvar").unwrap().unwrap().fvar_unchecked();
+    let fvar: &fvar::fvar = font
+        .get_table(tag!("fvar"))
+        .unwrap()
+        .unwrap()
+        .fvar_unchecked();
     let all_axes: Vec<Tag> = fvar.axes.iter().map(|x| x.axisTag).collect();
     for ax in limits.0.keys() {
         if !all_axes.contains(ax) {
-            panic!(
-                "Can't limit {} - axis not in font",
-                std::str::from_utf8(ax).unwrap()
-            )
+            panic!("Can't limit {} - axis not in font", ax,)
         }
     }
     let axes: BTreeMap<Tag, (f32, f32, f32)> = fvar
@@ -563,7 +564,11 @@ fn normalize_axis_limits(
         .map(|ax| (ax.axisTag, (ax.minValue, ax.defaultValue, ax.maxValue)))
         .collect();
     let avar_segs: BTreeMap<Tag, &SegmentMap> = if use_avar && font.tables.contains_key(b"avar") {
-        let avar: &avar::avar = font.get_table(b"avar").unwrap().unwrap().avar_unchecked();
+        let avar: &avar::avar = font
+            .get_table(tag!("avar"))
+            .unwrap()
+            .unwrap()
+            .avar_unchecked();
         all_axes
             .iter()
             .zip(avar.axisSegmentMaps.iter())
@@ -578,10 +583,7 @@ fn normalize_axis_limits(
             if minimum > default || maximum < default {
                 panic!(
                     "Unsupported range {}:={}:{}; default position is {}",
-                    std::str::from_utf8(tag).unwrap(),
-                    minimum,
-                    maximum,
-                    default
+                    tag, minimum, maximum, default
                 )
             }
         }
@@ -621,9 +623,9 @@ pub fn instantiate_variable_font(font: &mut Font, limits: UserAxisLimits) -> boo
     log::debug!("Full limits: {:?}", limits);
     let normalized_limits = normalize_axis_limits(font, &limits, true);
     log::debug!("Normalized limits: {:?}", normalized_limits);
-    font.get_table(b"fvar").expect("Can't open fvar");
-    font.get_table(b"glyf").expect("Can't open glyf");
-    font.get_table(b"gvar").expect("Can't open gvar");
+    font.get_table(tag!("fvar")).expect("Can't open fvar");
+    font.get_table(tag!("glyf")).expect("Can't open glyf");
+    font.get_table(tag!("gvar")).expect("Can't open gvar");
     // update name table (can't)
     if font.tables.contains_key(b"gvar") {
         // Deserialize what we need
@@ -644,7 +646,7 @@ pub fn instantiate_variable_font(font: &mut Font, limits: UserAxisLimits) -> boo
     // instantiate_otl(font, normalized_limits);
     // instantiate_feature_variations(font, normalized_limits);
     if font.tables.contains_key(b"avar") {
-        font.get_table(b"avar").expect("Can't open avar");
+        font.get_table(tag!("avar")).expect("Can't open avar");
         instantiate_avar(font, &limits);
     }
     if font.tables.contains_key(b"STAT") {
@@ -653,7 +655,7 @@ pub fn instantiate_variable_font(font: &mut Font, limits: UserAxisLimits) -> boo
     instantiate_fvar(font, &limits);
     if !font.tables.contains_key(b"fvar") && !font.tables.contains_key(b"glyf") {
         // set overlap flags
-        if let Table::Glyf(glyf) = font.get_table(b"glyf").unwrap().unwrap() {
+        if let Table::Glyf(glyf) = font.get_table(tag!("glyf")).unwrap().unwrap() {
             set_mac_overlap_flags(glyf)
         }
     }

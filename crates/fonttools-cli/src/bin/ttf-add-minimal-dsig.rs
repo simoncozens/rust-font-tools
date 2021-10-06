@@ -10,7 +10,7 @@ fn main() {
 
     if !infont.tables.contains_key(b"DSIG") {
         infont.tables.insert(
-            *b"DSIG",
+            fonttools::types::tag!("DSIG"),
             Table::Unknown(vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]),
         );
     }

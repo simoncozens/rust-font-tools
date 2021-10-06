@@ -344,7 +344,7 @@ mod tests {
                 },
             ],
             scripts: ScriptList {
-                scripts: hashmap!(*b"DFLT" => Script {
+                scripts: hashmap!(tag!("DFLT") => Script {
                     default_language_system: Some(
                         LanguageSystem {
                             required_feature: None,
@@ -360,10 +360,10 @@ mod tests {
                 }),
             },
             features: vec![
-                (*b"alte", vec![3], None),
-                (*b"liga", vec![4], None),
-                (*b"mult", vec![2], None),
-                (*b"sing", vec![0, 1], None),
+                (tag!("alte"), vec![3], None),
+                (tag!("liga"), vec![4], None),
+                (tag!("mult"), vec![2], None),
+                (tag!("sing"), vec![0, 1], None),
             ],
         };
         let deserialized: GSUB = otspec::de::from_bytes(&binary_gsub).unwrap();
@@ -381,7 +381,7 @@ mod tests {
                 }]),
             }],
             scripts: ScriptList {
-                scripts: hashmap!(*b"DFLT" => Script {
+                scripts: hashmap!(tag!("DFLT") => Script {
                     default_language_system: Some(
                         LanguageSystem {
                             required_feature: None,
@@ -393,7 +393,7 @@ mod tests {
                     language_systems: BTreeMap::new()
                 }),
             },
-            features: vec![(*b"liga", vec![0], None)],
+            features: vec![(tag!("liga"), vec![0], None)],
         };
 
         let serialized = otspec::ser::to_bytes(&gsub).unwrap();

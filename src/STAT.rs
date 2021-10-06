@@ -409,17 +409,17 @@ mod tests {
                 elided_fallback_name_id: Some(2),
                 design_axes: vec![
                     AxisRecord {
-                        axisTag: *b"wdth",
+                        axisTag: tag!("wdth"),
                         axisNameID: 257,
                         axisOrdering: 0
                     },
                     AxisRecord {
-                        axisTag: *b"wght",
+                        axisTag: tag!("wght"),
                         axisNameID: 256,
                         axisOrdering: 1
                     },
                     AxisRecord {
-                        axisTag: *b"ital",
+                        axisTag: tag!("ital"),
                         axisNameID: 271,
                         axisOrdering: 2
                     },
@@ -476,27 +476,27 @@ mod tests {
                 elided_fallback_name_id: Some(2),
                 design_axes: vec![
                     AxisRecord {
-                        axisTag: *b"MONO",
+                        axisTag: tag!("MONO"),
                         axisNameID: 269,
                         axisOrdering: 0
                     },
                     AxisRecord {
-                        axisTag: *b"CASL",
+                        axisTag: tag!("CASL"),
                         axisNameID: 270,
                         axisOrdering: 1
                     },
                     AxisRecord {
-                        axisTag: *b"wght",
+                        axisTag: tag!("wght"),
                         axisNameID: 271,
                         axisOrdering: 2
                     },
                     AxisRecord {
-                        axisTag: *b"slnt",
+                        axisTag: tag!("slnt"),
                         axisNameID: 272,
                         axisOrdering: 3
                     },
                     AxisRecord {
-                        axisTag: *b"CRSV",
+                        axisTag: tag!("CRSV"),
                         axisNameID: 273,
                         axisOrdering: 4
                     },
