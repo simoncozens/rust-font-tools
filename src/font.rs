@@ -200,7 +200,7 @@ impl Font {
 
     /// Attempt to load a font from a raw byte slice.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
-        otspec::de::from_bytes(&bytes)
+        otspec::de::from_bytes(bytes)
             .map_err(|e| e.into())
             .map(|mut f: Font| {
                 let _ = f.get_table(tag!("head"));
@@ -352,11 +352,11 @@ impl Font {
         false
     }
 
-    fn get_table_simple<'a>(&'a self, tag: Tag) -> Option<&'a Table> {
+    fn get_table_simple(&self, tag: Tag) -> Option<&Table> {
         self.tables.get(&tag)
     }
 
-    fn get_table_mut_simple<'a>(&'a mut self, tag: Tag) -> Option<&'a mut Table> {
+    fn get_table_mut_simple(&mut self, tag: Tag) -> Option<&mut Table> {
         self.tables.get_mut(&tag)
     }
 
@@ -369,10 +369,7 @@ impl Font {
     /// Returns an Err if the table could not be correctly deserialized.
     /// Returns Ok(None) if the table was not present within the font.
     /// Returns Ok(Some(Table)) if the table was present.
-    pub fn get_table<'a>(
-        &'a mut self,
-        tag: Tag,
-    ) -> Result<Option<&'a mut Table>, DeserializationError> {
+    pub fn get_table(&mut self, tag: Tag) -> Result<Option<&mut Table>, DeserializationError> {
         let table = self.get_table_simple(tag);
         // println!("Getting table {:?}", tag);
         if table.is_none() {

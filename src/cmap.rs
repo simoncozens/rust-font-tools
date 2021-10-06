@@ -431,6 +431,10 @@ tables!(
 );
 
 impl cmap14 {
+    /// Create a format 14 cmap table from a mapping of Unicode variation sequences
+    ///
+    /// The input should be a map between `(codepoint of character, codepoint of selector)`
+    /// and `glyph ID of selected glyph`.
     pub fn from_uvs_mapping(map: &Option<BTreeMap<(uint32, uint32), uint16>>) -> Self {
         let mut table = cmap14 {
             format: 14,

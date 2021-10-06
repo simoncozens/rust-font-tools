@@ -91,7 +91,7 @@ impl DeltaSet {
             .map(|(x, y)| Some(Delta::Delta2D((*x, *y))))
             .collect();
         if let Some(glyph) = original_glyph {
-            let optimized_deltas = optimize_deltas(deltas.clone(), &glyph);
+            let optimized_deltas = optimize_deltas(deltas.clone(), glyph);
             if optimized_deltas.iter().flatten().count() == 0 {
                 // Zero private points goes bad
                 return TupleVariation(tvh, deltas);
