@@ -492,6 +492,15 @@ impl Font {
         }
         self.tables
             .insert(tag!("loca"), Table::Unknown(loca_output));
+
+        if let Ok(Some(hmtx_table)) = self.get_table(tag!("hmtx")) {
+            let (hmtx_output, num_horizontal_metrics) = hmtx_table.hmtx_unchecked().to_bytes();
+            if let Ok(Some(Table::Hhea(hhea_table))) = self.get_table(tag!("hhea")) {
+                hhea_table.numberOfHMetrics = num_horizontal_metrics;
+            }
+            self.tables
+                .insert(tag!("hmtx"), Table::Unknown(hmtx_output));
+        }
     }
 }
 
