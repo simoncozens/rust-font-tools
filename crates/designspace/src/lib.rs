@@ -1,24 +1,24 @@
-#![warn(missing_docs, missing_crate_level_docs)]
 //! A library for parsing variable font designspace files
-extern crate serde;
-extern crate serde_xml_rs;
-use serde::{Deserialize, Serialize};
+
+#![warn(missing_docs, missing_crate_level_docs)]
+
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::fs::File;
-use std::path::Path;
-extern crate fonttools;
-use fonttools::avar::{avar, SegmentMap};
-use fonttools::font::{Font, Table};
-use fonttools::fvar::{fvar, InstanceRecord, VariationAxisRecord};
-use fonttools::name::NameRecord;
-use fonttools::otvar::Location as OTVarLocation;
-use fonttools::otvar::{NormalizedLocation, VariationModel};
+
 use otspec::types::{tag, Tag};
+use serde::{Deserialize, Serialize};
 pub use serde_xml_rs::from_reader;
 
-#[cfg(feature = "norad")]
-extern crate norad;
+use fonttools::{
+    font::{Font, Table},
+    otvar::{Location as OTVarLocation, NormalizedLocation, VariationModel},
+    tables::{
+        self,
+        avar::{avar, SegmentMap},
+        fvar::{fvar, InstanceRecord, VariationAxisRecord},
+        name::NameRecord,
+    },
+};
 
 /// Loads and parses a designspace file
 pub fn from_file(filename: &str) -> Result<Designspace, serde_xml_rs::Error> {

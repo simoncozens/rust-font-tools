@@ -17,7 +17,13 @@ mod tuplevariationstore;
 
 pub mod instancer;
 
+pub use itemvariationstore::{ItemVariationData, ItemVariationStore, RegionAxisCoordinates};
+pub use locations::{support_scalar, Location, NormalizedLocation, VariationModel};
 use otspec::types::int16;
+pub use packeddeltas::PackedDeltas;
+pub use packedpoints::PackedPoints;
+pub use tuplevariationheader::{TupleIndexFlags, TupleVariationHeader};
+pub use tuplevariationstore::{TupleVariation, TupleVariationStore};
 
 /// Represents either a two-dimensional (`gvar`) or one-dimensional (`cvt`) delta value
 #[derive(Debug, PartialEq, Clone)]
@@ -38,18 +44,10 @@ impl Delta {
         }
     }
 }
-pub use crate::otvar::itemvariationstore::{
-    ItemVariationData, ItemVariationStore, RegionAxisCoordinates,
-};
-pub use crate::otvar::locations::{support_scalar, Location, NormalizedLocation, VariationModel};
-pub use crate::otvar::packeddeltas::PackedDeltas;
-pub use crate::otvar::packedpoints::PackedPoints;
-pub use crate::otvar::tuplevariationheader::{TupleIndexFlags, TupleVariationHeader};
-pub use crate::otvar::tuplevariationstore::{TupleVariation, TupleVariationStore};
 
 #[cfg(test)]
 mod tests {
-    use crate::otvar;
+    use super::*;
 
     #[test]
     fn otvar_serde_ivd() {
@@ -57,11 +55,11 @@ mod tests {
             0x00, 0x04, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0x38, 0xFF, 0xCE, 0x00, 0x64,
             0x00, 0xC8,
         ];
-        let fivd = otvar::ItemVariationData {
+        let fivd = ItemVariationData {
             region_indexes: vec![0],
             delta_values: vec![vec![-200], vec![-50], vec![100], vec![200]],
         };
-        let deserialized: otvar::ItemVariationData = otspec::de::from_bytes(&binary_ivd).unwrap();
+        let deserialized: ItemVariationData = otspec::de::from_bytes(&binary_ivd).unwrap();
         assert_eq!(deserialized, fivd);
         let binary_ser = otspec::ser::to_bytes(&fivd).unwrap();
         assert_eq!(binary_ser, binary_ivd);
@@ -74,15 +72,15 @@ mod tests {
             0x00, 0x01, 0x00, 0x00, 0x40, 0x00, 0x40, 0x00, 0x00, 0x04, 0x00, 0x01, 0x00, 0x01,
             0x00, 0x00, 0xFF, 0x38, 0xFF, 0xCE, 0x00, 0x64, 0x00, 0xC8,
         ];
-        let deserialized: otvar::ItemVariationStore = otspec::de::from_bytes(&binary_ivs).unwrap();
-        let fivd = otvar::ItemVariationData {
+        let deserialized: ItemVariationStore = otspec::de::from_bytes(&binary_ivs).unwrap();
+        let fivd = ItemVariationData {
             region_indexes: vec![0],
             delta_values: vec![vec![-200], vec![-50], vec![100], vec![200]],
         };
-        let fivs = otvar::ItemVariationStore {
+        let fivs = ItemVariationStore {
             format: 1,
             axisCount: 1,
-            variationRegions: vec![vec![otvar::RegionAxisCoordinates {
+            variationRegions: vec![vec![RegionAxisCoordinates {
                 startCoord: 0.0,
                 peakCoord: 1.0,
                 endCoord: 1.0,

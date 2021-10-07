@@ -1,6 +1,6 @@
-use crate::otvar::iup::iup_contour;
-use crate::otvar::packeddeltas::from_bytes as packed_deltas_from_bytes;
-use crate::otvar::{Delta, PackedDeltas, PackedPoints, TupleIndexFlags, TupleVariationHeader};
+use super::iup::iup_contour;
+use super::packeddeltas::from_bytes as packed_deltas_from_bytes;
+use super::{Delta, PackedDeltas, PackedPoints, TupleIndexFlags, TupleVariationHeader};
 use otspec::types::*;
 use otspec::DeserializationError;
 use otspec::Deserializer;

@@ -25,12 +25,11 @@ tables!(hhea {
 
 #[cfg(test)]
 mod tests {
-    use crate::hhea::hhea;
     use otspec::ser;
 
     #[test]
     fn hhea_ser() {
-        let fhhea = hhea {
+        let fhhea = super::hhea {
             majorVersion: 1,
             minorVersion: 0,
             ascender: 705,
@@ -60,7 +59,7 @@ mod tests {
 
     #[test]
     fn hhea_de() {
-        let fhhea = hhea {
+        let fhhea = super::hhea {
             majorVersion: 1,
             minorVersion: 0,
             ascender: 705,
@@ -85,7 +84,7 @@ mod tests {
             0xfe, 0x82, 0x04, 0xdd, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x5d,
         ];
-        let deserialized: hhea = otspec::de::from_bytes(&binary_hhea).unwrap();
+        let deserialized: super::hhea = otspec::de::from_bytes(&binary_hhea).unwrap();
         assert_eq!(deserialized, fhhea);
     }
 }

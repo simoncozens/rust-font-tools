@@ -1,6 +1,8 @@
-use crate::glyf::{glyf, Glyph};
-use crate::otvar::iup::optimize_deltas;
-use crate::otvar::*;
+use super::glyf::{glyf, Glyph};
+use crate::otvar::{
+    iup::optimize_deltas, Delta, TupleIndexFlags, TupleVariation, TupleVariationHeader,
+    TupleVariationStore,
+};
 use counter::Counter;
 use otspec::types::*;
 use otspec::{DeserializationError, Deserializer, ReaderContext, SerializationError, Serialize};
@@ -369,8 +371,7 @@ impl Serialize for gvar {
 
 #[cfg(test)]
 mod tests {
-    use crate::gvar;
-    use crate::gvar::GlyphVariationData;
+    use super::GlyphVariationData;
 
     #[test]
     fn gvar_de() {
@@ -384,7 +385,7 @@ mod tests {
             0x00, 0x02, 0x01, 0x01, 0x02, 0x01, 0x26, 0xda, 0x01, 0x83, 0x7d, 0x03, 0x26, 0x26,
             0xda, 0xda, 0x83, 0x87, 0x03, 0x13, 0x13, 0xed, 0xed, 0x83, 0x87, 0x00,
         ];
-        let deserialized: gvar::gvar = gvar::from_bytes(
+        let deserialized: super::gvar = super::from_bytes(
             &binary_gvar,
             vec![
                 (vec![], vec![]), // .notdef
@@ -446,15 +447,15 @@ mod tests {
         */
         assert_eq!(
             variations[2],
-            Some(GlyphVariationData {
+            Some(super::GlyphVariationData {
                 deltasets: vec![
-                    gvar::DeltaSet {
+                    super::DeltaSet {
                         peak: vec![1.0, 0.0],
                         start: vec![0.0, -1.0],
                         end: vec![1.0, 0.0],
                         deltas: vec![(0, -46), (0, -46), (0, 46), (0, 0), (0, 0), (0, 0), (0, 0)]
                     },
-                    gvar::DeltaSet {
+                    super::DeltaSet {
                         peak: vec![0.0, 1.0],
                         start: vec![-1.0, 0.0],
                         end: vec![0.0, 1.0],
@@ -467,7 +468,7 @@ mod tests {
             variations[3], // IUP here
             Some(GlyphVariationData {
                 deltasets: vec![
-                    gvar::DeltaSet {
+                    super::DeltaSet {
                         peak: vec![1.0, 0.0],
                         start: vec![0.0, -1.0],
                         end: vec![1.0, 0.0],
@@ -482,7 +483,7 @@ mod tests {
                             (0, 0)
                         ]
                     },
-                    gvar::DeltaSet {
+                    super::DeltaSet {
                         peak: vec![0.0, 1.0],
                         start: vec![-1.0, 0.0],
                         end: vec![0.0, 1.0],
@@ -497,7 +498,7 @@ mod tests {
                             (0, 0)
                         ]
                     },
-                    gvar::DeltaSet {
+                    super::DeltaSet {
                         peak: vec![1.0, 1.0],
                         start: vec![0.0, 0.0],
                         end: vec![1.0, 1.0],
@@ -558,9 +559,9 @@ mod tests {
                 vec![3, 4, 5, 6, 7],
             ),
         ];
-        let deserialized: gvar::gvar = gvar::from_bytes(&binary_gvar, points.clone()).unwrap();
+        let deserialized: super::gvar = super::from_bytes(&binary_gvar, points.clone()).unwrap();
         let serialized = deserialized.to_bytes(None);
-        let re_de: gvar::gvar = gvar::from_bytes(&serialized, points).unwrap();
+        let re_de: super::gvar = super::from_bytes(&serialized, points).unwrap();
         assert_eq!(re_de, deserialized); // Are they semantically the same?
 
         // They won't literally be the same quite yet because we are currently finessing

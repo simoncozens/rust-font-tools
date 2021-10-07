@@ -1,4 +1,4 @@
-use crate::glyf::Point;
+use super::Point;
 use kurbo::{PathEl, PathSeg};
 
 /// Adds explicit oncurve points to a contour

@@ -1,5 +1,8 @@
-use fonttools::font::Table;
-use fonttools::{glyf, gvar, types::tag};
+use fonttools::{
+    font::Table,
+    tables::{glyf, gvar},
+    types::tag,
+};
 use fonttools_cli::{open_font, read_args, save_font};
 
 fn main() {

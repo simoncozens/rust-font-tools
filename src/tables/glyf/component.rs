@@ -190,8 +190,8 @@ impl Deserialize for Component {
 
 #[cfg(test)]
 mod tests {
+    use super::super::Glyph;
     use super::*;
-    use crate::glyf::Glyph;
 
     #[test]
     fn test_glyf_component() {

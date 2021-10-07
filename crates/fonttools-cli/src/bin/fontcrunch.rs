@@ -4,7 +4,7 @@
 //! C++. For more information on the algorithm, [see the fontcrunch repo][repo].
 //!
 //! [repo]: https://github.com/googlefonts/fontcrunch
-use fonttools::glyf::{
+use fonttools::tables::glyf::{
     contourutils::{
         glyf_contour_to_kurbo_contour, kurbo_contour_to_glyf_contour, remove_implied_oncurves,
     },

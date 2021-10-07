@@ -1,7 +1,7 @@
 use clap::{App, Arg};
 use fonttools::font::Table;
+use fonttools::tables::MATH::*;
 use fonttools::types::*;
-use fonttools::MATH::*;
 use fonttools_cli::open_font;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
