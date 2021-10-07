@@ -169,7 +169,7 @@ mod tests {
 
     #[derive(Deserialize, Serialize, Debug, Clone)]
     struct One {
-        #[serde(offset_base)]
+        #[otspec(offset_base)]
         thing: uint16,
         anoffset: Offset16<Two>,
         other: uint16,
@@ -286,14 +286,14 @@ mod tests {
 
     #[derive(Deserialize, Serialize, Debug, Clone)]
     struct HasEmbedding {
-        #[serde(offset_base)]
+        #[otspec(offset_base)]
         thing: uint16,
-        #[serde(embed)]
+        #[otspec(embed)]
         notanoffset: TwoEmbedded,
     }
 
     #[derive(Deserialize, Debug, PartialEq, Serialize, Clone)]
-    #[serde(embedded)]
+    #[otspec(embedded)]
     struct TwoEmbedded {
         test1: uint16,
         deep: Offset16<Three>,
@@ -329,10 +329,10 @@ mod tests {
 
     #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
     struct HasEmbeddingArray {
-        #[serde(offset_base)]
+        #[otspec(offset_base)]
         thing: uint16,
-        #[serde(embed)]
-        #[serde(with = "Counted")]
+        #[otspec(embed)]
+        #[otspec(with = "Counted")]
         pub embed_array: Vec<TwoEmbedded>,
     }
 

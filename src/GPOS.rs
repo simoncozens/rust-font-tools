@@ -90,8 +90,8 @@ impl Deserialize for GPOS {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         #[derive(Debug, Deserialize)]
         struct RawLookupList {
-            #[serde(offset_base)]
-            #[serde(with = "Counted")]
+            #[otspec(offset_base)]
+            #[otspec(with = "Counted")]
             pub lookups: VecOffset16<Lookup<Positioning>>,
         }
 
