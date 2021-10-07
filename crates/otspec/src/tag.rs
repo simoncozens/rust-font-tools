@@ -15,8 +15,8 @@ pub struct Tag([u8; 4]);
 impl Tag {
     /// Attempt to create a `Tag` from raw bytes.
     ///
-    /// If the bytes are known at compile time, you should prefer the
-    /// [`tag`][`tag!`] macro.
+    /// If the bytes are known at compile time, and you are using the `fonttools`
+    /// crate, you should prefer the `tag!` macro.
     ///
     /// The argument may be a slice of bytes, a `&str`, or any other type that
     /// impls `AsRef<[u8]>`.

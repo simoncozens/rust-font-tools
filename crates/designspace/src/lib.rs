@@ -7,14 +7,14 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fs::File;
 use std::path::Path;
-extern crate fonttools;
+
 use fonttools::avar::{avar, SegmentMap};
 use fonttools::font::{Font, Table};
 use fonttools::fvar::{fvar, InstanceRecord, VariationAxisRecord};
 use fonttools::name::NameRecord;
 use fonttools::otvar::Location as OTVarLocation;
 use fonttools::otvar::{NormalizedLocation, VariationModel};
-use otspec::types::{tag, Tag};
+use fonttools::{tag, types::Tag};
 pub use serde_xml_rs::from_reader;
 
 #[cfg(feature = "norad")]

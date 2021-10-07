@@ -1,15 +1,11 @@
 #![allow(missing_docs)]
-use crate::avar;
-use crate::avar::SegmentMap;
-use crate::font::Font;
-use crate::font::Table;
+use crate::avar::{self, SegmentMap};
+use crate::font::{Font, Table};
 use crate::fvar;
 use crate::glyf;
-use crate::gvar;
-use crate::gvar::{Coords, DeltaSet, GlyphVariationData};
+use crate::gvar::{self, Coords, DeltaSet, GlyphVariationData};
 use crate::otvar::support_scalar;
-use crate::types::Tag;
-use otspec::types::*;
+use crate::{tag, types::*};
 use std::collections::BTreeMap;
 
 type Location = BTreeMap<Tag, f32>;

@@ -9,9 +9,9 @@
 //! # // we need an explicit main fn to use macros:
 //! # #[macro_use] extern crate otspec;
 //! # fn main() {
+//! use fonttools::tag;
 //! use fonttools::font::{self, Font, Table};
 //! use fonttools::name::{name, NameRecord, NameRecordID};
-//! use otspec::types::tag;
 //!
 //! // Load a font (tables are lazy-loaded)
 //! let mut myfont = Font::load("Test.otf").expect("Could not load font");
@@ -87,3 +87,7 @@ pub mod post;
 pub mod utils;
 
 pub use otspec::types;
+pub use otspec_macros::tag;
+
+// lets us use the tag! macro from otspec_macros within this crate
+extern crate self as fonttools;

@@ -8,6 +8,7 @@ use crate::maxp::maxp;
 use crate::name::name;
 use crate::os2::os2;
 use crate::post::post;
+use crate::tag;
 use crate::GDEF::GDEF;
 use crate::GPOS::GPOS;
 use crate::GSUB::GSUB;
@@ -650,11 +651,9 @@ mod tests {
 
     use crate::head::head;
     use crate::hhea::hhea;
-    use crate::{font, maxp};
-    use otspec::types::U16F16;
-
+    use crate::{font, maxp, tag};
     use otspec::ser;
-    use otspec::types::*;
+    use otspec::types::U16F16;
 
     #[test]
     fn test_checksum() {

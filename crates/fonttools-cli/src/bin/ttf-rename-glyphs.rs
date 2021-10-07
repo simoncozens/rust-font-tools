@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use fonttools::{font::Table, types::tag};
+use fonttools::{font::Table, tag};
 use fonttools_cli::{open_font, save_font};
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashSet};

@@ -258,6 +258,7 @@ impl Serialize for GSUB {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tag;
     use pretty_assertions::assert_eq;
     use std::collections::BTreeMap;
     use std::iter::FromIterator;

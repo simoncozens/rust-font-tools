@@ -1,7 +1,8 @@
 use clap::{App, Arg};
 use fonttools::font::{Font, Table};
+use fonttools::tag;
 use fonttools::MATH::MATHinternal;
-use otspec::types::{tag, Offset16, OffsetMarkerTrait};
+use otspec::types::{Offset16, OffsetMarkerTrait};
 use petgraph::dot::{Config, Dot};
 use petgraph::graph::{Graph, NodeIndex};
 

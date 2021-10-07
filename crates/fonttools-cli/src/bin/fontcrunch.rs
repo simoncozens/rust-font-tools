@@ -10,7 +10,7 @@ use fonttools::glyf::{
     },
     Glyph,
 };
-use fonttools::{font::Table, types::tag};
+use fonttools::{font::Table, tag};
 use fonttools_cli::{open_font, read_args, save_font};
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use kurbo::{BezPath, PathSeg, Point, QuadBez};

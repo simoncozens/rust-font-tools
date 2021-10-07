@@ -385,7 +385,7 @@ impl AxisValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::btreemap;
+    use crate::{btreemap, tag};
     use pretty_assertions::assert_eq;
     use std::iter::FromIterator;
     #[test]
