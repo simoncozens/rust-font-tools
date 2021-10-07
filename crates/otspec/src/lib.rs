@@ -155,7 +155,7 @@ pub trait Deserialize {
         Self: std::marker::Sized;
 }
 
-macro_rules! serde_primitive {
+macro_rules! otspec_primitive {
     ($t: ty) => {
         impl Serialize for $t {
             fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
@@ -181,13 +181,13 @@ macro_rules! serde_primitive {
     };
 }
 
-serde_primitive!(i8);
-serde_primitive!(u8);
-serde_primitive!(u16);
-serde_primitive!(u32);
-serde_primitive!(i16);
-serde_primitive!(i32);
-serde_primitive!(i64);
+otspec_primitive!(i8);
+otspec_primitive!(u8);
+otspec_primitive!(u16);
+otspec_primitive!(u32);
+otspec_primitive!(i16);
+otspec_primitive!(i32);
+otspec_primitive!(i64);
 
 impl<T> Serialize for Option<T>
 where

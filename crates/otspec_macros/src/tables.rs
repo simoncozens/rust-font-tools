@@ -115,9 +115,10 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
     let mut out_s = String::new();
 
     loop {
-        let mut do_debug = true;
-        let mut do_serialize = true;
-        let mut do_deserialize = true;
+        let mut do_debug = "Debug,";
+        let mut do_serialize = "otspec_macros::Serialize,";
+        let mut do_deserialize = "otspec_macros::Deserialize,";
+        let mut embed_attr = "";
         // First parse table name
         let maybe_table_name = iter.next();
         if maybe_table_name.is_none() {
@@ -130,13 +131,13 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
             let next = iter.peek();
             if let Some(pragma) = has_pragma(&next) {
                 if pragma == "[embedded]" {
-                    out_s.push_str("#[serde(embedded)]");
+                    embed_attr = "#[otspec(embedded)]";
                 } else if pragma == "[nodebug]" {
-                    do_debug = false;
+                    do_debug = "";
                 } else if pragma == "[noserialize]" {
-                    do_serialize = false;
+                    do_serialize = "";
                 } else if pragma == "[nodeserialize]" {
-                    do_deserialize = false;
+                    do_deserialize = "";
                 } else {
                     panic!("Unknown pragma '{:?}'", pragma);
                 }
@@ -150,19 +151,9 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
             "/// Low-level structure used for serializing/deserializing table\n\
             #[allow(missing_docs, non_snake_case, non_camel_case_types)]\n\
             #[derive({} {} {} PartialEq, Clone)]\n\
+            {}\n\
             pub struct {} {{",
-            if do_serialize {
-                "otspec_macros::Serialize,"
-            } else {
-                ""
-            },
-            if do_deserialize {
-                "otspec_macros::Deserialize,"
-            } else {
-                ""
-            },
-            if do_debug { "Debug," } else { "" },
-            table_name,
+            do_serialize, do_deserialize, do_debug, embed_attr, table_name,
         ));
 
         let mut table_def = expect_group(iter.next(), Delimiter::Brace).into_iter();
@@ -174,9 +165,9 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
             }
             if let Some(pragma) = has_pragma(&maybe_t.as_ref()) {
                 if pragma == "[offset_base]" {
-                    out_s.push_str("#[serde(offset_base)]");
+                    out_s.push_str("#[otspec(offset_base)]");
                 } else if pragma == "[embed]" {
-                    out_s.push_str("#[serde(embed)]");
+                    out_s.push_str("#[otspec(embed)]");
                 } else {
                     panic!("Unknown pragma '{:?}'", pragma);
                 }
@@ -198,7 +189,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .unwrap()
                     .to_string();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&"#[serde(with = \"Counted\")]\n".to_string());
+                out_s.push_str(&"#[otspec(with = \"Counted\")]\n".to_string());
                 out_s.push_str(&format!("pub {} : Vec<{}>,\n", name, subtype))
             } else if t == "Counted32" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
@@ -207,7 +198,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .unwrap()
                     .to_string();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&"#[serde(with = \"Counted32\")]\n".to_string());
+                out_s.push_str(&"#[otspec(with = \"Counted32\")]\n".to_string());
                 out_s.push_str(&format!("pub {} : Vec<{}>,\n", name, subtype))
             } else if t == "Offset16" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
@@ -232,7 +223,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .unwrap()
                     .to_string();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&"#[serde(with = \"Counted\")]\n".to_string());
+                out_s.push_str(&"#[otspec(with = \"Counted\")]\n".to_string());
                 out_s.push_str(&format!("pub {} : VecOffset16<{}>,\n", name, subtype))
             } else if t == "CountedOffset32" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
@@ -241,10 +232,10 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .unwrap()
                     .to_string();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&"#[serde(with = \"Counted\")]\n".to_string());
+                out_s.push_str(&"#[otspec(with = \"Counted\")]\n".to_string());
                 out_s.push_str(&format!("pub {} : VecOffset32<{}>,\n", name, subtype))
             } else if let Some(nonspecial_type) = special_type(&t) {
-                out_s.push_str(&format!("#[serde(with = \"{}\")]\n", t));
+                out_s.push_str(&format!("#[otspec(with = \"{}\")]\n", t));
                 let name = expect_ident(table_def.next());
                 out_s.push_str(&format!("pub {} : {},\n", name, nonspecial_type))
             } else {

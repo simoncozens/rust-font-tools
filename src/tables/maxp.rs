@@ -51,7 +51,7 @@ impl Serialize for MaxpVariant {
 #[derive(Debug, Serialize, PartialEq)]
 pub struct maxp {
     /// The version number as a fixed U16F16 value (for ease of serialization)
-    #[serde(with = "Version16Dot16")]
+    #[otspec(with = "Version16Dot16")]
     pub version: U16F16,
     /// Either a maxp 0.5 table or a maxp 1.0 table
     pub table: MaxpVariant,

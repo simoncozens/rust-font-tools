@@ -14,7 +14,7 @@ use crate::utils::is_all_the_same;
 // have serialized elsewhere.
 #[derive(Debug, Clone, PartialEq, Serialize, Default)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
-#[serde(embedded)]
+#[otspec(embedded)]
 pub struct ValueRecord {
     // This is *not* an offset base!!!
     pub xPlacement: Option<int16>,

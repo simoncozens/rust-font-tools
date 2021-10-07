@@ -91,8 +91,8 @@ impl Deserialize for GSUB {
 
         #[derive(Debug, Deserialize)]
         struct RawLookupList {
-            #[serde(offset_base)]
-            #[serde(with = "Counted")]
+            #[otspec(offset_base)]
+            #[otspec(with = "Counted")]
             lookups: VecOffset16<Lookup<Substitution>>,
         }
 
