@@ -27,7 +27,7 @@ fn to_compile_errors(errors: Vec<syn::Error>) -> proc_macro2::TokenStream {
     quote!(#(#compile_errors)*)
 }
 
-#[proc_macro_derive(Serialize, attributes(serde))]
+#[proc_macro_derive(Serialize, attributes(otspec))]
 pub fn derive_serialize(input: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(input as DeriveInput);
     ser::expand_derive_serialize(&mut input)
@@ -35,7 +35,7 @@ pub fn derive_serialize(input: TokenStream) -> TokenStream {
         .into()
 }
 
-#[proc_macro_derive(Deserialize, attributes(serde))]
+#[proc_macro_derive(Deserialize, attributes(otspec))]
 pub fn derive_deserialize(input: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(input as DeriveInput);
     de::expand_derive_deserialize(&mut input)

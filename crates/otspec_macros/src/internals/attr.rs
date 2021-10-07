@@ -9,7 +9,7 @@ use syn::parse::{self, Parse};
 use syn::Meta::{List, NameValue, Path};
 use syn::NestedMeta::{Lit, Meta};
 
-// This module handles parsing of `#[serde(...)]` attributes. The entrypoints
+// This module handles parsing of `#[otspec(...)]` attributes. The entrypoints
 // are `attr::Container::from_ast`, `attr::Variant::from_ast`, and
 // `attr::Field::from_ast`. Each returns an instance of the corresponding
 // struct. Note that none of them return a Result. Unrecognized, malformed, or
@@ -36,8 +36,10 @@ impl<'c, T> Attr<'c, T> {
         let tokens = obj.into_token_stream();
 
         if self.value.is_some() {
-            self.cx
-                .error_spanned_by(tokens, format!("duplicate serde attribute `{}`", self.name));
+            self.cx.error_spanned_by(
+                tokens,
+                format!("duplicate otspec attribute `{}`", self.name),
+            );
         } else {
             self.value = Some(value);
         }
@@ -70,13 +72,13 @@ pub struct Container {
 }
 
 impl Container {
-    /// Extract out the `#[serde(...)]` attributes from an item.
+    /// Extract out the `#[otspec(...)]` attributes from an item.
     pub fn from_ast(cx: &Ctxt, item: &syn::DeriveInput) -> Self {
         let mut is_embedded = false;
         for meta_item in item
             .attrs
             .iter()
-            .flat_map(|attr| get_serde_meta_items(cx, attr))
+            .flat_map(|attr| get_otspec_meta_items(cx, attr))
             .flatten()
         {
             match &meta_item {
@@ -91,13 +93,13 @@ impl Container {
                     } else {
                         cx.error_spanned_by(
                             meta_item.path(),
-                            format!("unknown serde container attribute `{}`", path),
+                            format!("unknown otspec container attribute `{}`", path),
                         );
                     }
                 }
 
                 Lit(lit) => {
-                    cx.error_spanned_by(lit, "unexpected literal in serde container attribute");
+                    cx.error_spanned_by(lit, "unexpected literal in otspec container attribute");
                 }
             }
         }
@@ -124,7 +126,7 @@ pub struct Field {
 }
 
 impl Field {
-    /// Extract out the `#[serde(...)]` attributes from a struct field.
+    /// Extract out the `#[otspec(...)]` attributes from a struct field.
     pub fn from_ast(
         cx: &Ctxt,
         _index: usize,
@@ -140,25 +142,25 @@ impl Field {
         for meta_item in field
             .attrs
             .iter()
-            .flat_map(|attr| get_serde_meta_items(cx, attr))
+            .flat_map(|attr| get_otspec_meta_items(cx, attr))
             .flatten()
         {
             match &meta_item {
-                // Parse `#[serde(serialize_with = "...")]`
+                // Parse `#[otspec(serialize_with = "...")]`
                 Meta(NameValue(m)) if m.path == SERIALIZE_WITH => {
                     if let Ok(path) = parse_lit_into_expr_path(cx, SERIALIZE_WITH, &m.lit) {
                         serialize_with.set(&m.path, path);
                     }
                 }
 
-                // Parse `#[serde(deserialize_with = "...")]`
+                // Parse `#[otspec(deserialize_with = "...")]`
                 Meta(NameValue(m)) if m.path == DESERIALIZE_WITH => {
                     if let Ok(path) = parse_lit_into_expr_path(cx, DESERIALIZE_WITH, &m.lit) {
                         deserialize_with.set(&m.path, path);
                     }
                 }
 
-                // Parse `#[serde(with = "...")]`
+                // Parse `#[otspec(with = "...")]`
                 Meta(NameValue(m)) if m.path == WITH => {
                     if let Ok(path) = parse_lit_into_expr_path(cx, WITH, &m.lit) {
                         let ser_path = path.clone();
@@ -168,12 +170,12 @@ impl Field {
                     }
                 }
 
-                // Parse `#[serde(offset_base)]`
+                // Parse `#[otspec(offset_base)]`
                 Meta(Path(word)) if word == OFFSET_BASE => {
                     offset_base.set_true(word);
                 }
 
-                // Parse `#[serde(offset_base)]`
+                // Parse `#[otspec(offset_base)]`
                 Meta(Path(word)) if word == EMBED => {
                     embedded.set_true(word);
                 }
@@ -186,12 +188,12 @@ impl Field {
                         .replace(' ', "");
                     cx.error_spanned_by(
                         meta_item.path(),
-                        format!("unknown serde field attribute `{}`", path),
+                        format!("unknown otspec field attribute `{}`", path),
                     );
                 }
 
                 Lit(lit) => {
-                    cx.error_spanned_by(lit, "unexpected literal in serde field attribute");
+                    cx.error_spanned_by(lit, "unexpected literal in otspec field attribute");
                 }
             }
         }
@@ -213,15 +215,15 @@ impl Field {
     }
 }
 
-pub fn get_serde_meta_items(cx: &Ctxt, attr: &syn::Attribute) -> Result<Vec<syn::NestedMeta>, ()> {
-    if attr.path != SERDE {
+pub fn get_otspec_meta_items(cx: &Ctxt, attr: &syn::Attribute) -> Result<Vec<syn::NestedMeta>, ()> {
+    if attr.path != OTSPEC {
         return Ok(Vec::new());
     }
 
     match attr.parse_meta() {
         Ok(List(meta)) => Ok(meta.nested.into_iter().collect()),
         Ok(other) => {
-            cx.error_spanned_by(other, "expected #[serde(...)]");
+            cx.error_spanned_by(other, "expected #[otspec(...)]");
             Err(())
         }
         Err(err) => {
@@ -247,7 +249,7 @@ fn get_lit_str2<'a>(
         cx.error_spanned_by(
             lit,
             format!(
-                "expected serde {} attribute to be a string: `{} = \"...\"`",
+                "expected otspec {} attribute to be a string: `{} = \"...\"`",
                 attr_name, meta_item_name
             ),
         );

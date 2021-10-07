@@ -16,20 +16,20 @@ use crate::format_switching_lookup;
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct PairPosFormat1 {
-    #[serde(offset_base)]
+    #[otspec(offset_base)]
     pub posFormat: uint16,
     pub coverage: Offset16<Coverage>,
     pub valueFormat1: ValueRecordFlags,
     pub valueFormat2: ValueRecordFlags,
-    #[serde(with = "Counted")]
+    #[otspec(with = "Counted")]
     pub pairSets: VecOffset16<PairSet>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct PairSet {
-    #[serde(offset_base)]
-    #[serde(with = "Counted")]
+    #[otspec(offset_base)]
+    #[otspec(with = "Counted")]
     pub pairValueRecords: Vec<PairValueRecord>,
 }
 
@@ -37,16 +37,16 @@ pub struct PairSet {
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct PairValueRecord {
     pub secondGlyph: uint16,
-    #[serde(embed)]
+    #[otspec(embed)]
     pub valueRecord1: ValueRecord,
-    #[serde(embed)]
+    #[otspec(embed)]
     pub valueRecord2: ValueRecord,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct PairPosFormat2 {
-    #[serde(offset_base)]
+    #[otspec(offset_base)]
     pub posFormat: uint16,
     pub coverage: Offset16<Coverage>,
     pub valueFormat1: ValueRecordFlags,
@@ -67,9 +67,9 @@ pub struct Class1Record {
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct Class2Record {
-    #[serde(embed)]
+    #[otspec(embed)]
     pub valueRecord1: ValueRecord,
-    #[serde(embed)]
+    #[otspec(embed)]
     pub valueRecord2: ValueRecord,
 }
 
