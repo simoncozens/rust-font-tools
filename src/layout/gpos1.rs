@@ -30,22 +30,22 @@ facilitate serialization.
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct SinglePosFormat1 {
-    #[serde(offset_base)]
+    #[otspec(offset_base)]
     pub posFormat: uint16,
     pub coverage: Offset16<Coverage>,
     pub valueFormat: ValueRecordFlags,
-    #[serde(embed)]
+    #[otspec(embed)]
     pub valueRecord: ValueRecord,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct SinglePosFormat2 {
-    #[serde(offset_base)]
+    #[otspec(offset_base)]
     pub posFormat: uint16,
     pub coverage: Offset16<Coverage>,
     pub valueFormat: ValueRecordFlags,
-    #[serde(with = "Counted")]
+    #[otspec(with = "Counted")]
     pub valueRecords: Vec<ValueRecord>,
 }
 

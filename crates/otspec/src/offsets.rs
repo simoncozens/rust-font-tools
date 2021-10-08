@@ -411,7 +411,7 @@ mod tests {
 
     #[derive(Deserialize, Debug, PartialEq, Serialize, Clone)]
     struct Two {
-        #[serde(offset_base)]
+        #[otspec(offset_base)]
         test1: uint16,
         deep: Offset16<Three>,
         test2: uint16,

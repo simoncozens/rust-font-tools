@@ -124,13 +124,13 @@ impl Deserialize for SequenceContextFormat3 {
 #[allow(missing_docs, non_snake_case)]
 #[derive(Debug, Serialize, Clone, PartialEq)]
 pub struct ChainedSequenceRule {
-    #[serde(with = "Counted")]
+    #[otspec(with = "Counted")]
     pub backtrackSequence: Vec<uint16>,
     pub inputGlyphCount: uint16,
     pub inputSequence: Vec<uint16>,
-    #[serde(with = "Counted")]
+    #[otspec(with = "Counted")]
     pub lookaheadSequence: Vec<uint16>,
-    #[serde(with = "Counted")]
+    #[otspec(with = "Counted")]
     pub seqLookupRecords: Vec<SequenceLookupRecord>,
 }
 

@@ -7,7 +7,7 @@ pub struct Symbol(&'static str);
 pub const DESERIALIZE_WITH: Symbol = Symbol("deserialize_with");
 pub const OFFSET_BASE: Symbol = Symbol("offset_base");
 pub const EMBED: Symbol = Symbol("embed");
-pub const SERDE: Symbol = Symbol("serde");
+pub const OTSPEC: Symbol = Symbol("otspec");
 pub const SERIALIZE_WITH: Symbol = Symbol("serialize_with");
 pub const SKIP_DESERIALIZING: Symbol = Symbol("skip_deserializing");
 pub const WITH: Symbol = Symbol("with");
