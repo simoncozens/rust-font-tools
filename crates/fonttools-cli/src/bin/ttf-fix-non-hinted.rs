@@ -4,8 +4,7 @@ Improve the appearance of an unhinted font on Win platforms by:
       for all sizes.
     - Add a new prep table which is optimized for unhinted fonts.
 */
-use fonttools::gasp;
-use fonttools::{font::Table, types::tag};
+use fonttools::{font::Table, tables::gasp, types::tag};
 use fonttools_cli::{open_font, read_args, save_font};
 
 fn main() {

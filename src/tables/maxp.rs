@@ -141,29 +141,26 @@ impl Deserialize for maxp {
 
 #[cfg(test)]
 mod tests {
-    use crate::maxp;
-
-    use otspec::ser;
-    use otspec::types::U16F16;
+    use otspec::{ser, types::U16F16};
 
     #[test]
     fn maxp_ser_v05() {
-        let v = maxp::maxp {
+        let v = super::maxp {
             version: U16F16::from_num(0.5),
-            table: maxp::MaxpVariant::Maxp05(maxp::maxp05 { numGlyphs: 935 }),
+            table: super::MaxpVariant::Maxp05(super::maxp05 { numGlyphs: 935 }),
         };
         let binary_maxp = ser::to_bytes(&v).unwrap();
         let maxp_expectation = vec![0x00, 0x00, 0x50, 0x00, 0x03, 0xa7];
         assert_eq!(binary_maxp, maxp_expectation);
-        // let deserialized: maxp::maxp = otspec::de::from_bytes(&binary_maxp).unwrap();
+        // let deserialized: super::maxp = otspec::de::from_bytes(&binary_maxp).unwrap();
         // assert_eq!(deserialized, v);
     }
 
     #[test]
     fn maxp_ser_v10() {
-        let v = maxp::maxp {
+        let v = super::maxp {
             version: U16F16::from_num(1.0),
-            table: maxp::MaxpVariant::Maxp10(maxp::maxp10 {
+            table: super::MaxpVariant::Maxp10(super::maxp10 {
                 numGlyphs: 1117,
                 maxPoints: 98,
                 maxContours: 7,
@@ -191,12 +188,12 @@ mod tests {
 
     #[test]
     fn maxp_de_v05() {
-        let v = maxp::maxp {
+        let v = super::maxp {
             version: U16F16::from_num(0.5),
-            table: maxp::MaxpVariant::Maxp05(maxp::maxp05 { numGlyphs: 935 }),
+            table: super::MaxpVariant::Maxp05(super::maxp05 { numGlyphs: 935 }),
         };
         let binary_maxp = vec![0x00, 0x00, 0x50, 0x00, 0x03, 0xa7];
-        let deserialized: maxp::maxp = otspec::de::from_bytes(&binary_maxp).unwrap();
+        let deserialized: super::maxp = otspec::de::from_bytes(&binary_maxp).unwrap();
         assert_eq!(deserialized, v);
     }
 }

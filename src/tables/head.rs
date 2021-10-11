@@ -60,12 +60,11 @@ impl head {
 
 #[cfg(test)]
 mod tests {
-    use crate::head::head;
     use otspec::ser;
 
     #[test]
     fn head_ser() {
-        let fhead = head {
+        let fhead = super::head {
             majorVersion: 1,
             minorVersion: 0,
             fontRevision: 1.0,
@@ -96,7 +95,7 @@ mod tests {
 
     #[test]
     fn head_de() {
-        let fhead = head {
+        let fhead = super::head {
             majorVersion: 1,
             minorVersion: 0,
             fontRevision: 1.0,
@@ -122,7 +121,7 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0xdc, 0x9c, 0x8a, 0x29, 0x00, 0x09, 0x00, 0x00, 0x02, 0x50,
             0x03, 0xe8, 0x00, 0x00, 0x00, 0x06, 0x00, 0x02, 0x00, 0x01, 0x00, 0x00,
         ];
-        let deserialized: head = otspec::de::from_bytes(&binary_head).unwrap();
+        let deserialized: super::head = otspec::de::from_bytes(&binary_head).unwrap();
         assert_eq!(deserialized, fhead);
     }
 }

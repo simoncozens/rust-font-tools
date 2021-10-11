@@ -10,7 +10,7 @@
 //! # #[macro_use] extern crate otspec;
 //! # fn main() {
 //! use fonttools::font::{self, Font, Table};
-//! use fonttools::name::{name, NameRecord, NameRecordID};
+//! use fonttools::tables::name::{name, NameRecord, NameRecordID};
 //! use otspec::types::tag;
 //!
 //! // Load a font (tables are lazy-loaded)
@@ -35,54 +35,14 @@
 //! the [font] module as the entry point to creating, parsing and
 //! saving an OpenType font.
 
-/// The `GDEF` (Glyph definition) table
-#[allow(non_snake_case)]
-pub mod GDEF;
-/// The `GPOS` (Glyph positioning) table
-#[allow(non_snake_case)]
-pub mod GPOS;
-/// The `GSUB` (Glyph substitution) table
-#[allow(non_snake_case)]
-pub mod GSUB;
-/// The `MATH` (Mathematical typesetting) table
-#[allow(non_snake_case)]
-pub mod MATH;
-/// The `STAT` (Style attributes) table
-#[allow(non_snake_case)]
-pub mod STAT;
-/// The `avar` (Axis variations) table
-pub mod avar;
-/// The `cmap` (Character To Glyph Index Mapping) table
-pub mod cmap;
 /// The main font object. Start here.
 pub mod font;
-/// The `fvar` (Font variations) table
-pub mod fvar;
-/// The `gasp` (Grid-fitting and Scan-conversion Procedure) table
-pub mod gasp;
-/// The `glyf` (Glyf data) table
-pub mod glyf;
-/// The `gvar` (Glyph variations) table
-pub mod gvar;
-/// The `head` (Header) table
-pub mod head;
-/// The `hhea` (Horizontal header) table
-pub mod hhea;
-/// The `hmtx` (Horizontal metrics) table
-pub mod hmtx;
 /// OpenType Layout common tables
 pub mod layout;
-mod loca;
-/// The `maxp` (Maximum profile) table
-pub mod maxp;
-/// The `name` (Naming) table
-pub mod name;
-/// The `OS/2` (OS/2 and Windows Metrics) table
-pub mod os2;
 /// OpenType Variations common tables
 pub mod otvar;
-/// The `post` (PostScript) table
-pub mod post;
+/// OpenType table definitions.
+pub mod tables;
 /// Useful utilities
 pub mod utils;
 

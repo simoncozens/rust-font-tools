@@ -222,11 +222,11 @@ impl Serialize for name {
 
 #[cfg(test)]
 mod tests {
-    use crate::name;
-    use crate::name::NameRecord;
+    use super::*;
+
     #[test]
-    fn name_serde() {
-        let fname = name::name {
+    fn name_otspec() {
+        let fname = super::name {
             records: vec![
                 NameRecord {
                     platformID: 1,
@@ -284,7 +284,7 @@ mod tests {
             0x00, 0x65, 0x00, 0x69, 0x00, 0x67, 0x00, 0x68, 0x00, 0x74, 0x00, 0x73, 0x00, 0x6c,
             0x00, 0x61, 0x00, 0x6e, 0x00, 0x74,
         ];
-        let deserialized: name::name = otspec::de::from_bytes(&binary_name).unwrap();
+        let deserialized: super::name = otspec::de::from_bytes(&binary_name).unwrap();
         let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
         assert_eq!(deserialized, fname);
         assert_eq!(serialized, binary_name);

@@ -1,6 +1,6 @@
-use crate::glyf::component::{Component, ComponentFlags};
-use crate::glyf::contourutils;
-use crate::glyf::point::Point;
+use super::component::{Component, ComponentFlags};
+use super::contourutils;
+use super::point::Point;
 use bitflags::bitflags;
 use itertools::izip;
 use otspec::types::*;

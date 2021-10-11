@@ -1,4 +1,4 @@
-use crate::maxp::maxp;
+use super::maxp::maxp;
 use otspec::{DeserializationError, Deserializer, ReaderContext};
 
 /// Structures for handling components within a composite glyph
@@ -196,10 +196,8 @@ impl glyf {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::font;
-    use crate::glyf;
-    use crate::glyf::ComponentFlags;
-    use crate::glyf::Point;
 
     #[test]
     fn glyf_de() {
@@ -239,9 +237,9 @@ mod tests {
             0x1e, 0x36, 0x25, 0x25, 0x35, 0x35, 0x25, 0x25, 0x36, 0xc8, 0x25, 0x35, 0x35, 0x25,
             0x25, 0x36, 0x36, 0x25,
         ];
-        let deserialized = otspec::de::from_bytes::<glyf::Glyph>(&binary_glyf).unwrap();
+        let deserialized = otspec::de::from_bytes::<Glyph>(&binary_glyf).unwrap();
         #[rustfmt::skip]
-        let glyph = glyf::Glyph {
+        let glyph = Glyph {
             xMin: 20, xMax: 567, yMin: 0, yMax: 290,
             contours: vec![
                 vec![
@@ -407,7 +405,7 @@ mod tests {
         */
         let cap_a = &glyf.glyphs[0];
         #[rustfmt::skip]
-        assert_eq!(cap_a, &glyf::Glyph {
+        assert_eq!(cap_a, &Glyph {
             xMin:5, yMin:0, xMax: 751, yMax:700,
             contours: vec![
                 vec![
@@ -443,7 +441,7 @@ mod tests {
         let aacute = &glyf.glyphs[1];
         assert_eq!(
             aacute.components[0],
-            glyf::Component {
+            Component {
                 glyph_index: 0,
                 transformation: kurbo::Affine::new([1.0, 0.0, 0.0, 1.0, 0.0, 0.0]),
                 match_points: None,
@@ -456,11 +454,11 @@ mod tests {
         #[rustfmt::skip]
         assert_eq!(
             aacute.components[1],
-            glyf::Component {
+            Component {
                 glyph_index: 7,
                 transformation: kurbo::Affine::new([1.0, 0.0, 0.0, 1.0, 402.0, 130.0]),
                 match_points: None,
-                flags: glyf::ComponentFlags::ROUND_XY_TO_GRID
+                flags: ComponentFlags::ROUND_XY_TO_GRID
                     | ComponentFlags::ARGS_ARE_XY_VALUES
                     | ComponentFlags::ARG_1_AND_2_ARE_WORDS
             }
@@ -495,7 +493,7 @@ mod tests {
     #[test]
     fn test_insert_implicit_oncurves() {
         #[rustfmt::skip]
-        let mut glyph = glyf::Glyph {
+        let mut glyph = Glyph {
             xMin: 30, xMax: 634, yMin: -10, yMax: 710,
             components: vec![],
             instructions: vec![],
