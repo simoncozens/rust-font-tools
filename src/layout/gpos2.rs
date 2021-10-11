@@ -1,7 +1,6 @@
 use crate::layout::classdef::ClassDef;
 use crate::layout::coverage::Coverage;
-use crate::layout::valuerecord::highest_format;
-use crate::layout::valuerecord::{ValueRecord, ValueRecordFlags};
+use crate::layout::valuerecord::{highest_format, ValueRecord, ValueRecordFlags};
 
 use otspec::types::*;
 use otspec::Serialize;
@@ -116,7 +115,23 @@ impl Deserialize for PairPos {
                 }
             }
             2 => {
-                unimplemented!()
+                let class_def_1: Offset16<ClassDef> = c.de()?;
+                let class_def_2: Offset16<ClassDef> = c.de()?;
+                let class1_count: uint16 = c.de()?;
+                let class2_count: uint16 = c.de()?;
+                for c1 in 0..class1_count {
+                    for c2 in 0..class2_count {
+                        let mut vr1 = ValueRecord::from_bytes(c, value_format1)?;
+                        vr1.simplify();
+                        let mut vr2 = ValueRecord::from_bytes(c, value_format2)?;
+                        vr2.simplify();
+                        if !(vr1.has_any() || vr2.has_any()) {
+                            continue;
+                        }
+                        // Oh hell, we don't know what glyphs are in class 0. :-(
+                        unimplemented!()
+                    }
+                }
             }
             _ => panic!("Bad pair pos format {:?}", format),
         }
