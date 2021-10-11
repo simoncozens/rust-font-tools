@@ -4,21 +4,19 @@
 
 use std::collections::HashMap;
 use std::fs::File;
+use std::path::Path;
 
-use otspec::types::{tag, Tag};
+use fonttools::otvar::{Location as OTVarLocation, NormalizedLocation, VariationModel};
+use fonttools::tag;
+use fonttools::types::Tag;
 use serde::{Deserialize, Serialize};
 pub use serde_xml_rs::from_reader;
 
-use fonttools::{
-    font::{Font, Table},
-    otvar::{Location as OTVarLocation, NormalizedLocation, VariationModel},
-    tables::{
-        self,
-        avar::{avar, SegmentMap},
-        fvar::{fvar, InstanceRecord, VariationAxisRecord},
-        name::NameRecord,
-    },
-};
+use fonttools::font::{Font, Table};
+use fonttools::tables;
+use fonttools::tables::avar::{avar, SegmentMap};
+use fonttools::tables::fvar::{fvar, InstanceRecord, VariationAxisRecord};
+use fonttools::tables::name::NameRecord;
 
 /// Loads and parses a designspace file
 pub fn from_file(filename: &str) -> Result<Designspace, serde_xml_rs::Error> {

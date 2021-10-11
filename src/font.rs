@@ -1,7 +1,9 @@
 use crate::tables::{self, glyf, gvar, hmtx, loca};
+use crate::tag;
+use otspec::types::*;
 use otspec::{
-    ser, types::*, DeserializationError, Deserialize, Deserializer, ReaderContext,
-    SerializationError, Serialize, Serializer,
+    ser, DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError,
+    Serialize, Serializer,
 };
 use otspec_macros::{Deserialize, Serialize};
 
@@ -633,6 +635,7 @@ mod tests {
     use crate::tables::head::head;
     use crate::tables::hhea::hhea;
     use crate::tables::maxp;
+    use crate::tag;
     use otspec::types::U16F16;
 
     #[test]

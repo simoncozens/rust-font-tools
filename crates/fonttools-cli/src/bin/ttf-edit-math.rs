@@ -1,6 +1,7 @@
 use clap::{App, Arg};
 use fonttools::font::Table;
 use fonttools::tables::MATH::*;
+use fonttools::tag;
 use fonttools::types::*;
 use fonttools_cli::open_font;
 use serde::Serialize;

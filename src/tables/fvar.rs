@@ -144,8 +144,8 @@ impl Serialize for fvar {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use otspec::types::tag;
+    use crate::tables::fvar::{self, InstanceRecord};
+    use crate::tag;
 
     #[test]
     fn fvar_de() {

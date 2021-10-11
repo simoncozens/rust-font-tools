@@ -196,8 +196,8 @@ impl glyf {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::font;
+    use crate::tables::glyf::{Component, ComponentFlags, Glyph, Point};
+    use crate::{font, tag};
 
     #[test]
     fn glyf_de() {
@@ -376,7 +376,7 @@ mod tests {
         let mut deserialized: font::Font = otspec::de::from_bytes(&binary_font).unwrap();
         deserialized.fully_deserialize();
         let glyf = deserialized
-            .get_table(otspec::types::tag!("glyf"))
+            .get_table(tag!("glyf"))
             .unwrap()
             .unwrap()
             .glyf_unchecked();

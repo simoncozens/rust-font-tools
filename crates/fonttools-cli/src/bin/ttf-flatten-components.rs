@@ -1,4 +1,4 @@
-use fonttools::{font::Table, types::tag};
+use fonttools::{font::Table, tag};
 use fonttools_cli::{open_font, read_args, save_font};
 
 fn main() {

@@ -24,7 +24,7 @@ fn expand_tag_impl(item: TokenStream) -> Result<TokenStream, SyntaxError> {
     let padding = 4 - input.len();
     let padding = &"    "[..padding];
     let tag_lit = format!(
-        "unsafe {{ otspec::types::Tag::from_raw_unchecked(*b\"{}{}\") }}",
+        "unsafe {{ fonttools::types::Tag::from_raw_unchecked(*b\"{}{}\") }}",
         input, padding
     );
     Ok(tag_lit.parse().unwrap())

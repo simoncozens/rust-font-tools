@@ -376,6 +376,7 @@ impl Serialize for LookupListOutgoing {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tag;
     use otspec::offsetmanager::OffsetManager;
     use std::iter::FromIterator;
 

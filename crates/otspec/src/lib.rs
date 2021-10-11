@@ -3,7 +3,7 @@
 extern crate shrinkwraprs;
 
 // necessary for us to use macros defined in otspec_macros
-extern crate self as otspec;
+extern crate self as _tag_macro_crate;
 
 use crate::types::*;
 use std::convert::TryInto;
@@ -339,7 +339,7 @@ mod tests {
 
     #[test]
     fn ser_tag() {
-        let t = tag!("GSUB");
+        let t = Tag::from_raw("GSUB").unwrap();
         let mut out = vec![];
         out.put(t).unwrap();
         assert_eq!(out, [0x47, 0x53, 0x55, 0x42]);
@@ -349,7 +349,7 @@ mod tests {
     fn de_tag() {
         let mut rc = ReaderContext::new(vec![0x47, 0x53, 0x55, 0x42]);
         let t: Tag = rc.de().unwrap();
-        assert_eq!(t, tag!("GSUB"));
+        assert_eq!(t.as_str(), "GSUB");
     }
 
     // use otspec_macros::{Deserialize, Serialize};
