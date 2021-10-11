@@ -32,25 +32,23 @@ bitflags! {
 
 #[cfg(test)]
 mod tests {
-    use crate::gasp;
-
     #[test]
     fn gasp_serde() {
         let binary_gasp = vec![
             0x00, 0x00, 0x00, 0x02, 0x00, 0x08, 0x00, 0x02, 0xff, 0xff, 0x00, 0x03,
         ];
-        let fgasp: gasp::gasp = otspec::de::from_bytes(&binary_gasp).unwrap();
-        let expected = gasp::gasp {
+        let fgasp: super::gasp = otspec::de::from_bytes(&binary_gasp).unwrap();
+        let expected = super::gasp {
             version: 0,
             gaspRanges: vec![
-                gasp::GaspRecord {
+                super::GaspRecord {
                     rangeMaxPPEM: 8,
-                    rangeGaspBehavior: gasp::RangeGaspBehaviorFlags::GASP_DOGRAY,
+                    rangeGaspBehavior: super::RangeGaspBehaviorFlags::GASP_DOGRAY,
                 },
-                gasp::GaspRecord {
+                super::GaspRecord {
                     rangeMaxPPEM: 65535,
-                    rangeGaspBehavior: gasp::RangeGaspBehaviorFlags::GASP_GRIDFIT
-                        | gasp::RangeGaspBehaviorFlags::GASP_DOGRAY,
+                    rangeGaspBehavior: super::RangeGaspBehaviorFlags::GASP_GRIDFIT
+                        | super::RangeGaspBehaviorFlags::GASP_DOGRAY,
                 },
             ],
         };

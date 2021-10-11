@@ -710,7 +710,6 @@ impl cmap {
 
 #[cfg(test)]
 mod tests {
-    use crate::cmap;
     use pretty_assertions::assert_eq;
     use std::collections::BTreeMap;
     use std::iter::FromIterator;
@@ -722,9 +721,9 @@ mod tests {
 		}
     #[test]
     fn cmap_de() {
-        let fcmap = cmap::cmap {
+        let fcmap = super::cmap {
             subtables: vec![
-                cmap::CmapSubtable {
+                super::CmapSubtable {
                     format: 4,
                     platformID: 0,
                     encodingID: 3,
@@ -732,7 +731,7 @@ mod tests {
                     mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
                     uvs_mapping: None,
                 },
-                cmap::CmapSubtable {
+                super::CmapSubtable {
                     format: 4,
                     platformID: 3,
                     encodingID: 1,
@@ -749,15 +748,15 @@ mod tests {
             0x00, 0x00, 0x00, 0x20, 0x00, 0x41, 0x00, 0xa0, 0xff, 0xff, 0xff, 0xe1, 0xff, 0xc1,
             0xff, 0x61, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
-        let deserialized: cmap::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
+        let deserialized: super::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
         assert_eq!(deserialized, fcmap);
     }
 
     #[test]
     fn cmap_ser() {
-        let fcmap = cmap::cmap {
+        let fcmap = super::cmap {
             subtables: vec![
-                cmap::CmapSubtable {
+                super::CmapSubtable {
                     format: 4,
                     platformID: 0,
                     encodingID: 3,
@@ -765,7 +764,7 @@ mod tests {
                     mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
                     uvs_mapping: None,
                 },
-                cmap::CmapSubtable {
+                super::CmapSubtable {
                     format: 4,
                     platformID: 3,
                     encodingID: 1,
@@ -799,8 +798,8 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         ];
         let bt = btreemap!(0 => 1, 13 => 2, 32 => 3, 160 => 3, 1329 => 4, 1330 => 5, 1331 => 6, 1332 => 7, 1333 => 8, 1334 => 9, 1335 => 10, 1336 => 11, 1337 => 12, 1338 => 13, 1339 => 14, 1340 => 15, 1341 => 16, 1342 => 17, 1343 => 18, 1344 => 19, 1345 => 20, 1346 => 21, 1347 => 22, 1348 => 23, 1349 => 24, 1350 => 25, 1351 => 26, 1352 => 27, 1353 => 28, 1354 => 29, 1355 => 30, 1356 => 31, 1357 => 32, 1358 => 33, 1359 => 34, 1360 => 35, 1361 => 36, 1362 => 37, 1363 => 38, 1364 => 39, 1365 => 40, 1366 => 41, 1369 => 42, 1370 => 43, 1371 => 44, 1372 => 45, 1373 => 46, 1374 => 47, 1375 => 48, 1377 => 49, 1378 => 50, 1379 => 51, 1380 => 52, 1381 => 53, 1382 => 54, 1383 => 55, 1384 => 56, 1385 => 57, 1386 => 58, 1387 => 59, 1388 => 60, 1389 => 61, 1390 => 62, 1391 => 63, 1392 => 64, 1393 => 65, 1394 => 66, 1395 => 67, 1396 => 68, 1397 => 69, 1398 => 70, 1399 => 71, 1400 => 72, 1401 => 73, 1402 => 74, 1403 => 75, 1404 => 76, 1405 => 77, 1406 => 78, 1407 => 79, 1408 => 80, 1409 => 81, 1410 => 82, 1411 => 83, 1412 => 84, 1413 => 85, 1414 => 86, 1415 => 87, 1417 => 88, 1418 => 89, 1423 => 95, 64275 => 90, 64276 => 91, 64277 => 92, 64278 => 93, 64279 => 94, 65279 => 1);
-        let fcmap = cmap::cmap {
-            subtables: vec![cmap::CmapSubtable {
+        let fcmap = super::cmap {
+            subtables: vec![super::CmapSubtable {
                 format: 4,
                 platformID: 3,
                 encodingID: 1,
@@ -809,16 +808,16 @@ mod tests {
                 uvs_mapping: None,
             }],
         };
-        let deserialized: cmap::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
+        let deserialized: super::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
         let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
         assert_eq!(deserialized, fcmap);
         assert_eq!(serialized, binary_cmap);
     }
     #[test]
     fn cmap_reversed() {
-        let fcmap = cmap::cmap {
+        let fcmap = super::cmap {
             subtables: vec![
-                cmap::CmapSubtable {
+                super::CmapSubtable {
                     format: 4,
                     platformID: 0,
                     encodingID: 3,
@@ -826,7 +825,7 @@ mod tests {
                     mapping: btreemap!( 32 => 1, 160 => 1, 65 => 2 ),
                     uvs_mapping: None,
                 },
-                cmap::CmapSubtable {
+                super::CmapSubtable {
                     format: 4,
                     platformID: 3,
                     encodingID: 1,
@@ -850,7 +849,7 @@ mod tests {
             0x00, 0x04, 0x00, 0x00, 0x07, 0x08, 0x04, 0x20, 0x06, 0x8b, 0x05, 0x7e, 0x03, 0x4f,
             0x06, 0x4c,
         ];
-        let deserialized: cmap::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
+        let deserialized: super::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
         assert_eq!(deserialized.subtables[0].mapping.len(), 8);
         let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
         assert_eq!(serialized, binary_cmap);
@@ -866,10 +865,10 @@ mod tests {
             0x21, 0x26, 0x00, 0x00, 0x00, 0x02, 0x00, 0x50, 0x26, 0x20, 0xb7, 0x00, 0x50, 0xc5,
             0x20, 0xb8,
         ];
-        let deserialized: cmap::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
+        let deserialized: super::cmap = otspec::de::from_bytes(&binary_cmap).unwrap();
         assert_eq!(
             deserialized.subtables[0],
-            cmap::CmapSubtable {
+            super::CmapSubtable {
                 format: 14,
                 platformID: 0,
                 encodingID: 5,

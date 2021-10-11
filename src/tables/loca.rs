@@ -1,7 +1,16 @@
 use otspec::{DeserializationError, Deserializer, ReaderContext, Serialize};
+
+/// A [`loca`] table.
+///
+/// [`loca`]: https://docs.microsoft.com/en-us/typography/opentype/spec/loca
 #[allow(non_snake_case, non_camel_case_types)]
 #[derive(Debug, PartialEq)]
 pub struct loca {
+    /// The offset position of each glyph in the font.
+    ///
+    /// Offsets are relative to the begining of the [`glyf`] table.
+    ///
+    /// [`glyf`]: super::glyf::glyf
     pub indices: Vec<Option<u32>>,
 }
 
@@ -47,14 +56,13 @@ impl Serialize for loca {
 
 #[cfg(test)]
 mod tests {
-    use crate::loca;
     use otspec::ReaderContext;
 
     #[test]
     fn loca_de_16bit() {
         let binary_loca = vec![0x00, 0x00, 0x01, 0x30, 0x01, 0x30, 0x01, 0x4c];
         let mut reader = ReaderContext::new(binary_loca);
-        let floca = loca::from_bytes(&mut reader, false).unwrap();
+        let floca = super::from_bytes(&mut reader, false).unwrap();
         let locations = [Some(0), None, Some(608)];
         // println!("{:?}", floca);
         assert_eq!(floca.indices, locations);

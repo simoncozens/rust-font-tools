@@ -144,16 +144,14 @@ impl Serialize for fvar {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        fvar::{self, InstanceRecord},
-        tag,
-    };
+    use crate::tables::fvar::{self, InstanceRecord};
+    use crate::tag;
 
     #[test]
     fn fvar_de() {
-        let ffvar = fvar::fvar {
+        let ffvar = super::fvar {
             axes: vec![
-                fvar::VariationAxisRecord {
+                super::VariationAxisRecord {
                     axisTag: tag!("wght"),
                     flags: 0,
                     minValue: 200.0,
@@ -161,7 +159,7 @@ mod tests {
                     maxValue: 1000.0,
                     axisNameID: 256,
                 },
-                fvar::VariationAxisRecord {
+                super::VariationAxisRecord {
                     axisTag: tag!("ital"),
                     flags: 0,
                     minValue: 0.0,
@@ -273,7 +271,7 @@ mod tests {
             0x01, 0x0d, 0x00, 0x00, 0x03, 0x84, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x01, 0x01,
             0x00, 0x00, 0x03, 0xe8, 0x00, 0x00, 0x00, 0x09, 0x00, 0x00,
         ];
-        let deserialized: fvar::fvar = otspec::de::from_bytes(&binary_fvar).unwrap();
+        let deserialized: super::fvar = otspec::de::from_bytes(&binary_fvar).unwrap();
         assert_eq!(deserialized, ffvar);
         let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
         assert_eq!(serialized, binary_fvar);

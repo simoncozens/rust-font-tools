@@ -1,11 +1,16 @@
 #![allow(missing_docs)]
-use crate::avar::{self, SegmentMap};
 use crate::font::{Font, Table};
-use crate::fvar;
-use crate::glyf;
-use crate::gvar::{self, Coords, DeltaSet, GlyphVariationData};
-use crate::otvar::support_scalar;
-use crate::{tag, types::*};
+use crate::tables::avar::{self, SegmentMap};
+use crate::tables::gvar::{self, Coords, DeltaSet, GlyphVariationData};
+use crate::tables::{fvar, glyf};
+use crate::tag;
+use crate::types::*;
+//use crate::font::Table;
+//use crate::fvar;
+//use crate::glyf;
+//use crate::gvar;
+//use crate::gvar::{Coords, DeltaSet, GlyphVariationData};
+use super::support_scalar;
 use std::collections::BTreeMap;
 
 type Location = BTreeMap<Tag, f32>;
@@ -468,7 +473,7 @@ fn instantiate_STAT(font: &mut Font, axis_limits: &UserAxisLimits) {
             false
         };
 
-        let mut new_axis_value_tables: Vec<crate::STAT::AxisValue> = vec![];
+        let mut new_axis_value_tables: Vec<crate::tables::STAT::AxisValue> = vec![];
         let av = stat.axis_values.clone();
         for axis_value in av {
             if let Some(nominal) = axis_value.nominal_value {

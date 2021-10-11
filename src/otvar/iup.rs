@@ -1,5 +1,5 @@
-use crate::glyf::Glyph;
-use crate::otvar::Delta;
+use super::Delta;
+use crate::tables::glyf::Glyph;
 use otspec::types::*;
 use std::collections::{HashMap, HashSet};
 

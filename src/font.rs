@@ -1,30 +1,17 @@
-use crate::avar::avar;
-use crate::cmap::cmap;
-use crate::fvar::fvar;
-use crate::gasp::gasp;
-use crate::head::head;
-use crate::hhea::hhea;
-use crate::maxp::maxp;
-use crate::name::name;
-use crate::os2::os2;
-use crate::post::post;
+use crate::tables::{self, glyf, gvar, hmtx, loca};
 use crate::tag;
-use crate::GDEF::GDEF;
-use crate::GPOS::GPOS;
-use crate::GSUB::GSUB;
-use crate::MATH::MATH;
-use crate::STAT::STAT;
-use crate::{glyf, gvar, hmtx, loca};
 use otspec::types::*;
 use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-    Serializer,
+    ser, DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError,
+    Serialize, Serializer,
 };
 use otspec_macros::{Deserialize, Serialize};
 
 use std::cmp;
 use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
+use std::error::Error;
+use std::io::Read;
 use std::num::Wrapping;
 use std::path::Path;
 
@@ -34,43 +21,43 @@ pub enum Table {
     /// Contains an unknown or unparsed table stored as a binary byte array.
     Unknown(Vec<u8>),
     /// Contains an axis variations table.
-    Avar(avar),
+    Avar(tables::avar::avar),
     /// Contains a character to glyph index mapping table.
-    Cmap(cmap),
+    Cmap(tables::cmap::cmap),
     /// Contains a font variations table.
-    Fvar(fvar),
+    Fvar(tables::fvar::fvar),
     /// Contains a grid-fitting and scan-conversion procedure table.
-    Gasp(gasp),
-    /// Contains a glyph definition table.
-    GDEF(GDEF),
+    Gasp(tables::gasp::gasp),
+    /// Contains a tables::glyph::glyph definition table.
+    GDEF(tables::GDEF::GDEF),
     /// Contains a glyph positioning table.
-    GPOS(GPOS),
+    GPOS(tables::GPOS::GPOS),
     /// Contains a glyph substitution table.
-    GSUB(GSUB),
+    GSUB(tables::GSUB::GSUB),
     /// Contains a glyph data table.
-    Glyf(glyf::glyf),
+    Glyf(tables::glyf::glyf),
     /// Contains a glyph variations table.
-    Gvar(gvar::gvar),
+    Gvar(tables::gvar::gvar),
     /// Contains a header table.
-    Head(head),
+    Head(tables::head::head),
     /// Contains a horizontal header table.
-    Hhea(hhea),
+    Hhea(tables::hhea::hhea),
     /// Contains a horizontal metrics table.
-    Hmtx(hmtx::hmtx),
+    Hmtx(tables::hmtx::hmtx),
     /// Contains an index-to-location table.
-    Loca(loca::loca),
+    Loca(tables::loca::loca),
     /// Contains a math typesetting table.
-    MATH(MATH),
+    MATH(tables::MATH::MATH),
     /// Contains a maximum profile table.
-    Maxp(maxp),
+    Maxp(tables::maxp::maxp),
     /// Contains a naming table.
-    Name(name),
+    Name(tables::name::name),
     /// Contains an OS/2 and Windows metrics table.
-    Os2(os2),
+    Os2(tables::os2::os2),
     /// Contains a postscript table.
-    Post(post),
+    Post(tables::post::post),
     /// Contains a style attributes table.
-    STAT(STAT),
+    STAT(tables::STAT::STAT),
 }
 
 macro_rules! table_unchecked {
@@ -91,25 +78,25 @@ macro_rules! table_unchecked {
 }
 
 impl Table {
-    table_unchecked!(avar_unchecked, Avar, avar);
-    table_unchecked!(cmap_unchecked, Cmap, cmap);
-    table_unchecked!(fvar_unchecked, Fvar, fvar);
-    table_unchecked!(gasp_unchecked, Gasp, gasp);
-    table_unchecked!(glyf_unchecked, Glyf, glyf::glyf);
-    table_unchecked!(gdef_unchecked, GDEF, GDEF);
-    table_unchecked!(gsub_unchecked, GSUB, GSUB);
-    table_unchecked!(gpos_unchecked, GPOS, GPOS);
-    table_unchecked!(gvar_unchecked, Gvar, gvar::gvar);
-    table_unchecked!(head_unchecked, Head, head);
-    table_unchecked!(hhea_unchecked, Hhea, hhea);
-    table_unchecked!(hmtx_unchecked, Hmtx, hmtx::hmtx);
-    table_unchecked!(loca_unchecked, Loca, loca::loca);
-    table_unchecked!(maxp_unchecked, Maxp, maxp);
-    table_unchecked!(MATH_unchecked, MATH, MATH);
-    table_unchecked!(name_unchecked, Name, name);
-    table_unchecked!(os2_unchecked, Os2, os2);
-    table_unchecked!(post_unchecked, Post, post);
-    table_unchecked!(STAT_unchecked, STAT, STAT);
+    table_unchecked!(avar_unchecked, Avar, tables::avar::avar);
+    table_unchecked!(cmap_unchecked, Cmap, tables::cmap::cmap);
+    table_unchecked!(fvar_unchecked, Fvar, tables::fvar::fvar);
+    table_unchecked!(gasp_unchecked, Gasp, tables::gasp::gasp);
+    table_unchecked!(glyf_unchecked, Glyf, tables::glyf::glyf);
+    table_unchecked!(gdef_unchecked, GDEF, tables::GDEF::GDEF);
+    table_unchecked!(gsub_unchecked, GSUB, tables::GSUB::GSUB);
+    table_unchecked!(gpos_unchecked, GPOS, tables::GPOS::GPOS);
+    table_unchecked!(gvar_unchecked, Gvar, tables::gvar::gvar);
+    table_unchecked!(head_unchecked, Head, tables::head::head);
+    table_unchecked!(hhea_unchecked, Hhea, tables::hhea::hhea);
+    table_unchecked!(hmtx_unchecked, Hmtx, tables::hmtx::hmtx);
+    table_unchecked!(loca_unchecked, Loca, tables::loca::loca);
+    table_unchecked!(maxp_unchecked, Maxp, tables::maxp::maxp);
+    table_unchecked!(MATH_unchecked, MATH, tables::MATH::MATH);
+    table_unchecked!(name_unchecked, Name, tables::name::name);
+    table_unchecked!(os2_unchecked, Os2, tables::os2::os2);
+    table_unchecked!(post_unchecked, Post, tables::post::post);
+    table_unchecked!(STAT_unchecked, STAT, tables::STAT::STAT);
 }
 
 impl Serialize for Table {
@@ -189,8 +176,6 @@ pub struct Font {
     pub tables: BTreeMap<Tag, Table>,
     _numGlyphs: Option<u16>,
 }
-
-use otspec::ser;
 
 impl Font {
     /// Attempt to load a font from disk.
@@ -505,9 +490,6 @@ impl Font {
     }
 }
 
-use std::error::Error;
-use std::io::Read;
-
 /// Loads a binary font from the given filehandle.
 #[deprecated(since = "0.1.0", note = "use Font::load instead")]
 pub fn load<T>(mut file: T) -> Result<Font, Box<dyn Error>>
@@ -649,10 +631,11 @@ impl Deserialize for Font {
 #[cfg(test)]
 mod tests {
 
-    use crate::head::head;
-    use crate::hhea::hhea;
-    use crate::{font, maxp, tag};
-    use otspec::ser;
+    use super::*;
+    use crate::tables::head::head;
+    use crate::tables::hhea::hhea;
+    use crate::tables::maxp;
+    use crate::tag;
     use otspec::types::U16F16;
 
     #[test]
@@ -662,7 +645,7 @@ mod tests {
             0xfe, 0x82, 0x04, 0xdd, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0x5d,
         ];
-        assert_eq!(font::checksum(&binary_hhea), 0x0623074B)
+        assert_eq!(checksum(&binary_hhea), 0x0623074B)
     }
 
     #[test]
@@ -726,10 +709,10 @@ mod tests {
                 maxComponentDepth: 0,
             }),
         };
-        let mut font = font::Font::new(font::SfntVersion::TrueType);
-        font.tables.insert(tag!("head"), font::Table::Head(fhead));
-        font.tables.insert(tag!("hhea"), font::Table::Hhea(fhhea));
-        font.tables.insert(tag!("maxp"), font::Table::Maxp(fmaxp));
+        let mut font = Font::new(SfntVersion::TrueType);
+        font.tables.insert(tag!("head"), Table::Head(fhead));
+        font.tables.insert(tag!("hhea"), Table::Hhea(fhhea));
+        font.tables.insert(tag!("maxp"), Table::Maxp(fmaxp));
 
         let binary_font = vec![
             0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x20, 0x00, 0x01, 0x00, 0x10, 0x68, 0x65,
@@ -749,7 +732,7 @@ mod tests {
         ];
         let serialized = ser::to_bytes(&font).unwrap();
         assert_eq!(serialized, binary_font);
-        let mut deserialized: font::Font = otspec::de::from_bytes(&binary_font).unwrap();
+        let mut deserialized: Font = otspec::de::from_bytes(&binary_font).unwrap();
         deserialized.fully_deserialize();
         assert_eq!(deserialized, font);
     }
@@ -774,9 +757,9 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x15, 0x00, 0x15, 0x00, 0x15, 0x00, 0x15,
             0x00, 0x22, 0x00, 0x34, 0x00, 0x00,
         ];
-        let mut deserialized: font::Font = otspec::de::from_bytes(&binary_font).unwrap();
+        let mut deserialized: Font = otspec::de::from_bytes(&binary_font).unwrap();
         let head = deserialized.get_table(tag!("head")).unwrap().unwrap();
-        if let crate::font::Table::Head(head) = head {
+        if let Table::Head(head) = head {
             assert_eq!(head.indexToLocFormat, 0);
         }
         let floca = deserialized

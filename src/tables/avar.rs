@@ -106,29 +106,28 @@ impl SegmentMap {
 
 #[cfg(test)]
 mod tests {
-    use crate::avar;
     use otspec::ser;
 
     /* All numbers here carefully chosen to avoid OT rounding errors... */
     #[test]
     fn avar_axis_value_map_serde() {
-        let v = avar::AxisValueMap {
+        let v = super::AxisValueMap {
             fromCoordinate: 0.2999878,
             toCoordinate: 0.5,
         };
         let binary_avarmap = ser::to_bytes(&v).unwrap();
-        let deserialized: avar::AxisValueMap = otspec::de::from_bytes(&binary_avarmap).unwrap();
+        let deserialized: super::AxisValueMap = otspec::de::from_bytes(&binary_avarmap).unwrap();
         assert_eq!(deserialized, v);
     }
 
     #[test]
     fn avar_ser() {
-        let favar = avar::avar {
+        let favar = super::avar {
             majorVersion: 1,
             minorVersion: 0,
             reserved: 0,
             axisSegmentMaps: vec![
-                avar::SegmentMap::new(vec![
+                super::SegmentMap::new(vec![
                     (-1.0, -1.0),
                     (0.0, 0.0),
                     (0.125, 0.11444092),
@@ -139,7 +138,7 @@ mod tests {
                     (0.875, 0.8192749),
                     (1.0, 1.0),
                 ]),
-                avar::SegmentMap::new(vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)]),
+                super::SegmentMap::new(vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)]),
             ],
         };
         let binary_avar = vec![
@@ -151,13 +150,13 @@ mod tests {
         ];
         assert_eq!(ser::to_bytes(&favar).unwrap(), binary_avar);
 
-        let deserialized: avar::avar = otspec::de::from_bytes(&binary_avar).unwrap();
+        let deserialized: super::avar = otspec::de::from_bytes(&binary_avar).unwrap();
         assert_eq!(deserialized, favar);
     }
 
     #[test]
     fn test_piecewise_linear_map() {
-        let seg = avar::SegmentMap::new(vec![
+        let seg = super::SegmentMap::new(vec![
             (-1.0, -1.0),
             (0.0, 0.0),
             (0.125, 0.11444092),

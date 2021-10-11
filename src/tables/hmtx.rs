@@ -86,7 +86,7 @@ pub fn from_bytes(
 
 #[cfg(test)]
 mod tests {
-    use crate::hmtx::{self, Metric};
+    use super::*;
 
     #[test]
     fn hmtx_de_16bit() {
@@ -95,7 +95,7 @@ mod tests {
             0x00, 0x05, 0x00, 0xc8, 0x00, 0x00, 0x02, 0x58, 0x00, 0x1d, 0x02, 0x58, 0x00, 0x1d,
             0x00, 0x0a, 0xff, 0x73,
         ]);
-        let fhmtx = hmtx::from_bytes(&mut binary_hmtx, 8).unwrap();
+        let fhmtx = super::from_bytes(&mut binary_hmtx, 8).unwrap();
         let metrics = [
             Metric {
                 advanceWidth: 756,
