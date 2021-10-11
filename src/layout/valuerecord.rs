@@ -60,6 +60,18 @@ impl ValueRecord {
         ValueRecord::default()
     }
 
+    /// Returns true if any of the members are set
+    pub fn has_any(&self) -> bool {
+        self.xPlacement.is_some()
+            || self.yPlacement.is_some()
+            || self.xAdvance.is_some()
+            || self.yAdvance.is_some()
+            || self.xPlaDevice.is_some()
+            || self.yPlaDevice.is_some()
+            || self.xAdvDevice.is_some()
+            || self.yAdvDevice.is_some()
+    }
+
     /// Determines the appropriate flags to serialize a value record
     pub fn flags(&self) -> ValueRecordFlags {
         let mut f = ValueRecordFlags::empty();
