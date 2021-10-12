@@ -5,6 +5,9 @@ use otspec::{
 };
 use otspec_macros::tables;
 
+/// The 'fvar' OpenType tag.
+pub const TAG: Tag = crate::tag!("fvar");
+
 tables!(
     fvarcore {
         uint16 majorVersion
@@ -144,7 +147,7 @@ impl Serialize for fvar {
 
 #[cfg(test)]
 mod tests {
-    use crate::tables::fvar::{self, InstanceRecord};
+    use crate::tables::fvar::InstanceRecord;
     use crate::tag;
 
     #[test]

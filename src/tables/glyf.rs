@@ -14,6 +14,9 @@ pub use component::{Component, ComponentFlags};
 pub use glyph::Glyph;
 pub use point::Point;
 
+/// The 'glyf' OpenType tag.
+pub const TAG: otspec::types::Tag = crate::tag!("glyf");
+
 /// The glyf table
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]

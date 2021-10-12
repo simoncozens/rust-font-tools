@@ -8,6 +8,9 @@ use otspec::{
 };
 use otspec_macros::tables;
 
+/// The 'name' OpenType tag.
+pub const TAG: Tag = crate::tag!("name");
+
 fn get_encoding(platform_id: u16, encoding_id: u16) -> EncodingRef {
     if platform_id == 0 {
         return UTF_16BE;

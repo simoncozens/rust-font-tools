@@ -2,6 +2,9 @@ use otspec::types::*;
 use otspec::{DeserializationError, Deserializer, ReaderContext, Serialize};
 use otspec_macros::{Deserialize, Serialize};
 
+/// The 'hmtx' OpenType tag.
+pub const TAG: Tag = crate::tag!("hmtx");
+
 /// A single horizontal metric
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 #[allow(non_snake_case)]

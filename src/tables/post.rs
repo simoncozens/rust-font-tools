@@ -4,6 +4,9 @@ use otspec::{
 };
 use otspec_macros::tables;
 
+/// The 'post' OpenType tag.
+pub const TAG: Tag = crate::tag!("post");
+
 /// The list of 258 standard Macintosh glyph names.
 /// Names not in this list will be stored separately in the post table if
 /// version==2

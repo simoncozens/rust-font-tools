@@ -2,6 +2,9 @@ use otspec::types::*;
 use otspec::Deserializer;
 use otspec_macros::tables;
 
+/// The 'hhea' OpenType tag.
+pub const TAG: Tag = crate::tag!("hhea");
+
 tables!(hhea {
     uint16 majorVersion
     uint16 minorVersion

@@ -6,6 +6,9 @@ use otspec::{DeserializationError, Deserialize, Deserializer, Serialize, Seriali
 use otspec_macros::{tables, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+/// The 'MATH' OpenType tag.
+pub const TAG: Tag = crate::tag!("MATH");
+
 tables!(
     MathValueRecord [embedded] {
         FWORD value

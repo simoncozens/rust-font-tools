@@ -2,6 +2,9 @@ use otspec::types::*;
 use otspec::{DeserializationError, Deserialize, Deserializer, ReaderContext, Serialize};
 use otspec_macros::{tables, Serialize};
 
+/// The 'maxp' OpenType tag.
+pub const TAG: Tag = crate::tag!("maxp");
+
 tables!(
 maxp05 {
     uint16  numGlyphs

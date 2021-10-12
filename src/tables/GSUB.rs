@@ -13,6 +13,9 @@ use otspec::{
 use otspec_macros::Deserialize;
 use std::convert::TryInto;
 
+/// The 'GSUB' OpenType tag.
+pub const TAG: Tag = crate::tag!("GSUB");
+
 impl Lookup<Substitution> {
     /// Return the integer GSUB lookup type for this lookup
     pub fn lookup_type(&self) -> u16 {

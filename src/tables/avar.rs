@@ -2,6 +2,9 @@ use otspec::types::*;
 use otspec::Deserializer;
 use otspec_macros::tables;
 
+/// The 'avar' OpenType tag.
+pub const TAG: Tag = crate::tag!("avar");
+
 tables!(
     AxisValueMap {
         F2DOT14 fromCoordinate

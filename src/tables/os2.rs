@@ -6,6 +6,9 @@ use otspec::{
 use otspec_macros::tables;
 use std::collections::{BTreeMap, HashSet};
 
+/// The 'OS/2' OpenType tag.
+pub const TAG: Tag = crate::tag!("OS/2");
+
 tables!(
     Panose {
         u8 panose0

@@ -1,5 +1,8 @@
 use otspec::{DeserializationError, Deserializer, ReaderContext, Serialize};
 
+/// The 'loca' OpenType tag.
+pub const TAG: otspec::types::Tag = crate::tag!("loca");
+
 /// A [`loca`] table.
 ///
 /// [`loca`]: https://docs.microsoft.com/en-us/typography/opentype/spec/loca

@@ -7,6 +7,9 @@ use otspec::{
 use otspec_macros::{tables, Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// The 'STAT' OpenType tag.
+pub const TAG: Tag = crate::tag!("STAT");
+
 tables!(STATcore {
     uint16 majorVersion
     uint16 minorVersion

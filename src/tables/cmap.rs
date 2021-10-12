@@ -9,6 +9,9 @@ use std::collections::{BTreeMap, HashSet};
 use std::convert::TryInto;
 use std::hash::{Hash, Hasher};
 
+/// The 'cmap' OpenType tag.
+pub const TAG: Tag = crate::tag!("cmap");
+
 tables!(
 
 EncodingRecord {
