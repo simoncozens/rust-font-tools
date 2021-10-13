@@ -42,7 +42,7 @@ pub mod font;
 pub mod layout;
 /// OpenType Variations common tables
 pub mod otvar;
-mod table_store;
+pub mod table_store;
 /// OpenType table definitions.
 pub mod tables;
 /// Useful utilities

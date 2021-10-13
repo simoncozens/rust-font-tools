@@ -1,4 +1,9 @@
 //! Lazy loading of font tables.
+//!
+//! The core of this module is the [`TableSet`], which represents the OpenType
+//! tables in a font.
+//!
+//! [`TableSet`]: table_store::TableSet
 
 use std::{
     borrow::Borrow,
@@ -20,11 +25,23 @@ use crate::tables;
 /// This ensures that a newly constructed table preloads required tables,
 /// and ensures that the TableSet is initialized correctly.
 #[derive(Debug, Default)]
-pub struct TableLoader {
+pub(crate) struct TableLoader {
     inner: TableSet,
 }
 
 /// A lazy loader for the set of OpenType tables in a font.
+///
+/// Tables are parsed into concrete types the first time they are accessed.
+///
+/// # Semantics
+///
+/// We use copy-on-write semantics for all tables. This means that when you
+/// access a table, you receive a pointer to that table. The first time you
+/// modify the table, we copy the data from the existing table to a new allocation.
+///
+/// If you modify a table and wish to have your modification reflected in the font,
+/// you are responsible for inserting your newly modified copy of the table back
+/// into the `TableSet`.
 #[derive(Debug, Default)]
 pub struct TableSet {
     tables: BTreeMap<Tag, RefCell<LazyItem>>,
@@ -98,7 +115,7 @@ pub enum LoadedTable {
     Unknown(Rc<[u8]>),
 }
 
-/// A reference-counted pointer with transparent copy-on-write semantics.
+/// A reference-counted pointer with copy-on-write semantics.
 ///
 /// Accessing a mutating method on the inner type will cause a clone of
 /// the inner data if there are other outstanding references to this pointer.
@@ -120,24 +137,24 @@ pub enum LoadedTable {
 /// font.tables.insert(head);
 /// ```
 ///
-/// # Note
-///
-/// This may be too fancy? It is an attempt to make the API more clear, by
-/// avoiding the need to do `Rc::make_mut(&mut my_table)` every time the user
-/// wants to mutate a table.
+//NOTE:
+// This may be too fancy? It is an attempt to make the API more clear, by
+// avoiding the need to do `Rc::make_mut(&mut my_table)` every time the user
+// wants to mutate a table, but we could just have a
+// `Cow::make_mut(&mut self) -> &mut T` method, which would be more explicit?
 #[derive(Clone, Debug)]
-pub struct Cow<T> {
+pub struct CowPtr<T> {
     inner: Rc<T>,
 }
 
-impl<T> Cow<T> {
+impl<T> CowPtr<T> {
     /// Returns `true` if these two pointers point to the same allocation.
     pub fn ptr_eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.inner, &other.inner)
     }
 }
 
-impl<T: Clone> std::ops::Deref for Cow<T> {
+impl<T: Clone> std::ops::Deref for CowPtr<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -146,7 +163,7 @@ impl<T: Clone> std::ops::Deref for Cow<T> {
 
 // any access to a mutating method will cause us to ensure we point to unique
 // data.
-impl<T: Clone> std::ops::DerefMut for Cow<T> {
+impl<T: Clone> std::ops::DerefMut for CowPtr<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         Rc::make_mut(&mut self.inner)
     }
@@ -251,6 +268,8 @@ impl TableSet {
     /// let name_table: tables::name::name = make_name_table();
     /// font.tables.insert(name_table);
     /// ```
+    ///
+    /// [`insert_raw`]: TableSet::insert_raw
     pub fn insert(&mut self, table: impl Into<Table>) {
         let table = table.into();
         let tag = table.tag;
@@ -262,7 +281,7 @@ impl TableSet {
     ///
     /// If the table is typed and exists, it is removed and will be reloaded
     /// on the next access.
-    fn insert_raw(&mut self, tag: Tag, data: impl Into<Rc<[u8]>>) {
+    pub fn insert_raw(&mut self, tag: Tag, data: impl Into<Rc<[u8]>>) {
         self.tables
             .insert(tag, RefCell::new(LazyItem::Unloaded(data.into())));
     }
@@ -484,14 +503,14 @@ macro_rules! table_boilerplate {
 
         impl From<$table> for Table {
             fn from(src: $table) -> Table {
-                Table::from(Cow {
+                Table::from(CowPtr {
                     inner: Rc::new(src),
                 })
             }
         }
 
-        impl From<Cow<$table>> for Table {
-            fn from(src: Cow<$table>) -> Table {
+        impl From<CowPtr<$table>> for Table {
+            fn from(src: CowPtr<$table>) -> Table {
                 let loaded = LoadedTable::$enum(src.inner);
                 let tag = tables::$enum::TAG;
                 Table {
@@ -504,11 +523,11 @@ macro_rules! table_boilerplate {
 
         impl LoadedTable {
             #[allow(non_snake_case)]
-            fn $enum(&self) -> Cow<$table> {
+            fn $enum(&self) -> CowPtr<$table> {
                 assert_is_clone::<$table>();
 
                 if let Self::$enum(table) = self {
-                    return Cow {
+                    return CowPtr {
                         inner: table.clone(),
                     };
                 } else {
@@ -523,8 +542,8 @@ macro_rules! table_boilerplate {
             /// Get this table, if it exists.
             ///
             /// This returns a pointer which implements copy-on-write semantics.
-            /// See the docs for [`Cow`] for more details.
-            pub fn $enum(&self) -> Result<Option<Cow<$table>>, DeserializationError> {
+            /// See the docs for [`CowPtr`] for more details.
+            pub fn $enum(&self) -> Result<Option<CowPtr<$table>>, DeserializationError> {
                 Ok(self.get(tables::$enum::TAG)?.map(|t| t.loaded.$enum()))
             }
         }
