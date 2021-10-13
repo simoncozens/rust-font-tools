@@ -1,3 +1,5 @@
+//! Lazy loading of font tables.
+
 use std::{
     borrow::Borrow,
     cell::RefCell,
@@ -36,52 +38,24 @@ enum LazyItem {
 }
 
 /// Any OpenType table.
-//TODO: we can probably get rid of this and just use `TableData`?
-#[derive(Clone, Debug, PartialEq)]
-pub struct Table {
-    tag: Tag,
-    data: TableData,
-}
-
-impl Table {
-    /// If this table is of a known type, return a `KnownTable`.
-    pub fn known(&self) -> Option<KnownTable> {
-        match &self.data {
-            TableData::Known { typed, .. } => Some(typed.clone()),
-            _ => None,
-        }
-    }
-
-    /// If this table is of an unknown type, return the raw bytes.
-    pub fn unknown(&self) -> Option<Rc<[u8]>> {
-        match &self.data {
-            TableData::Unknown { raw } => Some(raw.clone()),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
-enum TableData {
-    /// A table of a known type.
-    Known {
-        /// The raw data for serialization.
-        ///
-        /// This is only `Some` if this table was loaded from existing data,
-        /// or if this table has already been serialized.
-        raw: Option<Rc<[u8]>>,
-        /// The typed table. This is one of the types defined in the `tables`
-        /// module.
-        typed: KnownTable,
-    },
-    /// A table we don't know how to represent; we just hold on to the bits.
-    Unknown { raw: Rc<[u8]> },
+pub struct Table {
+    /// The table's tag. This is mostly used so that something implmenting
+    /// `Into<Table>` knows its tag and can be inserted into the font.
+    tag: Tag,
+    /// The data from which this table was loaded. If the table is not mutated,
+    /// we will write this out unchanged when we serialize.
+    raw: Option<Rc<[u8]>>,
+    loaded: LoadedTable,
 }
 
-/// An OpenType table of a known format.
+/// A loaded OpenType table.
+///
+/// This represents all the known table types in their deserialized form.
+/// It is mostly an implementation detail.
 #[derive(Clone, Debug, PartialEq)]
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
-pub enum KnownTable {
+pub enum LoadedTable {
     /// Contains an axis variations table.
     avar(Rc<tables::avar::avar>),
     /// Contains a character to glyph index mapping table.
@@ -120,6 +94,8 @@ pub enum KnownTable {
     post(Rc<tables::post::post>),
     /// Contains a style attributes table.
     STAT(Rc<tables::STAT::STAT>),
+    /// Any unknown table.
+    Unknown(Rc<[u8]>),
 }
 
 /// A reference-counted pointer with transparent copy-on-write semantics.
@@ -127,13 +103,38 @@ pub enum KnownTable {
 /// Accessing a mutating method on the inner type will cause a clone of
 /// the inner data if there are other outstanding references to this pointer.
 ///
+/// # Example
+//FIXME: i'd like this to run but we need some convenience method
+//for creating an actual font?
+/// ```no_run
+/// # fn load_font() -> Font { unimplemented!("just for show") }
+/// use fonttools::{font::Font};
+/// let mut font = load_font();
+/// let mut head = font.tables.head().expect("failed to load").expect("missing head");
+/// // the head table we've taken points to the same memory as the one in the font.
+/// assert!(font.tables.head().unwrap().unwrap().ptr_eq(&head));
+/// head.fontRevision = 1.1;
+/// // after mutation, it no longer points to the same memory
+/// assert!(!font.tables.head().unwrap().unwrap().ptr_eq(&head));
+/// // to update the font, we need to replace the old table with the modified one:
+/// font.tables.insert(head);
+/// ```
+///
 /// # Note
 ///
 /// This may be too fancy? It is an attempt to make the API more clear, by
 /// avoiding the need to do `Rc::make_mut(&mut my_table)` every time the user
 /// wants to mutate a table.
+#[derive(Clone, Debug)]
 pub struct Cow<T> {
     inner: Rc<T>,
+}
+
+impl<T> Cow<T> {
+    /// Returns `true` if these two pointers point to the same allocation.
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.inner, &other.inner)
+    }
 }
 
 impl<T: Clone> std::ops::Deref for Cow<T> {
@@ -189,7 +190,6 @@ impl TableSet {
                 log::warn!("Couldn't deserilaize {}: '{}'", tag, e);
             }
         }
-
         Ok(())
     }
 
@@ -284,22 +284,22 @@ impl TableSet {
     }
 
     fn deserialize_table(&self, tag: Tag, data: Rc<[u8]>) -> Result<Table, DeserializationError> {
-        let typed_data: Option<KnownTable> = match tag.as_bytes() {
-            b"avar" => Some(otspec::de::from_bytes::<tables::avar::avar>(&data)?.into()),
-            b"cmap" => Some(otspec::de::from_bytes::<tables::cmap::cmap>(&data)?.into()),
-            b"fvar" => Some(otspec::de::from_bytes::<tables::fvar::fvar>(&data)?.into()),
-            b"gasp" => Some(otspec::de::from_bytes::<tables::gasp::gasp>(&data)?.into()),
-            b"GDEF" => Some(otspec::de::from_bytes::<tables::GDEF::GDEF>(&data)?.into()),
-            b"GPOS" => Some(otspec::de::from_bytes::<tables::GPOS::GPOS>(&data)?.into()),
-            b"GSUB" => Some(otspec::de::from_bytes::<tables::GSUB::GSUB>(&data)?.into()),
-            b"head" => Some(otspec::de::from_bytes::<tables::head::head>(&data)?.into()),
-            b"hhea" => Some(otspec::de::from_bytes::<tables::hhea::hhea>(&data)?.into()),
-            b"MATH" => Some(otspec::de::from_bytes::<tables::MATH::MATH>(&data)?.into()),
-            b"maxp" => Some(otspec::de::from_bytes::<tables::maxp::maxp>(&data)?.into()),
-            b"name" => Some(otspec::de::from_bytes::<tables::name::name>(&data)?.into()),
-            b"OS/2" => Some(otspec::de::from_bytes::<tables::os2::os2>(&data)?.into()),
-            b"post" => Some(otspec::de::from_bytes::<tables::post::post>(&data)?.into()),
-            b"STAT" => Some(otspec::de::from_bytes::<tables::STAT::STAT>(&data)?.into()),
+        let typed_data: LoadedTable = match tag.as_bytes() {
+            b"avar" => otspec::de::from_bytes::<tables::avar::avar>(&data)?.into(),
+            b"cmap" => otspec::de::from_bytes::<tables::cmap::cmap>(&data)?.into(),
+            b"fvar" => otspec::de::from_bytes::<tables::fvar::fvar>(&data)?.into(),
+            b"gasp" => otspec::de::from_bytes::<tables::gasp::gasp>(&data)?.into(),
+            b"GDEF" => otspec::de::from_bytes::<tables::GDEF::GDEF>(&data)?.into(),
+            b"GPOS" => otspec::de::from_bytes::<tables::GPOS::GPOS>(&data)?.into(),
+            b"GSUB" => otspec::de::from_bytes::<tables::GSUB::GSUB>(&data)?.into(),
+            b"head" => otspec::de::from_bytes::<tables::head::head>(&data)?.into(),
+            b"hhea" => otspec::de::from_bytes::<tables::hhea::hhea>(&data)?.into(),
+            b"MATH" => otspec::de::from_bytes::<tables::MATH::MATH>(&data)?.into(),
+            b"maxp" => otspec::de::from_bytes::<tables::maxp::maxp>(&data)?.into(),
+            b"name" => otspec::de::from_bytes::<tables::name::name>(&data)?.into(),
+            b"OS/2" => otspec::de::from_bytes::<tables::os2::os2>(&data)?.into(),
+            b"post" => otspec::de::from_bytes::<tables::post::post>(&data)?.into(),
+            b"STAT" => otspec::de::from_bytes::<tables::STAT::STAT>(&data)?.into(),
             b"hmtx" => {
                 let number_of_hmetrics = self
                     //TODO: dear reviewer: this loads the table if missing. do
@@ -308,29 +308,25 @@ impl TableSet {
                     .map(|hhea| hhea.numberOfHMetrics)
                     //TODO: are we allowed to not have hhea?
                     .ok_or_else(|| DeserializationError("deserialize hhea before hmtx".into()))?;
-                Some(
-                    tables::hmtx::from_bytes(
-                        &mut ReaderContext::new(data.to_vec()),
-                        number_of_hmetrics,
-                    )?
-                    .into(),
-                )
+
+                tables::hmtx::from_bytes(
+                    &mut ReaderContext::new(data.to_vec()),
+                    number_of_hmetrics,
+                )?
+                .into()
             }
             b"loca" => {
                 let is_32bit = self
                     .head()?
                     .map(|head| head.indexToLocFormat == 1)
                     .ok_or_else(|| DeserializationError("deserialize head before loca".into()))?;
-                Some(
-                    tables::loca::from_bytes(&mut ReaderContext::new(data.to_vec()), is_32bit)?
-                        .into(),
-                )
+                tables::loca::from_bytes(&mut ReaderContext::new(data.to_vec()), is_32bit)?.into()
             }
             b"glyf" => {
                 let loca = self
                     .loca()?
                     .ok_or_else(|| DeserializationError("deserialize loca before glyf".into()))?;
-                Some(tables::glyf::from_bytes(&data, &loca.indices)?.into())
+                tables::glyf::from_bytes(&data, &loca.indices)?.into()
             }
             b"gvar" => {
                 let glyf = self
@@ -342,19 +338,16 @@ impl TableSet {
                     .map(|g| g.gvar_coords_and_ends())
                     .collect();
 
-                Some(tables::gvar::from_bytes(&data, coords_and_ends)?.into())
+                tables::gvar::from_bytes(&data, coords_and_ends)?.into()
             }
-            _ => None,
+            _ => LoadedTable::Unknown(data.clone()),
         };
 
-        let data = match typed_data {
-            Some(typed) => TableData::Known {
-                raw: Some(data),
-                typed,
-            },
-            None => TableData::Unknown { raw: data },
-        };
-        Ok(Table { data, tag })
+        Ok(Table {
+            raw: Some(data),
+            loaded: typed_data,
+            tag,
+        })
     }
 
     fn is_serialized(&self, tag: Tag) -> Option<bool> {
@@ -362,10 +355,7 @@ impl TableSet {
             .get(&tag)
             .map(|table| match table.borrow().deref() {
                 LazyItem::Unloaded(_) => true,
-                LazyItem::Loaded(table) => match &table.data {
-                    TableData::Known { raw, .. } => raw.is_some(),
-                    TableData::Unknown { .. } => true,
-                },
+                LazyItem::Loaded(table) => table.raw.is_some(),
             })
     }
 
@@ -444,13 +434,10 @@ impl TableSet {
 
         match &*table.borrow() {
             LazyItem::Unloaded(raw) => raw.to_bytes(buffer),
-            LazyItem::Loaded(table) => match &table.data {
-                TableData::Unknown { raw } => raw.to_bytes(buffer),
-                TableData::Known {
-                    raw: Some(data), ..
-                } => data.to_bytes(buffer),
-                TableData::Known { typed, .. } => typed.to_bytes(buffer),
-            },
+            LazyItem::Loaded(Table {
+                raw: Some(data), ..
+            }) => data.to_bytes(buffer),
+            LazyItem::Loaded(table) => table.loaded.to_bytes(buffer),
         }
     }
 }
@@ -475,39 +462,9 @@ impl PartialEq for TableSet {
     }
 }
 
-impl PartialEq for TableData {
+impl PartialEq for Table {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Known { typed: one, .. }, Self::Known { typed: two, .. }) => one == two,
-            (Self::Unknown { raw: one }, Self::Unknown { raw: two }) => one == two,
-            _ => false,
-        }
-    }
-}
-
-impl KnownTable {
-    fn tag(&self) -> Tag {
-        match self {
-            KnownTable::avar(_) => tables::avar::TAG,
-            KnownTable::cmap(_) => tables::cmap::TAG,
-            KnownTable::fvar(_) => tables::fvar::TAG,
-            KnownTable::gasp(_) => tables::gasp::TAG,
-            KnownTable::GDEF(_) => tables::GDEF::TAG,
-            KnownTable::GPOS(_) => tables::GPOS::TAG,
-            KnownTable::GSUB(_) => tables::GSUB::TAG,
-            KnownTable::glyf(_) => tables::glyf::TAG,
-            KnownTable::gvar(_) => tables::gvar::TAG,
-            KnownTable::head(_) => tables::head::TAG,
-            KnownTable::hhea(_) => tables::hhea::TAG,
-            KnownTable::hmtx(_) => tables::hmtx::TAG,
-            KnownTable::loca(_) => tables::loca::TAG,
-            KnownTable::maxp(_) => tables::maxp::TAG,
-            KnownTable::name(_) => tables::name::TAG,
-            KnownTable::os2(_) => tables::os2::TAG,
-            KnownTable::post(_) => tables::post::TAG,
-            KnownTable::STAT(_) => tables::STAT::TAG,
-            KnownTable::MATH(_) => tables::MATH::TAG,
-        }
+        self.tag == other.tag && self.loaded == other.loaded
     }
 }
 
@@ -515,11 +472,13 @@ impl KnownTable {
 // we need this for copy-on-write semanatics
 fn assert_is_clone<T: Clone>() {}
 
-macro_rules! from_table {
+/// A macro that impls various various conversions and utility methods
+/// for typed tables.
+macro_rules! table_boilerplate {
     ($table:ty, $enum: ident) => {
-        impl From<$table> for KnownTable {
-            fn from(src: $table) -> KnownTable {
-                KnownTable::$enum(Rc::new(src))
+        impl From<$table> for LoadedTable {
+            fn from(src: $table) -> LoadedTable {
+                LoadedTable::$enum(Rc::new(src))
             }
         }
 
@@ -533,16 +492,17 @@ macro_rules! from_table {
 
         impl From<Cow<$table>> for Table {
             fn from(src: Cow<$table>) -> Table {
-                let typed = KnownTable::$enum(src.inner);
-                let tag = typed.tag();
+                let loaded = LoadedTable::$enum(src.inner);
+                let tag = tables::$enum::TAG;
                 Table {
-                    data: TableData::Known { raw: None, typed },
+                    raw: None,
+                    loaded,
                     tag,
                 }
             }
         }
 
-        impl KnownTable {
+        impl LoadedTable {
             #[allow(non_snake_case)]
             fn $enum(&self) -> Cow<$table> {
                 assert_is_clone::<$table>();
@@ -552,7 +512,7 @@ macro_rules! from_table {
                         inner: table.clone(),
                     };
                 } else {
-                    panic!("expected '{}' found '{}'", stringify!($ident), self.tag());
+                    panic!("expected '{}' found '{:?}'", tables::$enum::TAG, self);
                 }
             }
         }
@@ -560,55 +520,60 @@ macro_rules! from_table {
         impl TableSet {
             #[allow(non_snake_case)]
 
+            /// Get this table, if it exists.
+            ///
+            /// This returns a pointer which implements copy-on-write semantics.
+            /// See the docs for [`Cow`] for more details.
             pub fn $enum(&self) -> Result<Option<Cow<$table>>, DeserializationError> {
-                Ok(self.get(tables::$enum::TAG)?.map(|t| t.known().expect(stringify!($enum is known table type)).$enum()))
+                Ok(self.get(tables::$enum::TAG)?.map(|t| t.loaded.$enum()))
             }
         }
     };
 }
 
-from_table!(tables::GDEF::GDEF, GDEF);
-from_table!(tables::GPOS::GPOS, GPOS);
-from_table!(tables::GSUB::GSUB, GSUB);
-from_table!(tables::STAT::STAT, STAT);
-from_table!(tables::avar::avar, avar);
-from_table!(tables::cmap::cmap, cmap);
-from_table!(tables::fvar::fvar, fvar);
-from_table!(tables::gasp::gasp, gasp);
-from_table!(tables::glyf::glyf, glyf);
-from_table!(tables::gvar::gvar, gvar);
-from_table!(tables::head::head, head);
-from_table!(tables::hhea::hhea, hhea);
-from_table!(tables::hmtx::hmtx, hmtx);
-from_table!(tables::loca::loca, loca);
-from_table!(tables::maxp::maxp, maxp);
-from_table!(tables::name::name, name);
-from_table!(tables::os2::os2, os2);
-from_table!(tables::post::post, post);
-from_table!(tables::MATH::MATH, MATH);
+table_boilerplate!(tables::GDEF::GDEF, GDEF);
+table_boilerplate!(tables::GPOS::GPOS, GPOS);
+table_boilerplate!(tables::GSUB::GSUB, GSUB);
+table_boilerplate!(tables::STAT::STAT, STAT);
+table_boilerplate!(tables::avar::avar, avar);
+table_boilerplate!(tables::cmap::cmap, cmap);
+table_boilerplate!(tables::fvar::fvar, fvar);
+table_boilerplate!(tables::gasp::gasp, gasp);
+table_boilerplate!(tables::glyf::glyf, glyf);
+table_boilerplate!(tables::gvar::gvar, gvar);
+table_boilerplate!(tables::head::head, head);
+table_boilerplate!(tables::hhea::hhea, hhea);
+table_boilerplate!(tables::hmtx::hmtx, hmtx);
+table_boilerplate!(tables::loca::loca, loca);
+table_boilerplate!(tables::maxp::maxp, maxp);
+table_boilerplate!(tables::name::name, name);
+table_boilerplate!(tables::os2::os2, os2);
+table_boilerplate!(tables::post::post, post);
+table_boilerplate!(tables::MATH::MATH, MATH);
 
-impl Serialize for KnownTable {
+impl Serialize for LoadedTable {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
         match self {
-            KnownTable::avar(expr) => expr.to_bytes(data),
-            KnownTable::cmap(expr) => expr.to_bytes(data),
-            KnownTable::fvar(expr) => expr.to_bytes(data),
-            KnownTable::gasp(expr) => expr.to_bytes(data),
-            KnownTable::GSUB(expr) => expr.to_bytes(data),
-            KnownTable::GDEF(expr) => expr.to_bytes(data),
-            KnownTable::GPOS(expr) => expr.to_bytes(data),
-            KnownTable::gvar(_) => unimplemented!(),
-            KnownTable::head(expr) => expr.to_bytes(data),
-            KnownTable::hhea(expr) => expr.to_bytes(data),
-            KnownTable::hmtx(_) => unimplemented!(),
-            KnownTable::glyf(_) => unimplemented!(),
-            KnownTable::loca(_) => unimplemented!(),
-            KnownTable::maxp(expr) => expr.to_bytes(data),
-            KnownTable::MATH(_) => unimplemented!(),
-            KnownTable::name(expr) => expr.to_bytes(data),
-            KnownTable::os2(expr) => expr.to_bytes(data),
-            KnownTable::post(expr) => expr.to_bytes(data),
-            KnownTable::STAT(expr) => expr.to_bytes(data),
+            LoadedTable::Unknown(expr) => expr.to_bytes(data),
+            LoadedTable::avar(expr) => expr.to_bytes(data),
+            LoadedTable::cmap(expr) => expr.to_bytes(data),
+            LoadedTable::fvar(expr) => expr.to_bytes(data),
+            LoadedTable::gasp(expr) => expr.to_bytes(data),
+            LoadedTable::GSUB(expr) => expr.to_bytes(data),
+            LoadedTable::GDEF(expr) => expr.to_bytes(data),
+            LoadedTable::GPOS(expr) => expr.to_bytes(data),
+            LoadedTable::gvar(_) => unimplemented!(),
+            LoadedTable::head(expr) => expr.to_bytes(data),
+            LoadedTable::hhea(expr) => expr.to_bytes(data),
+            LoadedTable::hmtx(_) => unimplemented!(),
+            LoadedTable::glyf(_) => unimplemented!(),
+            LoadedTable::loca(_) => unimplemented!(),
+            LoadedTable::maxp(expr) => expr.to_bytes(data),
+            LoadedTable::MATH(_) => unimplemented!(),
+            LoadedTable::name(expr) => expr.to_bytes(data),
+            LoadedTable::os2(expr) => expr.to_bytes(data),
+            LoadedTable::post(expr) => expr.to_bytes(data),
+            LoadedTable::STAT(expr) => expr.to_bytes(data),
         }
     }
 }
