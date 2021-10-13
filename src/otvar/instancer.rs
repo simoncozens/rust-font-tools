@@ -1,18 +1,13 @@
 #![allow(missing_docs)]
-use crate::font::{Font, Table};
+use std::collections::BTreeMap;
 
+use super::support_scalar;
+use crate::font::Font;
 use crate::tables::avar::{self, SegmentMap};
 use crate::tables::gvar::{self, Coords, DeltaSet, GlyphVariationData};
 use crate::tables::{fvar, glyf};
 use crate::tag;
 use crate::types::*;
-//use crate::font::Table;
-//use crate::fvar;
-//use crate::glyf;
-//use crate::gvar;
-//use crate::gvar::{Coords, DeltaSet, GlyphVariationData};
-use super::support_scalar;
-use std::collections::BTreeMap;
 
 type Location = BTreeMap<Tag, f32>;
 
@@ -141,11 +136,11 @@ fn instantiate_gvar_data(
             tent.push((*ax, F2DOT14(*start), F2DOT14(*peak), F2DOT14(*end)))
         }
 
-        if let Some(var) = merged_variations.get(&tent) {
-            merged_variations.insert(tent, var.combine(deltaset));
-        } else {
-            merged_variations.insert(tent, deltaset.clone());
-        }
+        let new_var = match merged_variations.get(&tent) {
+            Some(var) => var.combine(deltaset),
+            None => deltaset.to_owned(),
+        };
+        merged_variations.insert(tent, new_var);
     }
 
     println!("Merged variations: {:?}", merged_variations);
@@ -248,34 +243,28 @@ fn instantiate_gvar_glyph(
 fn instantiate_gvar(font: &mut Font, axis_limits: &NormalizedAxisLimits) {
     log::info!("Instantiating gvar/glyf table");
     let axis_tags: Vec<Tag> = font
-        .get_table(tag!("fvar"))
+        .tables
+        .fvar()
         .unwrap()
         .unwrap()
-        .fvar_unchecked()
         .axes
         .iter()
         .map(|x| x.axisTag)
         .collect();
-    //let mut glyf: glyf::glyf = font.tables.get(b"glyf").unwrap().glyf_unchecked().clone();
-    //let glyf = font.
-    let gvar = font.gvar().unwrap().unwrap();
-    let glyf = font
-        .get_table_mut(tag!("glyf"))
-        .unwrap()
-        .unwrap()
-        .glyf_unchecked();
-    //let gvar_table = font.get_table(tag!("gvar")).unwrap().unwrap();
 
-    //if let Table::Gvar(gvar) = gvar_table {
+    let mut gvar = font.tables.gvar().unwrap().unwrap();
+    let mut glyf = font.tables.glyf().unwrap().unwrap();
+
     for gid in 0..glyf.glyphs.len() {
-        instantiate_gvar_glyph(gid, &axis_tags, &mut glyf, gvar, axis_limits)
+        instantiate_gvar_glyph(gid, &axis_tags, &mut glyf, &mut gvar, axis_limits)
     }
     if !gvar.variations.iter().any(|x| x.is_some()) {
         log::info!("Dropping gvar table");
-        font.tables.remove(b"gvar");
+        font.tables.remove(gvar::TAG);
+    } else {
+        font.tables.insert(gvar);
     }
-    //}
-    font.tables.insert(tag!("glyf"), Table::Glyf(glyf));
+    font.tables.insert(glyf);
 }
 
 fn instantiate_avar(font: &mut Font, axis_limits: &UserAxisLimits) {
@@ -284,84 +273,82 @@ fn instantiate_avar(font: &mut Font, axis_limits: &UserAxisLimits) {
     let (_, normalized_ranges) = normalize_axis_limits(font, axis_limits, false).split_up();
 
     // Drop avar if we instantiate everything
-    let fvar_table = font.tables.get(b"fvar").unwrap();
+    let fvar = font.tables.fvar().unwrap().unwrap();
     let mut axis_tags = vec![];
-    if let Table::Fvar(fvar) = fvar_table {
-        if fvar
-            .axes
-            .iter()
-            .all(|ax| location.contains_key(&ax.axisTag))
-        {
-            log::info!("Dropping avar table");
-            font.tables.remove(b"avar");
-            return;
-        }
-        for ax in &fvar.axes {
-            axis_tags.push(ax.axisTag)
-        }
+    if fvar
+        .axes
+        .iter()
+        .all(|ax| location.contains_key(&ax.axisTag))
+    {
+        log::info!("Dropping avar table");
+        font.tables.remove(avar::TAG);
+        return;
+    }
+    for ax in &fvar.axes {
+        axis_tags.push(ax.axisTag)
     }
 
-    if let Table::Avar(avar_table) = font.get_table(tag!("avar")).unwrap().unwrap() {
-        // We are doing avar first, so the fvar table contains the full set of axes.
+    let mut avar_table = font.tables.avar().unwrap().unwrap();
+    // We are doing avar first, so the fvar table contains the full set of axes.
 
-        let mut segments_map: BTreeMap<Tag, SegmentMap> = axis_tags
-            .iter()
-            .zip(avar_table.axisSegmentMaps.iter())
-            .map(|(&tag, seg)| (tag, seg.clone()))
-            .collect();
-        for pinned in location.keys() {
-            segments_map.remove(pinned);
-            axis_tags.retain(|tag| tag != pinned);
+    let mut segments_map: BTreeMap<Tag, SegmentMap> = axis_tags
+        .iter()
+        .zip(avar_table.axisSegmentMaps.iter())
+        .map(|(&tag, seg)| (tag, seg.clone()))
+        .collect();
+    for pinned in location.keys() {
+        segments_map.remove(pinned);
+        axis_tags.retain(|tag| tag != pinned);
+    }
+
+    let mut new_segments: BTreeMap<Tag, SegmentMap> = BTreeMap::new();
+    for (axis_tag, segment) in segments_map {
+        if !segment.is_valid() {
+            continue;
         }
-
-        let mut new_segments: BTreeMap<Tag, SegmentMap> = BTreeMap::new();
-        for (axis_tag, segment) in segments_map {
-            if !segment.is_valid() {
-                continue;
-            }
-            if let Some(&(minimum, maximum)) = normalized_ranges.get(&axis_tag) {
-                let mapped_min = F2DOT14::round(segment.piecewise_linear_map(minimum));
-                let mapped_max = F2DOT14::round(segment.piecewise_linear_map(maximum));
-                let mut new_mapping: Vec<(f32, f32)> = vec![];
-                for avm in &segment.axisValueMaps {
-                    let (mut from_coord, mut to_coord) = (avm.fromCoordinate, avm.toCoordinate);
-                    if from_coord < 0.0 {
-                        if minimum == 0.0 || from_coord < minimum {
-                            continue;
-                        } else {
-                            from_coord /= minimum.abs();
-                        }
-                    } else if from_coord > 0.0 {
-                        if maximum == 0.0 || from_coord > maximum {
-                            continue;
-                        } else {
-                            from_coord /= maximum;
-                        }
+        if let Some(&(minimum, maximum)) = normalized_ranges.get(&axis_tag) {
+            let mapped_min = F2DOT14::round(segment.piecewise_linear_map(minimum));
+            let mapped_max = F2DOT14::round(segment.piecewise_linear_map(maximum));
+            let mut new_mapping: Vec<(f32, f32)> = vec![];
+            for avm in &segment.axisValueMaps {
+                let (mut from_coord, mut to_coord) = (avm.fromCoordinate, avm.toCoordinate);
+                if from_coord < 0.0 {
+                    if minimum == 0.0 || from_coord < minimum {
+                        continue;
+                    } else {
+                        from_coord /= minimum.abs();
                     }
-                    if to_coord < 0.0 {
-                        assert!(mapped_min != 0.0);
-                        assert!(to_coord >= mapped_min);
-                        to_coord /= mapped_min.abs()
-                    } else if to_coord > 0.0 {
-                        assert!(mapped_max != 0.0);
-                        assert!(to_coord <= mapped_max);
-                        to_coord /= mapped_max.abs()
+                } else if from_coord > 0.0 {
+                    if maximum == 0.0 || from_coord > maximum {
+                        continue;
+                    } else {
+                        from_coord /= maximum;
                     }
-                    from_coord = F2DOT14::round(from_coord);
-                    to_coord = F2DOT14::round(to_coord);
-                    new_mapping.push((from_coord, to_coord));
                 }
-                new_segments.insert(axis_tag, avar::SegmentMap::new(new_mapping));
-            } else {
-                new_segments.insert(axis_tag, segment);
+                if to_coord < 0.0 {
+                    assert!(mapped_min != 0.0);
+                    assert!(to_coord >= mapped_min);
+                    to_coord /= mapped_min.abs()
+                } else if to_coord > 0.0 {
+                    assert!(mapped_max != 0.0);
+                    assert!(to_coord <= mapped_max);
+                    to_coord /= mapped_max.abs()
+                }
+                from_coord = F2DOT14::round(from_coord);
+                to_coord = F2DOT14::round(to_coord);
+                new_mapping.push((from_coord, to_coord));
             }
+            new_segments.insert(axis_tag, avar::SegmentMap::new(new_mapping));
+        } else {
+            new_segments.insert(axis_tag, segment);
         }
-        // Put back the segments map into the avar table, in the right order.
-        avar_table.axisSegmentMaps = axis_tags
-            .iter()
-            .map(|tag| new_segments.get(tag).unwrap().clone())
-            .collect();
     }
+    // Put back the segments map into the avar table, in the right order.
+    avar_table.axisSegmentMaps = axis_tags
+        .iter()
+        .map(|tag| new_segments.get(tag).unwrap().clone())
+        .collect();
+    font.tables.insert(avar_table);
 }
 
 fn is_instance_within_axis_ranges(loc: &Location, axis_ranges: &PartialUserAxisLimits) -> bool {
@@ -379,138 +366,137 @@ fn instantiate_fvar(font: &mut Font, axis_limits: &UserAxisLimits) {
     let (location, axis_ranges): (FullUserAxisLimits, PartialUserAxisLimits) =
         axis_limits.split_up();
 
-    let fvar_table = font.get_table(tag!("fvar")).unwrap().unwrap();
-    if let Table::Fvar(fvar) = fvar_table {
-        if fvar
-            .axes
-            .iter()
-            .all(|ax| location.contains_key(&ax.axisTag))
-        {
-            log::info!("Dropping fvar table");
-            font.tables.remove(b"fvar");
-            return;
-        }
+    // we use into_owned here because the borrows below are too fancy
+    // for just DerefMut.
+    let mut fvar = font.tables.fvar().unwrap().unwrap().into_owned();
+    if fvar
+        .axes
+        .iter()
+        .all(|ax| location.contains_key(&ax.axisTag))
+    {
+        log::info!("Dropping fvar table");
+        font.tables.remove(fvar::TAG);
+        return;
     }
 
     log::info!("Instantiating fvar table");
-    if let Table::Fvar(fvar) = fvar_table {
-        let mut new_axes = vec![];
-        for axis in fvar.axes.iter_mut() {
-            let axis_tag = axis.axisTag;
-            if location.contains_key(&axis_tag) {
-                continue;
-            }
-            if let Some(&(minimum, maximum)) = axis_ranges.get(&axis_tag) {
-                axis.minValue = minimum;
-                axis.maxValue = maximum;
-            }
-            new_axes.push(axis.clone());
+    let mut new_axes = vec![];
+    for axis in fvar.axes.iter_mut() {
+        let axis_tag = axis.axisTag;
+        if location.contains_key(&axis_tag) {
+            continue;
         }
-
-        let mut new_instances = vec![];
-        for instance in fvar.instances.iter_mut() {
-            let mut keep = true;
-            // We need to convert this instance's tuple into a location
-            let mut instance_location: Location = fvar
-                .axes
-                .iter()
-                .zip(instance.coordinates.iter())
-                .map(|(ax, &l)| (ax.axisTag, l))
-                .collect();
-
-            // only keep NamedInstances whose coordinates == pinned axis location
-            for (loc_tag, loc_value) in location.iter() {
-                if (instance_location
-                    .get(loc_tag)
-                    .expect("Tag mismatch in instance table")
-                    - loc_value)
-                    .abs()
-                    > f32::EPSILON
-                {
-                    keep = false;
-                    break;
-                }
-                // Delete the pinned tag from our mapping
-                instance_location.remove(loc_tag);
-            }
-
-            if !keep {
-                continue;
-            }
-            // XXX
-            if !is_instance_within_axis_ranges(&instance_location, &axis_ranges) {
-                continue;
-            }
-            // Now set the location from the *new* axes list
-            let new_tuple: Tuple = new_axes
-                .iter()
-                .map(|x| instance_location.get(&x.axisTag).unwrap())
-                .copied()
-                .collect();
-            instance.coordinates = new_tuple;
-            new_instances.push(instance.clone());
+        if let Some(&(minimum, maximum)) = axis_ranges.get(&axis_tag) {
+            axis.minValue = minimum;
+            axis.maxValue = maximum;
         }
-
-        fvar.axes = new_axes;
-        fvar.instances = new_instances;
+        new_axes.push(axis.clone());
     }
+
+    let mut new_instances = vec![];
+    for instance in fvar.instances.iter_mut() {
+        let mut keep = true;
+        // We need to convert this instance's tuple into a location
+        let mut instance_location: Location = fvar
+            .axes
+            .iter()
+            .zip(instance.coordinates.iter())
+            .map(|(ax, &l)| (ax.axisTag, l))
+            .collect();
+
+        // only keep NamedInstances whose coordinates == pinned axis location
+        for (loc_tag, loc_value) in location.iter() {
+            if (instance_location
+                .get(loc_tag)
+                .expect("Tag mismatch in instance table")
+                - loc_value)
+                .abs()
+                > f32::EPSILON
+            {
+                keep = false;
+                break;
+            }
+            // Delete the pinned tag from our mapping
+            instance_location.remove(loc_tag);
+        }
+
+        //FIXME use a loop label
+        if !keep {
+            continue;
+        }
+        // XXX
+        if !is_instance_within_axis_ranges(&instance_location, &axis_ranges) {
+            continue;
+        }
+        // Now set the location from the *new* axes list
+        let new_tuple: Tuple = new_axes
+            .iter()
+            .map(|x| instance_location.get(&x.axisTag).unwrap())
+            .copied()
+            .collect();
+        instance.coordinates = new_tuple;
+        new_instances.push(instance.clone());
+    }
+
+    fvar.axes = new_axes;
+    fvar.instances = new_instances;
+    font.tables.insert(fvar);
 }
 
 #[allow(non_snake_case)]
 fn instantiate_STAT(font: &mut Font, axis_limits: &UserAxisLimits) {
-    let stat_table = font.get_table(tag!("STAT")).unwrap().unwrap();
-    if let Table::STAT(stat) = stat_table {
-        if stat.design_axes.is_empty() || stat.axis_values.is_empty() {
-            return;
-        }
-        log::info!("Instantiating STAT table");
-        let (location, axis_ranges): (FullUserAxisLimits, PartialUserAxisLimits) =
-            axis_limits.split_up();
-
-        let is_axis_value_outside_limits = |tag: &Tag, value: f32| {
-            if let Some(&f) = location.get(tag) {
-                if (value - f).abs() > f32::EPSILON {
-                    return true;
-                }
-            }
-            if let Some(&(minimum, maximum)) = axis_ranges.get(tag) {
-                if value < minimum || value > maximum {
-                    return true;
-                }
-            }
-            false
-        };
-
-        let mut new_axis_value_tables: Vec<crate::tables::STAT::AxisValue> = vec![];
-        let av = stat.axis_values.clone();
-        for axis_value in av {
-            if let Some(nominal) = axis_value.nominal_value {
-                let axis_tag = stat
-                    .design_axes
-                    .get(axis_value.axis_index.unwrap() as usize)
-                    .unwrap()
-                    .axisTag;
-                if is_axis_value_outside_limits(&axis_tag, nominal) {
-                    continue;
-                }
-            }
-            if let Some(locations) = &axis_value.locations {
-                let mut drop_axis_table = false;
-                for (&axis_index, &axis_value) in locations {
-                    let axis_tag = stat.design_axes.get(axis_index as usize).unwrap().axisTag;
-                    if is_axis_value_outside_limits(&axis_tag, axis_value) {
-                        drop_axis_table = true;
-                        break;
-                    }
-                }
-                if drop_axis_table {
-                    continue;
-                }
-            }
-            new_axis_value_tables.push(axis_value);
-        }
-        stat.axis_values = new_axis_value_tables;
+    let mut stat = font.tables.STAT().unwrap().unwrap();
+    if stat.design_axes.is_empty() || stat.axis_values.is_empty() {
+        return;
     }
+    log::info!("Instantiating STAT table");
+    let (location, axis_ranges): (FullUserAxisLimits, PartialUserAxisLimits) =
+        axis_limits.split_up();
+
+    let is_axis_value_outside_limits = |tag: &Tag, value: f32| {
+        if let Some(&f) = location.get(tag) {
+            if (value - f).abs() > f32::EPSILON {
+                return true;
+            }
+        }
+        if let Some(&(minimum, maximum)) = axis_ranges.get(tag) {
+            if value < minimum || value > maximum {
+                return true;
+            }
+        }
+        false
+    };
+
+    let mut new_axis_value_tables: Vec<crate::tables::STAT::AxisValue> = vec![];
+    let av = stat.axis_values.clone();
+    for axis_value in av {
+        if let Some(nominal) = axis_value.nominal_value {
+            let axis_tag = stat
+                .design_axes
+                .get(axis_value.axis_index.unwrap() as usize)
+                .unwrap()
+                .axisTag;
+            if is_axis_value_outside_limits(&axis_tag, nominal) {
+                continue;
+            }
+        }
+        if let Some(locations) = &axis_value.locations {
+            let mut drop_axis_table = false;
+            for (&axis_index, &axis_value) in locations {
+                let axis_tag = stat.design_axes.get(axis_index as usize).unwrap().axisTag;
+                if is_axis_value_outside_limits(&axis_tag, axis_value) {
+                    drop_axis_table = true;
+                    break;
+                }
+            }
+            if drop_axis_table {
+                continue;
+            }
+        }
+        new_axis_value_tables.push(axis_value);
+    }
+    stat.axis_values = new_axis_value_tables;
+    font.tables.insert(stat)
 }
 
 fn set_mac_overlap_flags(glyf: &mut glyf::glyf) {
@@ -519,13 +505,8 @@ fn set_mac_overlap_flags(glyf: &mut glyf::glyf) {
     }
 }
 
-fn populate_axis_defaults(font: &mut Font, limits: UserAxisLimits) -> UserAxisLimits {
-    let mut limits = limits;
-    let fvar: &fvar::fvar = font
-        .get_table(tag!("fvar"))
-        .unwrap()
-        .unwrap()
-        .fvar_unchecked();
+fn populate_axis_defaults(font: &mut Font, mut limits: UserAxisLimits) -> UserAxisLimits {
+    let fvar = font.tables.fvar().unwrap().unwrap();
     let defaults: Location = fvar
         .axes
         .iter()
@@ -555,11 +536,7 @@ fn normalize_axis_limits(
     limits: &UserAxisLimits,
     use_avar: bool,
 ) -> NormalizedAxisLimits {
-    let fvar: &fvar::fvar = font
-        .get_table(tag!("fvar"))
-        .unwrap()
-        .unwrap()
-        .fvar_unchecked();
+    let fvar = font.tables.fvar().unwrap().unwrap();
     let all_axes: Vec<Tag> = fvar.axes.iter().map(|x| x.axisTag).collect();
     for ax in limits.0.keys() {
         if !all_axes.contains(ax) {
@@ -572,15 +549,12 @@ fn normalize_axis_limits(
         .filter(|ax| limits.0.contains_key(&ax.axisTag))
         .map(|ax| (ax.axisTag, (ax.minValue, ax.defaultValue, ax.maxValue)))
         .collect();
-    let avar_segs: BTreeMap<Tag, &SegmentMap> = if use_avar && font.tables.contains(b"avar") {
-        let avar: &avar::avar = font
-            .get_table(tag!("avar"))
-            .unwrap()
-            .unwrap()
-            .avar_unchecked();
+
+    let avar = font.tables.avar().unwrap();
+    let avar_segs: BTreeMap<Tag, &SegmentMap> = if use_avar && avar.is_some() {
         all_axes
             .iter()
-            .zip(avar.axisSegmentMaps.iter())
+            .zip(avar.as_ref().unwrap().axisSegmentMaps.iter())
             .map(|(a, b)| (*a, b))
             .collect()
     } else {
@@ -632,9 +606,9 @@ pub fn instantiate_variable_font(font: &mut Font, limits: UserAxisLimits) -> boo
     log::debug!("Full limits: {:?}", limits);
     let normalized_limits = normalize_axis_limits(font, &limits, true);
     log::debug!("Normalized limits: {:?}", normalized_limits);
-    font.get_table(tag!("fvar")).expect("Can't open fvar");
-    font.get_table(tag!("glyf")).expect("Can't open glyf");
-    font.get_table(tag!("gvar")).expect("Can't open gvar");
+    font.tables.fvar().expect("Can't open fvar");
+    font.tables.glyf().expect("Can't open glyf");
+    font.tables.gvar().expect("Can't open gvar");
     // update name table (can't)
     if font.tables.contains(b"gvar") {
         // Deserialize what we need
@@ -655,7 +629,7 @@ pub fn instantiate_variable_font(font: &mut Font, limits: UserAxisLimits) -> boo
     // instantiate_otl(font, normalized_limits);
     // instantiate_feature_variations(font, normalized_limits);
     if font.tables.contains(b"avar") {
-        font.get_table(tag!("avar")).expect("Can't open avar");
+        font.tables.avar().expect("Can't open avar");
         instantiate_avar(font, &limits);
     }
     if font.tables.contains(b"STAT") {
@@ -663,10 +637,9 @@ pub fn instantiate_variable_font(font: &mut Font, limits: UserAxisLimits) -> boo
     }
     instantiate_fvar(font, &limits);
     if !font.tables.contains(b"fvar") && !font.tables.contains(b"glyf") {
+        let mut glyf = font.tables.glyf().unwrap().unwrap();
         // set overlap flags
-        if let Table::Glyf(glyf) = font.get_table(tag!("glyf")).unwrap().unwrap() {
-            set_mac_overlap_flags(glyf)
-        }
+        set_mac_overlap_flags(&mut glyf);
     }
     // let (full, _) = limits.split_up();
     // set_default_weight_width_slant(font, full);

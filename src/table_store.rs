@@ -147,10 +147,22 @@ pub struct CowPtr<T> {
     inner: Rc<T>,
 }
 
-impl<T> CowPtr<T> {
+impl<T: Clone> CowPtr<T> {
     /// Returns `true` if these two pointers point to the same allocation.
     pub fn ptr_eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.inner, &other.inner)
+    }
+
+    /// Convert this shared pointer into the inner type, cloning if necessary.
+    ///
+    /// DerefMut has some limitations; for instance you cannot track field-level
+    /// borrows across function barriers. Sometimes it is nice to just deal
+    /// with the concrete type.
+    pub fn into_owned(self) -> T {
+        match Rc::try_unwrap(self.inner) {
+            Ok(thing) => thing,
+            Err(rc) => T::clone(&rc),
+        }
     }
 }
 
