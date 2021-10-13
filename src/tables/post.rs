@@ -284,8 +284,8 @@ tables!( postcore {
 });
 
 /// Represents the font's post (PostScript) table
+#[derive(Clone, Debug, PartialEq)]
 #[allow(non_snake_case, non_camel_case_types)]
-#[derive(Debug, PartialEq)]
 pub struct post {
     /// version of the post table (either 0.5 or 1.0), expressed as a Fixed::U16F16.
     pub version: U16F16,

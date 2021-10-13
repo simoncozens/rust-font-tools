@@ -15,7 +15,7 @@ mod tuplevariationheader;
 /// Tuple Variation Store
 mod tuplevariationstore;
 
-pub mod instancer;
+//pub mod instancer;
 
 pub use itemvariationstore::{ItemVariationData, ItemVariationStore, RegionAxisCoordinates};
 pub use locations::{support_scalar, Location, NormalizedLocation, VariationModel};

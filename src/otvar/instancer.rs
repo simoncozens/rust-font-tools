@@ -209,10 +209,10 @@ fn limit_tuple_variation_axis_ranges(
 }
 
 fn sanity_check(font: &Font) {
-    if !font.tables.contains_key(b"fvar") {
+    if !font.contains_table(tag!("fvar")) {
         panic!("Missing required table fvar")
     }
-    if font.tables.contains_key(b"CFF2") {
+    if font.contains_table(tag!("CFF2")) {
         panic!("I don't speak CFF")
     }
 }
@@ -248,26 +248,33 @@ fn instantiate_gvar_glyph(
 fn instantiate_gvar(font: &mut Font, axis_limits: &NormalizedAxisLimits) {
     log::info!("Instantiating gvar/glyf table");
     let axis_tags: Vec<Tag> = font
-        .tables
-        .get(b"fvar")
+        .get_table(tag!("fvar"))
+        .unwrap()
         .unwrap()
         .fvar_unchecked()
         .axes
         .iter()
         .map(|x| x.axisTag)
         .collect();
-    let mut glyf: glyf::glyf = font.tables.get(b"glyf").unwrap().glyf_unchecked().clone();
-    let gvar_table = font.get_table(tag!("gvar")).unwrap().unwrap();
+    //let mut glyf: glyf::glyf = font.tables.get(b"glyf").unwrap().glyf_unchecked().clone();
+    //let glyf = font.
+    let gvar = font.gvar().unwrap().unwrap();
+    let glyf = font
+        .get_table_mut(tag!("glyf"))
+        .unwrap()
+        .unwrap()
+        .glyf_unchecked();
+    //let gvar_table = font.get_table(tag!("gvar")).unwrap().unwrap();
 
-    if let Table::Gvar(gvar) = gvar_table {
-        for gid in 0..glyf.glyphs.len() {
-            instantiate_gvar_glyph(gid, &axis_tags, &mut glyf, gvar, axis_limits)
-        }
-        if !gvar.variations.iter().any(|x| x.is_some()) {
-            log::info!("Dropping gvar table");
-            font.tables.remove(b"gvar");
-        }
+    //if let Table::Gvar(gvar) = gvar_table {
+    for gid in 0..glyf.glyphs.len() {
+        instantiate_gvar_glyph(gid, &axis_tags, &mut glyf, gvar, axis_limits)
     }
+    if !gvar.variations.iter().any(|x| x.is_some()) {
+        log::info!("Dropping gvar table");
+        font.tables.remove(b"gvar");
+    }
+    //}
     font.tables.insert(tag!("glyf"), Table::Glyf(glyf));
 }
 
@@ -565,7 +572,7 @@ fn normalize_axis_limits(
         .filter(|ax| limits.0.contains_key(&ax.axisTag))
         .map(|ax| (ax.axisTag, (ax.minValue, ax.defaultValue, ax.maxValue)))
         .collect();
-    let avar_segs: BTreeMap<Tag, &SegmentMap> = if use_avar && font.tables.contains_key(b"avar") {
+    let avar_segs: BTreeMap<Tag, &SegmentMap> = if use_avar && font.tables.contains(b"avar") {
         let avar: &avar::avar = font
             .get_table(tag!("avar"))
             .unwrap()
@@ -629,33 +636,33 @@ pub fn instantiate_variable_font(font: &mut Font, limits: UserAxisLimits) -> boo
     font.get_table(tag!("glyf")).expect("Can't open glyf");
     font.get_table(tag!("gvar")).expect("Can't open gvar");
     // update name table (can't)
-    if font.tables.contains_key(b"gvar") {
+    if font.tables.contains(b"gvar") {
         // Deserialize what we need
         instantiate_gvar(font, &normalized_limits);
     }
-    if font.tables.contains_key(b"cvar") {
+    if font.tables.contains(b"cvar") {
         // instantiate_cvar(font, normalized_limits);
     }
-    if font.tables.contains_key(b"MVAR") {
+    if font.tables.contains(b"MVAR") {
         // instantiate_MVAR(font, normalized_limits);
     }
-    if font.tables.contains_key(b"HVAR") {
+    if font.tables.contains(b"HVAR") {
         // instantiate_HVAR(font, normalized_limits);
     }
-    if font.tables.contains_key(b"VVAR") {
+    if font.tables.contains(b"VVAR") {
         // instantiate_VVAR(font, normalized_limits);
     }
     // instantiate_otl(font, normalized_limits);
     // instantiate_feature_variations(font, normalized_limits);
-    if font.tables.contains_key(b"avar") {
+    if font.tables.contains(b"avar") {
         font.get_table(tag!("avar")).expect("Can't open avar");
         instantiate_avar(font, &limits);
     }
-    if font.tables.contains_key(b"STAT") {
+    if font.tables.contains(b"STAT") {
         instantiate_STAT(font, &limits);
     }
     instantiate_fvar(font, &limits);
-    if !font.tables.contains_key(b"fvar") && !font.tables.contains_key(b"glyf") {
+    if !font.tables.contains(b"fvar") && !font.tables.contains(b"glyf") {
         // set overlap flags
         if let Table::Glyf(glyf) = font.get_table(tag!("glyf")).unwrap().unwrap() {
             set_mac_overlap_flags(glyf)

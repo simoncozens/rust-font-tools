@@ -7,7 +7,7 @@ pub const TAG: otspec::types::Tag = crate::tag!("loca");
 ///
 /// [`loca`]: https://docs.microsoft.com/en-us/typography/opentype/spec/loca
 #[allow(non_snake_case, non_camel_case_types)]
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct loca {
     /// The offset position of each glyph in the font.
     ///

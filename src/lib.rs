@@ -9,23 +9,24 @@
 //! # // we need an explicit main fn to use macros:
 //! # #[macro_use] extern crate otspec;
 //! # fn main() {
-//! use fonttools::tag;
-//! use fonttools::font::{self, Font, Table};
+//! use fonttools::font::{self, Font};
 //! use fonttools::tables::name::{name, NameRecord, NameRecordID};
 //!
 //! // Load a font (tables are lazy-loaded)
 //! let mut myfont = Font::load("Test.otf").expect("Could not load font");
 //!
 //! // Access an existing table
-//! if let Table::Name(name_table) = myfont.get_table(tag!("name"))
-//!         .expect("Error reading name table")
-//!         .expect("There was no name table") {
+//! let mut name = myfont.tables.name()
+//!    .expect("Error reading name table")
+//!    .expect("There was no name table");
+//!
 //!     // Manipulate the table (table-specific)
-//!         name_table.records.push(NameRecord::windows_unicode(
-//!             NameRecordID::LicenseURL,
-//!             "http://opensource.org/licenses/OFL-1.1"
-//!         ));
-//! }
+//! name.records.push(NameRecord::windows_unicode(
+//!     NameRecordID::LicenseURL,
+//!     "http://opensource.org/licenses/OFL-1.1"
+//! ));
+//!
+//! myfont.tables.insert(name);
 //!
 //! myfont.save("Test-with-OFL.otf").expect("Could not create file");
 //! # }
@@ -41,6 +42,7 @@ pub mod font;
 pub mod layout;
 /// OpenType Variations common tables
 pub mod otvar;
+mod table_store;
 /// OpenType table definitions.
 pub mod tables;
 /// Useful utilities

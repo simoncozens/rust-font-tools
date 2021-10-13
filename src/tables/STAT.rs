@@ -102,7 +102,7 @@ pub struct AxisValue {
     pub locations: Option<BTreeMap<uint16, f32>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
 /// The Style Attributes table
 pub struct STAT {

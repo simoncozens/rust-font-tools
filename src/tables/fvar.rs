@@ -69,7 +69,7 @@ impl InstanceRecord {
 }
 
 /// Represents a font's fvar (Font Variations) table
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 pub struct fvar {
     /// The font's axes of variation
