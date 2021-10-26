@@ -156,14 +156,22 @@ impl From<&MarkBasePos> for MarkBasePosFormat1 {
                 })
                 .collect(),
         });
-        let mut base_records: Vec<BaseRecord> = vec![];
-        for base in lookup.bases.values() {
-            base_records.push(BaseRecord {
+
+        let base_records = lookup
+            .bases
+            .values()
+            .map(|base| BaseRecord {
                 baseAnchors: (0..markClassCount)
-                    .map(|i| Offset16::to(*base.get(&i).unwrap_or(&Anchor::new(0, 0))))
+                    .map(|i| {
+                        base.get(&i)
+                            .copied()
+                            .map(Offset16::to)
+                            .unwrap_or_else(Offset16::to_nothing)
+                    })
                     .collect(),
             })
-        }
+            .collect();
+
         MarkBasePosFormat1 {
             posFormat: 1,
             markCoverage: Offset16::to(Coverage {
