@@ -131,6 +131,7 @@ impl Default for LookupFlags {
         LookupFlags::empty()
     }
 }
+
 /// A script list
 #[derive(Debug, PartialEq, Clone, Default)]
 pub struct ScriptList {
@@ -275,7 +276,7 @@ pub struct Lookup<T> {
 
 // GPOS and GSUB tables
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 /// The Glyph Positioning table
 pub struct GPOSGSUB<T> {
@@ -370,6 +371,16 @@ impl Serialize for LookupListOutgoing {
         let mut v: Vec<&dyn OffsetMarkerTrait> = Vec::new();
         v.extend(self.lookups.offset_fields());
         v
+    }
+}
+
+impl<T> Default for GPOSGSUB<T> {
+    fn default() -> Self {
+        Self {
+            lookups: Default::default(),
+            scripts: Default::default(),
+            features: Default::default(),
+        }
     }
 }
 
