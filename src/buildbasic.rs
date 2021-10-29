@@ -48,11 +48,6 @@ pub fn build_font(
     subset: &Option<HashSet<String>>,
     just_one_master: Option<usize>,
 ) -> font::Font {
-    // Previously, this function took a norad UFO font and could mutate it,
-    // to decompose any mixed glyphs (see functions below). But now we have moved
-    // to babelfont we would like to have a method on the font which does the
-    // decomposition, but this method has not been written yet.
-
     decompose_mixed_glyphs(input);
 
     // First, find the glyphs we're dealing with
@@ -90,7 +85,7 @@ pub fn build_font(
         .glyphs
         .par_iter()
         .map(|glif| {
-            // Check if we are included in the subset
+            // If we are subsetting, check if we are included in the subset
             if subset.is_some() && !subset.as_ref().unwrap().contains(&glif.name.to_string()) {
                 return None;
             }
@@ -132,7 +127,7 @@ pub fn build_font(
         .filter_map(|e| e)
         .collect();
 
-    // We build the per-glyph data in parallel tuples, but now we want them
+    // We built the per-glyph data in parallel tuples, but now we want them
     // split into individual font-level vecs
     let (glyphs, mut metrics, variations) = result.into_iter().unzip_n_vec();
 
