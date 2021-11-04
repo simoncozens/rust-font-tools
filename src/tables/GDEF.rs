@@ -3,6 +3,7 @@ use crate::layout::coverage::Coverage;
 use crate::layout::device::Device;
 use crate::otvar::ItemVariationStore;
 use otspec::types::*;
+use otspec::Serializer;
 use std::iter::FromIterator;
 
 use otspec::{
@@ -95,8 +96,22 @@ pub enum CaretValue {
 }
 
 impl Serialize for CaretValue {
-    fn to_bytes(&self, _data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        todo!()
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        match &self {
+            Self::Format1 { coordinate } => {
+                data.put(1_u16)?;
+                data.put(coordinate)
+            }
+            Self::Format2 { pointIndex } => {
+                data.put(2_u16)?;
+                data.put(pointIndex)
+            }
+            Self::Format3 { coordinate, device } => {
+                data.put(3_u16)?;
+                data.put(coordinate)?;
+                device.to_bytes(data)
+            }
+        }
     }
 
     fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
