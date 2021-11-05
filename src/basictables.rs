@@ -1,16 +1,14 @@
 use crate::fontinfo::*;
 use crate::utils::adjust_offset;
 use babelfont::OTScalar;
-use fonttools::{
-    cmap,
-    font::{self, Font, Table},
-    glyf,
-    head::head,
-    hhea, hmtx,
-    name::{name, NameRecord, NameRecordID},
-    os2::os2,
-    post::post,
-};
+use fonttools::font::{self, Font};
+use fonttools::tables::head::head;
+use fonttools::tables::name::{name, NameRecord, NameRecordID};
+use fonttools::tables::os2::os2;
+use fonttools::tables::post::post;
+use fonttools::tables::{cmap, glyf, hhea, hmtx};
+use fonttools::tag;
+use fonttools::types::Tag;
 use std::cmp::{max, min};
 
 use std::collections::BTreeMap;
@@ -42,18 +40,18 @@ pub fn fill_tables(
 
     let maxp_table = glyf_table.as_maxp10();
 
-    font.tables.insert(*b"head", Table::Head(head_table));
-    font.tables.insert(*b"hhea", Table::Hhea(hhea_table));
-    font.tables.insert(*b"maxp", Table::Maxp(maxp_table));
-    font.tables.insert(*b"OS/2", Table::Os2(os2_table));
-    font.tables.insert(*b"hmtx", Table::Unknown(hmtx_bytes));
-    font.tables.insert(*b"cmap", Table::Cmap(cmap_table));
-    font.tables.insert(*b"glyf", Table::Glyf(glyf_table));
-    font.tables.insert(*b"name", Table::Name(name_table));
-    font.tables.insert(*b"post", Table::Post(post_table));
+    font.tables.insert(head_table);
+    font.tables.insert(hhea_table);
+    font.tables.insert(maxp_table);
+    font.tables.insert(os2_table);
+    font.tables.insert_raw(tag!("hmtx"), hmtx_bytes);
+    font.tables.insert(cmap_table);
+    font.tables.insert(glyf_table);
+    font.tables.insert(name_table);
+    font.tables.insert(post_table);
 
     // Don't worry, this will get filled in on `font.save`.
-    font.tables.insert(*b"loca", Table::Unknown(vec![0]));
+    font.tables.insert_raw(tag!("loca"), vec![0]);
 
     font
 }
@@ -319,7 +317,7 @@ pub fn compile_os2(
         .map_or((x_height as f32 * 0.22) as i16, i16::from);
     let achVendID = input
         .ot_value("OS2", "achVendID", true)
-        .map_or(*b"NONE", |x| String::from(x).as_bytes().try_into().unwrap());
+        .map_or(tag!("NONE"), |x| Tag::from_raw(String::from(x)).unwrap());
     let usWeightClass = input
         .ot_value("OS2", "usWeightClass", true)
         .map_or(400, i16::from) as u16;

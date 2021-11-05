@@ -1,5 +1,6 @@
 use babelfont::names::StyleMapStyle;
 use babelfont::OTScalar;
+use fonttools::tables::os2;
 use fonttools::utils::int_list_to_num;
 
 pub fn ascender(input: &babelfont::Font) -> i16 {
@@ -128,9 +129,9 @@ pub fn postscript_underline_thickness(input: &babelfont::Font) -> i16 {
         .map_or_else(|| upm * 0.05, f32::from) as i16
 }
 
-pub fn get_panose(_input: &babelfont::Font) -> fonttools::os2::Panose {
+pub fn get_panose(_input: &babelfont::Font) -> os2::Panose {
     // XXX
-    fonttools::os2::Panose {
+    os2::Panose {
         panose0: 0,
         panose1: 0,
         panose2: 0,

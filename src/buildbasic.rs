@@ -1,16 +1,12 @@
 use crate::basictables::fill_tables;
 use crate::glyph::layers_to_glyph;
 use crate::kerning::build_kerning;
-use babelfont::Node;
-use babelfont::{Component, Font, Layer, Path};
-use fonttools::font;
-use fonttools::font::Table;
-use fonttools::glyf;
-use fonttools::gvar::GlyphVariationData;
-use fonttools::hmtx;
+use babelfont::{Component, Font, Layer, Node, Path};
+use fonttools::tables::gvar::GlyphVariationData;
+use fonttools::tables::{glyf, hmtx};
+use fonttools::{font, tag};
 
-use rayon::iter::IntoParallelRefIterator;
-use rayon::iter::ParallelIterator;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::{BTreeMap, HashSet};
 use unzip_n::unzip_n;
 
@@ -148,13 +144,13 @@ pub fn build_font(
 
     // Feature writers (temporary hack)
     let gpos_table = build_kerning(input, &name_to_id);
-    font.tables.insert(*b"GPOS", Table::GPOS(gpos_table));
+    font.tables.insert(gpos_table);
 
     if just_one_master.is_none() {
         // Put the gvar table in there
-        let gvar_table = fonttools::gvar::gvar { variations };
+        let gvar_table = fonttools::tables::gvar::gvar { variations };
         font.tables
-            .insert(*b"gvar", Table::Unknown(gvar_table.to_bytes(None)));
+            .insert_raw(tag!("gvar"), gvar_table.to_bytes(None));
         // No gvar optimization by default (use ttf-optimize-gvar for IUP)
     }
 

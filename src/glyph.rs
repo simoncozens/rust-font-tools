@@ -1,8 +1,8 @@
 use crate::utils::is_all_same;
-use fonttools::glyf;
-use fonttools::gvar::DeltaSet;
-use fonttools::gvar::GlyphVariationData;
 use fonttools::otvar::VariationModel;
+use fonttools::tables::glyf;
+use fonttools::tables::gvar::DeltaSet;
+use fonttools::tables::gvar::GlyphVariationData;
 use kurbo::cubics_to_quadratic_splines;
 use kurbo::{BezPath, CubicBez, PathEl, PathSeg};
 use std::collections::BTreeMap;
