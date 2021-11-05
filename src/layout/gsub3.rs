@@ -1,14 +1,9 @@
-use crate::layout::coverage::Coverage;
-
-use crate::layout::gsub2::MultipleSubstFormat1;
-use crate::layout::gsub2::Sequence;
+use crate::layout::gsub2::{MultipleSubstFormat1, Sequence};
+use otspec::layout::coverage::Coverage;
 use otspec::types::*;
-use otspec::DeserializationError;
-use otspec::Deserialize;
-use otspec::Deserializer;
-use otspec::ReaderContext;
-use otspec::SerializationError;
-use otspec::Serialize;
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+};
 
 use std::collections::BTreeMap;
 

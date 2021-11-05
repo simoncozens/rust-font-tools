@@ -1,7 +1,7 @@
-use crate::layout::coverage::Coverage;
-use crate::layout::valuerecord::{coerce_to_same_format, ValueRecord, ValueRecordFlags};
-use crate::utils::is_all_the_same;
+use otspec::layout::coverage::Coverage;
+use otspec::layout::valuerecord::{coerce_to_same_format, ValueRecord, ValueRecordFlags};
 use otspec::types::*;
+use otspec::utils::is_all_the_same;
 use otspec::Serialize;
 
 use otspec::{DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError};
@@ -120,7 +120,7 @@ impl From<&SinglePos> for SinglePosInternal {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{btreemap, valuerecord};
+    use otspec::{btreemap, valuerecord};
     use std::iter::FromIterator;
 
     #[test]

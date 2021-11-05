@@ -15,6 +15,7 @@ fixed = "1"
 petgraph = "0.5.1"
 num-bigint = "0.4.2"
 num = "0.4.0"
+bitflags = "1.2.1"
 
 [dev-dependencies]
 clap = "2.33.3"

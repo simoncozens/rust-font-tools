@@ -1,4 +1,4 @@
-use crate::layout::coverage::Coverage;
+use otspec::layout::coverage::Coverage;
 use otspec::types::*;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,

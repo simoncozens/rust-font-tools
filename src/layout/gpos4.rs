@@ -1,6 +1,6 @@
-use crate::layout::anchor::Anchor;
 use crate::layout::common::{MarkArray, MarkRecord};
-use crate::layout::coverage::Coverage;
+use otspec::layout::anchor::Anchor;
+use otspec::layout::coverage::Coverage;
 
 use otspec::types::*;
 use otspec::{
@@ -199,7 +199,7 @@ impl Serialize for MarkBasePos {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::btreemap;
+    use otspec::btreemap;
     use pretty_assertions::assert_eq;
     use std::iter::FromIterator;
 

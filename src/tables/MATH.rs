@@ -1,5 +1,5 @@
-use crate::layout::coverage::Coverage;
-use crate::layout::device::Device;
+use otspec::layout::coverage::Coverage;
+use otspec::layout::device::Device;
 
 use otspec::types::*;
 use otspec::{DeserializationError, Deserialize, Deserializer, Serialize, Serializer};
@@ -343,7 +343,7 @@ impl Deserialize for MATH {
 
 #[cfg(test)]
 mod tests {
-    use crate::btreemap;
+    use otspec::btreemap;
     use std::iter::FromIterator;
 
     use super::*;

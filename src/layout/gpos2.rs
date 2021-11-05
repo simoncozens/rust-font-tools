@@ -1,11 +1,10 @@
-use crate::layout::classdef::ClassDef;
-use crate::layout::coverage::Coverage;
-use crate::layout::valuerecord::{highest_format, ValueRecord, ValueRecordFlags};
-
+use otspec::layout::classdef::ClassDef;
+use otspec::layout::coverage::Coverage;
+use otspec::layout::valuerecord::{highest_format, ValueRecord, ValueRecordFlags};
 use otspec::types::*;
-use otspec::Serialize;
-
-use otspec::{DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError};
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+};
 
 use otspec_macros::Serialize;
 use std::collections::BTreeMap;
@@ -239,7 +238,7 @@ impl From<&PairPos> for PairPosInternal {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{btreemap, valuerecord};
+    use otspec::{btreemap, valuerecord};
     use std::iter::FromIterator;
 
     #[test]

@@ -1,11 +1,8 @@
-use crate::layout::coverage::Coverage;
+use otspec::layout::coverage::Coverage;
 use otspec::types::*;
-use otspec::DeserializationError;
-use otspec::Deserialize;
-use otspec::Deserializer;
-use otspec::ReaderContext;
-use otspec::SerializationError;
-use otspec::Serialize;
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+};
 
 use otspec_macros::tables;
 use std::collections::BTreeMap;

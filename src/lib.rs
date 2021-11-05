@@ -45,8 +45,6 @@ pub mod otvar;
 pub mod table_store;
 /// OpenType table definitions.
 pub mod tables;
-/// Useful utilities
-pub mod utils;
 
 pub use otspec::types;
 pub use otspec_macros::tag;

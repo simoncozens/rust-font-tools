@@ -1,15 +1,7 @@
-/// GPOS anchors
-pub mod anchor;
-/// Glyph class definition tables
-pub mod classdef;
 /// Common tables for OpenType Layout
 pub mod common;
 /// Common tables for contextual lookup subtables
 pub mod contextual;
-/// Glyph coverage tables
-pub mod coverage;
-/// Device tables
-pub mod device;
 /// GPOS1 single positioning
 pub mod gpos1;
 /// GPOS2 pair positioning
@@ -27,5 +19,3 @@ pub mod gsub3;
 /// GSUB4 ligature substitution
 pub mod gsub4;
 pub(crate) mod macros;
-/// GPOS value records
-pub mod valuerecord;

@@ -9,8 +9,10 @@ use crate::types::*;
 use std::convert::TryInto;
 use std::mem;
 mod counted;
+pub mod layout;
 pub mod offsetmanager;
 mod offsets;
+pub mod utils;
 pub use counted::{Counted, Counted32};
 mod tag;
 pub mod types;
@@ -286,9 +288,7 @@ where
 
 /* Provide a serde-style interface */
 pub mod ser {
-    use crate::SerializationError;
-    use crate::Serialize;
-    use crate::Serializer;
+    use crate::{SerializationError, Serialize, Serializer};
 
     pub fn to_bytes<T: Serialize>(data: &T) -> Result<Vec<u8>, SerializationError> {
         let mut out = vec![];
@@ -303,6 +303,8 @@ pub mod de {
         rc.de()
     }
 }
+
+extern crate self as otspec;
 
 #[cfg(test)]
 mod tests {

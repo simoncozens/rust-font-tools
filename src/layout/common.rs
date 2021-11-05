@@ -1,5 +1,5 @@
-use crate::layout::anchor::Anchor;
 use bitflags::bitflags;
+use otspec::layout::anchor::Anchor;
 use otspec::types::*;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,

@@ -1,5 +1,5 @@
-use crate::layout::anchor::Anchor;
-use crate::layout::coverage::Coverage;
+use otspec::layout::anchor::Anchor;
+use otspec::layout::coverage::Coverage;
 
 use otspec::types::*;
 use otspec::{
@@ -81,7 +81,7 @@ impl Serialize for CursivePos {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::btreemap;
+    use otspec::btreemap;
     use otspec::offsetmanager::OffsetManager;
     use std::iter::FromIterator;
 

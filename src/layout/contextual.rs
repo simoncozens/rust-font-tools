@@ -1,6 +1,6 @@
 use crate::format_switching_lookup;
-use crate::layout::classdef::ClassDef;
-use crate::layout::coverage::Coverage;
+use otspec::layout::classdef::ClassDef;
+use otspec::layout::coverage::Coverage;
 use otspec::types::*;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
@@ -422,7 +422,7 @@ impl Deserialize for ChainedSequenceContext {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::btreeset;
+    use otspec::btreeset;
     use std::iter::FromIterator;
 
     #[test]

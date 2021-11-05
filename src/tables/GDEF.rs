@@ -1,7 +1,7 @@
-use crate::layout::classdef::ClassDef;
-use crate::layout::coverage::Coverage;
-use crate::layout::device::Device;
 use crate::otvar::ItemVariationStore;
+use otspec::layout::classdef::ClassDef;
+use otspec::layout::coverage::Coverage;
+use otspec::layout::device::Device;
 use otspec::types::*;
 use otspec::Serializer;
 use std::iter::FromIterator;
@@ -413,7 +413,7 @@ impl From<&GDEF> for gdefcore13 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::btreemap;
+    use otspec::btreemap;
     use pretty_assertions::assert_eq;
 
     #[test]

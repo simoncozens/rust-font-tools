@@ -320,8 +320,9 @@ impl VariationModel {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{btreemap, tag};
+    use crate::tag;
     use assert_approx_eq::assert_approx_eq;
+    use otspec::btreemap;
     use std::iter::FromIterator;
 
     #[test]
