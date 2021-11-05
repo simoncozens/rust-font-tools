@@ -12,7 +12,7 @@ use fonttools::types::Tag;
 use serde::{Deserialize, Serialize};
 pub use serde_xml_rs::from_reader;
 
-use fonttools::font::{Font, Table};
+use fonttools::font::Font;
 use fonttools::tables;
 use fonttools::tables::avar::{avar, SegmentMap};
 use fonttools::tables::fvar::{fvar, InstanceRecord, VariationAxisRecord};
@@ -68,17 +68,18 @@ impl Designspace {
         let mut maps: Vec<SegmentMap> = vec![];
 
         let mut ix = 255;
+        let mut name = font
+            .tables
+            .name()
+            .expect("No name table?")
+            .expect("Couldn't open name table");
 
         for axis in self.axes.axis.iter() {
             axes.push(axis.to_variation_axis_record(ix as u16)?);
-            if let Table::Name(name) = font
-                .get_table(tag!("name"))
-                .expect("No name table?")
-                .expect("Couldn't open name table")
-            {
-                name.records
-                    .push(NameRecord::windows_unicode(ix as u16, axis.name.clone()));
-            }
+
+            name.records
+                .push(NameRecord::windows_unicode(ix as u16, axis.name.clone()));
+
             ix += 1;
             if axis.map.is_some() {
                 let mut sm: Vec<(f32, f32)> = vec![(-1.0, -1.0)];
@@ -100,17 +101,12 @@ impl Designspace {
                 maps.push(SegmentMap::new(vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)]));
             }
         }
+
         let mut instances: Vec<InstanceRecord> = vec![];
         if let Some(i) = &self.instances {
             for instance in &i.instance {
-                if let Table::Name(name) = font
-                    .get_table(tag!("name"))
-                    .expect("No name table?")
-                    .expect("Couldn't open name table")
-                {
-                    name.records
-                        .push(NameRecord::windows_unicode(ix, instance.stylename.clone()));
-                }
+                name.records
+                    .push(NameRecord::windows_unicode(ix, instance.stylename.clone()));
                 let mut ir = InstanceRecord {
                     subfamilyNameID: ix,
                     coordinates: self.location_to_tuple(&instance.location),
@@ -118,22 +114,18 @@ impl Designspace {
                 };
                 ix += 1;
                 if let Some(psname) = &instance.postscriptfontname {
-                    if let Table::Name(name) = font
-                        .get_table(tag!("name"))
-                        .expect("No name table?")
-                        .expect("Couldn't open name table")
-                    {
-                        name.records
-                            .push(NameRecord::windows_unicode(ix, psname.clone()));
-                    }
+                    name.records
+                        .push(NameRecord::windows_unicode(ix, psname.clone()));
                     ir.postscriptNameID = Some(ix);
                     ix += 1;
                 }
                 instances.push(ir)
             }
         }
-        let fvar_table = Table::Fvar(fvar { axes, instances });
-        font.tables.insert(tag!("fvar"), fvar_table);
+
+        let fvar_table = fvar { axes, instances };
+        font.tables.insert(fvar_table);
+        font.tables.insert(name);
 
         // Handle avar here
         let avar_table = avar {
@@ -142,7 +134,7 @@ impl Designspace {
             reserved: 0,
             axisSegmentMaps: maps,
         };
-        font.tables.insert(tag!("avar"), Table::Avar(avar_table));
+        font.tables.insert(avar_table);
 
         Ok(())
     }
