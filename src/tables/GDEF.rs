@@ -58,11 +58,13 @@ tables!(
     }
 
     LigCaretList {
+        [offset_base]
         Offset16(Coverage) coverage
         CountedOffset16(LigGlyph) ligGlyph
     }
 
     LigGlyph {
+        [offset_base]
         CountedOffset16(CaretValue) caretValue
     }
 
@@ -220,9 +222,22 @@ impl From<AttachList> for BTreeMap<GlyphID, Vec<uint16>> {
 }
 
 impl From<LigCaretList> for BTreeMap<GlyphID, Vec<CaretValue>> {
-    fn from(_al: LigCaretList) -> Self {
-        let map = BTreeMap::new();
-        log::warn!("Sucks to be you!");
+    fn from(lcl: LigCaretList) -> Self {
+        let mut map = BTreeMap::new();
+        for (ligglyph_off, gid) in lcl
+            .ligGlyph
+            .v
+            .iter()
+            .zip(lcl.coverage.link.unwrap_or_default().glyphs)
+        {
+            if let Some(ligglyph) = &ligglyph_off.link {
+                let mut v = vec![];
+                for caretvalue in &ligglyph.caretValue.v {
+                    v.push(caretvalue.link.as_ref().unwrap().clone());
+                }
+                map.insert(gid, v);
+            }
+        }
         map
     }
 }
@@ -243,14 +258,9 @@ impl Deserialize for GDEF {
             None
         };
         Ok(GDEF {
-            glyph_class: core
-                .glyphClassDef
-                .link
-                .unwrap()
-                .classes
-                .iter()
-                .map(|(&k, &v)| (k, v.into()))
-                .collect(),
+            glyph_class: core.glyphClassDef.link.map_or_else(BTreeMap::new, |gc| {
+                gc.classes.iter().map(|(&k, &v)| (k, v.into())).collect()
+            }),
             attachment_point_list: core
                 .attachList
                 .link
@@ -310,6 +320,32 @@ impl GDEF {
             })
         }
     }
+    fn lcl_to_offset(&self) -> Offset16<LigCaretList> {
+        if self.ligature_caret_list.is_empty() {
+            Offset16::to_nothing()
+        } else {
+            let coverage = Coverage {
+                glyphs: self.ligature_caret_list.keys().copied().collect(),
+            };
+            let mut ligglyphs: Vec<Offset16<LigGlyph>> = vec![];
+            for glyph in &coverage.glyphs {
+                let carets: Vec<Offset16<CaretValue>> = self
+                    .ligature_caret_list
+                    .get(glyph)
+                    .unwrap()
+                    .iter()
+                    .map(|x| Offset16::to(x.clone()))
+                    .collect();
+                ligglyphs.push(Offset16::to(LigGlyph {
+                    caretValue: carets.into(),
+                }));
+            }
+            Offset16::to(LigCaretList {
+                coverage: Offset16::to(coverage),
+                ligGlyph: ligglyphs.into(),
+            })
+        }
+    }
     fn mgs_to_offset(&self) -> Offset16<MarkGlyphSets> {
         if let Some(mgs) = &self.mark_glyph_sets {
             let mut coverage_tables: Vec<Offset32<Coverage>> = vec![];
@@ -336,7 +372,7 @@ impl From<&GDEF> for gdefcore12 {
             minorVersion: 2,
             glyphClassDef: gdef.gcd_to_offset(),
             attachList: gdef.apl_to_offset(),
-            ligCaretList: Offset16::to_nothing(), // Bah.
+            ligCaretList: gdef.lcl_to_offset(),
             markAttachClassDef: gdef.mac_to_offset(),
             markGlyphSets: gdef.mgs_to_offset(),
         }
@@ -349,7 +385,7 @@ impl From<&GDEF> for gdefcore13 {
             minorVersion: 3,
             glyphClassDef: gdef.gcd_to_offset(),
             attachList: gdef.apl_to_offset(),
-            ligCaretList: Offset16::to_nothing(), // Bah.
+            ligCaretList: gdef.lcl_to_offset(),
             markAttachClassDef: gdef.mac_to_offset(),
             markGlyphSets: gdef.mgs_to_offset(),
             itemVarStore: gdef
@@ -395,6 +431,42 @@ mod tests {
             attachment_point_list: btreemap!(),
             ligature_caret_list: btreemap!(),
             mark_attachment_class: btreemap!(30 => 1, 31 => 2, 35 => 1, 41 => 1),
+            mark_glyph_sets: None,
+            item_variation_store: None,
+        };
+        assert_eq!(gdef, expected);
+
+        let binary = otspec::ser::to_bytes(&expected).unwrap();
+        let gdef2: GDEF = otspec::de::from_bytes(&binary).unwrap();
+        assert_eq!(gdef2, expected);
+    }
+
+    #[test]
+    fn test_gdef_deser_ligcaret() {
+        let binary_gdef = vec![
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x0a,
+            0x00, 0x03, 0x00, 0x14, 0x00, 0x22, 0x00, 0x30, 0x00, 0x01, 0x00, 0x03, 0x00, 0xef,
+            0x00, 0xf0, 0x02, 0x65, 0x00, 0x02, 0x00, 0x06, 0x00, 0x0a, 0x00, 0x02, 0x00, 0x17,
+            0x00, 0x02, 0x00, 0x2e, 0x00, 0x02, 0x00, 0x06, 0x00, 0x0a, 0x00, 0x01, 0x01, 0x90,
+            0x00, 0x01, 0x02, 0x58, 0x00, 0x01, 0x00, 0x04, 0x00, 0x01, 0x01, 0xf4,
+        ];
+        /*
+                table GDEF {
+                LigatureCaretByPos f_f_l 400 600;
+                LigatureCaretByPos c_t 500;
+                LigatureCaretByIndex f_f_i 23 46;
+            } GDEF;
+        */
+        let gdef: GDEF = otspec::de::from_bytes(&binary_gdef).unwrap();
+        let expected: GDEF = GDEF {
+            glyph_class: btreemap!(),
+            attachment_point_list: btreemap!(),
+            ligature_caret_list: btreemap!(
+            239 => vec![CaretValue::Format2 { pointIndex: 23 }, CaretValue::Format2 { pointIndex: 46 }],
+            240 => vec![CaretValue::Format1 { coordinate: 400 }, CaretValue::Format1 { coordinate: 600 }],
+            613 => vec![CaretValue::Format1 { coordinate: 500 } ],
+            ),
+            mark_attachment_class: btreemap!(),
             mark_glyph_sets: None,
             item_variation_store: None,
         };
