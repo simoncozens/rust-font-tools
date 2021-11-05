@@ -1,10 +1,7 @@
 use otspec::types::*;
-use otspec::DeserializationError;
-use otspec::Deserialize;
-use otspec::Deserializer;
-use otspec::ReaderContext;
-use otspec::SerializationError;
-use otspec::Serialize;
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+};
 
 use otspec_macros::tables;
 
@@ -22,7 +19,7 @@ tables!(
     }
 );
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 /// A coverage table.
 ///
 /// OpenType lookups store information about which glyphs are affected by the
