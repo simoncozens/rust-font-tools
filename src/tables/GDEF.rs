@@ -49,6 +49,7 @@ tables!(
     }
 
     AttachList {
+        [offset_base]
         Offset16(Coverage) coverage
         CountedOffset16(AttachPoint) attachPoints
     }
@@ -308,7 +309,20 @@ impl GDEF {
         if self.attachment_point_list.is_empty() {
             Offset16::to_nothing()
         } else {
-            unimplemented!()
+            let coverage = Coverage {
+                glyphs: self.attachment_point_list.keys().copied().collect(),
+            };
+            let mut points: Vec<Offset16<AttachPoint>> = vec![];
+            for glyph in &coverage.glyphs {
+                let attachpoint: AttachPoint = AttachPoint {
+                    pointIndices: self.attachment_point_list.get(glyph).unwrap().to_vec(),
+                };
+                points.push(Offset16::to(attachpoint))
+            }
+            Offset16::to(AttachList {
+                coverage: Offset16::to(coverage),
+                attachPoints: points.into(),
+            })
         }
     }
     fn mac_to_offset(&self) -> Offset16<ClassDef> {
@@ -451,7 +465,7 @@ mod tests {
             0x00, 0x01, 0x02, 0x58, 0x00, 0x01, 0x00, 0x04, 0x00, 0x01, 0x01, 0xf4,
         ];
         /*
-                table GDEF {
+            table GDEF {
                 LigatureCaretByPos f_f_l 400 600;
                 LigatureCaretByPos c_t 500;
                 LigatureCaretByIndex f_f_i 23 46;
@@ -466,6 +480,35 @@ mod tests {
             240 => vec![CaretValue::Format1 { coordinate: 400 }, CaretValue::Format1 { coordinate: 600 }],
             613 => vec![CaretValue::Format1 { coordinate: 500 } ],
             ),
+            mark_attachment_class: btreemap!(),
+            mark_glyph_sets: None,
+            item_variation_store: None,
+        };
+        assert_eq!(gdef, expected);
+
+        let binary = otspec::ser::to_bytes(&expected).unwrap();
+        let gdef2: GDEF = otspec::de::from_bytes(&binary).unwrap();
+        assert_eq!(gdef2, expected);
+    }
+
+    #[test]
+    fn test_gdef_deser_attach() {
+        let binary_gdef = vec![
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08,
+            0x00, 0x02, 0x00, 0x10, 0x00, 0x16, 0x00, 0x01, 0x00, 0x02, 0x00, 0x42, 0x00, 0x43,
+            0x00, 0x02, 0x00, 0x04, 0x00, 0x05, 0x00, 0x01, 0x00, 0x08,
+        ];
+        /*
+            table GDEF {
+                Attach a 4 5;
+                Attach b 8;
+            } GDEF;
+        */
+        let gdef: GDEF = otspec::de::from_bytes(&binary_gdef).unwrap();
+        let expected: GDEF = GDEF {
+            glyph_class: btreemap!(),
+            attachment_point_list: btreemap!(66 => vec![4,5], 67 => vec![8]),
+            ligature_caret_list: btreemap!(),
             mark_attachment_class: btreemap!(),
             mark_glyph_sets: None,
             item_variation_store: None,
