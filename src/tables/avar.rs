@@ -1,43 +1,91 @@
+use otspec::tables::avar::{avar as avar_ot, AxisValueMap, SegmentMap as SegmentMap_ot};
 use otspec::types::*;
-use otspec::Deserializer;
-use otspec_macros::tables;
+use otspec::{Deserialize, Deserializer, Serialize};
 
 /// The 'avar' OpenType tag.
 pub const TAG: Tag = crate::tag!("avar");
 
-tables!(
-    AxisValueMap {
-        F2DOT14 fromCoordinate
-        F2DOT14 toCoordinate
-    }
-    SegmentMap {
-        Counted(AxisValueMap) axisValueMaps
-    }
+#[derive(Debug, PartialEq, Clone)]
+pub struct SegmentMap(pub Vec<(f32, f32)>);
 
-    avar {
-        uint16 majorVersion
-        uint16 minorVersion
-        uint16 reserved
-        Counted(SegmentMap) axisSegmentMaps
-    }
-);
+#[derive(Debug, PartialEq, Clone)]
+pub struct avar {
+    pub maps: Vec<SegmentMap>,
+}
 
-impl SegmentMap {
-    /// Creates a new segment map from an array of tuples. These tuples
-    /// must be in normalized coordinates, and *must* include entries for
-    /// `-1.0,-1.0`, `0.0,0.0` and `1.0,1.0`.
-    // XXX we should probably check this and insert them if not.
-    pub fn new(items: Vec<(f32, f32)>) -> Self {
-        let maps: Vec<AxisValueMap> = items
+impl Into<avar_ot> for &avar {
+    fn into(self) -> avar_ot {
+        avar_ot {
+            majorVersion: 1,
+            minorVersion: 0,
+            reserved: 0,
+            axisSegmentMaps: self.maps.iter().map(|x| x.into()).collect(),
+        }
+    }
+}
+
+impl Into<avar> for avar_ot {
+    fn into(self) -> avar {
+        avar {
+            maps: self
+                .axisSegmentMaps
+                .iter()
+                .map(|x| x.clone().into())
+                .collect(),
+        }
+    }
+}
+
+impl Serialize for avar {
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
+        let out: avar_ot = self.into();
+        out.to_bytes(data)
+    }
+}
+
+impl Deserialize for avar {
+    fn from_bytes(c: &mut otspec::ReaderContext) -> Result<Self, otspec::DeserializationError>
+    where
+        Self: std::marker::Sized,
+    {
+        let in_avar: avar_ot = c.de()?;
+        Ok(in_avar.into())
+    }
+}
+
+impl Into<SegmentMap_ot> for &SegmentMap {
+    fn into(self) -> SegmentMap_ot {
+        let maps: Vec<AxisValueMap> = self
+            .0
             .iter()
             .map(|i| AxisValueMap {
                 fromCoordinate: i.0,
                 toCoordinate: i.1,
             })
             .collect();
-        let new_thing = SegmentMap {
+        SegmentMap_ot {
             axisValueMaps: maps,
-        };
+        }
+    }
+}
+
+impl Into<SegmentMap> for SegmentMap_ot {
+    fn into(self) -> SegmentMap {
+        SegmentMap(
+            self.axisValueMaps
+                .iter()
+                .map(|avm| (avm.fromCoordinate, avm.toCoordinate))
+                .collect(),
+        )
+    }
+}
+impl SegmentMap {
+    /// Creates a new segment map from an array of tuples. These tuples
+    /// must be in normalized coordinates, and *must* include entries for
+    /// `-1.0,-1.0`, `0.0,0.0` and `1.0,1.0`.
+    // XXX we should probably check this and insert them if not.
+    pub fn new(items: Vec<(f32, f32)>) -> Self {
+        let new_thing = SegmentMap(items);
         if !new_thing.is_valid() {
             panic!("Created an invalid segment map {:?}", new_thing);
         }
@@ -46,12 +94,8 @@ impl SegmentMap {
 
     /// Map a (normalized, i.e. `-1.0<=val<=1.0`) value using this segment map.
     pub fn piecewise_linear_map(&self, val: f32) -> f32 {
-        let from: Vec<f32> = self
-            .axisValueMaps
-            .iter()
-            .map(|x| x.fromCoordinate)
-            .collect();
-        let to: Vec<f32> = self.axisValueMaps.iter().map(|x| x.toCoordinate).collect();
+        let from: Vec<f32> = self.0.iter().map(|x| x.0).collect();
+        let to: Vec<f32> = self.0.iter().map(|x| x.1).collect();
         if val <= -1.0 {
             return -1.0;
         }
@@ -79,26 +123,23 @@ impl SegmentMap {
         let mut saw_minus1 = 0;
         let mut saw_plus1 = 0;
         let mut prev_to_coordinate = -2.0;
-        for axm in &self.axisValueMaps {
-            if axm.fromCoordinate == 0.0 && axm.toCoordinate == 0.0 {
+        for map in &self.0 {
+            let (from, to) = (map.0, map.1);
+            if from == 0.0 && to == 0.0 {
                 saw_zero += 1;
             }
-            if (axm.fromCoordinate - -1.0).abs() < f32::EPSILON
-                && (axm.toCoordinate - -1.0).abs() < f32::EPSILON
-            {
+            if (from - -1.0).abs() < f32::EPSILON && (to - -1.0).abs() < f32::EPSILON {
                 saw_minus1 += 1;
             }
-            if (axm.fromCoordinate - 1.0).abs() < f32::EPSILON
-                && (axm.toCoordinate - 1.0).abs() < f32::EPSILON
-            {
+            if (from - 1.0).abs() < f32::EPSILON && (to - 1.0).abs() < f32::EPSILON {
                 saw_plus1 += 1;
             }
 
             // Check for sortedness
-            if axm.toCoordinate < prev_to_coordinate {
+            if to < prev_to_coordinate {
                 return false;
             }
-            prev_to_coordinate = axm.toCoordinate;
+            prev_to_coordinate = to;
         }
         if saw_zero != 1 || saw_plus1 != 1 || saw_minus1 != 1 {
             return false;
@@ -109,53 +150,6 @@ impl SegmentMap {
 
 #[cfg(test)]
 mod tests {
-    use otspec::ser;
-
-    /* All numbers here carefully chosen to avoid OT rounding errors... */
-    #[test]
-    fn avar_axis_value_map_serde() {
-        let v = super::AxisValueMap {
-            fromCoordinate: 0.2999878,
-            toCoordinate: 0.5,
-        };
-        let binary_avarmap = ser::to_bytes(&v).unwrap();
-        let deserialized: super::AxisValueMap = otspec::de::from_bytes(&binary_avarmap).unwrap();
-        assert_eq!(deserialized, v);
-    }
-
-    #[test]
-    fn avar_ser() {
-        let favar = super::avar {
-            majorVersion: 1,
-            minorVersion: 0,
-            reserved: 0,
-            axisSegmentMaps: vec![
-                super::SegmentMap::new(vec![
-                    (-1.0, -1.0),
-                    (0.0, 0.0),
-                    (0.125, 0.11444092),
-                    (0.25, 0.23492432),
-                    (0.5, 0.3554077),
-                    (0.625, 0.5),
-                    (0.75, 0.6566162),
-                    (0.875, 0.8192749),
-                    (1.0, 1.0),
-                ]),
-                super::SegmentMap::new(vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)]),
-            ],
-        };
-        let binary_avar = vec![
-            0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x09, 0xc0, 0x00, 0xc0, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x08, 0x00, 0x07, 0x53, 0x10, 0x00, 0x0f, 0x09, 0x20, 0x00,
-            0x16, 0xbf, 0x28, 0x00, 0x20, 0x00, 0x30, 0x00, 0x2a, 0x06, 0x38, 0x00, 0x34, 0x6f,
-            0x40, 0x00, 0x40, 0x00, 0x00, 0x03, 0xc0, 0x00, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x40, 0x00, 0x40, 0x00,
-        ];
-        assert_eq!(ser::to_bytes(&favar).unwrap(), binary_avar);
-
-        let deserialized: super::avar = otspec::de::from_bytes(&binary_avar).unwrap();
-        assert_eq!(deserialized, favar);
-    }
 
     #[test]
     fn test_piecewise_linear_map() {

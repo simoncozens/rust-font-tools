@@ -293,7 +293,7 @@ fn instantiate_avar(font: &mut Font, axis_limits: &UserAxisLimits) {
 
     let mut segments_map: BTreeMap<Tag, SegmentMap> = axis_tags
         .iter()
-        .zip(avar_table.axisSegmentMaps.iter())
+        .zip(avar_table.maps.iter())
         .map(|(&tag, seg)| (tag, seg.clone()))
         .collect();
     for pinned in location.keys() {
@@ -310,8 +310,8 @@ fn instantiate_avar(font: &mut Font, axis_limits: &UserAxisLimits) {
             let mapped_min = F2DOT14::round(segment.piecewise_linear_map(minimum));
             let mapped_max = F2DOT14::round(segment.piecewise_linear_map(maximum));
             let mut new_mapping: Vec<(f32, f32)> = vec![];
-            for avm in &segment.axisValueMaps {
-                let (mut from_coord, mut to_coord) = (avm.fromCoordinate, avm.toCoordinate);
+            for avm in &segment.0 {
+                let (mut from_coord, mut to_coord) = (avm.0, avm.1);
                 if from_coord < 0.0 {
                     if minimum == 0.0 || from_coord < minimum {
                         continue;
@@ -344,7 +344,7 @@ fn instantiate_avar(font: &mut Font, axis_limits: &UserAxisLimits) {
         }
     }
     // Put back the segments map into the avar table, in the right order.
-    avar_table.axisSegmentMaps = axis_tags
+    avar_table.maps = axis_tags
         .iter()
         .map(|tag| new_segments.get(tag).unwrap().clone())
         .collect();
@@ -554,7 +554,7 @@ fn normalize_axis_limits(
     let avar_segs: BTreeMap<Tag, &SegmentMap> = if use_avar && avar.is_some() {
         all_axes
             .iter()
-            .zip(avar.as_ref().unwrap().axisSegmentMaps.iter())
+            .zip(avar.as_ref().unwrap().maps.iter())
             .map(|(a, b)| (*a, b))
             .collect()
     } else {
