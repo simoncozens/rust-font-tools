@@ -41,9 +41,8 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     })?;
     load_glyphs(&mut font, &default_ufo);
     load_masters(&mut font, &ds, relative)?;
-    if let Some(info) = default_ufo.font_info {
-        load_font_info(&mut font, &info);
-    }
+    let info = default_ufo.font_info;
+    load_font_info(&mut font, &info);
     Ok(font)
 }
 
@@ -97,16 +96,14 @@ fn load_masters(
                 path: source.filename.clone(),
                 orig: e,
             })?;
-        if let Some(ref info) = source_font.font_info {
-            load_master_info(&mut master, &info);
-        }
-        if let Some(ref kerning) = source_font.kerning {
-            for (left, right_dict) in kerning.iter() {
-                for (right, value) in right_dict.iter() {
-                    master
-                        .kerning
-                        .insert((left.clone(), right.clone()), *value as i16);
-                }
+        let info = &source_font.font_info;
+        load_master_info(&mut master, info);
+        let kerning = &source_font.kerning;
+        for (left, right_dict) in kerning.iter() {
+            for (right, value) in right_dict.iter() {
+                master
+                    .kerning
+                    .insert((left.clone(), right.clone()), *value as i16);
             }
         }
         for layer in source_font.iter_layers() {

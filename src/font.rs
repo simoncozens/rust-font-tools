@@ -1,7 +1,6 @@
 use crate::axis::Axis;
 use crate::common::OTScalar;
 use crate::common::OTValue;
-use crate::common::Tag;
 use crate::glyph::GlyphList;
 use crate::instance::Instance;
 use crate::master::Master;
@@ -9,12 +8,13 @@ use crate::names::Names;
 use crate::Location;
 use crate::{BabelfontError, Layer};
 use chrono::Local;
-use fonttools::avar::{avar, SegmentMap};
-use fonttools::font::{Font as FTFont, Table};
-use fonttools::fvar::{fvar, InstanceRecord, VariationAxisRecord};
-use fonttools::name::NameRecord;
+use fonttools::font::Font as FTFont;
 use fonttools::otvar::Location as OTVarLocation;
 use fonttools::otvar::{NormalizedLocation, VariationModel};
+use fonttools::tables::avar::{avar, SegmentMap};
+use fonttools::tables::fvar::{fvar, InstanceRecord, VariationAxisRecord};
+use fonttools::tables::name::NameRecord;
+use fonttools::types::Tag;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 
@@ -176,19 +176,18 @@ impl Font {
         let mut maps: Vec<SegmentMap> = vec![];
 
         let mut ix = 256;
+        let mut name = font
+            .tables
+            .name()
+            .expect("No name table?")
+            .expect("Couldn't open name table");
 
         for axis in self.axes.iter() {
             axes.push(axis.to_variation_axis_record(ix as u16)?);
-            if let Table::Name(name) = font
-                .get_table(b"name")
-                .expect("No name table?")
-                .expect("Couldn't open name table")
-            {
-                name.records.push(NameRecord::windows_unicode(
-                    ix as u16,
-                    axis.name.default().clone().expect("Bad axis name"),
-                ));
-            }
+            name.records.push(NameRecord::windows_unicode(
+                ix as u16,
+                axis.name.default().clone().expect("Bad axis name"),
+            ));
             ix += 1;
             if axis.map.is_some() {
                 let mut sm: Vec<(f32, f32)> = vec![(-1.0, -1.0)];
@@ -212,16 +211,10 @@ impl Font {
         }
         let mut instances: Vec<InstanceRecord> = vec![];
         for instance in &self.instances {
-            if let Table::Name(name) = font
-                .get_table(b"name")
-                .expect("No name table?")
-                .expect("Couldn't open name table")
-            {
-                name.records.push(NameRecord::windows_unicode(
-                    ix,
-                    instance.style_name.default().expect("Bad instance name"),
-                ));
-            }
+            name.records.push(NameRecord::windows_unicode(
+                ix,
+                instance.style_name.default().expect("Bad instance name"),
+            ));
             let mut ir = InstanceRecord {
                 subfamilyNameID: ix,
                 coordinates: self.location_to_tuple(&instance.location),
@@ -242,8 +235,7 @@ impl Font {
             // }
             instances.push(ir)
         }
-        let fvar_table = Table::Fvar(fvar { axes, instances });
-        font.tables.insert(*b"fvar", fvar_table);
+        font.tables.insert(fvar { axes, instances });
 
         // Handle avar here
         let avar_table = avar {
@@ -252,7 +244,8 @@ impl Font {
             reserved: 0,
             axisSegmentMaps: maps,
         };
-        font.tables.insert(*b"avar", Table::Avar(avar_table));
+        font.tables.insert(avar_table);
+        font.tables.insert(name);
 
         Ok(())
     }

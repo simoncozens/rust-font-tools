@@ -1,7 +1,7 @@
-use crate::common::Tag;
 use crate::i18ndictionary::I18NDictionary;
 use crate::BabelfontError;
-use fonttools::fvar::VariationAxisRecord;
+use fonttools::tables::fvar::VariationAxisRecord;
+use fonttools::types::Tag;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use uuid::Uuid;
@@ -90,7 +90,7 @@ impl Axis {
     }
 
     pub fn tag_as_tag(&self) -> Tag {
-        self.tag.as_bytes()[0..4].try_into().unwrap()
+        Tag::from_raw(self.tag.as_bytes()).unwrap()
     }
 
     pub fn normalize_userspace_value(&self, mut l: f32) -> Result<f32, BabelfontError> {
@@ -155,7 +155,7 @@ impl Axis {
             });
         }
         Ok(VariationAxisRecord {
-            axisTag: self.tag.as_bytes()[0..4].try_into().unwrap(),
+            axisTag: Tag::from_raw(self.tag.as_bytes()).unwrap(),
             defaultValue: self.default.expect("Bad axis") as f32,
             maxValue: self.max.expect("Bad axis") as f32,
             minValue: self.min.expect("Bad axis") as f32,
