@@ -1,7 +1,7 @@
 use crate::layout::device::Device;
+use crate::types::*;
+use crate::{DeserializationError, Deserializer, ReaderContext};
 use bitflags::bitflags;
-use otspec::types::*;
-use otspec::{Deserializer, ReaderContext};
 use otspec_macros::{Deserialize, Serialize};
 
 use crate::utils::is_all_the_same;
@@ -103,10 +103,10 @@ impl ValueRecord {
     }
 
     /// Deserializes a value record
-    pub(crate) fn from_bytes(
+    pub fn from_bytes(
         c: &mut ReaderContext,
         flags: ValueRecordFlags,
-    ) -> Result<Self, otspec::DeserializationError> {
+    ) -> Result<Self, DeserializationError> {
         let mut vr = ValueRecord::new();
         if flags.contains(ValueRecordFlags::X_PLACEMENT) {
             vr.xPlacement = Some(c.de()?);

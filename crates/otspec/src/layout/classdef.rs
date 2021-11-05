@@ -1,5 +1,5 @@
-use otspec::types::*;
-use otspec::{
+use crate::types::*;
+use crate::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
     Serializer,
 };
@@ -149,9 +149,9 @@ mod tests {
             0x00, 0x51, 0x00, 0x01, 0x00, 0x52, 0x00, 0x52, 0x00, 0x02, 0x00, 0x53, 0x00, 0x53,
             0x00, 0x01, 0x00, 0x54, 0x00, 0x54, 0x00, 0x02,
         ];
-        let deserialized: ClassDef = otspec::de::from_bytes(&binary_classdef).unwrap();
+        let deserialized: ClassDef = crate::de::from_bytes(&binary_classdef).unwrap();
         assert_eq!(deserialized, expected);
-        let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
+        let serialized = crate::ser::to_bytes(&deserialized).unwrap();
         assert_eq!(serialized, binary_classdef);
     }
 
@@ -179,9 +179,9 @@ mod tests {
             0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02,
             0x00, 0x00, 0x00, 0x01, 0x00, 0x02,
         ];
-        let deserialized: ClassDef = otspec::de::from_bytes(&binary_classdef).unwrap();
+        let deserialized: ClassDef = crate::de::from_bytes(&binary_classdef).unwrap();
         assert_eq!(deserialized, expected);
-        let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
+        let serialized = crate::ser::to_bytes(&deserialized).unwrap();
         assert_eq!(serialized, binary_classdef);
     }
 }
