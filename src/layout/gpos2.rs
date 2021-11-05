@@ -115,11 +115,26 @@ impl Deserialize for PairPos {
                 }
             }
             2 => {
-                let class_def_1: Offset16<ClassDef> = c.de()?;
-                let class_def_2: Offset16<ClassDef> = c.de()?;
+                let classdef_1_off: Offset16<ClassDef> = c.de()?;
+                let classdef_2_off: Offset16<ClassDef> = c.de()?;
                 let class1_count: uint16 = c.de()?;
                 let class2_count: uint16 = c.de()?;
+                let classdef_1 = classdef_1_off.link.unwrap_or_default();
+                let classdef_2 = classdef_2_off.link.unwrap_or_default();
+
+                // All covered glyphs not in any other class
+                let mut left_class0_glyphs: Vec<GlyphID> = coverage.link.unwrap_or_default().glyphs;
+                left_class0_glyphs.retain(|g| !classdef_1.classes.contains_key(g));
+
                 for c1 in 0..class1_count {
+                    // I'm sure clever people could just store a Box<dyn Iterator> here,
+                    // but I can't get the second one to live long enough.
+                    let glyphs1: Vec<GlyphID> = if c1 == 0 {
+                        left_class0_glyphs.iter().copied().collect()
+                    } else {
+                        classdef_1.get_glyphs(c1).iter().copied().collect()
+                    };
+
                     for c2 in 0..class2_count {
                         let mut vr1 = ValueRecord::from_bytes(c, value_format1)?;
                         vr1.simplify();
@@ -128,8 +143,24 @@ impl Deserialize for PairPos {
                         if !(vr1.has_any() || vr2.has_any()) {
                             continue;
                         }
-                        // Oh hell, we don't know what glyphs are in class 0. :-(
-                        unimplemented!()
+                        if c2 == 0 {
+                            // This is unfortunate. Really unfortunate. A font
+                            // has decided to kern against class 0 ("Every other
+                            // glyph in the font"), which is legal but extremely
+                            // rare, and because we're decoding this subtable in a
+                            // context-free way, at this stage we don't have a list
+                            // of all the glyph IDs in the font. So we can't tell
+                            // what glyphs are affected.
+                            panic!("Our architectural assumptions don't allow for class 0 in pair positioning rules");
+                        }
+                        for left_glyph_id in &glyphs1 {
+                            for right_glyph_id in classdef_2.get_glyphs(c2).iter() {
+                                mapping.insert(
+                                    (*left_glyph_id, *right_glyph_id),
+                                    (vr1.clone(), vr2.clone()),
+                                );
+                            }
+                        }
                     }
                 }
             }
@@ -247,5 +278,33 @@ mod tests {
         };
         let serialized = otspec::ser::to_bytes(&kerntable).unwrap();
         assert_eq!(serialized, binary_pos);
+    }
+
+    #[test]
+    fn class_kerns_de() {
+        let binary_pos = vec![
+            /* pos [D O Q] [T V W] -26; */
+            0x00, 0x02, 0x00, 0x14, 0x00, 0x04, 0x00, 0x00, 0x00, 0x1e, 0x00, 0x22, 0x00, 0x01,
+            0x00, 0x02, 0x00, 0x00, 0xff, 0xe6, 0x00, 0x01, 0x00, 0x03, 0x00, 0x25, 0x00, 0x30,
+            0x00, 0x32, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x35, 0x00, 0x04, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x01,
+        ];
+        let de: PairPos = otspec::de::from_bytes(&binary_pos).unwrap();
+        assert_eq!(
+            de,
+            PairPos {
+                mapping: btreemap!(
+                    (37,53)   => (valuerecord!(xAdvance=-26),  valuerecord!()),
+                    (37,55)   => (valuerecord!(xAdvance=-26),  valuerecord!()),
+                    (37,56)   => (valuerecord!(xAdvance=-26),  valuerecord!()),
+                    (48,53)   => (valuerecord!(xAdvance=-26),  valuerecord!()),
+                    (48,55)   => (valuerecord!(xAdvance=-26),  valuerecord!()),
+                    (48,56)   => (valuerecord!(xAdvance=-26),  valuerecord!()),
+                    (50,53)   => (valuerecord!(xAdvance=-26),  valuerecord!()),
+                    (50,55)   => (valuerecord!(xAdvance=-26),  valuerecord!()),
+                    (50,56)   => (valuerecord!(xAdvance=-26),  valuerecord!()),
+                ),
+            },
+        );
     }
 }
