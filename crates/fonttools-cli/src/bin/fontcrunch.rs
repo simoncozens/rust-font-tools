@@ -4,18 +4,15 @@
 //! C++. For more information on the algorithm, [see the fontcrunch repo][repo].
 //!
 //! [repo]: https://github.com/googlefonts/fontcrunch
-use fonttools::tables::glyf::{
-    contourutils::{
-        glyf_contour_to_kurbo_contour, kurbo_contour_to_glyf_contour, remove_implied_oncurves,
-    },
-    Glyph,
+use fonttools::tables::glyf::contourutils::{
+    glyf_contour_to_kurbo_contour, kurbo_contour_to_glyf_contour, remove_implied_oncurves,
 };
-use fonttools::{font::Table, tag};
+use fonttools::tables::glyf::Glyph;
+use fonttools::tag;
 use fonttools_cli::{open_font, read_args, save_font};
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use kurbo::{BezPath, PathSeg, Point, QuadBez};
-use rayon::iter::IntoParallelRefIterator;
-use rayon::iter::ParallelIterator;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
@@ -656,27 +653,18 @@ fn main() {
 
     let matches = read_args("fontcrunch", "Optimizes quadratic beziers in a font");
     let mut infont = open_font(&matches);
-    if infont.tables.contains_key(b"gvar") {
+    if infont.tables.contains(&tag!("gvar")) {
         log::error!("fontcrunch may not be used on variable fonts (yet)");
         return;
     }
-    let glyphnames = if let Table::Post(post) = infont
-        .get_table("post".parse().unwrap())
-        .expect("Error reading post table")
-        .expect("No post table found")
-    {
-        &post.glyphnames
+    let glyphnames = if let Some(post) = infont.tables.post().expect("Error reading post table") {
+        post.glyphnames.clone()
     } else {
-        &None
-    }
-    .clone();
+        None
+    };
 
     log::info!("Parsing glyf table");
-    if let Table::Glyf(glyf) = infont
-        .get_table(tag!("glyf"))
-        .expect("Error reading glyf table")
-        .expect("No glyf table found")
-    {
+    if let Some(mut glyf) = infont.tables.glyf().expect("Error reading glyf table") {
         log::info!("Done reading glyf table");
         let mut todo: Vec<(usize, &Glyph)> = vec![];
         for (ix, g) in glyf.glyphs.iter().enumerate() {
@@ -709,6 +697,7 @@ fn main() {
         for (ix, g) in crunched {
             glyf.glyphs[ix] = g;
         }
+        infont.tables.insert(glyf);
     }
     log::info!("All done, saving font");
     save_font(infont, &matches);

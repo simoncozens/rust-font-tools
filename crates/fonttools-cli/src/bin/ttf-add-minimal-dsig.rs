@@ -1,4 +1,4 @@
-use fonttools::font::Table;
+use fonttools::tag;
 use fonttools_cli::{open_font, read_args, save_font};
 
 fn main() {
@@ -8,10 +8,10 @@ fn main() {
     );
     let mut infont = open_font(&matches);
 
-    if !infont.tables.contains_key(b"DSIG") {
-        infont.tables.insert(
-            fonttools::tag!("DSIG"),
-            Table::Unknown(vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]),
+    if !infont.tables.contains(&tag!("DSIG")) {
+        infont.tables.insert_raw(
+            tag!("DSIG"),
+            vec![0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
         );
     }
     save_font(infont, &matches);

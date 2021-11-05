@@ -1,4 +1,3 @@
-use fonttools::font::Table;
 use fonttools::tables::glyf::{Glyph, Point};
 use fonttools::tag;
 use fonttools_cli::{open_font, read_args, save_font};
@@ -86,11 +85,11 @@ fn skia_to_glyf(p: Path) -> Vec<Vec<Point>> {
 fn main() {
     let matches = read_args("ttf-remove-overlap", "Removes overlap from TTF files");
     let mut infont = open_font(&matches);
-    if let Table::Glyf(glyf) = infont.get_table(tag!("glyf")).unwrap().unwrap() {
-        for glyph in glyf.glyphs.iter_mut() {
-            remove_overlap(glyph);
-        }
-        glyf.recalc_bounds();
+    let mut glyf = infont.tables.glyf().unwrap().unwrap();
+    for glyph in glyf.glyphs.iter_mut() {
+        remove_overlap(glyph);
     }
+    glyf.recalc_bounds();
+    infont.tables.insert(glyf);
     save_font(infont, &matches);
 }
