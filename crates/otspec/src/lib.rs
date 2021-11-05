@@ -14,6 +14,7 @@ pub mod offsetmanager;
 mod offsets;
 pub mod utils;
 pub use counted::{Counted, Counted32};
+pub mod tables;
 mod tag;
 pub mod types;
 
