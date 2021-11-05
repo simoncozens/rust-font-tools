@@ -41,3 +41,31 @@ pub mod name;
 pub mod os2;
 /// The `post` (PostScript) table
 pub mod post;
+
+#[macro_export]
+/// A macro that allows a high-level table structure to delegate serialization and
+/// deserialization to a lower level structure.
+// I'm sure there is a clever way to do this with types and trait bounds but I
+// am not that clever
+macro_rules! table_delegate {
+    ($ours:ty, $theirs: ty) => {
+        impl otspec::Serialize for $ours {
+            fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
+                let out: $theirs = self.into();
+                out.to_bytes(data)
+            }
+        }
+
+        impl otspec::Deserialize for $ours {
+            fn from_bytes(
+                c: &mut otspec::ReaderContext,
+            ) -> Result<Self, otspec::DeserializationError>
+            where
+                Self: std::marker::Sized,
+            {
+                let incoming: $theirs = c.de()?;
+                Ok(incoming.into())
+            }
+        }
+    };
+}

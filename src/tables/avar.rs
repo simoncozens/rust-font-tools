@@ -1,3 +1,4 @@
+use crate::table_delegate;
 use otspec::tables::avar::{avar as avar_ot, AxisValueMap, SegmentMap as SegmentMap_ot};
 use otspec::types::*;
 use otspec::{Deserialize, Deserializer, Serialize};
@@ -36,22 +37,7 @@ impl Into<avar> for avar_ot {
     }
 }
 
-impl Serialize for avar {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        let out: avar_ot = self.into();
-        out.to_bytes(data)
-    }
-}
-
-impl Deserialize for avar {
-    fn from_bytes(c: &mut otspec::ReaderContext) -> Result<Self, otspec::DeserializationError>
-    where
-        Self: std::marker::Sized,
-    {
-        let in_avar: avar_ot = c.de()?;
-        Ok(in_avar.into())
-    }
-}
+table_delegate!(avar, avar_ot);
 
 impl Into<SegmentMap_ot> for &SegmentMap {
     fn into(self) -> SegmentMap_ot {
