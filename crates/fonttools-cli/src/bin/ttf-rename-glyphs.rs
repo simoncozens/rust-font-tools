@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use fonttools::{font::Table, tag};
+use fonttools::tag;
 use fonttools_cli::{open_font, save_font};
 use itertools::Itertools;
 use std::collections::{BTreeMap, HashSet};
@@ -35,22 +35,14 @@ fn main() {
         )
         .get_matches();
     let mut infont = open_font(&matches);
-    let has_cff = infont.tables.contains_key(b"CFF ");
+    let has_cff = infont.tables.contains(&tag!("CFF "));
     let num_glyphs = infont.num_glyphs();
     let mut reversed_map = BTreeMap::new();
 
-    if let Table::Cmap(cmap) = infont
-        .get_table(tag!("cmap"))
-        .expect("Error reading cmap table")
-        .expect("No cmap table found")
-    {
+    if let Some(cmap) = infont.tables.cmap().expect("Error reading cmap table") {
         reversed_map = cmap.reversed();
     }
-    if let Table::Post(post) = infont
-        .get_table(tag!("post"))
-        .expect("Error reading post table")
-        .expect("No post table found")
-    {
+    if let Some(mut post) = infont.tables.post().expect("Error reading post table") {
         if matches.is_present("drop-names") {
             if has_cff {
                 log::warn!("Dropping glyph names from CFF 1.0 is a bad idea!");
@@ -66,6 +58,7 @@ fn main() {
                     build_production_name(&glyphnames[i as usize], reversed_map.get(&i));
                 glyphnames[i as usize] = prod_name;
             }
+            infont.tables.insert(post);
         }
     }
 

@@ -3,6 +3,9 @@ use otspec::types::*;
 use otspec::Deserializer;
 use otspec_macros::{tables, Deserialize, Serialize};
 
+/// The 'gasp' OpenType tag.
+pub const TAG: Tag = crate::tag!("gasp");
+
 tables!(
 GaspRecord {
     uint16 rangeMaxPPEM

@@ -1,130 +1,17 @@
-use crate::tables::{self, glyf, gvar, hmtx, loca};
-use crate::tag;
+use crate::tables;
 use otspec::types::*;
 use otspec::{
-    ser, DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError,
-    Serialize, Serializer,
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Serializer,
 };
 use otspec_macros::{Deserialize, Serialize};
 
 use std::cmp;
-use std::collections::BTreeMap;
 use std::convert::{TryFrom, TryInto};
 use std::error::Error;
 use std::io::Read;
 use std::num::Wrapping;
 use std::path::Path;
-
-/// A generic container for a font table, either known (deserialized) or unknown (binary)
-#[derive(Debug, PartialEq)]
-pub enum Table {
-    /// Contains an unknown or unparsed table stored as a binary byte array.
-    Unknown(Vec<u8>),
-    /// Contains an axis variations table.
-    Avar(tables::avar::avar),
-    /// Contains a character to glyph index mapping table.
-    Cmap(tables::cmap::cmap),
-    /// Contains a font variations table.
-    Fvar(tables::fvar::fvar),
-    /// Contains a grid-fitting and scan-conversion procedure table.
-    Gasp(tables::gasp::gasp),
-    /// Contains a tables::glyph::glyph definition table.
-    GDEF(tables::GDEF::GDEF),
-    /// Contains a glyph positioning table.
-    GPOS(tables::GPOS::GPOS),
-    /// Contains a glyph substitution table.
-    GSUB(tables::GSUB::GSUB),
-    /// Contains a glyph data table.
-    Glyf(tables::glyf::glyf),
-    /// Contains a glyph variations table.
-    Gvar(tables::gvar::gvar),
-    /// Contains a header table.
-    Head(tables::head::head),
-    /// Contains a horizontal header table.
-    Hhea(tables::hhea::hhea),
-    /// Contains a horizontal metrics table.
-    Hmtx(tables::hmtx::hmtx),
-    /// Contains an index-to-location table.
-    Loca(tables::loca::loca),
-    /// Contains a math typesetting table.
-    MATH(tables::MATH::MATH),
-    /// Contains a maximum profile table.
-    Maxp(tables::maxp::maxp),
-    /// Contains a naming table.
-    Name(tables::name::name),
-    /// Contains an OS/2 and Windows metrics table.
-    Os2(tables::os2::os2),
-    /// Contains a postscript table.
-    Post(tables::post::post),
-    /// Contains a style attributes table.
-    STAT(tables::STAT::STAT),
-}
-
-macro_rules! table_unchecked {
-    ($name: ident, $enum:ident, $t: ty) => {
-        /// Forcibly extracts the table object from a generic Table enum
-        ///
-        /// Panics if the table object contains a different kind of table.
-        /// You are responsible for ensuring that the table is deserialized
-        /// in the correct order (i.e. with any dependencies already deserialized).
-        #[allow(non_snake_case)]
-        pub fn $name(&self) -> &$t {
-            if let Table::$enum(thing) = self {
-                return thing;
-            }
-            panic!("Asked for a {:} but found a {:?}", stringify!($t), self)
-        }
-    };
-}
-
-impl Table {
-    table_unchecked!(avar_unchecked, Avar, tables::avar::avar);
-    table_unchecked!(cmap_unchecked, Cmap, tables::cmap::cmap);
-    table_unchecked!(fvar_unchecked, Fvar, tables::fvar::fvar);
-    table_unchecked!(gasp_unchecked, Gasp, tables::gasp::gasp);
-    table_unchecked!(glyf_unchecked, Glyf, tables::glyf::glyf);
-    table_unchecked!(gdef_unchecked, GDEF, tables::GDEF::GDEF);
-    table_unchecked!(gsub_unchecked, GSUB, tables::GSUB::GSUB);
-    table_unchecked!(gpos_unchecked, GPOS, tables::GPOS::GPOS);
-    table_unchecked!(gvar_unchecked, Gvar, tables::gvar::gvar);
-    table_unchecked!(head_unchecked, Head, tables::head::head);
-    table_unchecked!(hhea_unchecked, Hhea, tables::hhea::hhea);
-    table_unchecked!(hmtx_unchecked, Hmtx, tables::hmtx::hmtx);
-    table_unchecked!(loca_unchecked, Loca, tables::loca::loca);
-    table_unchecked!(maxp_unchecked, Maxp, tables::maxp::maxp);
-    table_unchecked!(MATH_unchecked, MATH, tables::MATH::MATH);
-    table_unchecked!(name_unchecked, Name, tables::name::name);
-    table_unchecked!(os2_unchecked, Os2, tables::os2::os2);
-    table_unchecked!(post_unchecked, Post, tables::post::post);
-    table_unchecked!(STAT_unchecked, STAT, tables::STAT::STAT);
-}
-
-impl Serialize for Table {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        match self {
-            Table::Unknown(expr) => expr.to_bytes(data),
-            Table::Avar(expr) => expr.to_bytes(data),
-            Table::Cmap(expr) => expr.to_bytes(data),
-            Table::Fvar(expr) => expr.to_bytes(data),
-            Table::Gasp(expr) => expr.to_bytes(data),
-            Table::GSUB(expr) => expr.to_bytes(data),
-            Table::GDEF(expr) => expr.to_bytes(data),
-            Table::GPOS(expr) => expr.to_bytes(data),
-            Table::Gvar(_) => unimplemented!(),
-            Table::Head(expr) => expr.to_bytes(data),
-            Table::Hhea(expr) => expr.to_bytes(data),
-            Table::Hmtx(_) => unimplemented!(),
-            Table::Glyf(_) => unimplemented!(),
-            Table::Loca(_) => unimplemented!(),
-            Table::Maxp(expr) => expr.to_bytes(data),
-            Table::MATH(_) => unimplemented!(),
-            Table::Name(expr) => expr.to_bytes(data),
-            Table::Os2(expr) => expr.to_bytes(data),
-            Table::Post(expr) => expr.to_bytes(data),
-            Table::STAT(expr) => expr.to_bytes(data),
-        }
-    }
-}
 
 /// Magic number used to identify the font type
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -167,13 +54,13 @@ struct TableHeader {
 }
 
 /// An OpenType font object
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[allow(non_snake_case)]
 pub struct Font {
     /// Font version (TrueType/OpenType)
     sfntVersion: SfntVersion,
     /// Dictionary of tables in the font
-    pub tables: BTreeMap<Tag, Table>,
+    pub tables: super::table_store::TableSet,
     _numGlyphs: Option<u16>,
 }
 
@@ -186,13 +73,7 @@ impl Font {
 
     /// Attempt to load a font from a raw byte slice.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, Box<dyn Error>> {
-        otspec::de::from_bytes(bytes)
-            .map_err(|e| e.into())
-            .map(|mut f: Font| {
-                let _ = f.get_table(tag!("head"));
-                let _ = f.get_table(tag!("loca"));
-                f
-            })
+        otspec::de::from_bytes(bytes).map_err(|e| e.into())
     }
 
     /// Attempt to load a font from any reader.
@@ -200,125 +81,6 @@ impl Font {
         let mut buf = Vec::new();
         let _ = reader.read_to_end(&mut buf)?;
         Self::from_bytes(&buf)
-    }
-
-    fn _loca_is32bit(&self) -> Option<bool> {
-        let head = self.get_table_simple(tag!("head"))?;
-        if self._table_needs_deserializing(head) {
-            return None;
-            // panic!("Deserialize head before loca!")
-        }
-        if let Table::Head(head) = head {
-            return Some(head.indexToLocFormat == 1);
-        }
-        panic!("Can't happen - head not a head table?!")
-    }
-
-    fn _loc_offsets(&self) -> Option<Vec<Option<u32>>> {
-        let loca = self.get_table_simple(tag!("loca"))?;
-        if self._table_needs_deserializing(loca) {
-            return None;
-            // panic!("Deserialize loca before glyf!")
-        }
-        if let Table::Loca(loca) = loca {
-            return Some(loca.indices.clone()); // XXX
-        }
-        panic!("Can't happen - loca not a loca table?!")
-    }
-
-    fn _number_of_hmetrics(&self) -> Option<u16> {
-        let hhea = self.get_table_simple(tag!("hhea"))?;
-        if self._table_needs_deserializing(hhea) {
-            return None;
-            // panic!("Deserialize loca before glyf!")
-        }
-        if let Table::Hhea(hhea) = hhea {
-            return Some(hhea.numberOfHMetrics);
-        }
-        panic!("Can't happen - hhea not a hhea table?!")
-    }
-
-    fn _gvar_coords_and_ends(&self) -> Option<gvar::CoordsAndEndsVec> {
-        let glyf = self.get_table_simple(tag!("glyf"))?;
-        if self._table_needs_deserializing(glyf) {
-            return None;
-        }
-        let glyf = glyf.glyf_unchecked();
-        Some(
-            glyf.glyphs
-                .iter()
-                .map(|g| g.gvar_coords_and_ends())
-                .collect(),
-        )
-    }
-
-    fn _deserialize(&self, tag: Tag, binary: &[u8]) -> Result<Table, DeserializationError> {
-        match tag.as_bytes() {
-            b"avar" => Ok(Table::Avar(otspec::de::from_bytes(binary)?)),
-            b"cmap" => Ok(Table::Cmap(otspec::de::from_bytes(binary)?)),
-            b"fvar" => Ok(Table::Fvar(otspec::de::from_bytes(binary)?)),
-            b"gasp" => Ok(Table::Gasp(otspec::de::from_bytes(binary)?)),
-            b"GDEF" => Ok(Table::GDEF(otspec::de::from_bytes(binary)?)),
-            b"GPOS" => Ok(Table::GPOS(otspec::de::from_bytes(binary)?)),
-            b"GSUB" => Ok(Table::GSUB(otspec::de::from_bytes(binary)?)),
-            b"head" => Ok(Table::Head(otspec::de::from_bytes(binary)?)),
-            b"hhea" => Ok(Table::Hhea(otspec::de::from_bytes(binary)?)),
-            b"MATH" => Ok(Table::MATH(otspec::de::from_bytes(binary)?)),
-            b"maxp" => Ok(Table::Maxp(otspec::de::from_bytes(binary)?)),
-            b"name" => Ok(Table::Name(otspec::de::from_bytes(binary)?)),
-            b"OS/2" => Ok(Table::Os2(otspec::de::from_bytes(binary)?)),
-            b"post" => Ok(Table::Post(otspec::de::from_bytes(binary)?)),
-            b"STAT" => Ok(Table::STAT(otspec::de::from_bytes(binary)?)),
-            b"hmtx" => {
-                let number_of_hmetrics = self._number_of_hmetrics();
-                if number_of_hmetrics.is_none() {
-                    return Err(DeserializationError(
-                        "Deserialized in wrong order".to_string(),
-                    ));
-                }
-                Ok(Table::Hmtx(hmtx::from_bytes(
-                    &mut otspec::ReaderContext::new(binary.to_vec()),
-                    number_of_hmetrics.unwrap(),
-                )?))
-            }
-            b"loca" => {
-                let loca_is32bit = self._loca_is32bit();
-                if loca_is32bit.is_none() {
-                    return Err(DeserializationError(
-                        "Deserialized in wrong order".to_string(),
-                    ));
-                }
-                Ok(Table::Loca(loca::from_bytes(
-                    &mut otspec::ReaderContext::new(binary.to_vec()),
-                    loca_is32bit.unwrap(),
-                )?))
-            }
-            b"glyf" => {
-                let loca_offsets = self._loc_offsets();
-                if loca_offsets.is_none() {
-                    return Err(DeserializationError(
-                        "Deserialized in wrong order".to_string(),
-                    ));
-                }
-                Ok(Table::Glyf(glyf::from_bytes(
-                    binary,
-                    loca_offsets.unwrap(),
-                )?))
-            }
-            b"gvar" => {
-                let gvar_coords_and_ends = self._gvar_coords_and_ends();
-                if gvar_coords_and_ends.is_none() {
-                    return Err(DeserializationError(
-                        "Deserialized in wrong order".to_string(),
-                    ));
-                }
-                Ok(Table::Gvar(gvar::from_bytes(
-                    binary,
-                    gvar_coords_and_ends.unwrap(),
-                )?))
-            }
-            _ => Ok(Table::Unknown(binary.to_vec())),
-        }
     }
 
     /// Create a new font, empty of a given version (TrueType/OpenType)
@@ -330,48 +92,10 @@ impl Font {
         }
     }
 
-    fn _table_needs_deserializing(&self, table: &Table) -> bool {
-        // Also check here for known tables we can't deserialize.
-        if let Table::Unknown(_binary) = table {
-            return true;
-        }
-        false
-    }
-
-    fn get_table_simple(&self, tag: Tag) -> Option<&Table> {
-        self.tables.get(&tag)
-    }
-
-    fn get_table_mut_simple(&mut self, tag: Tag) -> Option<&mut Table> {
-        self.tables.get_mut(&tag)
-    }
-
-    /// Retrieve a table from the font
-    ///
-    /// If the table tag is known to this library and can be deserialized, this
-    /// is done and the appropriate Table enum entry is returned. If not, then
-    /// a Table::Unknown is returned with the binary table data as a Vec<u8>.
-    ///
-    /// Returns an Err if the table could not be correctly deserialized.
-    /// Returns Ok(None) if the table was not present within the font.
-    /// Returns Ok(Some(Table)) if the table was present.
-    pub fn get_table(&mut self, tag: Tag) -> Result<Option<&mut Table>, DeserializationError> {
-        let table = self.get_table_simple(tag);
-        // println!("Getting table {:?}", tag);
-        if table.is_none() {
-            // println!("Not found");
-            return Ok(None);
-        }
-        let table = table.unwrap();
-
-        // println!("It was {:?}", table);
-        if let Table::Unknown(binary) = table {
-            // println!("Was binary, deserializing");
-            let newtable = self._deserialize(tag, binary)?;
-            // println!("Inserting new table {:?}", newtable);
-            self.tables.insert(tag, newtable);
-        }
-        Ok(self.get_table_mut_simple(tag))
+    //FIXME: do we want to keep this? do we want top-level methods generally?
+    /// Returns `true` if the font contains a table with this `Tag`.
+    pub fn contains_table(&self, tag: Tag) -> bool {
+        self.tables.contains(&tag)
     }
 
     /// Deserializes all tables in the font.
@@ -379,20 +103,8 @@ impl Font {
     /// This is done in the correct order (as some tables can only be deserialized
     /// after certain others have been processed), so is a helpful way of getting
     /// the font into a useful state before working on it.
-    pub fn fully_deserialize(&mut self) {
-        // Order is important
-        self.get_table(tag!("head")).unwrap();
-        self.get_table(tag!("maxp")).unwrap();
-        if self.tables.contains_key(&tag!("glyf")) {
-            self.get_table(tag!("loca")).unwrap();
-            self.get_table(tag!("glyf")).unwrap();
-        }
-        let keys: Vec<Tag> = self.tables.keys().copied().collect();
-        for t in keys {
-            if self.get_table(t).is_err() {
-                log::warn!("Couldn't deserialize {}", t);
-            }
-        }
+    pub fn fully_deserialize(&self) {
+        self.tables.fully_deserialize().unwrap()
     }
 
     /// Attempt to save the font to the provided path.
@@ -403,9 +115,10 @@ impl Font {
 
     /// Attempt to write the font into the provided [`Writer`][std::io::Write];
     pub fn write(&mut self, mut writer: impl std::io::Write) -> Result<(), Box<dyn Error>> {
-        self.compile_glyf_loca_maxp();
-        let serialized = ser::to_bytes(self).unwrap();
-        writer.write_all(&serialized).map_err(Into::into)
+        self.tables.compile_glyf_loca_maxp();
+        let mut bytes = Vec::new();
+        self.to_bytes(&mut bytes)?;
+        writer.write_all(&bytes).map_err(Into::into)
     }
 
     /// Total number of glyphs in the font, from the maxp table.
@@ -414,79 +127,13 @@ impl Font {
     pub fn num_glyphs(&mut self) -> u16 {
         if self._numGlyphs.is_none() {
             let maxp = self
-                .get_table(tag!("maxp"))
+                .tables
+                .maxp()
                 .expect("Error deserializing maxp")
-                .expect("No maxp?")
-                .maxp_unchecked();
+                .expect("No maxp?");
             self._numGlyphs = Some(maxp.num_glyphs())
         }
         self._numGlyphs.unwrap()
-    }
-
-    /// Compiles all dependent tables to binary.
-    ///
-    /// Certain tables cannot be serialized independently, but need data from
-    /// other tables to be passed in to the deserializer. We handle this by
-    /// manually compiling those tables to binary here and replacing them with
-    /// Table::Unknown. This is automatically called on `.save`.
-    pub fn compile_glyf_loca_maxp(&mut self) {
-        let mut glyf_output: Vec<u8> = vec![];
-        let mut loca_indices: Vec<u32> = vec![];
-        let mut loca_is32bit = false;
-        let maybe_glyf = self.get_table(tag!("glyf")).unwrap();
-        if maybe_glyf.is_none() {
-            println!("Warning: no glyf table");
-            return;
-        }
-        let glyf = maybe_glyf.unwrap().glyf_unchecked();
-        let glyf_count = glyf.glyphs.len();
-        for g in &glyf.glyphs {
-            let cur_len: u32 = glyf_output.len().try_into().unwrap();
-            if cur_len * 2 > (u16::MAX as u32) {
-                loca_is32bit = true;
-            }
-            loca_indices.push(cur_len);
-            if g.is_empty() {
-                continue;
-            }
-            glyf_output.extend(otspec::ser::to_bytes(&g).unwrap());
-            // Add multiple-of-four padding
-            while glyf_output.len() % 4 != 0 {
-                glyf_output.push(0);
-            }
-        }
-        loca_indices.push(glyf_output.len().try_into().unwrap());
-
-        let maxp_table = self.get_table(tag!("maxp")).unwrap().unwrap();
-        if let Table::Maxp(maxp) = maxp_table {
-            maxp.set_num_glyphs(glyf_count as u16);
-        }
-
-        let head_table = self.get_table(tag!("head")).unwrap().unwrap();
-        if let Table::Head(head) = head_table {
-            head.indexToLocFormat = if loca_is32bit { 1 } else { 0 };
-        }
-
-        self.tables
-            .insert(tag!("glyf"), Table::Unknown(glyf_output));
-        let loca_output: Vec<u8>;
-        if loca_is32bit {
-            loca_output = otspec::ser::to_bytes(&loca_indices).unwrap();
-        } else {
-            let converted: Vec<u16> = loca_indices.iter().map(|x| (*x / 2_u32) as u16).collect();
-            loca_output = otspec::ser::to_bytes(&converted).unwrap();
-        }
-        self.tables
-            .insert(tag!("loca"), Table::Unknown(loca_output));
-
-        if let Ok(Some(hmtx_table)) = self.get_table(tag!("hmtx")) {
-            let (hmtx_output, num_horizontal_metrics) = hmtx_table.hmtx_unchecked().to_bytes();
-            if let Ok(Some(Table::Hhea(hhea_table))) = self.get_table(tag!("hhea")) {
-                hhea_table.numberOfHMetrics = num_horizontal_metrics;
-            }
-            self.tables
-                .insert(tag!("hmtx"), Table::Unknown(hmtx_output));
-        }
     }
 }
 
@@ -498,27 +145,7 @@ where
 {
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
-    otspec::de::from_bytes(&buffer)
-        .map_err(|e| e.into())
-        .map(|mut f: Font| {
-            let _ = f.get_table(tag!("head"));
-            let _ = f.get_table(tag!("loca"));
-            f
-        })
-}
-
-impl PartialEq for Font {
-    fn eq(&self, other: &Self) -> bool {
-        if self.sfntVersion != other.sfntVersion || self.tables.len() != other.tables.len() {
-            return false;
-        }
-        for ((k1, v1), (k2, v2)) in self.tables.iter().zip(other.tables.iter()) {
-            if k1 != k2 || v1 != v2 {
-                return false;
-            }
-        }
-        true
-    }
+    otspec::de::from_bytes(&buffer).map_err(|e| e.into())
 }
 
 fn checksum(x: &[u8]) -> u32 {
@@ -560,8 +187,11 @@ impl Serialize for Font {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let lenu16: u16 = self.tables.len().try_into().unwrap();
         let (search_range, max_pow2, range_shift) = get_search_range(lenu16, 16);
+
         let mut output: Vec<u8> = vec![];
         let mut output_tables: Vec<u8> = vec![];
+        let mut temp = Vec::new();
+
         output.extend(&(self.sfntVersion as u32).to_be_bytes());
         output.extend(&lenu16.to_be_bytes());
         output.extend(&search_range.to_be_bytes());
@@ -569,36 +199,31 @@ impl Serialize for Font {
         output.extend(&range_shift.to_be_bytes());
         let mut pos = 16 * self.tables.len() + 12;
         let mut head_pos: Option<usize> = None;
-        for (tag, value) in self.tables.iter() {
-            let mut bytes = otspec::ser::to_bytes(&value).unwrap();
-            if tag == b"head" {
+        for tag in self.tables.keys() {
+            temp.clear();
+            self.tables.write_table(tag, &mut temp)?;
+            if tag == tables::head::TAG {
                 head_pos = Some(pos);
-                bytes[8] = 0;
-                bytes[9] = 0;
-                bytes[10] = 0;
-                bytes[11] = 0;
+                temp[8..12].fill(0);
             }
-            let orig_len = bytes.len();
-            let orig_checksum = checksum(&bytes);
-            while (bytes.len() % 4) != 0 {
-                bytes.push(0);
+            let orig_len = temp.len();
+            let orig_checksum = checksum(&temp);
+            while (temp.len() % 4) != 0 {
+                temp.push(0);
             }
             output.extend(tag.as_bytes());
             output.extend(&(orig_checksum as u32).to_be_bytes());
             output.extend(&(pos as u32).to_be_bytes());
             output.extend(&(orig_len as u32).to_be_bytes());
-            pos += bytes.len();
-            output_tables.extend(bytes);
+            pos += temp.len();
+            output_tables.extend_from_slice(&temp);
         }
         output.extend(output_tables);
         // Compute full checksum and update head here.
         let full_checksum = (Wrapping(0xB1B0AFBA) - Wrapping(checksum(&output))).0;
-        let checksum_be = full_checksum.to_be_bytes();
         if let Some(head_pos) = head_pos {
-            output[head_pos + 8] = checksum_be[0];
-            output[head_pos + 9] = checksum_be[1];
-            output[head_pos + 10] = checksum_be[2];
-            output[head_pos + 11] = checksum_be[3];
+            let start = head_pos + 8;
+            output[start..start + 4].copy_from_slice(&full_checksum.to_be_bytes());
         }
         data.put(output)
     }
@@ -611,8 +236,11 @@ impl Deserialize for Font {
             DeserializationError("Font must begin with a valid version".to_string())
         })?;
 
-        let mut result = Font::new(version);
+        let mut raw_tables = crate::table_store::TableLoader::default();
         let mut table_records = Vec::with_capacity(header.numTables as usize);
+        //TODO: is this allocation + sorting necessary? can't we just deserialize
+        //each table directly as we encounter the header?
+
         for _ in 0..(header.numTables as usize) {
             let next: TableRecord = c.de()?;
             table_records.push(next)
@@ -621,10 +249,13 @@ impl Deserialize for Font {
         for tr in table_records {
             let start = tr.offset as usize;
             let this_table = &c.input[start..start + tr.length as usize];
-            let table = Table::Unknown(this_table.into()); // Deserialize on read
-            result.tables.insert(tr.tag, table);
+            raw_tables.add(tr.tag, this_table.into());
         }
-        Ok(result)
+        Ok(Font {
+            sfntVersion: version,
+            tables: raw_tables.finish()?,
+            _numGlyphs: None,
+        })
     }
 }
 
@@ -635,7 +266,7 @@ mod tests {
     use crate::tables::head::head;
     use crate::tables::hhea::hhea;
     use crate::tables::maxp;
-    use crate::tag;
+    use otspec::ser;
     use otspec::types::U16F16;
 
     #[test]
@@ -710,9 +341,9 @@ mod tests {
             }),
         };
         let mut font = Font::new(SfntVersion::TrueType);
-        font.tables.insert(tag!("head"), Table::Head(fhead));
-        font.tables.insert(tag!("hhea"), Table::Hhea(fhhea));
-        font.tables.insert(tag!("maxp"), Table::Maxp(fmaxp));
+        font.tables.insert(fhead);
+        font.tables.insert(fhhea);
+        font.tables.insert(fmaxp);
 
         let binary_font = vec![
             0x00, 0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x20, 0x00, 0x01, 0x00, 0x10, 0x68, 0x65,
@@ -732,9 +363,9 @@ mod tests {
         ];
         let serialized = ser::to_bytes(&font).unwrap();
         assert_eq!(serialized, binary_font);
-        let mut deserialized: Font = otspec::de::from_bytes(&binary_font).unwrap();
+        let deserialized: Font = otspec::de::from_bytes(&binary_font).unwrap();
         deserialized.fully_deserialize();
-        assert_eq!(deserialized, font);
+        pretty_assertions::assert_eq!(deserialized, font);
     }
 
     #[test]
@@ -757,16 +388,10 @@ mod tests {
             0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x15, 0x00, 0x15, 0x00, 0x15, 0x00, 0x15,
             0x00, 0x22, 0x00, 0x34, 0x00, 0x00,
         ];
-        let mut deserialized: Font = otspec::de::from_bytes(&binary_font).unwrap();
-        let head = deserialized.get_table(tag!("head")).unwrap().unwrap();
-        if let Table::Head(head) = head {
-            assert_eq!(head.indexToLocFormat, 0);
-        }
-        let floca = deserialized
-            .get_table(tag!("loca"))
-            .unwrap()
-            .unwrap()
-            .loca_unchecked();
+        let deserialized: Font = otspec::de::from_bytes(&binary_font).unwrap();
+        let head = deserialized.tables.head().unwrap().unwrap();
+        assert_eq!(head.indexToLocFormat, 0);
+        let floca = deserialized.tables.loca().unwrap().unwrap();
         assert_eq!(
             floca.indices,
             vec![Some(0), None, None, None, Some(42), Some(68)]

@@ -15,6 +15,9 @@ use otspec::{
 use otspec_macros::Deserialize;
 use std::convert::TryInto;
 
+/// The 'GPOS' OpenType tag.
+pub const TAG: Tag = crate::tag!("GPOS");
+
 impl Lookup<Positioning> {
     /// Return the integer GPOS lookup type for this lookup
     pub fn lookup_type(&self) -> u16 {

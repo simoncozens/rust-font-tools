@@ -14,6 +14,9 @@ pub use component::{Component, ComponentFlags};
 pub use glyph::Glyph;
 pub use point::Point;
 
+/// The 'glyf' OpenType tag.
+pub const TAG: otspec::types::Tag = crate::tag!("glyf");
+
 /// The glyf table
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]
@@ -25,7 +28,7 @@ pub struct glyf {
 /// Deserialize the glyf table from a binary buffer.
 ///
 /// loca_offsets must be obtained from the `loca` table.
-pub fn from_bytes(c: &[u8], loca_offsets: Vec<Option<u32>>) -> Result<glyf, DeserializationError> {
+pub fn from_bytes(c: &[u8], loca_offsets: &[Option<u32>]) -> Result<glyf, DeserializationError> {
     from_rc(&mut ReaderContext::new(c.to_vec()), loca_offsets)
 }
 
@@ -34,7 +37,7 @@ pub fn from_bytes(c: &[u8], loca_offsets: Vec<Option<u32>>) -> Result<glyf, Dese
 /// loca_offsets must be obtained from the `loca` table.
 pub fn from_rc(
     c: &mut ReaderContext,
-    loca_offsets: Vec<Option<u32>>,
+    loca_offsets: &[Option<u32>],
 ) -> Result<glyf, DeserializationError> {
     let mut res = glyf { glyphs: Vec::new() };
     for item in loca_offsets {
@@ -51,7 +54,7 @@ pub fn from_rc(
             }),
             Some(item) => {
                 let old = c.ptr;
-                c.ptr = item as usize;
+                c.ptr = *item as usize;
                 let glyph: Glyph = c.de()?;
                 res.glyphs.push(glyph);
                 c.ptr = old;
@@ -196,8 +199,8 @@ impl glyf {
 
 #[cfg(test)]
 mod tests {
+    use crate::font;
     use crate::tables::glyf::{Component, ComponentFlags, Glyph, Point};
-    use crate::{font, tag};
 
     #[test]
     fn glyf_de() {
@@ -373,13 +376,9 @@ mod tests {
             0x01, 0x03, 0x0b, 0x64, 0x6f, 0x6c, 0x6c, 0x61, 0x72, 0x2e, 0x62, 0x6f, 0x6c, 0x64,
             0x09, 0x61, 0x63, 0x75, 0x74, 0x65, 0x63, 0x6f, 0x6d, 0x62,
         ];
-        let mut deserialized: font::Font = otspec::de::from_bytes(&binary_font).unwrap();
+        let deserialized: font::Font = otspec::de::from_bytes(&binary_font).unwrap();
         deserialized.fully_deserialize();
-        let glyf = deserialized
-            .get_table(tag!("glyf"))
-            .unwrap()
-            .unwrap()
-            .glyf_unchecked();
+        let glyf = deserialized.tables.glyf().unwrap().unwrap();
         /*
         <TTGlyph name="A" xMin="5" yMin="0" xMax="751" yMax="700">
           <contour>

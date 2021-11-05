@@ -1,4 +1,3 @@
-use fonttools::{font::Table, tag};
 use fonttools_cli::{open_font, read_args, save_font};
 
 fn main() {
@@ -9,12 +8,12 @@ fn main() {
 
     let mut infont = open_font(&matches);
 
-    if let Table::Glyf(glyf) = infont
-        .get_table(tag!("glyf"))
+    let mut glyf = infont
+        .tables
+        .glyf()
         .expect("Error reading glyf table")
-        .expect("No glyf table found")
-    {
-        glyf.flatten_components()
-    }
+        .expect("No glyf table found");
+    glyf.flatten_components();
+    infont.tables.insert(glyf);
     save_font(infont, &matches);
 }

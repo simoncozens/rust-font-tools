@@ -1,9 +1,14 @@
+use std::convert::TryInto;
+
 use otspec::types::*;
 use otspec::{DeserializationError, Deserializer, ReaderContext, Serialize};
 use otspec_macros::{Deserialize, Serialize};
 
+/// The 'hmtx' OpenType tag.
+pub const TAG: Tag = crate::tag!("hmtx");
+
 /// A single horizontal metric
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 pub struct Metric {
     /// The full horizontal advance width of the glyph
@@ -13,7 +18,7 @@ pub struct Metric {
 }
 
 /// The horizontal metrics table
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 pub struct hmtx {
     /// The list of metrics, corresponding to the glyph order
@@ -42,6 +47,23 @@ impl hmtx {
         }
 
         (bytes, (end_index_h_metrics + 1) as u16)
+    }
+
+    /// The number of horizontal metrics (to be stored in the `hhea` table)
+    pub fn number_of_hmetrics(&self) -> uint16 {
+        let last = match self.metrics.last() {
+            Some(metric) => metric.advanceWidth,
+            None => return 0,
+        };
+
+        let dupe_widths = self
+            .metrics
+            .iter()
+            .rev()
+            .skip(1)
+            .take_while(|m| m.advanceWidth == last)
+            .count();
+        (self.metrics.len() - dupe_widths).try_into().unwrap()
     }
 }
 

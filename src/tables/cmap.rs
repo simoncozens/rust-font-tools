@@ -9,6 +9,9 @@ use std::collections::{BTreeMap, HashSet};
 use std::convert::TryInto;
 use std::hash::{Hash, Hasher};
 
+/// The 'cmap' OpenType tag.
+pub const TAG: Tag = crate::tag!("cmap");
+
 tables!(
 
 EncodingRecord {
@@ -25,7 +28,7 @@ CmapHeader {
 
 );
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 #[allow(non_camel_case_types, non_snake_case)]
 struct cmap0 {
     format: uint16,
@@ -67,7 +70,7 @@ impl Deserialize for cmap0 {
 }
 
 #[allow(non_camel_case_types, non_snake_case)]
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 /// A format 4 cmap subtable, used for mapping Unicode characters in the
 /// basic mutilingual plane.
 pub struct cmap4 {
@@ -497,7 +500,7 @@ impl cmap14 {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[allow(non_snake_case)]
 /// A cmap subtable.
 ///
@@ -551,7 +554,7 @@ impl Serialize for CmapSubtable {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 /// cmap table. The cmap table is a collection of subtables, as described above.
 pub struct cmap {

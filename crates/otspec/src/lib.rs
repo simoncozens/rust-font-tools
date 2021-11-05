@@ -17,7 +17,7 @@ pub mod types;
 
 #[derive(Debug)]
 pub struct SerializationError(pub String);
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct DeserializationError(pub String);
 
 pub struct ReaderContext {
@@ -212,6 +212,21 @@ where
 }
 
 impl<T> Serialize for Vec<T>
+where
+    T: Serialize,
+{
+    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
+        self.as_slice().to_bytes(data)
+    }
+    fn ot_binary_size(&self) -> usize {
+        self.as_slice().ot_binary_size()
+    }
+    fn offset_fields(&self) -> Vec<&dyn types::OffsetMarkerTrait> {
+        self.as_slice().offset_fields()
+    }
+}
+
+impl<T> Serialize for [T]
 where
     T: Serialize,
 {

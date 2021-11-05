@@ -6,6 +6,9 @@ use otspec::{
 use otspec_macros::tables;
 use std::collections::{BTreeMap, HashSet};
 
+/// The 'OS/2' OpenType tag.
+pub const TAG: Tag = crate::tag!("OS/2");
+
 tables!(
     Panose {
         u8 panose0
@@ -71,7 +74,7 @@ tables!(
 );
 
 /// Represents a font's OS/2 (OS/2 and Windows Metrics) table
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[allow(non_camel_case_types, non_snake_case)]
 pub struct os2 {
     /// Table version (between 0 and 5)

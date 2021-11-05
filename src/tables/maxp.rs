@@ -2,6 +2,9 @@ use otspec::types::*;
 use otspec::{DeserializationError, Deserialize, Deserializer, ReaderContext, Serialize};
 use otspec_macros::{tables, Serialize};
 
+/// The 'maxp' OpenType tag.
+pub const TAG: Tag = crate::tag!("maxp");
+
 tables!(
 maxp05 {
     uint16  numGlyphs
@@ -29,7 +32,7 @@ maxp10 {
 /// The `maxp` table comes in two versions, 0.5 and 1.0, which have
 /// different fields. The enum allows a single maxp object to represent
 /// both versions.
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum MaxpVariant {
     /// This table is a maxp version 0.5
     Maxp05(maxp05),
@@ -48,7 +51,7 @@ impl Serialize for MaxpVariant {
 
 /// A maxp table, regardless of version.
 #[allow(non_snake_case, non_camel_case_types)]
-#[derive(Debug, Serialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct maxp {
     /// The version number as a fixed U16F16 value (for ease of serialization)
     #[otspec(with = "Version16Dot16")]

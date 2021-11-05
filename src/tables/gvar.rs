@@ -12,6 +12,9 @@ use std::convert::TryInto;
 #[cfg(feature = "rayon")]
 use rayon::prelude::*;
 
+/// The 'gvar' OpenType tag.
+pub const TAG: Tag = crate::tag!("gvar");
+
 pub(crate) type Coords = Vec<(int16, int16)>;
 pub(crate) type CoordsAndEndsVec = Vec<(Coords, Vec<usize>)>;
 

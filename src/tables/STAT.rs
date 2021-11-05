@@ -7,6 +7,9 @@ use otspec::{
 use otspec_macros::{tables, Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+/// The 'STAT' OpenType tag.
+pub const TAG: Tag = crate::tag!("STAT");
+
 tables!(STATcore {
     uint16 majorVersion
     uint16 minorVersion
@@ -99,7 +102,7 @@ pub struct AxisValue {
     pub locations: Option<BTreeMap<uint16, f32>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
 /// The Style Attributes table
 pub struct STAT {

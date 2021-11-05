@@ -8,6 +8,9 @@ use otspec::{
 };
 use otspec_macros::tables;
 
+/// The 'name' OpenType tag.
+pub const TAG: Tag = crate::tag!("name");
+
 fn get_encoding(platform_id: u16, encoding_id: u16) -> EncodingRef {
     if platform_id == 0 {
         return UTF_16BE;
@@ -117,7 +120,7 @@ tables!(
 );
 
 /// A single name record to be placed inside the name table
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[allow(non_snake_case)]
 pub struct NameRecord {
     /// Platform ID (0=Unicode, 1=Macintosh, 3=Windows)
@@ -157,7 +160,7 @@ impl NameRecord {
 }
 
 /// Represents a font's name (Naming) table
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[allow(non_camel_case_types)]
 pub struct name {
     /// A set of name records.

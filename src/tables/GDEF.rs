@@ -12,6 +12,9 @@ use otspec::{
 use otspec_macros::tables;
 use std::collections::{BTreeMap, BTreeSet};
 
+/// The 'GDEF' OpenType tag.
+pub const TAG: Tag = crate::tag!("GDEF");
+
 // Having version-specific tables makes it so much easier to keep track of
 // the offset fields
 tables!(

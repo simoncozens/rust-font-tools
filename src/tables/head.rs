@@ -2,6 +2,9 @@ use otspec::types::*;
 use otspec::Deserializer;
 use otspec_macros::tables;
 
+/// The 'head' OpenType tag.
+pub const TAG: Tag = crate::tag!("head");
+
 tables!(head {
     uint16 majorVersion
     uint16 minorVersion

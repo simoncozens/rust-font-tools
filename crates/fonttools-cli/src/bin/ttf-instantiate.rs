@@ -2,6 +2,7 @@ use clap::{App, Arg};
 use fonttools::otvar::instancer::{
     instantiate_variable_font, AxisRange, UserAxisLimit, UserAxisLimits,
 };
+use fonttools::tag;
 use fonttools::types::*;
 use fonttools_cli::open_font;
 use regex::Regex;
@@ -45,7 +46,7 @@ fn main() {
     }
 
     let mut infont = open_font(&matches);
-    if !infont.tables.contains_key(b"fvar") {
+    if !infont.tables.contains(&tag!("fvar")) {
         println!("This isn't a variable font");
         return;
     }

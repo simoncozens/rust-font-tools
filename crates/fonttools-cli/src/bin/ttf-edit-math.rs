@@ -1,5 +1,4 @@
 use clap::{App, Arg};
-use fonttools::font::Table;
 use fonttools::tables::MATH::*;
 use fonttools::tag;
 use fonttools::types::*;
@@ -285,23 +284,16 @@ fn main() {
         .get_matches();
     let mut infont = open_font(&matches);
 
-    let glyph_names = if let Table::Post(post) = infont
-        .get_table(tag!("post"))
-        .expect("Error reading post table")
-        .expect("No post table found")
-    {
-        post.glyphnames.clone().unwrap_or_else(std::vec::Vec::new)
-    } else {
-        vec![]
-    };
+    let post = infont.tables.post().unwrap().unwrap();
+    let glyph_names = post.glyphnames.clone().unwrap_or_else(std::vec::Vec::new);
 
     if matches.value_of("mode").unwrap() == "dump" {
         let math = infont
-            .get_table(tag!("MATH"))
+            .tables
+            .MATH()
             .expect("No math table")
-            .expect("Couldn't parse MATH table")
-            .MATH_unchecked();
-        let simplified: MathEvenEasier = simplify(math, glyph_names);
+            .expect("Couldn't parse MATH table");
+        let simplified: MathEvenEasier = simplify(&math, glyph_names);
         serde_json::to_writer_pretty(io::stdout(), &simplified).expect("Oops");
     }
     // save_font(infont, &matches);

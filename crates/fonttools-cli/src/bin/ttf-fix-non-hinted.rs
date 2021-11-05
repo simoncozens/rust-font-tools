@@ -4,7 +4,6 @@ Improve the appearance of an unhinted font on Win platforms by:
       for all sizes.
     - Add a new prep table which is optimized for unhinted fonts.
 */
-use fonttools::font::Table;
 use fonttools::tables::gasp;
 use fonttools::tag;
 use fonttools_cli::{open_font, read_args, save_font};
@@ -16,7 +15,7 @@ fn main() {
     );
     let mut infont = open_font(&matches);
 
-    if !infont.tables.contains_key(&tag!("gasp")) {
+    if !infont.tables.contains(&tag!("gasp")) {
         let gasp_table = gasp::gasp {
             version: 1,
             gaspRanges: vec![gasp::GaspRecord {
@@ -30,9 +29,10 @@ fn main() {
                     | gasp::RangeGaspBehaviorFlags::GASP_SYMMETRIC_GRIDFIT,
             }],
         };
-        infont.tables.insert(tag!("gasp"), Table::Gasp(gasp_table));
+        infont.tables.insert(gasp_table);
     }
-    let prep_table = Table::Unknown(vec![0xb8, 0x01, 0xff, 0x85, 0xb0, 0x04, 0x8d]);
-    infont.tables.insert(tag!("prep"), prep_table);
+    infont
+        .tables
+        .insert_raw(tag!("prep"), vec![0xb8, 0x01, 0xff, 0x85, 0xb0, 0x04, 0x8d]);
     save_font(infont, &matches);
 }
