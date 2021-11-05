@@ -5,6 +5,10 @@ use crate::layout::gsub1::{SingleSubst, SingleSubstInternal};
 use crate::layout::gsub2::{MultipleSubst, MultipleSubstFormat1};
 use crate::layout::gsub3::AlternateSubst;
 use crate::layout::gsub4::{LigatureSubst, LigatureSubstFormat1};
+use otspec::layout::common::{
+    gsubgpos as gsubgposoutgoing, FeatureList, FeatureRecord, FeatureTable,
+    Lookup as LookupInternal, LookupFlags, LookupList as LookupListOutgoing,
+};
 use otspec::types::*;
 use otspec::{
     Counted, DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError,
@@ -171,7 +175,7 @@ impl From<&GSUB> for gsubgposoutgoing {
         gsubgposoutgoing {
             majorVersion: 1,
             minorVersion: 0,
-            scriptList: Offset16::to(val.scripts.clone()),
+            scriptList: Offset16::to((&val.scripts).into()),
             featureList: Offset16::to(featurelist),
             lookupList: Offset16::to(substlookuplist),
         }

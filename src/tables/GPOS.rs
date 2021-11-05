@@ -1,10 +1,15 @@
-use crate::layout::common::*;
+use crate::layout::common::{Lookup, ScriptList, GPOSGSUB};
 use crate::layout::contextual::{ChainedSequenceContext, SequenceContext};
 use crate::layout::gpos1::SinglePos;
 use crate::layout::gpos2::PairPos;
 use crate::layout::gpos3::CursivePos;
 use crate::layout::gpos4::MarkBasePos;
 use crate::{convert_outgoing_subtables, deserialize_lookup_match};
+use otspec::layout::common::{
+    gsubgpos as gsubgposoutgoing, FeatureList, FeatureRecord, FeatureTable,
+    Lookup as LookupInternal, LookupFlags, LookupList as LookupListOutgoing,
+};
+
 // use crate::layout::gpos5::{MarkLigPos, MarkLigPosFormat1};
 // use crate::layout::gpos6::{MarkMarkPos, MarkMarkPosFormat1};
 use otspec::types::*;
@@ -180,7 +185,7 @@ impl From<&GPOS> for gsubgposoutgoing {
         gsubgposoutgoing {
             majorVersion: 1,
             minorVersion: 0,
-            scriptList: Offset16::to(val.scripts.clone()),
+            scriptList: Offset16::to((&val.scripts).into()),
             featureList: Offset16::to(featurelist),
             lookupList: Offset16::to(substlookuplist),
         }

@@ -1,4 +1,4 @@
-/// Common tables for OpenType Layout
+/// High-level common structures for OpenType Layout
 pub mod common;
 /// Common tables for contextual lookup subtables
 pub mod contextual;

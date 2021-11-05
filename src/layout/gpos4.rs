@@ -1,7 +1,6 @@
-use crate::layout::common::{MarkArray, MarkRecord};
 use otspec::layout::anchor::Anchor;
+use otspec::layout::common::{MarkArray, MarkRecord};
 use otspec::layout::coverage::Coverage;
-
 use otspec::types::*;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
