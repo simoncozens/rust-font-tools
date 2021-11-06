@@ -14,21 +14,21 @@ pub struct avar {
     pub maps: Vec<SegmentMap>,
 }
 
-impl Into<avar_ot> for &avar {
-    fn into(self) -> avar_ot {
+impl From<&avar> for avar_ot {
+    fn from(val: &avar) -> Self {
         avar_ot {
             majorVersion: 1,
             minorVersion: 0,
             reserved: 0,
-            axisSegmentMaps: self.maps.iter().map(|x| x.into()).collect(),
+            axisSegmentMaps: val.maps.iter().map(|x| x.into()).collect(),
         }
     }
 }
 
-impl Into<avar> for avar_ot {
-    fn into(self) -> avar {
+impl From<avar_ot> for avar {
+    fn from(val: avar_ot) -> Self {
         avar {
-            maps: self
+            maps: val
                 .axisSegmentMaps
                 .iter()
                 .map(|x| x.clone().into())
@@ -39,9 +39,9 @@ impl Into<avar> for avar_ot {
 
 table_delegate!(avar, avar_ot);
 
-impl Into<SegmentMap_ot> for &SegmentMap {
-    fn into(self) -> SegmentMap_ot {
-        let maps: Vec<AxisValueMap> = self
+impl From<&SegmentMap> for SegmentMap_ot {
+    fn from(val: &SegmentMap) -> Self {
+        let maps: Vec<AxisValueMap> = val
             .0
             .iter()
             .map(|i| AxisValueMap {
@@ -55,10 +55,10 @@ impl Into<SegmentMap_ot> for &SegmentMap {
     }
 }
 
-impl Into<SegmentMap> for SegmentMap_ot {
-    fn into(self) -> SegmentMap {
+impl From<SegmentMap_ot> for SegmentMap {
+    fn from(val: SegmentMap_ot) -> Self {
         SegmentMap(
-            self.axisValueMaps
+            val.axisValueMaps
                 .iter()
                 .map(|avm| (avm.fromCoordinate, avm.toCoordinate))
                 .collect(),
