@@ -89,7 +89,7 @@ fn load_with_babelfont(filename: &str) -> babelfont::Font {
         babelfont::convertors::designspace::load(PathBuf::from(filename))
             .expect("Couldn't load source")
     } else if filename.ends_with(".ufo") {
-        unimplemented!();
+        babelfont::convertors::ufo::load(PathBuf::from(filename)).expect("Couldn't load source")
     } else if filename.ends_with(".glyphs") {
         babelfont::convertors::glyphs3::load(PathBuf::from(filename)).expect("Couldn't load source")
     } else {
@@ -128,12 +128,15 @@ fn create_variable_font(
     subset: Option<HashSet<String>>,
     matches: ArgMatches<'static>,
 ) {
-    let mut out_font = build_font(in_font, &subset, None);
+    let mut out_font;
     if in_font.masters.len() > 1 {
+        out_font = build_font(in_font, &subset, None);
         // Ask babelfont to make fvar/avar
         in_font
             .add_variation_tables(&mut out_font)
             .expect("Couldn't add variation tables")
+    } else {
+        out_font = build_font(in_font, &subset, Some(0));
     }
 
     if matches.is_present("OUTPUT") {
