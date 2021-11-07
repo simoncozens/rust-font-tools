@@ -1,10 +1,8 @@
 use crate::utils::is_all_same;
 use fonttools::otvar::VariationModel;
 use fonttools::tables::glyf;
-use fonttools::tables::gvar::DeltaSet;
-use fonttools::tables::gvar::GlyphVariationData;
-use kurbo::cubics_to_quadratic_splines;
-use kurbo::{BezPath, CubicBez, PathEl, PathSeg};
+use fonttools::tables::gvar::{DeltaSet, GlyphVariationData};
+use kurbo::{cubics_to_quadratic_splines, BezPath, CubicBez, PathEl, PathSeg};
 use std::collections::BTreeMap;
 use unzip_n::unzip_n;
 
@@ -238,7 +236,19 @@ fn babelfont_contours_to_glyf_contours(
                             y: pt.y as i16,
                             on_curve: true,
                         }),
-                        PathEl::QuadTo(_, _) => panic!("No you don't"),
+                        PathEl::QuadTo(pt1, pt2) => {
+                            // This can happen with components we already converted
+                            contour.push(glyf::Point {
+                                x: pt1.x as i16,
+                                y: pt1.y as i16,
+                                on_curve: false,
+                            });
+                            contour.push(glyf::Point {
+                                x: pt2.x as i16,
+                                y: pt2.y as i16,
+                                on_curve: true,
+                            });
+                        }
                         PathEl::CurveTo(_, _, _) => panic!("Incompatible contour"),
                         PathEl::ClosePath => {
                             contour.pop();
