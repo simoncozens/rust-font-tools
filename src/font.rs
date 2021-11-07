@@ -33,6 +33,7 @@ pub struct Font {
     pub variation_sequences: BTreeMap<(u32, u32), String>,
     // features: ????
     // The below is temporary
+    pub features: Option<String>,
     pub kern_groups: HashMap<String, Vec<String>>,
 }
 impl Default for Font {
@@ -56,6 +57,7 @@ impl Font {
             custom_ot_values: vec![],
             variation_sequences: BTreeMap::new(),
             kern_groups: HashMap::new(),
+            features: None,
         }
     }
 

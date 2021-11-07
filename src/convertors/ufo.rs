@@ -42,6 +42,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
             }
         }
     }
+    font.features = Some(ufo.features);
     font.masters.push(master);
     Ok(font)
 }

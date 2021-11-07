@@ -43,6 +43,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     load_masters(&mut font, &ds, relative)?;
     let info = default_ufo.font_info;
     load_font_info(&mut font, &info);
+    font.features = Some(default_ufo.features);
     Ok(font)
 }
 
