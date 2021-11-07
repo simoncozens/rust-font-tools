@@ -1,7 +1,7 @@
 use crate::table_delegate;
 use otspec::tables::avar::{avar as avar_ot, AxisValueMap, SegmentMap as SegmentMap_ot};
-use otspec::types::*;
-use otspec::{Deserialize, Deserializer, Serialize};
+use otspec::types::Tag;
+use otspec::Deserializer;
 
 /// The 'avar' OpenType tag.
 pub const TAG: Tag = crate::tag!("avar");
