@@ -1,4 +1,4 @@
-use crate::{Serialize, Serializer};
+use crate::{Serialize, Serializer, Tag};
 use bitflags::bitflags;
 use otspec::layout::anchor::Anchor;
 use otspec::types::*;
@@ -108,6 +108,22 @@ impl Debug for ScriptRecord {
             write!(f, "{} => {:#?}", self.scriptTag, self.script.link)
         } else {
             write!(f, "{} => {:?}", self.scriptTag, self.script.link)
+        }
+    }
+}
+
+impl Default for ScriptRecord {
+    fn default() -> Self {
+        ScriptRecord {
+            scriptTag: Tag::from_raw("DFLT").unwrap(), // Not sure I can use tag! macro here?
+            script: Offset16::to(Script {
+                defaultLangSys: Offset16::to(LangSys {
+                    lookupOrderOffset: 0,
+                    requiredFeatureIndex: 65535,
+                    featureIndices: vec![0],
+                }),
+                langSysRecords: vec![],
+            }),
         }
     }
 }
