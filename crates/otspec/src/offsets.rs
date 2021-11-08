@@ -137,6 +137,14 @@ impl<T, U: OffsetType> Offset<T, U> {
         }
     }
 
+    /// Create a new offset pointing to a subtable with a known offset.
+    pub fn new(off: U, thing: T) -> Self {
+        Self {
+            off: RefCell::new(Some(off)),
+            link: Some(thing),
+        }
+    }
+
     /// Create a new offset pointing to nothing.
     pub fn to_nothing() -> Self {
         Self {
