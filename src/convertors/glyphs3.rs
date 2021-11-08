@@ -50,7 +50,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
 
     if let Some(instances) = plist.get("instances").and_then(|f| f.as_array()) {
         for instance in instances {
-            load_instance(&mut font, &instance);
+            load_instance(&mut font, instance);
         }
     }
 
