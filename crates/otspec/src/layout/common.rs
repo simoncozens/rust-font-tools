@@ -72,6 +72,34 @@ tables!(
         uint16 markClass
         Offset16(Anchor) markAnchor
     }
+    FeatureVariations {
+        uint16 majorVersion
+        uint16 minorVersion
+        Counted32(FeatureVariationRecord) featureVariationRecords
+    }
+    FeatureVariationRecord {
+        Offset32(ConditionSet) conditionSet
+        Offset32(FeatureTableSubstitution) featureTableSubstitution
+    }
+    ConditionSet {
+        CountedOffset32(ConditionFormat1) conditions
+    }
+    ConditionFormat1 {
+        uint16 format
+        uint16 axisIndex
+        F2DOT14 filterRangeMinValue
+        F2DOT14 filterRangeMaxValue
+    }
+    FeatureTableSubstitution {
+        uint16 majorVersion
+        uint16 minorVersion
+        Counted(FeatureTableSubstitutionRecord) substitutions
+    }
+    FeatureTableSubstitutionRecord {
+        uint16  featureIndex
+        Offset32(FeatureTable) alternateFeature
+    }
+
 );
 
 impl Debug for ScriptRecord {
