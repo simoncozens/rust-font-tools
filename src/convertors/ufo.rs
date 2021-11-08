@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use chrono::TimeZone;
@@ -26,14 +27,9 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
         Location::new(),
     );
     load_master_info(&mut master, info);
-    let kerning = &ufo.kerning;
-    for (left, right_dict) in kerning.iter() {
-        for (right, value) in right_dict.iter() {
-            master
-                .kerning
-                .insert((left.clone(), right.clone()), *value as i16);
-        }
-    }
+    load_kerning(&mut master, &ufo.kerning);
+    font.kern_groups = load_kern_groups(&ufo.groups);
+
     for layer in ufo.iter_layers() {
         for g in font.glyphs.iter_mut() {
             if let Some(norad_glyph) = layer.get_glyph(g.name.as_str()) {
@@ -141,6 +137,37 @@ pub(crate) fn load_font_info(font: &mut Font, info: &norad::FontInfo) {
     if let Some(v) = info.version_minor {
         font.version.1 = v as u16;
     }
+}
+
+pub(crate) fn load_kerning(master: &mut Master, kerning: &norad::Kerning) {
+    for (left, right_dict) in kerning.iter() {
+        for (right, value) in right_dict.iter() {
+            let left_maybe_group = if left.starts_with("public.kern") {
+                format!("@{:}", left)
+            } else {
+                left.clone()
+            };
+            let right_maybe_group = if right.starts_with("public.kern") {
+                format!("@{:}", right)
+            } else {
+                right.clone()
+            };
+            master
+                .kerning
+                .insert((left_maybe_group, right_maybe_group), *value as i16);
+        }
+    }
+}
+
+pub(crate) fn load_kern_groups(groups: &norad::Groups) -> HashMap<String, Vec<String>> {
+    let mut hm: HashMap<String, Vec<String>> = HashMap::new();
+    for (name, members) in groups.iter() {
+        hm.insert(
+            name.to_string(),
+            members.iter().map(|x| x.to_string()).collect(),
+        );
+    }
+    hm
 }
 
 pub(crate) fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
