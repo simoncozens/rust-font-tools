@@ -87,10 +87,9 @@ impl Serialize for ClassDef {
         let pairs: Vec<(u16, u16)> = self.classes.iter().map(|(k, v)| (*k, *v)).collect();
         let as_consecutive = consecutive_slices(&pairs);
         if self.classes.is_empty() {
-            data.put(1_u16)?;
-            data.put(ClassDefFormat1 {
-                startGlyphID: 0,
-                classValueArray: vec![],
+            data.put(2_u16)?;
+            data.put(ClassDefFormat2 {
+                classRangeRecords: vec![],
             })?;
             return Ok(());
         }
