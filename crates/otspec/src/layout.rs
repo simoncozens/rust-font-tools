@@ -8,5 +8,7 @@ pub mod common;
 pub mod coverage;
 /// Device tables
 pub mod device;
+/// GPOS1 single positioning
+pub mod gpos1;
 /// GPOS value records
 pub mod valuerecord;
