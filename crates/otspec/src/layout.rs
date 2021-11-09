@@ -14,5 +14,7 @@ pub mod gpos1;
 pub mod gpos2;
 /// GPOS3 cursive positioning
 pub mod gpos3;
+/// GPOS4 mark-to-base positioning
+pub mod gpos4;
 /// GPOS value records
 pub mod valuerecord;

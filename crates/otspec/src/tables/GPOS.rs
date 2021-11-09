@@ -2,6 +2,7 @@ use crate::layout::common::{FeatureList, FeatureVariations, LookupFlags, ScriptL
 use crate::layout::gpos1::{deserialize_gpos1, SinglePosFormat1, SinglePosFormat2};
 use crate::layout::gpos2::{deserialize_gpos2, PairPosFormat1, PairPosFormat2};
 use crate::layout::gpos3::CursivePosFormat1;
+use crate::layout::gpos4::MarkBasePosFormat1;
 use crate::{Deserialize, Serialize, Serializer};
 use otspec::types::*;
 use otspec::Deserializer;
@@ -120,6 +121,7 @@ pub enum GPOSSubtable {
     GPOS2_1(PairPosFormat1),
     GPOS2_2(PairPosFormat2),
     GPOS3_1(CursivePosFormat1),
+    GPOS4_1(MarkBasePosFormat1),
 }
 
 impl Serialize for GPOSSubtable {
@@ -130,6 +132,7 @@ impl Serialize for GPOSSubtable {
             GPOSSubtable::GPOS2_1(x) => x.to_bytes(data),
             GPOSSubtable::GPOS2_2(x) => x.to_bytes(data),
             GPOSSubtable::GPOS3_1(x) => x.to_bytes(data),
+            GPOSSubtable::GPOS4_1(x) => x.to_bytes(data),
         }
     }
 
@@ -140,6 +143,7 @@ impl Serialize for GPOSSubtable {
             GPOSSubtable::GPOS2_1(x) => x.offset_fields(),
             GPOSSubtable::GPOS2_2(x) => x.offset_fields(),
             GPOSSubtable::GPOS3_1(x) => x.offset_fields(),
+            GPOSSubtable::GPOS4_1(x) => x.offset_fields(),
         }
     }
 
@@ -150,6 +154,7 @@ impl Serialize for GPOSSubtable {
             GPOSSubtable::GPOS2_1(x) => x.ot_binary_size(),
             GPOSSubtable::GPOS2_2(x) => x.ot_binary_size(),
             GPOSSubtable::GPOS3_1(x) => x.ot_binary_size(),
+            GPOSSubtable::GPOS4_1(x) => x.ot_binary_size(),
         }
     }
 
@@ -160,6 +165,7 @@ impl Serialize for GPOSSubtable {
             GPOSSubtable::GPOS2_1(x) => x.to_bytes_shallow(data),
             GPOSSubtable::GPOS2_2(x) => x.to_bytes_shallow(data),
             GPOSSubtable::GPOS3_1(x) => x.to_bytes_shallow(data),
+            GPOSSubtable::GPOS4_1(x) => x.to_bytes_shallow(data),
         }
     }
 }
