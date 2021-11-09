@@ -12,5 +12,7 @@ pub mod device;
 pub mod gpos1;
 /// GPOS2 pair positioning
 pub mod gpos2;
+/// GPOS3 cursive positioning
+pub mod gpos3;
 /// GPOS value records
 pub mod valuerecord;

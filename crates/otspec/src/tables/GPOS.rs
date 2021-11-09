@@ -1,6 +1,7 @@
 use crate::layout::common::{FeatureList, FeatureVariations, LookupFlags, ScriptList};
 use crate::layout::gpos1::{deserialize_gpos1, SinglePosFormat1, SinglePosFormat2};
 use crate::layout::gpos2::{deserialize_gpos2, PairPosFormat1, PairPosFormat2};
+use crate::layout::gpos3::CursivePosFormat1;
 use crate::{Deserialize, Serialize, Serializer};
 use otspec::types::*;
 use otspec::Deserializer;
@@ -84,6 +85,10 @@ impl Deserialize for GPOSLookup {
             let subtable = match lookup_type {
                 1 => deserialize_gpos1(c)?,
                 2 => deserialize_gpos2(c)?,
+                3 => {
+                    let cursive: CursivePosFormat1 = c.de()?;
+                    GPOSSubtable::GPOS3_1(cursive)
+                }
                 _ => {
                     unimplemented!()
                 }
@@ -114,6 +119,7 @@ pub enum GPOSSubtable {
     GPOS1_2(SinglePosFormat2),
     GPOS2_1(PairPosFormat1),
     GPOS2_2(PairPosFormat2),
+    GPOS3_1(CursivePosFormat1),
 }
 
 impl Serialize for GPOSSubtable {
@@ -123,6 +129,7 @@ impl Serialize for GPOSSubtable {
             GPOSSubtable::GPOS1_2(x) => x.to_bytes(data),
             GPOSSubtable::GPOS2_1(x) => x.to_bytes(data),
             GPOSSubtable::GPOS2_2(x) => x.to_bytes(data),
+            GPOSSubtable::GPOS3_1(x) => x.to_bytes(data),
         }
     }
 
@@ -132,6 +139,7 @@ impl Serialize for GPOSSubtable {
             GPOSSubtable::GPOS1_2(x) => x.offset_fields(),
             GPOSSubtable::GPOS2_1(x) => x.offset_fields(),
             GPOSSubtable::GPOS2_2(x) => x.offset_fields(),
+            GPOSSubtable::GPOS3_1(x) => x.offset_fields(),
         }
     }
 
@@ -141,6 +149,7 @@ impl Serialize for GPOSSubtable {
             GPOSSubtable::GPOS1_2(x) => x.ot_binary_size(),
             GPOSSubtable::GPOS2_1(x) => x.ot_binary_size(),
             GPOSSubtable::GPOS2_2(x) => x.ot_binary_size(),
+            GPOSSubtable::GPOS3_1(x) => x.ot_binary_size(),
         }
     }
 
@@ -150,6 +159,7 @@ impl Serialize for GPOSSubtable {
             GPOSSubtable::GPOS1_2(x) => x.to_bytes_shallow(data),
             GPOSSubtable::GPOS2_1(x) => x.to_bytes_shallow(data),
             GPOSSubtable::GPOS2_2(x) => x.to_bytes_shallow(data),
+            GPOSSubtable::GPOS3_1(x) => x.to_bytes_shallow(data),
         }
     }
 }
