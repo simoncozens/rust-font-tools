@@ -1,4 +1,7 @@
 use crate::layout::common::{FeatureList, FeatureVariations, LookupFlags, ScriptList};
+use crate::layout::contextual::{
+    deserialize_gpos7, SequenceContextFormat1, SequenceContextFormat2, SequenceContextFormat3,
+};
 use crate::layout::gpos1::{deserialize_gpos1, SinglePosFormat1, SinglePosFormat2};
 use crate::layout::gpos2::{deserialize_gpos2, PairPosFormat1, PairPosFormat2};
 use crate::layout::gpos3::CursivePosFormat1;
@@ -90,6 +93,7 @@ impl Deserialize for GPOSLookup {
                     let cursive: CursivePosFormat1 = c.de()?;
                     GPOSSubtable::GPOS3_1(cursive)
                 }
+                7 => deserialize_gpos7(c)?,
                 _ => {
                     unimplemented!()
                 }

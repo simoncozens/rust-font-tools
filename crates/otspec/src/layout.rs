@@ -4,6 +4,8 @@ pub mod anchor;
 pub mod classdef;
 /// Common tables for OpenType Layout
 pub mod common;
+/// Common tables for contextual lookup subtables
+pub mod contextual;
 /// Glyph coverage tables
 pub mod coverage;
 /// Device tables
