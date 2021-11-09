@@ -172,6 +172,26 @@ pub(crate) fn deserialize_gpos7(
     }
 }
 
+pub(crate) fn deserialize_gpos8(
+    c: &mut crate::ReaderContext,
+) -> Result<GPOSSubtable, crate::DeserializationError> {
+    match c.peek(2)? {
+        [0x00, 0x01] => {
+            let st: ChainedSequenceContextFormat1 = c.de()?;
+            Ok(GPOSSubtable::GPOS8_1(st))
+        }
+        [0x00, 0x02] => {
+            let st: ChainedSequenceContextFormat2 = c.de()?;
+            Ok(GPOSSubtable::GPOS8_2(st))
+        }
+        [0x00, 0x03] => {
+            let st: ChainedSequenceContextFormat3 = c.de()?;
+            Ok(GPOSSubtable::GPOS8_3(st))
+        }
+        _ => Err(crate::DeserializationError("Bad GPOS7 format".to_string())),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

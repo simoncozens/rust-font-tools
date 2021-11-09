@@ -1,6 +1,8 @@
 use crate::layout::common::{FeatureList, FeatureVariations, LookupFlags, ScriptList};
 use crate::layout::contextual::{
-    deserialize_gpos7, SequenceContextFormat1, SequenceContextFormat2, SequenceContextFormat3,
+    deserialize_gpos7, deserialize_gpos8, ChainedSequenceContextFormat1,
+    ChainedSequenceContextFormat2, ChainedSequenceContextFormat3, SequenceContextFormat1,
+    SequenceContextFormat2, SequenceContextFormat3,
 };
 use crate::layout::gpos1::{deserialize_gpos1, SinglePosFormat1, SinglePosFormat2};
 use crate::layout::gpos2::{deserialize_gpos2, PairPosFormat1, PairPosFormat2};
@@ -94,6 +96,7 @@ impl Deserialize for GPOSLookup {
                     GPOSSubtable::GPOS3_1(cursive)
                 }
                 7 => deserialize_gpos7(c)?,
+                8 => deserialize_gpos8(c)?,
                 _ => {
                     unimplemented!()
                 }
@@ -129,6 +132,9 @@ pub enum GPOSSubtable {
     GPOS7_1(SequenceContextFormat1),
     GPOS7_2(SequenceContextFormat2),
     GPOS7_3(SequenceContextFormat3),
+    GPOS8_1(ChainedSequenceContextFormat1),
+    GPOS8_2(ChainedSequenceContextFormat2),
+    GPOS8_3(ChainedSequenceContextFormat3),
 }
 
 fn smash_it(g: &GPOSSubtable) -> &dyn Serialize {
@@ -142,6 +148,9 @@ fn smash_it(g: &GPOSSubtable) -> &dyn Serialize {
         GPOSSubtable::GPOS7_1(x) => x,
         GPOSSubtable::GPOS7_2(x) => x,
         GPOSSubtable::GPOS7_3(x) => x,
+        GPOSSubtable::GPOS8_1(x) => x,
+        GPOSSubtable::GPOS8_2(x) => x,
+        GPOSSubtable::GPOS8_3(x) => x,
     }
 }
 
