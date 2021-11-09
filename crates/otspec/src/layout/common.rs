@@ -102,6 +102,21 @@ tables!(
 
 );
 
+impl Default for ScriptList {
+    fn default() -> Self {
+        ScriptList {
+            scriptRecords: vec![],
+        }
+    }
+}
+impl Default for FeatureList {
+    fn default() -> Self {
+        FeatureList {
+            featureRecords: vec![],
+        }
+    }
+}
+
 impl Debug for ScriptRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
