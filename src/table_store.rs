@@ -5,15 +5,13 @@
 //!
 //! [`TableSet`]: table_store::TableSet
 
-use std::{
-    borrow::Borrow,
-    cell::RefCell,
-    collections::BTreeMap,
-    convert::{TryFrom, TryInto},
-    fmt::Debug,
-    ops::Deref,
-    rc::Rc,
-};
+use std::borrow::Borrow;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::convert::{TryFrom, TryInto};
+use std::fmt::Debug;
+use std::ops::Deref;
+use std::rc::Rc;
 
 use otspec::types::Tag;
 use otspec::{DeserializationError, ReaderContext, SerializationError, Serialize};
@@ -85,8 +83,8 @@ pub enum LoadedTable {
     GDEF(Rc<tables::GDEF::GDEF>),
     /// Contains a glyph positioning table.
     GPOS(Rc<tables::GPOS::GPOS>),
-    /// Contains a glyph substitution table.
-    GSUB(Rc<tables::GSUB::GSUB>),
+    // /// Contains a glyph substitution table.
+    // GSUB(Rc<tables::GSUB::GSUB>),
     /// Contains a glyph data table.
     glyf(Rc<tables::glyf::glyf>),
     /// Contains a glyph variations table.
@@ -322,7 +320,7 @@ impl TableSet {
             b"gasp" => otspec::de::from_bytes::<tables::gasp::gasp>(&data)?.into(),
             b"GDEF" => otspec::de::from_bytes::<tables::GDEF::GDEF>(&data)?.into(),
             b"GPOS" => otspec::de::from_bytes::<tables::GPOS::GPOS>(&data)?.into(),
-            b"GSUB" => otspec::de::from_bytes::<tables::GSUB::GSUB>(&data)?.into(),
+            // b"GSUB" => otspec::de::from_bytes::<tables::GSUB::GSUB>(&data)?.into(),
             b"head" => otspec::de::from_bytes::<tables::head::head>(&data)?.into(),
             b"hhea" => otspec::de::from_bytes::<tables::hhea::hhea>(&data)?.into(),
             b"MATH" => otspec::de::from_bytes::<tables::MATH::MATH>(&data)?.into(),
@@ -564,7 +562,7 @@ macro_rules! table_boilerplate {
 
 table_boilerplate!(tables::GDEF::GDEF, GDEF);
 table_boilerplate!(tables::GPOS::GPOS, GPOS);
-table_boilerplate!(tables::GSUB::GSUB, GSUB);
+// table_boilerplate!(tables::GSUB::GSUB, GSUB);
 table_boilerplate!(tables::STAT::STAT, STAT);
 table_boilerplate!(tables::avar::avar, avar);
 table_boilerplate!(tables::cmap::cmap, cmap);
@@ -590,7 +588,7 @@ impl Serialize for LoadedTable {
             LoadedTable::cmap(expr) => expr.to_bytes(data),
             LoadedTable::fvar(expr) => expr.to_bytes(data),
             LoadedTable::gasp(expr) => expr.to_bytes(data),
-            LoadedTable::GSUB(expr) => expr.to_bytes(data),
+            // LoadedTable::GSUB(expr) => expr.to_bytes(data),
             LoadedTable::GDEF(expr) => expr.to_bytes(data),
             LoadedTable::GPOS(expr) => expr.to_bytes(data),
             LoadedTable::gvar(_) => unimplemented!(),
