@@ -34,6 +34,13 @@ tables! {
     }
 }
 
+impl Default for GPOSLookupList {
+    fn default() -> Self {
+        GPOSLookupList {
+            lookups: vec![].into(),
+        }
+    }
+}
 #[derive(Debug, PartialEq, Clone)]
 pub struct GPOSLookup {
     pub lookupType: uint16,
