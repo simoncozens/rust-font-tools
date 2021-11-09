@@ -200,10 +200,7 @@ impl<T: Deserialize + Debug, U: OffsetType> Deserialize for Offset<T, U> {
         c.ptr = c.top_of_table() + off.as_();
         let obj: T = c.de()?;
         c.ptr = oldptr;
-        Ok(Self {
-            off: RefCell::new(Some(off)),
-            link: Some(obj),
-        })
+        Ok(Self::new(off, obj))
     }
 }
 
