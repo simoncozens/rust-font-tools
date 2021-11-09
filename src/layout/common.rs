@@ -153,6 +153,26 @@ pub struct Lookup<T> {
 }
 
 // GPOS and GSUB tables
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct FeatureList(Vec<(Tag, Vec<usize>, Option<FeatureParams>)>);
+impl FeatureList {
+    pub fn iter(&self) -> std::slice::Iter<'_, (Tag, Vec<usize>, Option<FeatureParams>)> {
+        self.0.iter()
+    }
+}
+
+impl From<FeatureListLowLevel> for FeatureList {
+    fn from(val: FeatureListLowLevel) -> Self {
+        let mut features = vec![];
+        for fr in val.featureRecords {
+            let tag = fr.featureTag;
+            let feature_table = fr.feature.link.unwrap();
+            let indices = feature_table.lookupListIndices;
+            features.push((tag, indices.iter().map(|x| usize::from(*x)).collect(), None));
+        }
+        FeatureList(features)
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 #[allow(clippy::upper_case_acronyms)]
@@ -164,7 +184,7 @@ pub struct GPOSGSUB<T> {
     pub scripts: ScriptList,
     /// The association between feature tags and the list of indices into the
     /// lookup table used to process this feature, together with any feature parameters.
-    pub features: Vec<(Tag, Vec<usize>, Option<FeatureParams>)>,
+    pub features: FeatureList,
 }
 
 impl<T> Default for GPOSGSUB<T> {
