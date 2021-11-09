@@ -112,15 +112,15 @@ impl Debug for ScriptRecord {
     }
 }
 
-impl Default for ScriptRecord {
-    fn default() -> Self {
+impl ScriptRecord {
+    pub fn default_with_indices(feature_indices: Vec<uint16>) -> Self {
         ScriptRecord {
             scriptTag: Tag::from_raw("DFLT").unwrap(), // Not sure I can use tag! macro here?
             script: Offset16::to(Script {
                 defaultLangSys: Offset16::to(LangSys {
                     lookupOrderOffset: 0,
                     requiredFeatureIndex: 65535,
-                    featureIndices: vec![0],
+                    featureIndices: feature_indices,
                 }),
                 langSysRecords: vec![],
             }),

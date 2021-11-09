@@ -125,7 +125,7 @@ mod tests {
                 majorVersion: 1,
                 minorVersion: 0,
                 scriptList: Offset16::to(ScriptList {
-                    scriptRecords: vec![ScriptRecord::default()],
+                    scriptRecords: vec![ScriptRecord::default_with_indices(vec![0])],
                 }),
                 featureList: Offset16::to(FeatureList {
                     featureRecords: vec![FeatureRecord {
