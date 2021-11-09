@@ -126,50 +126,39 @@ pub enum GPOSSubtable {
     GPOS2_2(PairPosFormat2),
     GPOS3_1(CursivePosFormat1),
     GPOS4_1(MarkBasePosFormat1),
+    GPOS7_1(SequenceContextFormat1),
+    GPOS7_2(SequenceContextFormat2),
+    GPOS7_3(SequenceContextFormat3),
+}
+
+fn smash_it(g: &GPOSSubtable) -> &dyn Serialize {
+    match &g {
+        GPOSSubtable::GPOS1_1(x) => x,
+        GPOSSubtable::GPOS1_2(x) => x,
+        GPOSSubtable::GPOS2_1(x) => x,
+        GPOSSubtable::GPOS2_2(x) => x,
+        GPOSSubtable::GPOS3_1(x) => x,
+        GPOSSubtable::GPOS4_1(x) => x,
+        GPOSSubtable::GPOS7_1(x) => x,
+        GPOSSubtable::GPOS7_2(x) => x,
+        GPOSSubtable::GPOS7_3(x) => x,
+    }
 }
 
 impl Serialize for GPOSSubtable {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), crate::SerializationError> {
-        match self {
-            GPOSSubtable::GPOS1_1(x) => x.to_bytes(data),
-            GPOSSubtable::GPOS1_2(x) => x.to_bytes(data),
-            GPOSSubtable::GPOS2_1(x) => x.to_bytes(data),
-            GPOSSubtable::GPOS2_2(x) => x.to_bytes(data),
-            GPOSSubtable::GPOS3_1(x) => x.to_bytes(data),
-            GPOSSubtable::GPOS4_1(x) => x.to_bytes(data),
-        }
+        smash_it(self).to_bytes(data)
     }
 
     fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
-        match self {
-            GPOSSubtable::GPOS1_1(x) => x.offset_fields(),
-            GPOSSubtable::GPOS1_2(x) => x.offset_fields(),
-            GPOSSubtable::GPOS2_1(x) => x.offset_fields(),
-            GPOSSubtable::GPOS2_2(x) => x.offset_fields(),
-            GPOSSubtable::GPOS3_1(x) => x.offset_fields(),
-            GPOSSubtable::GPOS4_1(x) => x.offset_fields(),
-        }
+        smash_it(self).offset_fields()
     }
 
     fn ot_binary_size(&self) -> usize {
-        match self {
-            GPOSSubtable::GPOS1_1(x) => x.ot_binary_size(),
-            GPOSSubtable::GPOS1_2(x) => x.ot_binary_size(),
-            GPOSSubtable::GPOS2_1(x) => x.ot_binary_size(),
-            GPOSSubtable::GPOS2_2(x) => x.ot_binary_size(),
-            GPOSSubtable::GPOS3_1(x) => x.ot_binary_size(),
-            GPOSSubtable::GPOS4_1(x) => x.ot_binary_size(),
-        }
+        smash_it(self).ot_binary_size()
     }
 
     fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), crate::SerializationError> {
-        match self {
-            GPOSSubtable::GPOS1_1(x) => x.to_bytes_shallow(data),
-            GPOSSubtable::GPOS1_2(x) => x.to_bytes_shallow(data),
-            GPOSSubtable::GPOS2_1(x) => x.to_bytes_shallow(data),
-            GPOSSubtable::GPOS2_2(x) => x.to_bytes_shallow(data),
-            GPOSSubtable::GPOS3_1(x) => x.to_bytes_shallow(data),
-            GPOSSubtable::GPOS4_1(x) => x.to_bytes_shallow(data),
-        }
+        smash_it(self).to_bytes_shallow(data)
     }
 }
