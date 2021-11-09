@@ -1,14 +1,21 @@
 use otspec::layout::common::{
-    FeatureParams, LangSys, LangSysRecord, LookupFlags, Script as ScriptInternal,
-    ScriptList as ScriptListInternal, ScriptRecord,
+    FeatureList as FeatureListLowLevel, FeatureParams, LangSys, LangSysRecord, LookupFlags,
+    Script as ScriptLowLevel, ScriptList as ScriptListLowLevel, ScriptRecord,
 };
+use otspec::layout::coverage::Coverage;
 use otspec::types::*;
-use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-};
 
 use std::collections::BTreeMap; // For predictable ordering
 use std::fmt::Debug;
+
+pub(crate) fn coverage_or_nah(off: Offset16<Coverage>) -> Vec<GlyphID> {
+    off.link
+        .map(|x| x.glyphs)
+        .iter()
+        .flatten()
+        .copied()
+        .collect()
+}
 
 /// A script list
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -62,8 +69,8 @@ impl From<&LanguageSystem> for LangSys {
     }
 }
 
-impl From<&ScriptInternal> for Script {
-    fn from(si: &ScriptInternal) -> Self {
+impl From<&ScriptLowLevel> for Script {
+    fn from(si: &ScriptLowLevel) -> Self {
         let mut script = Script {
             default_language_system: (*si.defaultLangSys).as_ref().map(|langsys| langsys.into()),
             language_systems: BTreeMap::new(),
@@ -77,7 +84,7 @@ impl From<&ScriptInternal> for Script {
     }
 }
 
-impl From<&Script> for ScriptInternal {
+impl From<&Script> for ScriptLowLevel {
     fn from(script: &Script) -> Self {
         let default_lang_sys = if script.default_language_system.is_some() {
             let langsys: LangSys = script.default_language_system.as_ref().unwrap().into();
@@ -96,48 +103,41 @@ impl From<&Script> for ScriptInternal {
                 }
             })
             .collect();
-        ScriptInternal {
+        ScriptLowLevel {
             defaultLangSys: default_lang_sys,
             langSysRecords: lang_sys_records,
         }
     }
 }
 
-impl Deserialize for ScriptList {
-    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        let sl: ScriptListInternal = c.de()?;
-        let mut scripts = BTreeMap::new();
-        for rec in sl.scriptRecords {
-            let script = rec.script.as_ref().map(Script::from).unwrap();
-            scripts.insert(rec.scriptTag, script);
-        }
-        Ok(ScriptList { scripts })
-    }
-}
-
-impl From<&ScriptList> for ScriptListInternal {
+impl From<&ScriptList> for ScriptListLowLevel {
     fn from(sl: &ScriptList) -> Self {
         let script_records = sl
             .scripts
             .iter()
             .map(|(k, v)| {
-                let si: ScriptInternal = v.into();
+                let si: ScriptLowLevel = v.into();
                 ScriptRecord {
                     scriptTag: *k,
                     script: Offset16::to(si),
                 }
             })
             .collect();
-        ScriptListInternal {
+        ScriptListLowLevel {
             scriptRecords: script_records,
         }
     }
 }
 
-impl Serialize for ScriptList {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let i: ScriptListInternal = self.into();
-        i.to_bytes(data)
+impl From<ScriptListLowLevel> for ScriptList {
+    fn from(val: ScriptListLowLevel) -> Self {
+        let mut mapping: BTreeMap<Tag, Script> = BTreeMap::new();
+        for script_record in val.scriptRecords {
+            let tag = script_record.scriptTag;
+            let s = script_record.script.link.unwrap();
+            mapping.insert(tag, (&s).into());
+        }
+        ScriptList { scripts: mapping }
     }
 }
 
