@@ -23,6 +23,8 @@ tables!(
     }
 );
 
+// XXX This is also still too clever
+
 #[derive(Debug, PartialEq, Clone, Default)]
 /// A class definition table.
 ///

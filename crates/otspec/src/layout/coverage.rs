@@ -19,6 +19,8 @@ tables!(
     }
 );
 
+// XXX This is still clever
+
 #[derive(Debug, PartialEq, Clone, Default)]
 /// A coverage table.
 ///
