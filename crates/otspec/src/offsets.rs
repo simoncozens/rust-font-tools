@@ -192,7 +192,7 @@ impl<T: Deserialize + Debug, U: OffsetType> Deserialize for Offset<T, U> {
         let off: U = c.de()?;
         if off == U::zero() {
             return Ok(Self {
-                off: RefCell::new(None),
+                off: RefCell::new(Some(U::zero())), // If things break, this is why
                 link: None,
             });
         }
