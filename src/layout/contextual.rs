@@ -1,4 +1,5 @@
 use crate::format_switching_lookup;
+use crate::layout::common::coverage_or_nah;
 use otspec::layout::classdef::ClassDef;
 use otspec::layout::coverage::Coverage;
 use otspec::types::*;
@@ -176,14 +177,6 @@ pub struct SequenceContext {
     pub rules: Vec<SequenceContextRule>,
 }
 
-fn coverage_or_nah(off: Offset16<Coverage>) -> Vec<GlyphID> {
-    off.link
-        .map(|x| x.glyphs)
-        .iter()
-        .flatten()
-        .copied()
-        .collect()
-}
 fn coverage_to_slot(off: Offset16<Coverage>) -> Slot {
     off.link
         .map(|x| x.glyphs)
