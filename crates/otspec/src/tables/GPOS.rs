@@ -1,5 +1,6 @@
 use crate::layout::common::{FeatureList, FeatureVariations, LookupFlags, ScriptList};
 use crate::layout::gpos1::{deserialize_gpos1, SinglePosFormat1, SinglePosFormat2};
+use crate::layout::gpos2::{deserialize_gpos2, PairPosFormat1, PairPosFormat2};
 use crate::{Deserialize, Serialize, Serializer};
 use otspec::types::*;
 use otspec::Deserializer;
@@ -80,15 +81,14 @@ impl Deserialize for GPOSLookup {
             let off: uint16 = c.de()?;
             let save = c.ptr;
             c.ptr = c.top_of_table() + off as usize;
-            match lookup_type {
-                1 => {
-                    let singlepos = deserialize_gpos1(c)?;
-                    subtables.push(Offset16::new(off, singlepos));
-                }
+            let subtable = match lookup_type {
+                1 => deserialize_gpos1(c)?,
+                2 => deserialize_gpos2(c)?,
                 _ => {
                     unimplemented!()
                 }
-            }
+            };
+            subtables.push(Offset16::new(off, subtable));
             c.ptr = save;
         }
         let mark_filtering_set = if lookup_flag.contains(LookupFlags::USE_MARK_FILTERING_SET) {
@@ -112,6 +112,8 @@ pub enum GPOSSubtable {
     /// Contains a single positioning rule.
     GPOS1_1(SinglePosFormat1),
     GPOS1_2(SinglePosFormat2),
+    GPOS2_1(PairPosFormat1),
+    GPOS2_2(PairPosFormat2),
 }
 
 impl Serialize for GPOSSubtable {
@@ -119,6 +121,35 @@ impl Serialize for GPOSSubtable {
         match self {
             GPOSSubtable::GPOS1_1(x) => x.to_bytes(data),
             GPOSSubtable::GPOS1_2(x) => x.to_bytes(data),
+            GPOSSubtable::GPOS2_1(x) => x.to_bytes(data),
+            GPOSSubtable::GPOS2_2(x) => x.to_bytes(data),
+        }
+    }
+
+    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
+        match self {
+            GPOSSubtable::GPOS1_1(x) => x.offset_fields(),
+            GPOSSubtable::GPOS1_2(x) => x.offset_fields(),
+            GPOSSubtable::GPOS2_1(x) => x.offset_fields(),
+            GPOSSubtable::GPOS2_2(x) => x.offset_fields(),
+        }
+    }
+
+    fn ot_binary_size(&self) -> usize {
+        match self {
+            GPOSSubtable::GPOS1_1(x) => x.ot_binary_size(),
+            GPOSSubtable::GPOS1_2(x) => x.ot_binary_size(),
+            GPOSSubtable::GPOS2_1(x) => x.ot_binary_size(),
+            GPOSSubtable::GPOS2_2(x) => x.ot_binary_size(),
+        }
+    }
+
+    fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), crate::SerializationError> {
+        match self {
+            GPOSSubtable::GPOS1_1(x) => x.to_bytes_shallow(data),
+            GPOSSubtable::GPOS1_2(x) => x.to_bytes_shallow(data),
+            GPOSSubtable::GPOS2_1(x) => x.to_bytes_shallow(data),
+            GPOSSubtable::GPOS2_2(x) => x.to_bytes_shallow(data),
         }
     }
 }
