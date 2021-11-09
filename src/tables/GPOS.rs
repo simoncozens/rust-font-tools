@@ -91,9 +91,9 @@ impl Deserialize for GPOS {
     }
 }
 
-impl Into<GPOS> for GPOS10 {
-    fn into(self) -> GPOS {
-        let lookup_list_lowlevel = self.lookupList.link.unwrap_or_default();
+impl From<GPOS10> for GPOS {
+    fn from(val: GPOS10) -> Self {
+        let lookup_list_lowlevel = val.lookupList.link.unwrap_or_default();
         let mut lookups: Vec<Lookup<Positioning>> = vec![];
         for lookup_off in lookup_list_lowlevel.lookups.v {
             if let Some(lookup_lowlevel) = lookup_off.link {
@@ -119,8 +119,8 @@ impl Into<GPOS> for GPOS10 {
         }
         GPOS {
             lookups,
-            scripts: self.scriptList.link.unwrap_or_default().into(),
-            features: self.featureList.link.unwrap_or_default().into(),
+            scripts: val.scriptList.link.unwrap_or_default().into(),
+            features: val.featureList.link.unwrap_or_default().into(),
         }
     }
 }
