@@ -76,10 +76,6 @@ impl Deserialize for SequenceRule {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let glyphCount: uint16 = c.de()?;
         let seqLookupCount: uint16 = c.de()?;
-        println!(
-            "SequenceRule: glyphCount = {:?}, seqLookupCount = {:?}",
-            glyphCount, seqLookupCount
-        );
         let inputSequence: Vec<uint16> = c.de_counted(glyphCount as usize - 1)?;
         let seqLookupRecords: Vec<SequenceLookupRecord> = c.de_counted(seqLookupCount as usize)?;
         Ok(SequenceRule {
