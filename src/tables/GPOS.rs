@@ -126,6 +126,12 @@ impl FromLowlevel<GPOS10> for GPOS {
                             .map(|st| PairPos::from_lowlevel(st, max_glyph_id))
                             .collect(),
                     ),
+                    3 => Positioning::Cursive(
+                        subtables
+                            .into_iter()
+                            .map(|st| CursivePos::from_lowlevel(st, max_glyph_id))
+                            .collect(),
+                    ),
                     _ => unimplemented!(),
                 };
 
@@ -158,7 +164,10 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
                 .iter()
                 .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
                 .collect(),
-            Positioning::Cursive(_) => todo!(),
+            Positioning::Cursive(curs) => curs
+                .iter()
+                .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
+                .collect(),
             Positioning::MarkToBase(_) => todo!(),
             Positioning::MarkToLig => todo!(),
             Positioning::MarkToMark => todo!(),
