@@ -1,12 +1,26 @@
 use otspec::layout::common::{
-    FeatureList as FeatureListLowLevel, FeatureParams, LangSys, LangSysRecord, LookupFlags,
+    FeatureList as FeatureListLowLevel, FeatureParams, LangSys, LangSysRecord,
     Script as ScriptLowLevel, ScriptList as ScriptListLowLevel, ScriptRecord,
 };
 use otspec::layout::coverage::Coverage;
 use otspec::types::*;
 
+pub use otspec::layout::common::LookupFlags;
+pub use otspec::layout::valuerecord::{ValueRecord, ValueRecordFlags};
 use std::collections::BTreeMap; // For predictable ordering
 use std::fmt::Debug;
+
+// A trait for moving things from the otspec representation to our representation.
+// We use this in situations where we can't just use From/into, because we need
+// the max_glyph_id in layout operations to know how to interpret class 0 in
+// class-based subtables. i.e. lookups and anything above them.
+pub(crate) trait FromLowlevel<T> {
+    fn from_lowlevel(lowlevel: T, max_glyph_id: GlyphID) -> Self;
+}
+// ...and back again
+pub(crate) trait ToLowlevel<T> {
+    fn to_lowlevel(&self, max_glyph_id: GlyphID) -> T;
+}
 
 pub(crate) fn coverage_or_nah(off: Offset16<Coverage>) -> Vec<GlyphID> {
     off.link
@@ -159,6 +173,9 @@ impl FeatureList {
     pub fn iter(&self) -> std::slice::Iter<'_, (Tag, Vec<usize>, Option<FeatureParams>)> {
         self.0.iter()
     }
+    pub fn new(v: Vec<(Tag, Vec<usize>, Option<FeatureParams>)>) -> Self {
+        Self(v)
+    }
 }
 
 impl From<FeatureListLowLevel> for FeatureList {
@@ -171,6 +188,25 @@ impl From<FeatureListLowLevel> for FeatureList {
             features.push((tag, indices.iter().map(|x| usize::from(*x)).collect(), None));
         }
         FeatureList(features)
+    }
+}
+
+impl From<&FeatureList> for FeatureListLowLevel {
+    fn from(val: &FeatureList) -> Self {
+        let mut out = FeatureListLowLevel {
+            featureRecords: vec![],
+        };
+        for (tag, lookups, _params) in val.iter() {
+            out.featureRecords
+                .push(otspec::layout::common::FeatureRecord {
+                    featureTag: *tag,
+                    feature: Offset16::to(otspec::layout::common::FeatureTable {
+                        featureParamsOffset: 0,
+                        lookupListIndices: lookups.iter().map(|x| *x as uint16).collect(),
+                    }),
+                })
+        }
+        out
     }
 }
 

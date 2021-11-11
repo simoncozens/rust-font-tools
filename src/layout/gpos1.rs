@@ -1,7 +1,7 @@
-use crate::layout::common::coverage_or_nah;
+use crate::layout::common::{coverage_or_nah, FromLowlevel, ToLowlevel};
 use otspec::layout::coverage::Coverage;
 use otspec::layout::gpos1::{SinglePosFormat1, SinglePosFormat2};
-use otspec::layout::valuerecord::{coerce_to_same_format, ValueRecord, ValueRecordFlags};
+use otspec::layout::valuerecord::{coerce_to_same_format, ValueRecord};
 use otspec::tables::GPOS::GPOSSubtable;
 use otspec::types::*;
 use otspec::utils::is_all_the_same;
@@ -15,8 +15,8 @@ pub struct SinglePos {
     /// The mapping of input glyph IDs to value records.
     pub mapping: BTreeMap<GlyphID, ValueRecord>,
 }
-impl From<GPOSSubtable> for SinglePos {
-    fn from(st: GPOSSubtable) -> Self {
+impl FromLowlevel<GPOSSubtable> for SinglePos {
+    fn from_lowlevel(st: GPOSSubtable, _max_glyph_id: GlyphID) -> Self {
         let mut singlepos = SinglePos::default();
         match st {
             GPOSSubtable::GPOS1_1(singlepos1) => {
@@ -41,9 +41,9 @@ impl From<GPOSSubtable> for SinglePos {
 }
 
 /* On serialization, move to the outgoing representation by choosing the best format */
-impl From<&SinglePos> for GPOSSubtable {
-    fn from(val: &SinglePos) -> Self {
-        let mut mapping = val.mapping.clone();
+impl ToLowlevel<GPOSSubtable> for &SinglePos {
+    fn to_lowlevel(&self, _max_glyph_id: GlyphID) -> GPOSSubtable {
+        let mut mapping = self.mapping.clone();
         for (_, val) in mapping.iter_mut() {
             (*val).simplify()
         }

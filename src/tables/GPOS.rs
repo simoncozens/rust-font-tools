@@ -1,23 +1,14 @@
-use crate::convert_outgoing_subtables;
-use crate::layout::common::{Lookup, GPOSGSUB};
+use crate::layout::common::{FromLowlevel, Lookup, ToLowlevel, GPOSGSUB};
 use crate::layout::contextual::{ChainedSequenceContext, SequenceContext};
 use crate::layout::gpos1::SinglePos;
 use crate::layout::gpos2::PairPos;
 use crate::layout::gpos3::CursivePos;
 use crate::layout::gpos4::MarkBasePos;
-use otspec::layout::common::{
-    gsubgpos as gsubgposoutgoing, FeatureList, FeatureRecord, FeatureTable,
-    Lookup as LookupInternal, LookupList as LookupListOutgoing,
-};
-use otspec::tables::GPOS::{GPOSSubtable, GPOS10, GPOS11};
-
+use otspec::tables::GPOS::{GPOSLookup as GPOSLookupLowlevel, GPOSSubtable, GPOS10, GPOS11};
 // use crate::layout::gpos5::{MarkLigPos, MarkLigPosFormat1};
 // use crate::layout::gpos6::{MarkMarkPos, MarkMarkPosFormat1};
 use otspec::types::*;
-use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-};
-use std::convert::TryInto;
+use otspec::{DeserializationError, Deserializer, ReaderContext, SerializationError, Serialize};
 
 /// The 'GPOS' OpenType tag.
 pub const TAG: Tag = crate::tag!("GPOS");
@@ -72,27 +63,27 @@ impl Positioning {
 /// The Glyph Positioning table
 pub type GPOS = GPOSGSUB<Positioning>;
 
-impl Deserialize for GPOS {
-    // It's possible we're going to need to know more context about this.
-    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        match c.peek(4)? {
-            [0x00, 0x01, 0x00, 0x00] => {
-                let internal: GPOS10 = c.de()?;
-                Ok(internal.into())
-            }
-            // [0x00, 0x01, 0x00, 0x01] => {
-            //     let internal: GPOS11 = c.de()?;
-            //     Ok(internal.into())
-            // }
-            _ => Err(DeserializationError(
-                "Invalid GPOS table version".to_string(),
-            )),
+pub fn from_bytes(
+    c: &mut ReaderContext,
+    max_glyph_id: GlyphID,
+) -> Result<GPOS, DeserializationError> {
+    match c.peek(4)? {
+        [0x00, 0x01, 0x00, 0x00] => {
+            let internal: GPOS10 = c.de()?;
+            Ok(GPOS::from_lowlevel(internal, max_glyph_id))
         }
+        // [0x00, 0x01, 0x00, 0x01] => {
+        //     let internal: GPOS11 = c.de()?;
+        //     Ok(internal.into())
+        // }
+        _ => Err(DeserializationError(
+            "Invalid GPOS table version".to_string(),
+        )),
     }
 }
 
-impl From<GPOS10> for GPOS {
-    fn from(val: GPOS10) -> Self {
+impl FromLowlevel<GPOS10> for GPOS {
+    fn from_lowlevel(val: GPOS10, max_glyph_id: GlyphID) -> Self {
         let lookup_list_lowlevel = val.lookupList.link.unwrap_or_default();
         let mut lookups: Vec<Lookup<Positioning>> = vec![];
         for lookup_off in lookup_list_lowlevel.lookups.v {
@@ -105,7 +96,18 @@ impl From<GPOS10> for GPOS {
                     .flatten()
                     .collect();
                 let theirs = match lookup_lowlevel.lookupType {
-                    1 => Positioning::Single(subtables.into_iter().map(SinglePos::from).collect()),
+                    1 => Positioning::Single(
+                        subtables
+                            .into_iter()
+                            .map(|st| SinglePos::from_lowlevel(st, max_glyph_id))
+                            .collect(),
+                    ),
+                    2 => Positioning::Pair(
+                        subtables
+                            .into_iter()
+                            .map(|st| PairPos::from_lowlevel(st, max_glyph_id))
+                            .collect(),
+                    ),
                     _ => unimplemented!(),
                 };
 
@@ -149,15 +151,69 @@ impl From<GPOS10> for GPOS {
 
 // Will be needed soon
 
-impl Serialize for GPOS {
-    fn to_bytes(&self, _data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        unimplemented!()
+impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
+    fn to_lowlevel(&self, max_glyph_id: GlyphID) -> GPOSLookupLowlevel {
+        match &self.rule {
+            Positioning::Single(sp) => {
+                let subtables: Vec<Offset16<GPOSSubtable>> = sp
+                    .iter()
+                    .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
+                    .collect();
+                GPOSLookupLowlevel {
+                    lookupType: 1,
+                    lookupFlag: self.flags,
+                    subtables: subtables.into(),
+                    markFilteringSet: self.mark_filtering_set,
+                }
+            }
+            Positioning::Pair(_) => todo!(),
+            Positioning::Cursive(_) => todo!(),
+            Positioning::MarkToBase(_) => todo!(),
+            Positioning::MarkToLig => todo!(),
+            Positioning::MarkToMark => todo!(),
+            Positioning::Contextual(_) => todo!(),
+            Positioning::ChainedContextual(_) => todo!(),
+            Positioning::Extension => todo!(),
+        }
     }
+}
+impl ToLowlevel<GPOS10> for GPOS {
+    fn to_lowlevel(&self, max_glyph_id: GlyphID) -> GPOS10 {
+        let lookups: Vec<Offset16<GPOSLookupLowlevel>> = self
+            .lookups
+            .iter()
+            .map(|x| Offset16::to(x.to_lowlevel(max_glyph_id)))
+            .collect();
+        GPOS10 {
+            majorVersion: 1,
+            minorVersion: 0,
+            scriptList: Offset16::to((&self.scripts).into()),
+            featureList: Offset16::to((&self.features).into()),
+            lookupList: Offset16::to(otspec::tables::GPOS::GPOSLookupList {
+                lookups: lookups.into(),
+            }),
+        }
+    }
+}
+pub(crate) fn to_bytes(
+    gpos: &GPOS,
+    data: &mut Vec<u8>,
+    max_glyph_id: GlyphID,
+) -> Result<(), SerializationError> {
+    let gpos10 = gpos.to_lowlevel(max_glyph_id);
+    gpos10.to_bytes(data)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout::common::{
+        FeatureList, LanguageSystem, LookupFlags, Script, ScriptList, ValueRecord,
+    };
+    use crate::tag;
+    use otspec::{btreemap, valuerecord};
+    use std::collections::BTreeMap;
+    use std::iter::FromIterator;
 
     #[test]
     fn test_gpos1_highlevel_de() {
@@ -190,8 +246,37 @@ mod tests {
             0x00, 0x01, 0x00, 0x08, 0x00, 0x04, 0x00, 0x23, 0x00, 0x01, 0x00, 0x03, 0x00, 0x25,
             0x00, 0x30, 0x00, 0x32,
         ];
-        let gpos: GPOS = otspec::de::from_bytes(&binary_gpos).unwrap();
-        println!("{:#?}", gpos);
-        panic!();
+        let expected = GPOS {
+            lookups: vec![Lookup {
+                flags: LookupFlags::empty(),
+                mark_filtering_set: None,
+                rule: Positioning::Single(vec![SinglePos {
+                    mapping: btreemap!(
+                        37 => valuerecord!(xAdvance = 35),
+                        48 => valuerecord!(xAdvance = 35),
+                        50 => valuerecord!(xAdvance = 35)
+                    ),
+                }]),
+            }],
+            scripts: ScriptList {
+                scripts: btreemap!(tag!("DFLT") =>  Script {
+                        default_language_system: Some(
+                            LanguageSystem {
+                                required_feature: None,
+                                feature_indices: vec![0],
+                            },
+                        ),
+                        language_systems: BTreeMap::new(),
+                    },
+                ),
+            },
+            features: FeatureList::new(vec![(tag!("kern"), vec![0], None)]),
+        };
+        let mut rc = ReaderContext::new(binary_gpos.clone());
+        let gpos: GPOS = from_bytes(&mut rc, 200).unwrap();
+        assert_eq!(gpos, expected);
+        let mut gpos_data = vec![];
+        to_bytes(&gpos, &mut gpos_data, 200).unwrap();
+        assert_eq!(gpos_data, binary_gpos);
     }
 }

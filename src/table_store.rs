@@ -319,7 +319,13 @@ impl TableSet {
             b"fvar" => otspec::de::from_bytes::<tables::fvar::fvar>(&data)?.into(),
             b"gasp" => otspec::de::from_bytes::<tables::gasp::gasp>(&data)?.into(),
             b"GDEF" => otspec::de::from_bytes::<tables::GDEF::GDEF>(&data)?.into(),
-            b"GPOS" => otspec::de::from_bytes::<tables::GPOS::GPOS>(&data)?.into(),
+            b"GPOS" => {
+                let num_glyphs = self
+                    .maxp()?
+                    .map(|maxp| maxp.num_glyphs())
+                    .ok_or_else(|| DeserializationError("deserialize head before loca".into()))?;
+                tables::GPOS::from_bytes(&mut ReaderContext::new(data.to_vec()), num_glyphs)?.into()
+            }
             // b"GSUB" => otspec::de::from_bytes::<tables::GSUB::GSUB>(&data)?.into(),
             b"head" => otspec::de::from_bytes::<tables::head::head>(&data)?.into(),
             b"hhea" => otspec::de::from_bytes::<tables::hhea::hhea>(&data)?.into(),
@@ -447,6 +453,17 @@ impl TableSet {
             if let Some(mut hhea) = self.hhea().unwrap() {
                 hhea.numberOfHMetrics = hmetric_count;
                 self.insert(hhea);
+            }
+        }
+    }
+
+    pub(crate) fn compile_gsub_gpos(&mut self) {
+        let num_glyphs = self.maxp().unwrap().unwrap().num_glyphs();
+        if !self.is_serialized(tables::GPOS::TAG).unwrap_or(true) {
+            if let Some(gpos) = self.GPOS().unwrap() {
+                let mut gpos_data = vec![];
+                tables::GPOS::to_bytes(&gpos, &mut gpos_data, num_glyphs).unwrap();
+                self.insert_raw(tables::GPOS::TAG, gpos_data)
             }
         }
     }
@@ -590,7 +607,7 @@ impl Serialize for LoadedTable {
             LoadedTable::gasp(expr) => expr.to_bytes(data),
             // LoadedTable::GSUB(expr) => expr.to_bytes(data),
             LoadedTable::GDEF(expr) => expr.to_bytes(data),
-            LoadedTable::GPOS(expr) => expr.to_bytes(data),
+            LoadedTable::GPOS(_) => unimplemented!(),
             LoadedTable::gvar(_) => unimplemented!(),
             LoadedTable::head(expr) => expr.to_bytes(data),
             LoadedTable::hhea(expr) => expr.to_bytes(data),
