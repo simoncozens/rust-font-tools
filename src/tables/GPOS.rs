@@ -4,7 +4,8 @@ use crate::layout::gpos1::SinglePos;
 use crate::layout::gpos2::PairPos;
 use crate::layout::gpos3::CursivePos;
 use crate::layout::gpos4::MarkBasePos;
-use otspec::tables::GPOS::{GPOSLookup as GPOSLookupLowlevel, GPOSSubtable, GPOS10, GPOS11};
+use otspec::tables::GPOS::{GPOSLookup as GPOSLookupLowlevel, GPOSSubtable, GPOS10};
+// use otspec::tables::GPOS::GPOS11;
 // use crate::layout::gpos5::{MarkLigPos, MarkLigPosFormat1};
 // use crate::layout::gpos6::{MarkMarkPos, MarkMarkPosFormat1};
 use otspec::types::*;
@@ -80,7 +81,7 @@ impl Lookup<Positioning> {
 /// The Glyph Positioning table
 pub type GPOS = GPOSGSUB<Positioning>;
 
-pub fn from_bytes(
+pub(crate) fn from_bytes(
     c: &mut ReaderContext,
     max_glyph_id: GlyphID,
 ) -> Result<GPOS, DeserializationError> {
@@ -198,7 +199,7 @@ pub(crate) fn to_bytes(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::layout::common::{
         FeatureList, LanguageSystem, LookupFlags, Script, ScriptList, ValueRecord,
@@ -207,6 +208,40 @@ mod tests {
     use otspec::{btreemap, valuerecord};
     use std::collections::BTreeMap;
     use std::iter::FromIterator;
+
+    pub fn expected_gpos(lookups: Vec<Lookup<Positioning>>) -> GPOS {
+        GPOS {
+            lookups,
+            scripts: ScriptList {
+                scripts: btreemap!(tag!("DFLT") =>  Script {
+                        default_language_system: Some(
+                            LanguageSystem {
+                                required_feature: None,
+                                feature_indices: vec![0],
+                            },
+                        ),
+                        language_systems: BTreeMap::new(),
+                    },
+                ),
+            },
+            features: FeatureList::new(vec![(tag!("test"), vec![0], None)]),
+        }
+    }
+
+    pub fn assert_can_deserialize(binary_gpos: Vec<u8>, expected: &GPOS) {
+        let mut rc = ReaderContext::new(binary_gpos);
+        let gpos: GPOS = from_bytes(&mut rc, 200).unwrap();
+        assert_eq!(&gpos, expected);
+    }
+
+    pub fn assert_can_roundtrip(binary_gpos: Vec<u8>, expected: &GPOS) {
+        let mut rc = ReaderContext::new(binary_gpos.clone());
+        let gpos: GPOS = from_bytes(&mut rc, 200).unwrap();
+        assert_eq!(&gpos, expected);
+        let mut gpos_data = vec![];
+        to_bytes(&gpos, &mut gpos_data, 200).unwrap();
+        assert_eq!(gpos_data, binary_gpos);
+    }
 
     #[test]
     fn test_gpos1_highlevel_de() {
@@ -225,7 +260,7 @@ mod tests {
             0x00, 0x01, // LangSys.featureIndexCount
             0x00, 0x00, // LangSys.featureIndices
             /* 0x1e */ 0x00, 0x01, // FeatureList.featureCount
-            0x6b, 0x65, 0x72, 0x6e, //FeatureRecord.featureTag = kern
+            0x74, 0x65, 0x73, 0x74, //FeatureRecord.featureTag = test
             0x00, 0x08, // FeatureRecord.featureOffset
             0x00, 0x00, // Feature.featureParamsOffset
             0x00, 0x01, // Feature.lookupIndexCount
@@ -239,37 +274,17 @@ mod tests {
             0x00, 0x01, 0x00, 0x08, 0x00, 0x04, 0x00, 0x23, 0x00, 0x01, 0x00, 0x03, 0x00, 0x25,
             0x00, 0x30, 0x00, 0x32,
         ];
-        let expected = GPOS {
-            lookups: vec![Lookup {
-                flags: LookupFlags::empty(),
-                mark_filtering_set: None,
-                rule: Positioning::Single(vec![SinglePos {
-                    mapping: btreemap!(
-                        37 => valuerecord!(xAdvance = 35),
-                        48 => valuerecord!(xAdvance = 35),
-                        50 => valuerecord!(xAdvance = 35)
-                    ),
-                }]),
-            }],
-            scripts: ScriptList {
-                scripts: btreemap!(tag!("DFLT") =>  Script {
-                        default_language_system: Some(
-                            LanguageSystem {
-                                required_feature: None,
-                                feature_indices: vec![0],
-                            },
-                        ),
-                        language_systems: BTreeMap::new(),
-                    },
+        let expected = expected_gpos(vec![Lookup {
+            flags: LookupFlags::empty(),
+            mark_filtering_set: None,
+            rule: Positioning::Single(vec![SinglePos {
+                mapping: btreemap!(
+                    37 => valuerecord!(xAdvance = 35),
+                    48 => valuerecord!(xAdvance = 35),
+                    50 => valuerecord!(xAdvance = 35)
                 ),
-            },
-            features: FeatureList::new(vec![(tag!("kern"), vec![0], None)]),
-        };
-        let mut rc = ReaderContext::new(binary_gpos.clone());
-        let gpos: GPOS = from_bytes(&mut rc, 200).unwrap();
-        assert_eq!(gpos, expected);
-        let mut gpos_data = vec![];
-        to_bytes(&gpos, &mut gpos_data, 200).unwrap();
-        assert_eq!(gpos_data, binary_gpos);
+            }]),
+        }]);
+        assert_can_roundtrip(binary_gpos, &expected);
     }
 }
