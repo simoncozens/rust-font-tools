@@ -17,7 +17,7 @@ tables!(
     Offset16(BaseArray) baseArray
   }
 
-  BaseArray [nodeserialize] {
+  BaseArray [nodeserialize] [default] {
     [offset_base]
     [embed]
     Counted(BaseRecord) baseRecords

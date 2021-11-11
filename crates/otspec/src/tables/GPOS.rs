@@ -102,6 +102,10 @@ impl Deserialize for GPOSLookup {
                     let cursive: CursivePosFormat1 = c.de()?;
                     GPOSSubtable::GPOS3_1(cursive)
                 }
+                4 => {
+                    let markbase: MarkBasePosFormat1 = c.de()?;
+                    GPOSSubtable::GPOS4_1(markbase)
+                }
                 7 => deserialize_gpos7(c)?,
                 8 => deserialize_gpos8(c)?,
                 _ => {

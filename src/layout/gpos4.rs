@@ -1,62 +1,12 @@
-use otspec::layout::anchor::Anchor;
+use crate::layout::common::{coverage_or_nah, FromLowlevel, ToLowlevel};
+use otspec::layout::anchor::{self, Anchor};
 use otspec::layout::common::{MarkArray, MarkRecord};
 use otspec::layout::coverage::Coverage;
+use otspec::layout::gpos4::{BaseArray, BaseRecord, MarkBasePosFormat1};
+use otspec::tables::GPOS::GPOSSubtable;
 use otspec::types::*;
-use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-    Serializer,
-};
-use otspec_macros::tables;
 
 use std::collections::BTreeMap;
-
-tables!(
-  MarkBasePosFormat1 [nodeserialize] {
-    [offset_base]
-    uint16 posFormat
-    Offset16(Coverage) markCoverage
-    Offset16(Coverage) baseCoverage
-    uint16 markClassCount
-    Offset16(MarkArray) markArray
-    Offset16(BaseArray) baseArray
-  }
-
-  BaseArray [nodeserialize] {
-    [offset_base]
-    [embed]
-    Counted(BaseRecord) baseRecords
-  }
-);
-
-#[derive(Debug, Clone, PartialEq)]
-#[allow(non_snake_case)]
-/// Information about anchor positioning on a base
-pub struct BaseRecord {
-    /// A list of base anchors
-    pub baseAnchors: Vec<Offset16<Anchor>>,
-}
-
-impl Serialize for BaseRecord {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        for a in &self.baseAnchors {
-            data.put(a)?
-        }
-        Ok(())
-    }
-    fn ot_binary_size(&self) -> usize {
-        2 * self.baseAnchors.len()
-    }
-
-    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
-        self.baseAnchors
-            .iter()
-            .map(|x| {
-                let erase_type: &dyn OffsetMarkerTrait = x;
-                erase_type
-            })
-            .collect()
-    }
-}
 
 #[derive(Debug, PartialEq, Clone, Default)]
 /// A mark-to-base subtable.
@@ -69,79 +19,52 @@ pub struct MarkBasePos {
     pub marks: BTreeMap<GlyphID, (uint16, Anchor)>,
 }
 
-// We need to deserialize this thing manually because of the data dependency:
-// BaseRecord needs to know markClassCount.
-impl Deserialize for MarkBasePos {
-    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        c.push();
-        let _pos_format: uint16 = c.de()?;
-        let mark_coverage: Offset16<Coverage> = c.de()?;
-        let mark_glyphs: Coverage = mark_coverage.link.ok_or_else(|| {
-            DeserializationError("Dangling offset in GPOS4 mark coverage".to_string())
-        })?;
-        let base_coverage: Offset16<Coverage> = c.de()?;
-        let base_glyphs: Coverage = base_coverage.link.ok_or_else(|| {
-            DeserializationError("Dangling offset in GPOS4 base coverage".to_string())
-        })?;
-        let mark_class_count: uint16 = c.de()?;
-        let mark_array_offset: Offset16<MarkArray> = c.de()?;
-        let mark_array: MarkArray = mark_array_offset.link.ok_or_else(|| {
-            DeserializationError("Dangling offset in GPOS4 mark array".to_string())
-        })?;
-
-        let mut marks: BTreeMap<GlyphID, (uint16, Anchor)> = BTreeMap::new();
-        for (&mark_glyph, mark_record) in
-            mark_glyphs.glyphs.iter().zip(mark_array.markRecords.iter())
-        {
-            marks.insert(
-                mark_glyph,
-                (
-                    mark_record.markClass,
-                    mark_record.markAnchor.link.ok_or_else(|| {
-                        DeserializationError("Dangling offset in GPOS4 mark record".to_string())
-                    })?,
-                ),
-            );
-        }
-
-        // Now it gets tricky.
-        let offset: uint16 = c.de()?;
-        c.ptr = c.top_of_table() + offset as usize;
-
-        // We are now at the start of the base array table
-        c.push();
-        let mut bases: BTreeMap<GlyphID, BTreeMap<uint16, Anchor>> = BTreeMap::new();
-        let count: uint16 = c.de()?;
-        if count != base_glyphs.glyphs.len() as uint16 {
-            return Err(DeserializationError(
-                "Base coverage length didn't match base array count".to_string(),
-            ));
-        }
-        for base_glyph in base_glyphs.glyphs {
-            let base_record: Vec<Offset16<Anchor>> = c.de_counted(mark_class_count.into())?;
-            let mut anchor_list: BTreeMap<uint16, Anchor> = BTreeMap::new();
-            for (class, anchor) in base_record.iter().enumerate() {
-                anchor_list.insert(
-                    class as u16,
-                    anchor.link.ok_or_else(|| {
-                        DeserializationError("Dangling offset in GPOS4 anchor".to_string())
-                    })?,
-                );
+impl FromLowlevel<GPOSSubtable> for MarkBasePos {
+    fn from_lowlevel(st: GPOSSubtable, _max_glyph_id: GlyphID) -> Self {
+        match st {
+            GPOSSubtable::GPOS4_1(markbase1) => {
+                let mark_glyphs = coverage_or_nah(markbase1.markCoverage);
+                let base_glyphs = coverage_or_nah(markbase1.baseCoverage);
+                let mut bases: BTreeMap<GlyphID, BTreeMap<uint16, Anchor>> = BTreeMap::new();
+                let mut marks: BTreeMap<GlyphID, (uint16, Anchor)> = BTreeMap::new();
+                let mark_array = markbase1.markArray.link.unwrap_or_default();
+                let base_array = markbase1.baseArray.link.unwrap_or_default();
+                for (&mark_glyph, mark_record) in
+                    mark_glyphs.iter().zip(mark_array.markRecords.iter())
+                {
+                    marks.insert(
+                        mark_glyph,
+                        (
+                            mark_record.markClass,
+                            mark_record.markAnchor.link.unwrap_or_default(),
+                        ),
+                    );
+                }
+                for (&base_glyph, base_record) in
+                    base_glyphs.iter().zip(base_array.baseRecords.iter())
+                {
+                    let mut anchor_list: BTreeMap<uint16, Anchor> = BTreeMap::new();
+                    for (class, base_anchor) in base_record
+                        .baseAnchors
+                        .iter()
+                        .map(|x| x.link.unwrap_or_default())
+                        .enumerate()
+                    {
+                        anchor_list.insert(class as u16, base_anchor);
+                    }
+                    bases.insert(base_glyph, anchor_list);
+                }
+                MarkBasePos { marks, bases }
             }
-            bases.insert(base_glyph, anchor_list);
+            _ => panic!(),
         }
-        c.pop();
-        c.pop();
-        Ok(MarkBasePos { marks, bases })
     }
 }
-
-impl From<&MarkBasePos> for MarkBasePosFormat1 {
-    #[allow(non_snake_case)]
-    fn from(lookup: &MarkBasePos) -> Self {
+impl ToLowlevel<GPOSSubtable> for MarkBasePos {
+    fn to_lowlevel(&self, _max_glyph_id: GlyphID) -> GPOSSubtable {
         let mut markClassCount = 0;
         let markArray = Offset16::to(MarkArray {
-            markRecords: lookup
+            markRecords: self
                 .marks
                 .values()
                 .map(|&(class, anchor)| {
@@ -156,7 +79,7 @@ impl From<&MarkBasePos> for MarkBasePosFormat1 {
                 .collect(),
         });
 
-        let base_records = lookup
+        let base_records = self
             .bases
             .values()
             .map(|base| BaseRecord {
@@ -171,40 +94,39 @@ impl From<&MarkBasePos> for MarkBasePosFormat1 {
             })
             .collect();
 
-        MarkBasePosFormat1 {
+        GPOSSubtable::GPOS4_1(MarkBasePosFormat1 {
             posFormat: 1,
             markCoverage: Offset16::to(Coverage {
-                glyphs: lookup.marks.keys().copied().collect(),
+                glyphs: self.marks.keys().copied().collect(),
             }),
             baseCoverage: Offset16::to(Coverage {
-                glyphs: lookup.bases.keys().copied().collect(),
+                glyphs: self.bases.keys().copied().collect(),
             }),
             baseArray: Offset16::to(BaseArray {
                 baseRecords: base_records,
             }),
             markArray,
             markClassCount,
-        }
-    }
-}
-
-impl Serialize for MarkBasePos {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let i: MarkBasePosFormat1 = self.into();
-        i.to_bytes(data)
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout::common::{Lookup, LookupFlags};
+    use crate::tables::GPOS::tests::{assert_can_roundtrip, expected_gpos};
+    use crate::tables::GPOS::Positioning;
     use otspec::btreemap;
-    use pretty_assertions::assert_eq;
     use std::iter::FromIterator;
 
     #[test]
     fn test_markbase_de() {
-        let binary_markbase = vec![
+        let binary_gpos = vec![
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x1e, 0x00, 0x2c, 0x00, 0x01, 0x44, 0x46,
+            0x4c, 0x54, 0x00, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x74, 0x65, 0x73, 0x74, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x00, 0x04, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08,
             // MarkBasePosFormat1
             // MarkBaseAttachSubTable   MarkBasePos subtable definition
             0x00, 0x01, // 1    posFormat
@@ -260,18 +182,16 @@ mod tests {
             0x03, 0x3E, // 830  xCoordinate
             0xFF, 0xAD, // -83  yCoordinate
         ];
-        let markbase: MarkBasePos = otspec::de::from_bytes(&binary_markbase).unwrap();
         let expected_tah_marks: BTreeMap<uint16, Anchor> =
             btreemap!(0 => Anchor::new(830,1600), 1 => Anchor::new(830,-83));
-        assert_eq!(
-            markbase,
-            MarkBasePos {
+        let expected = expected_gpos(vec![Lookup {
+            flags: LookupFlags::empty(),
+            mark_filtering_set: None,
+            rule: Positioning::MarkToBase(vec![MarkBasePos {
                 marks: btreemap!(819 => (0, Anchor::new(346,-98)), 831 => (1, Anchor::new(261, 88))),
                 bases: btreemap!(400 => expected_tah_marks),
-            },
-        );
-
-        let output: Vec<u8> = otspec::ser::to_bytes(&markbase).unwrap();
-        assert_eq!(output, binary_markbase);
+            }]),
+        }]);
+        assert_can_roundtrip(binary_gpos, &expected);
     }
 }

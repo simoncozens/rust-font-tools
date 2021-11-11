@@ -132,6 +132,12 @@ impl FromLowlevel<GPOS10> for GPOS {
                             .map(|st| CursivePos::from_lowlevel(st, max_glyph_id))
                             .collect(),
                     ),
+                    4 => Positioning::MarkToBase(
+                        subtables
+                            .into_iter()
+                            .map(|st| MarkBasePos::from_lowlevel(st, max_glyph_id))
+                            .collect(),
+                    ),
                     _ => unimplemented!(),
                 };
 
@@ -151,8 +157,6 @@ impl FromLowlevel<GPOS10> for GPOS {
     }
 }
 
-// Will be needed soon
-
 impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
     fn to_lowlevel(&self, max_glyph_id: GlyphID) -> GPOSLookupLowlevel {
         let subtables: Vec<Offset16<GPOSSubtable>> = match &self.rule {
@@ -168,7 +172,10 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
                 .iter()
                 .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
                 .collect(),
-            Positioning::MarkToBase(_) => todo!(),
+            Positioning::MarkToBase(markbase) => markbase
+                .iter()
+                .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
+                .collect(),
             Positioning::MarkToLig => todo!(),
             Positioning::MarkToMark => todo!(),
             Positioning::Contextual(_) => todo!(),
