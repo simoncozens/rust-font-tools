@@ -59,6 +59,23 @@ impl Positioning {
     }
 }
 
+impl Lookup<Positioning> {
+    /// Returns the GPOS lookup type for this subtable
+    pub fn lookup_type(&self) -> u16 {
+        match &self.rule {
+            Positioning::Single(_) => 1,
+            Positioning::Pair(_) => 2,
+            Positioning::Cursive(_) => 3,
+            Positioning::MarkToBase(_) => 4,
+            Positioning::MarkToLig => 5,
+            Positioning::MarkToMark => 6,
+            Positioning::Contextual(_) => 7,
+            Positioning::ChainedContextual(_) => 8,
+            Positioning::Extension => 9,
+        }
+    }
+}
+
 #[allow(clippy::upper_case_acronyms)]
 /// The Glyph Positioning table
 pub type GPOS = GPOSGSUB<Positioning>;
@@ -127,45 +144,15 @@ impl FromLowlevel<GPOS10> for GPOS {
     }
 }
 
-// Unneeded, for reference
-// impl<'a> From<&Lookup<Positioning>> for LookupInternal {
-//     fn from(val: &Lookup<Positioning>) -> Self {
-//         let subtables: Vec<Box<dyn OffsetMarkerTrait>> = convert_outgoing_subtables!(
-//             val.rule.clone(),
-//             (Positioning::Single, SinglePosInternal),
-//             (Positioning::Pair, PairPosInternal),
-//             (Positioning::Cursive, CursivePosFormat1),
-//             (Positioning::MarkToBase, MarkBasePosFormat1),
-//             // (Positioning::MarkToLig, MarkLigPosFormat1),
-//             // (Positioning::MarkToMark, MarkMarkPosFormat1),
-//         );
-
-//         LookupInternal {
-//             flags: val.flags,
-//             lookupType: val.lookup_type(),
-//             mark_filtering_set: val.mark_filtering_set,
-//             subtables,
-//         }
-//     }
-// }
-
 // Will be needed soon
 
 impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
     fn to_lowlevel(&self, max_glyph_id: GlyphID) -> GPOSLookupLowlevel {
-        match &self.rule {
-            Positioning::Single(sp) => {
-                let subtables: Vec<Offset16<GPOSSubtable>> = sp
-                    .iter()
-                    .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
-                    .collect();
-                GPOSLookupLowlevel {
-                    lookupType: 1,
-                    lookupFlag: self.flags,
-                    subtables: subtables.into(),
-                    markFilteringSet: self.mark_filtering_set,
-                }
-            }
+        let subtables: Vec<Offset16<GPOSSubtable>> = match &self.rule {
+            Positioning::Single(sp) => sp
+                .iter()
+                .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
+                .collect(),
             Positioning::Pair(_) => todo!(),
             Positioning::Cursive(_) => todo!(),
             Positioning::MarkToBase(_) => todo!(),
@@ -174,6 +161,12 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
             Positioning::Contextual(_) => todo!(),
             Positioning::ChainedContextual(_) => todo!(),
             Positioning::Extension => todo!(),
+        };
+        GPOSLookupLowlevel {
+            lookupType: self.lookup_type(),
+            lookupFlag: self.flags,
+            subtables: subtables.into(),
+            markFilteringSet: self.mark_filtering_set,
         }
     }
 }
