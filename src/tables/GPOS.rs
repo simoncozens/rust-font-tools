@@ -154,7 +154,10 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
                 .iter()
                 .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
                 .collect(),
-            Positioning::Pair(_) => todo!(),
+            Positioning::Pair(pp) => pp
+                .iter()
+                .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
+                .collect(),
             Positioning::Cursive(_) => todo!(),
             Positioning::MarkToBase(_) => todo!(),
             Positioning::MarkToLig => todo!(),

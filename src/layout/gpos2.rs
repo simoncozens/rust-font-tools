@@ -1,8 +1,12 @@
 use crate::layout::common::{coverage_or_nah, FromLowlevel};
-use otspec::layout::valuerecord::ValueRecord;
+use otspec::layout::coverage::Coverage;
+use otspec::layout::gpos2::{PairPosFormat1, PairSet, PairValueRecord};
+use otspec::layout::valuerecord::{highest_format, ValueRecord};
 use otspec::tables::GPOS::GPOSSubtable;
 use otspec::types::*;
 use std::collections::BTreeMap;
+
+use super::common::ToLowlevel;
 
 /// User-friendly mapping between glyph pairs and value record adjustments
 pub type PairPositioningMap = BTreeMap<(GlyphID, GlyphID), (ValueRecord, ValueRecord)>;
@@ -95,52 +99,91 @@ fn best_format(_: &PairPositioningMap) -> uint16 {
     1
 }
 
-// impl From<&PairPos> for PairPosInternal {
-//     fn from(val: &PairPos) -> Self {
-//         let mut mapping = val.mapping.clone();
-//         for (_, (val1, val2)) in mapping.iter_mut() {
-//             (*val1).simplify();
-//             (*val2).simplify();
-//         }
-//         let fmt = best_format(&mapping);
-//         let split_mapping = split_into_two_layer(mapping);
-//         let coverage = Coverage {
-//             glyphs: split_mapping.keys().copied().collect(),
-//         };
+impl ToLowlevel<GPOSSubtable> for &PairPos {
+    fn to_lowlevel(&self, max_glyph_id: GlyphID) -> GPOSSubtable {
+        let mut mapping = self.mapping.clone();
+        for (_, (val1, val2)) in mapping.iter_mut() {
+            (*val1).simplify();
+            (*val2).simplify();
+        }
+        let fmt = best_format(&mapping);
+        let split_mapping = split_into_two_layer(mapping);
+        let coverage = Coverage {
+            glyphs: split_mapping.keys().copied().collect(),
+        };
+        let all_pair_vrs: Vec<&(ValueRecord, ValueRecord)> = split_mapping
+            .values()
+            .map(|x| x.values())
+            .flatten()
+            .collect();
+        let value_format_1 = highest_format(all_pair_vrs.iter().map(|x| &x.0));
+        let value_format_2 = highest_format(all_pair_vrs.iter().map(|x| &x.1));
 
-//         let all_pair_vrs: Vec<&(ValueRecord, ValueRecord)> = split_mapping
-//             .values()
-//             .map(|x| x.values())
-//             .flatten()
-//             .collect();
-//         let value_format_1 = highest_format(all_pair_vrs.iter().map(|x| &x.0));
-//         let value_format_2 = highest_format(all_pair_vrs.iter().map(|x| &x.1));
+        if fmt == 1 {
+            let mut pair_sets: Vec<Offset16<PairSet>> = vec![];
+            for left in &coverage.glyphs {
+                let mut pair_value_records: Vec<PairValueRecord> = vec![];
+                for (right, (vr1, vr2)) in split_mapping.get(left).unwrap() {
+                    pair_value_records.push(PairValueRecord {
+                        secondGlyph: *right,
+                        valueRecord1: vr1.clone(),
+                        valueRecord2: vr2.clone(),
+                    })
+                }
+                pair_sets.push(Offset16::to(PairSet {
+                    pairValueRecords: pair_value_records,
+                }));
+            }
+            let format1: PairPosFormat1 = PairPosFormat1 {
+                posFormat: 1,
+                coverage: Offset16::to(coverage),
+                valueFormat1: value_format_1,
+                valueFormat2: value_format_2,
+                pairSets: VecOffset16 { v: pair_sets },
+            };
+            GPOSSubtable::GPOS2_1(format1)
+        } else {
+            unimplemented!()
+        }
+    }
+}
 
-//         if fmt == 1 {
-//             let mut pair_sets: Vec<Offset16<PairSet>> = vec![];
-//             for left in &coverage.glyphs {
-//                 let mut pair_value_records: Vec<PairValueRecord> = vec![];
-//                 for (right, (vr1, vr2)) in split_mapping.get(left).unwrap() {
-//                     pair_value_records.push(PairValueRecord {
-//                         secondGlyph: *right,
-//                         valueRecord1: vr1.clone(),
-//                         valueRecord2: vr2.clone(),
-//                     })
-//                 }
-//                 pair_sets.push(Offset16::to(PairSet {
-//                     pairValueRecords: pair_value_records,
-//                 }));
-//             }
-//             let format1: PairPosFormat1 = PairPosFormat1 {
-//                 posFormat: 1,
-//                 coverage: Offset16::to(coverage),
-//                 valueFormat1: value_format_1,
-//                 valueFormat2: value_format_2,
-//                 pairSets: VecOffset16 { v: pair_sets },
-//             };
-//             PairPosInternal::Format1(format1)
-//         } else {
-//             unimplemented!()
-//         }
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::layout::common::{Lookup, LookupFlags};
+    use crate::tables::GPOS::tests::{assert_can_deserialize, assert_can_roundtrip, expected_gpos};
+    use crate::tables::GPOS::Positioning;
+    use otspec::{btreemap, valuerecord};
+    use std::iter::FromIterator;
+
+    #[test]
+    fn gpos21_deser() {
+        /*
+        feature test {
+            pos A -20 B;
+            pos B -30 A;
+        } test;
+        */
+        let binary_gpos = vec![
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x1e, 0x00, 0x2c, 0x00, 0x01, 0x44, 0x46,
+            0x4c, 0x54, 0x00, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x74, 0x65, 0x73, 0x74, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08,
+            0x00, 0x01, 0x00, 0x0e, 0x00, 0x04, 0x00, 0x00, 0x00, 0x02, 0x00, 0x16, 0x00, 0x1c,
+            0x00, 0x01, 0x00, 0x02, 0x00, 0x22, 0x00, 0x23, 0x00, 0x01, 0x00, 0x23, 0xff, 0xec,
+            0x00, 0x01, 0x00, 0x22, 0xff, 0xe2,
+        ];
+        let expected = expected_gpos(vec![Lookup {
+            flags: LookupFlags::empty(),
+            mark_filtering_set: None,
+            rule: Positioning::Pair(vec![PairPos {
+                mapping: btreemap!(
+                    (34,35) => (valuerecord!(xAdvance = -20),valuerecord!()),
+                    (35,34) => (valuerecord!(xAdvance = -30), valuerecord!())
+                ),
+            }]),
+        }]);
+        assert_can_roundtrip(binary_gpos, &expected);
+    }
+}
