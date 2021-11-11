@@ -116,6 +116,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
 
     loop {
         let mut do_debug = "Debug,";
+        let mut do_default = "";
         let mut do_serialize = "otspec_macros::Serialize,";
         let mut do_deserialize = "otspec_macros::Deserialize,";
         let mut embed_attr = "";
@@ -136,6 +137,8 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     do_debug = "";
                 } else if pragma == "[noserialize]" {
                     do_serialize = "";
+                } else if pragma == "[default]" {
+                    do_default = "Default,";
                 } else if pragma == "[nodeserialize]" {
                     do_deserialize = "";
                 } else {
@@ -150,10 +153,10 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
         out_s.push_str(&format!(
             "/// Low-level structure used for serializing/deserializing table\n\
             #[allow(missing_docs, non_snake_case, non_camel_case_types)]\n\
-            #[derive({} {} {} PartialEq, Clone)]\n\
+            #[derive({} {} {} {} PartialEq, Clone)]\n\
             {}\n\
             pub struct {} {{",
-            do_serialize, do_deserialize, do_debug, embed_attr, table_name,
+            do_serialize, do_deserialize, do_debug, do_default, embed_attr, table_name,
         ));
 
         let mut table_def = expect_group(iter.next(), Delimiter::Brace).into_iter();

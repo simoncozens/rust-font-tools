@@ -7,7 +7,7 @@ use otspec_macros::{tables, Deserialize, Serialize};
 use std::fmt::Debug;
 
 tables!(
-    ScriptList {
+    ScriptList [default] {
         [offset_base]
         [embed]
         Counted(ScriptRecord) scriptRecords
@@ -31,7 +31,7 @@ tables!(
         uint16	requiredFeatureIndex
         Counted(uint16) featureIndices
     }
-    FeatureList {
+    FeatureList [default] {
         [offset_base]
         [embed]
         Counted(FeatureRecord) featureRecords
@@ -62,7 +62,7 @@ tables!(
         uint16 largest
     }
 
-    MarkArray {
+    MarkArray [default] {
         [offset_base]
         [embed]
         Counted(MarkRecord) markRecords
@@ -101,21 +101,6 @@ tables!(
     }
 
 );
-
-impl Default for ScriptList {
-    fn default() -> Self {
-        ScriptList {
-            scriptRecords: vec![],
-        }
-    }
-}
-impl Default for FeatureList {
-    fn default() -> Self {
-        FeatureList {
-            featureRecords: vec![],
-        }
-    }
-}
 
 impl Debug for ScriptRecord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
