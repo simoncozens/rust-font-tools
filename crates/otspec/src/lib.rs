@@ -76,6 +76,10 @@ impl ReaderContext {
     pub fn skip(&mut self, bytes: usize) {
         self.ptr += bytes;
     }
+
+    pub fn follow_offset(&mut self, offset: uint16) {
+        self.ptr = self.top_of_table() + offset as usize;
+    }
 }
 
 pub trait Serializer<T>
