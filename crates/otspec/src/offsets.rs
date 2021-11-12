@@ -237,12 +237,21 @@ where
 
 // Vector of offsets
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct VecOffset<T, U: OffsetType> {
     pub v: Vec<Offset<T, U>>,
 }
 pub type VecOffset16<T> = VecOffset<T, u16>;
 pub type VecOffset32<T> = VecOffset<T, u32>;
+
+impl<T, U> VecOffset<T, U>
+where
+    U: OffsetType,
+{
+    pub fn push(&mut self, data: Offset<T, U>) {
+        self.v.push(data);
+    }
+}
 
 impl<T, U> Serialize for VecOffset<T, U>
 where
