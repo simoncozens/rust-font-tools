@@ -180,7 +180,13 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
                 .collect(),
             Positioning::Pair(pp) => pp
                 .iter()
-                .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
+                .map(|subtable| {
+                    subtable
+                        .to_lowlevel_subtables(max_glyph_id)
+                        .into_iter()
+                        .map(|st| Offset16::to(st))
+                })
+                .flatten()
                 .collect(),
             Positioning::Cursive(curs) => curs
                 .iter()

@@ -93,14 +93,22 @@ fn best_format(_: &PairPositioningMap) -> uint16 {
     1
 }
 
-impl ToLowlevel<GPOSSubtable> for &PairPos {
-    fn to_lowlevel(&self, max_glyph_id: GlyphID) -> GPOSSubtable {
+// We may generate more than one subtable if we go down the format2 route.
+impl PairPos {
+    pub(crate) fn to_lowlevel_subtables(&self, _max_glyph_id: GlyphID) -> Vec<GPOSSubtable> {
+        if best_format(&self.mapping) == 1 {
+            return vec![self.to_format_1()];
+        }
+        let mut subtables: Vec<GPOSSubtable> = vec![];
+        panic!()
+    }
+
+    fn to_format_1(&self) -> GPOSSubtable {
         let mut mapping = self.mapping.clone();
         for (_, (val1, val2)) in mapping.iter_mut() {
             (*val1).simplify();
             (*val2).simplify();
         }
-        let fmt = best_format(&mapping);
         let split_mapping = split_into_two_layer(mapping);
         let coverage = Coverage {
             glyphs: split_mapping.keys().copied().collect(),
@@ -113,32 +121,28 @@ impl ToLowlevel<GPOSSubtable> for &PairPos {
         let value_format_1 = highest_format(all_pair_vrs.iter().map(|x| &x.0));
         let value_format_2 = highest_format(all_pair_vrs.iter().map(|x| &x.1));
 
-        if fmt == 1 {
-            let mut pair_sets: Vec<Offset16<PairSet>> = vec![];
-            for left in &coverage.glyphs {
-                let mut pair_value_records: Vec<PairValueRecord> = vec![];
-                for (right, (vr1, vr2)) in split_mapping.get(left).unwrap() {
-                    pair_value_records.push(PairValueRecord {
-                        secondGlyph: *right,
-                        valueRecord1: vr1.clone(),
-                        valueRecord2: vr2.clone(),
-                    })
-                }
-                pair_sets.push(Offset16::to(PairSet {
-                    pairValueRecords: pair_value_records,
-                }));
+        let mut pair_sets: Vec<Offset16<PairSet>> = vec![];
+        for left in &coverage.glyphs {
+            let mut pair_value_records: Vec<PairValueRecord> = vec![];
+            for (right, (vr1, vr2)) in split_mapping.get(left).unwrap() {
+                pair_value_records.push(PairValueRecord {
+                    secondGlyph: *right,
+                    valueRecord1: vr1.clone(),
+                    valueRecord2: vr2.clone(),
+                })
             }
-            let format1: PairPosFormat1 = PairPosFormat1 {
-                posFormat: 1,
-                coverage: Offset16::to(coverage),
-                valueFormat1: value_format_1,
-                valueFormat2: value_format_2,
-                pairSets: VecOffset16 { v: pair_sets },
-            };
-            GPOSSubtable::GPOS2_1(format1)
-        } else {
-            unimplemented!()
+            pair_sets.push(Offset16::to(PairSet {
+                pairValueRecords: pair_value_records,
+            }));
         }
+        let format1: PairPosFormat1 = PairPosFormat1 {
+            posFormat: 1,
+            coverage: Offset16::to(coverage),
+            valueFormat1: value_format_1,
+            valueFormat2: value_format_2,
+            pairSets: VecOffset16 { v: pair_sets },
+        };
+        GPOSSubtable::GPOS2_1(format1)
     }
 }
 
