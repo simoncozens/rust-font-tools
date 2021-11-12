@@ -150,7 +150,13 @@ impl FromLowlevel<GPOS10> for GPOS {
                             .map(|st| SequenceContext::from_lowlevel(st, max_glyph_id))
                             .collect(),
                     ),
-                    _ => unimplemented!(),
+                    8 => Positioning::ChainedContextual(
+                        subtables
+                            .into_iter()
+                            .map(|st| ChainedSequenceContext::from_lowlevel(st, max_glyph_id))
+                            .collect(),
+                    ),
+                    x => panic!("Unknown GPOS lookup type {:?}", x),
                 };
 
                 let lookup_highlevel: Lookup<Positioning> = Lookup {
