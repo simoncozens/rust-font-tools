@@ -75,7 +75,7 @@ impl Deserialize for MarkLigPosFormat1 {
 
         let ligature_array_offset: uint16 = c.de()?;
         let mut ligature_array: LigatureArray = LigatureArray::default();
-        c.follow_offset(ligature_array_offset);
+        c.follow_offset::<LigatureArray>(ligature_array_offset)?;
         {
             // We are now at the start of the ligature array table
             c.push();
@@ -85,7 +85,7 @@ impl Deserialize for MarkLigPosFormat1 {
                 let mut component_records: Vec<ComponentRecord> = vec![];
 
                 let ligature_attach_offset: uint16 = c.de()?;
-                c.follow_offset(ligature_attach_offset);
+                c.follow_offset::<LigatureAttach>(ligature_attach_offset)?;
                 {
                     // We are now at the start of the ligature attach table
                     c.push();

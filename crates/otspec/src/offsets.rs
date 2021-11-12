@@ -197,7 +197,7 @@ impl<T: Deserialize + Debug, U: OffsetType> Deserialize for Offset<T, U> {
             });
         }
         let oldptr = c.ptr;
-        c.ptr = c.top_of_table() + off.as_();
+        c.follow_offset::<T>(off.as_().try_into().unwrap())?;
         let obj: T = c.de()?;
         c.ptr = oldptr;
         Ok(Self::new(off, obj))

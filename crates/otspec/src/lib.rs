@@ -77,8 +77,17 @@ impl ReaderContext {
         self.ptr += bytes;
     }
 
-    pub fn follow_offset(&mut self, offset: uint16) {
-        self.ptr = self.top_of_table() + offset as usize;
+    pub fn follow_offset<T>(&mut self, offset: uint16) -> Result<(), DeserializationError> {
+        let destination = self.top_of_table() + offset as usize;
+        if destination > self.input.len() {
+            return Err(DeserializationError(
+                format!("Offset fell off end of data trying to deserialize a {:?} (probably a missing [offset_base])",
+                    std::any::type_name::<T>()
+                    )
+            ));
+        }
+        self.ptr = destination;
+        Ok(())
     }
 }
 
