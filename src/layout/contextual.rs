@@ -274,6 +274,12 @@ impl FromLowlevel<GPOSSubtable> for ChainedSequenceContext {
     }
 }
 
+impl ToLowlevel<GPOSSubtable> for ChainedSequenceContext {
+    fn to_lowlevel(&self, max_glyph_id: GlyphID) -> GPOSSubtable {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
