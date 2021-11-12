@@ -1,5 +1,5 @@
 use crate::layout::common::{coverage_or_nah, FromLowlevel, ToLowlevel};
-use otspec::layout::anchor::{self, Anchor};
+use otspec::layout::anchor::Anchor;
 use otspec::layout::common::{MarkArray, MarkRecord};
 use otspec::layout::coverage::Coverage;
 use otspec::layout::gpos4::{BaseArray, BaseRecord, MarkBasePosFormat1};
@@ -44,13 +44,12 @@ impl FromLowlevel<GPOSSubtable> for MarkBasePos {
                     base_glyphs.iter().zip(base_array.baseRecords.iter())
                 {
                     let mut anchor_list: BTreeMap<uint16, Anchor> = BTreeMap::new();
-                    for (class, base_anchor) in base_record
-                        .baseAnchors
-                        .iter()
-                        .map(|x| x.link.unwrap_or_default())
-                        .enumerate()
+                    for (class, base_anchor) in
+                        base_record.baseAnchors.iter().map(|x| x.link).enumerate()
                     {
-                        anchor_list.insert(class as u16, base_anchor);
+                        if let Some(anchor) = base_anchor {
+                            anchor_list.insert(class as u16, anchor);
+                        }
                     }
                     bases.insert(base_glyph, anchor_list);
                 }
