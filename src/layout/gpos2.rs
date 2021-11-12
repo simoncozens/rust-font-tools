@@ -42,18 +42,12 @@ impl FromLowlevel<GPOSSubtable> for PairPos {
                 let classdef_1 = pairpos2.classDef1.link.unwrap_or_default();
                 let classdef_2 = pairpos2.classDef2.link.unwrap_or_default();
 
-                let mut left_class0_glyphs = coverage_or_nah(pairpos2.coverage);
-                left_class0_glyphs.retain(|g| !classdef_1.classes.contains_key(g));
-
-                let mut right_class0_glyphs: Vec<GlyphID> = (0..=max_glyph_id).collect();
-                right_class0_glyphs.retain(|g| !classdef_2.classes.contains_key(g));
-
                 for (c1, class1_record) in pairpos2.class1Records.iter().enumerate() {
-                    let left_glyphs: Vec<GlyphID> = if c1 == 0 {
-                        left_class0_glyphs.iter().copied().collect()
-                    } else {
-                        classdef_1.get_glyphs(c1 as u16).iter().copied().collect()
-                    };
+                    let left_glyphs: Vec<GlyphID> = classdef_1
+                        .get_glyphs(c1 as u16, max_glyph_id)
+                        .iter()
+                        .copied()
+                        .collect();
                     for (c2, class2_record) in class1_record.class2Records.iter().enumerate() {
                         let mut vr1 = class2_record.valueRecord1.clone();
                         vr1.simplify();
@@ -62,11 +56,11 @@ impl FromLowlevel<GPOSSubtable> for PairPos {
                         if !(vr1.has_any() || vr2.has_any()) {
                             continue;
                         }
-                        let right_glyphs: Vec<GlyphID> = if c2 == 0 {
-                            right_class0_glyphs.iter().copied().collect()
-                        } else {
-                            classdef_2.get_glyphs(c2 as u16).iter().copied().collect()
-                        };
+                        let right_glyphs: Vec<GlyphID> = classdef_2
+                            .get_glyphs(c2 as u16, max_glyph_id)
+                            .iter()
+                            .copied()
+                            .collect();
                         for left_glyph_id in &left_glyphs {
                             for right_glyph_id in &right_glyphs {
                                 pairpos.mapping.insert(

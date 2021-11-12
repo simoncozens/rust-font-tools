@@ -37,7 +37,12 @@ pub struct ClassDef {
 
 impl ClassDef {
     /// Get a set of glyph IDs corresponding to the given class
-    pub fn get_glyphs(&self, class_id: uint16) -> BTreeSet<GlyphID> {
+    pub fn get_glyphs(&self, class_id: uint16, max_glyph_id: uint16) -> BTreeSet<GlyphID> {
+        if class_id == 0 {
+            let mut glyphs: BTreeSet<GlyphID> = (0..=max_glyph_id).collect();
+            glyphs.retain(|g| !self.classes.contains_key(g));
+            return glyphs;
+        }
         // "Doing linear scans over an associative array is like trying to
         // club someone to death with a loaded Uzi." - Larry Wall
         self.classes
