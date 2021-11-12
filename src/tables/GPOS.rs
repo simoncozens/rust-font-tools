@@ -4,6 +4,7 @@ use crate::layout::gpos1::SinglePos;
 use crate::layout::gpos2::PairPos;
 use crate::layout::gpos3::CursivePos;
 use crate::layout::gpos4::MarkBasePos;
+use crate::layout::gpos5::MarkLigPos;
 use otspec::tables::GPOS::{GPOSLookup as GPOSLookupLowlevel, GPOSSubtable, GPOS10};
 // use otspec::tables::GPOS::GPOS11;
 // use crate::layout::gpos5::{MarkLigPos, MarkLigPosFormat1};
@@ -28,8 +29,7 @@ pub enum Positioning {
     /// Contains a mark-to-base rule.
     MarkToBase(Vec<MarkBasePos>),
     /// Contains a mark-to-lig rule.
-    // MarkToLig(Vec<MarkLigPos>),
-    MarkToLig,
+    MarkToLig(Vec<MarkLigPos>),
     /// Contains a mark-to-mark rule.
     // MarkToMark(Vec<MarkMarkPos>),
     MarkToMark,
@@ -49,9 +49,8 @@ impl Positioning {
             Positioning::Pair(v) => v.push(PairPos::default()),
             Positioning::Cursive(v) => v.push(CursivePos::default()),
             Positioning::MarkToBase(v) => v.push(MarkBasePos::default()),
-            Positioning::MarkToLig => todo!(),
+            Positioning::MarkToLig(v) => v.push(MarkLigPos::default()),
             Positioning::MarkToMark => todo!(),
-            // Positioning::MarkToLig(v) => v.push(MarkLigPos::default()),
             // Positioning::MarkToMark(v) => v.push(MarkMarkPos::default()),
             Positioning::Contextual(v) => v.push(SequenceContext::default()),
             Positioning::ChainedContextual(v) => v.push(ChainedSequenceContext::default()),
@@ -68,7 +67,7 @@ impl Lookup<Positioning> {
             Positioning::Pair(_) => 2,
             Positioning::Cursive(_) => 3,
             Positioning::MarkToBase(_) => 4,
-            Positioning::MarkToLig => 5,
+            Positioning::MarkToLig(_) => 5,
             Positioning::MarkToMark => 6,
             Positioning::Contextual(_) => 7,
             Positioning::ChainedContextual(_) => 8,
@@ -138,6 +137,13 @@ impl FromLowlevel<GPOS10> for GPOS {
                             .map(|st| MarkBasePos::from_lowlevel(st, max_glyph_id))
                             .collect(),
                     ),
+
+                    5 => Positioning::MarkToLig(
+                        subtables
+                            .into_iter()
+                            .map(|st| MarkLigPos::from_lowlevel(st, max_glyph_id))
+                            .collect(),
+                    ),
                     _ => unimplemented!(),
                 };
 
@@ -176,7 +182,10 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
                 .iter()
                 .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
                 .collect(),
-            Positioning::MarkToLig => todo!(),
+            Positioning::MarkToLig(marklig) => marklig
+                .iter()
+                .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
+                .collect(),
             Positioning::MarkToMark => todo!(),
             Positioning::Contextual(_) => todo!(),
             Positioning::ChainedContextual(_) => todo!(),

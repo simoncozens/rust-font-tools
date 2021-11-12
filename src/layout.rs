@@ -10,6 +10,8 @@ pub mod gpos2;
 pub mod gpos3;
 /// GPOS4 mark-to-base positioning
 pub mod gpos4;
+/// GPOS5 mark-to-ligature positioning
+pub mod gpos5;
 /// GSUB1 single substitution
 pub mod gsub1;
 /// GSUB2 multiple substitution
