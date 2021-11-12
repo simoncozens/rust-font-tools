@@ -144,6 +144,12 @@ impl FromLowlevel<GPOS10> for GPOS {
                             .map(|st| MarkLigPos::from_lowlevel(st, max_glyph_id))
                             .collect(),
                     ),
+                    7 => Positioning::Contextual(
+                        subtables
+                            .into_iter()
+                            .map(|st| SequenceContext::from_lowlevel(st, max_glyph_id))
+                            .collect(),
+                    ),
                     _ => unimplemented!(),
                 };
 
