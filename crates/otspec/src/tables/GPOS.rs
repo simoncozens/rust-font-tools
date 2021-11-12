@@ -9,6 +9,7 @@ use crate::layout::gpos2::{deserialize_gpos2, PairPosFormat1, PairPosFormat2};
 use crate::layout::gpos3::CursivePosFormat1;
 use crate::layout::gpos4::MarkBasePosFormat1;
 use crate::layout::gpos5::MarkLigPosFormat1;
+use crate::layout::gpos6::MarkMarkPosFormat1;
 use crate::{Deserialize, Serialize, Serializer};
 use otspec::types::*;
 use otspec::Deserializer;
@@ -111,6 +112,10 @@ impl Deserialize for GPOSLookup {
                     let marklig: MarkLigPosFormat1 = c.de()?;
                     GPOSSubtable::GPOS5_1(marklig)
                 }
+                6 => {
+                    let markmark: MarkMarkPosFormat1 = c.de()?;
+                    GPOSSubtable::GPOS6_1(markmark)
+                }
                 7 => deserialize_gpos7(c)?,
                 8 => deserialize_gpos8(c)?,
                 _ => {
@@ -146,6 +151,7 @@ pub enum GPOSSubtable {
     GPOS3_1(CursivePosFormat1),
     GPOS4_1(MarkBasePosFormat1),
     GPOS5_1(MarkLigPosFormat1),
+    GPOS6_1(MarkMarkPosFormat1),
     GPOS7_1(SequenceContextFormat1),
     GPOS7_2(SequenceContextFormat2),
     GPOS7_3(SequenceContextFormat3),
@@ -163,6 +169,7 @@ fn smash_it(g: &GPOSSubtable) -> &dyn Serialize {
         GPOSSubtable::GPOS3_1(x) => x,
         GPOSSubtable::GPOS4_1(x) => x,
         GPOSSubtable::GPOS5_1(x) => x,
+        GPOSSubtable::GPOS6_1(x) => x,
         GPOSSubtable::GPOS7_1(x) => x,
         GPOSSubtable::GPOS7_2(x) => x,
         GPOSSubtable::GPOS7_3(x) => x,

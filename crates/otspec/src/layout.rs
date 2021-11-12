@@ -20,5 +20,7 @@ pub mod gpos3;
 pub mod gpos4;
 /// GPOS5 mark-to-ligature positioning
 pub mod gpos5;
+/// GPOS5 mark-to-mark positioning
+pub mod gpos6;
 /// GPOS value records
 pub mod valuerecord;
