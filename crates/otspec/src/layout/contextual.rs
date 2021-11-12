@@ -98,11 +98,13 @@ pub struct SequenceContextFormat3 {
 impl Deserialize for SequenceContextFormat3 {
     #[allow(non_snake_case)]
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        c.push();
         let format: uint16 = c.de()?;
         let glyphCount: uint16 = c.de()?;
         let seqLookupCount: uint16 = c.de()?;
         let coverages: Vec<Offset16<Coverage>> = c.de_counted(glyphCount as usize)?;
         let seqLookupRecords: Vec<SequenceLookupRecord> = c.de_counted(seqLookupCount as usize)?;
+        c.pop();
         Ok(SequenceContextFormat3 {
             format,
             glyphCount,
