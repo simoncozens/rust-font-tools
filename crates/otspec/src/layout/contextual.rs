@@ -57,7 +57,7 @@ tables!(
         CountedOffset16(Coverage) backtrackCoverages
         CountedOffset16(Coverage) inputCoverages
         CountedOffset16(Coverage) lookaheadCoverages
-        Counted(SequenceLookupRecord) sequenceLookupRecords
+        Counted(SequenceLookupRecord) seqLookupRecords
     }
 );
 

@@ -184,7 +184,7 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
                     subtable
                         .to_lowlevel_subtables(max_glyph_id)
                         .into_iter()
-                        .map(|st| Offset16::to(st))
+                        .map(Offset16::to)
                 })
                 .flatten()
                 .collect(),
@@ -206,11 +206,23 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
                 .collect(),
             Positioning::Contextual(contextual) => contextual
                 .iter()
-                .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
+                .map(|subtable| {
+                    subtable
+                        .to_lowlevel_subtables(max_glyph_id)
+                        .into_iter()
+                        .map(Offset16::to)
+                })
+                .flatten()
                 .collect(),
             Positioning::ChainedContextual(chainedcontextual) => chainedcontextual
                 .iter()
-                .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
+                .map(|subtable| {
+                    subtable
+                        .to_lowlevel_subtables(max_glyph_id)
+                        .into_iter()
+                        .map(Offset16::to)
+                })
+                .flatten()
                 .collect(),
             Positioning::Extension => panic!("This can't happen"),
         };

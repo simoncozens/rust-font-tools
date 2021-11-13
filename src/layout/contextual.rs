@@ -128,9 +128,42 @@ impl FromLowlevel<GPOSSubtable> for SequenceContext {
     }
 }
 
-impl ToLowlevel<GPOSSubtable> for SequenceContext {
-    fn to_lowlevel(&self, max_glyph_id: GlyphID) -> GPOSSubtable {
-        todo!()
+impl SequenceContext {
+    fn to_format3(&self) -> Vec<SequenceContextFormat3> {
+        self.rules
+            .iter()
+            .map(|rule| {
+                let mut coverages: Vec<Offset16<Coverage>> = vec![];
+
+                let mut sequence_lookup_records: Vec<SequenceLookupRecord> = vec![];
+
+                for (ix, (slot, lookup_ids)) in rule.iter().enumerate() {
+                    coverages.push(Offset16::to(Coverage {
+                        glyphs: slot.iter().copied().collect(),
+                    }));
+                    for lookup_id in lookup_ids {
+                        sequence_lookup_records.push(SequenceLookupRecord {
+                            sequenceIndex: ix as uint16,
+                            lookupIndex: *lookup_id,
+                        });
+                    }
+                }
+                SequenceContextFormat3 {
+                    format: 3,
+                    glyphCount: rule.len() as uint16,
+                    seqLookupCount: sequence_lookup_records.len() as uint16,
+                    seqLookupRecords: sequence_lookup_records,
+                    coverages,
+                }
+            })
+            .collect()
+    }
+
+    pub(crate) fn to_lowlevel_subtables(&self, _max_glyph_id: GlyphID) -> Vec<GPOSSubtable> {
+        self.to_format3()
+            .into_iter()
+            .map(|x| GPOSSubtable::GPOS7_3(x))
+            .collect()
     }
 }
 
@@ -251,7 +284,7 @@ impl ChainedSequenceContext {
                     .into_iter()
                     .map(coverage_to_slot)
                     .collect(),
-                input: collate_lookup_records(slots, &st.sequenceLookupRecords),
+                input: collate_lookup_records(slots, &st.seqLookupRecords),
             });
         chained_sequence_context
     }
@@ -274,9 +307,60 @@ impl FromLowlevel<GPOSSubtable> for ChainedSequenceContext {
     }
 }
 
-impl ToLowlevel<GPOSSubtable> for ChainedSequenceContext {
-    fn to_lowlevel(&self, max_glyph_id: GlyphID) -> GPOSSubtable {
-        todo!()
+impl ChainedSequenceContext {
+    fn to_format3(&self) -> Vec<ChainedSequenceContextFormat3> {
+        self.rules
+            .iter()
+            .map(|rule| {
+                let mut coverages: Vec<Offset16<Coverage>> = vec![];
+                let mut lookaheadCoverages: Vec<Offset16<Coverage>> = rule
+                    .lookahead
+                    .iter()
+                    .map(|slot| {
+                        Offset16::to(Coverage {
+                            glyphs: slot.iter().copied().collect(),
+                        })
+                    })
+                    .collect();
+                let mut backtrackCoverages: Vec<Offset16<Coverage>> = rule
+                    .backtrack
+                    .iter()
+                    .map(|slot| {
+                        Offset16::to(Coverage {
+                            glyphs: slot.iter().copied().collect(),
+                        })
+                    })
+                    .collect();
+
+                let mut sequence_lookup_records: Vec<SequenceLookupRecord> = vec![];
+
+                for (ix, (slot, lookup_ids)) in rule.input.iter().enumerate() {
+                    coverages.push(Offset16::to(Coverage {
+                        glyphs: slot.iter().copied().collect(),
+                    }));
+                    for lookup_id in lookup_ids {
+                        sequence_lookup_records.push(SequenceLookupRecord {
+                            sequenceIndex: ix as uint16,
+                            lookupIndex: *lookup_id,
+                        });
+                    }
+                }
+                ChainedSequenceContextFormat3 {
+                    format: 3,
+                    inputCoverages: coverages.into(),
+                    seqLookupRecords: sequence_lookup_records,
+                    backtrackCoverages: backtrackCoverages.into(),
+                    lookaheadCoverages: lookaheadCoverages.into(),
+                }
+            })
+            .collect()
+    }
+
+    pub(crate) fn to_lowlevel_subtables(&self, _max_glyph_id: GlyphID) -> Vec<GPOSSubtable> {
+        self.to_format3()
+            .into_iter()
+            .map(GPOSSubtable::GPOS8_3)
+            .collect()
     }
 }
 
@@ -539,6 +623,6 @@ mod tests {
                 }],
             }]),
         }]);
-        assert_can_deserialize(binary_gpos, &expected);
+        assert_can_roundtrip(binary_gpos, &expected);
     }
 }
