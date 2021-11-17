@@ -1,6 +1,7 @@
 use crate::layout::common::{FromLowlevel, Lookup, ToLowlevel, GPOSGSUB};
 use crate::layout::contextual::{ChainedSequenceContext, SequenceContext};
 use crate::layout::gsub1::SingleSubst;
+use crate::layout::gsub2::MultipleSubst;
 use otspec::tables::GSUB::{GSUBLookup as GSUBLookupLowlevel, GSUBSubtable, GSUB10};
 use otspec::types::*;
 use otspec::{DeserializationError, Deserializer, ReaderContext, SerializationError, Serialize};
@@ -15,6 +16,9 @@ pub const TAG: Tag = crate::tag!("GSUB");
 pub enum Substitution {
     /// Contains a single substitution rule.
     Single(Vec<SingleSubst>),
+    /// Contains a multiple substitution rule.
+    Multiple(Vec<MultipleSubst>),
+
     /// Contains a contextual substitution rule.
     Contextual(Vec<SequenceContext>),
     /// Contains a chained contextual substitution rule.
@@ -28,6 +32,7 @@ impl Substitution {
     pub fn add_subtable_break(&mut self) {
         match self {
             Substitution::Single(v) => v.push(SingleSubst::default()),
+            Substitution::Multiple(v) => v.push(MultipleSubst::default()),
             Substitution::Contextual(v) => v.push(SequenceContext::default()),
             Substitution::ChainedContextual(v) => v.push(ChainedSequenceContext::default()),
             Substitution::Extension => todo!(),
@@ -40,6 +45,7 @@ impl Lookup<Substitution> {
     pub fn lookup_type(&self) -> u16 {
         match &self.rule {
             Substitution::Single(_) => 1,
+            Substitution::Multiple(_) => 2,
             Substitution::Contextual(_) => 7,
             Substitution::ChainedContextual(_) => 8,
             Substitution::Extension => 9,
@@ -90,6 +96,12 @@ impl FromLowlevel<GSUB10> for GSUB {
                             .map(|st| SingleSubst::from_lowlevel(st, max_glyph_id))
                             .collect(),
                     ),
+                    2 => Substitution::Multiple(
+                        subtables
+                            .into_iter()
+                            .map(|st| MultipleSubst::from_lowlevel(st, max_glyph_id))
+                            .collect(),
+                    ),
                     5 => Substitution::Contextual(
                         subtables
                             .into_iter()
@@ -124,7 +136,11 @@ impl FromLowlevel<GSUB10> for GSUB {
 impl ToLowlevel<GSUBLookupLowlevel> for Lookup<Substitution> {
     fn to_lowlevel(&self, max_glyph_id: GlyphID) -> GSUBLookupLowlevel {
         let subtables: Vec<Offset16<GSUBSubtable>> = match &self.rule {
-            Substitution::Single(sp) => sp
+            Substitution::Single(ss) => ss
+                .iter()
+                .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
+                .collect(),
+            Substitution::Multiple(ms) => ms
                 .iter()
                 .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
                 .collect(),

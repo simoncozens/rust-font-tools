@@ -1,5 +1,5 @@
-use crate::layout::gsub2::{MultipleSubstFormat1, Sequence};
 use otspec::layout::coverage::Coverage;
+use otspec::layout::gsub2::{MultipleSubstFormat1, Sequence};
 use otspec::types::*;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
