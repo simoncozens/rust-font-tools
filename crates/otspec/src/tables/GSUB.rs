@@ -32,6 +32,14 @@ tables! {
         [offset_base]
         CountedOffset16(GSUBLookup) lookups
     }
+
+    ExtensionSubstFormat1 [nodeserialize] {
+        [offset_base]
+        uint16  substFormat
+        uint16  extensionLookupType
+        Offset32(GSUBSubtable) extension
+    }
+
 }
 
 impl Default for GSUBLookupList {
@@ -81,6 +89,37 @@ impl Serialize for GSUBLookup {
             }
     }
 }
+
+impl GSUBSubtable {
+    fn deserialize(
+        c: &mut crate::ReaderContext,
+        lookup_type: uint16,
+    ) -> Result<Self, crate::DeserializationError> {
+        Ok(match lookup_type {
+            1 => deserialize_gsub1(c)?,
+            2 => {
+                let multiple: MultipleSubstFormat1 = c.de()?;
+                GSUBSubtable::GSUB2_1(multiple)
+            }
+            3 => {
+                let alternate: AlternateSubstFormat1 = c.de()?;
+                GSUBSubtable::GSUB3_1(alternate)
+            }
+            4 => {
+                let ligature: LigatureSubstFormat1 = c.de()?;
+                GSUBSubtable::GSUB4_1(ligature)
+            }
+            5 => deserialize_gsub5(c)?,
+            6 => deserialize_gsub6(c)?,
+            7 => {
+                let extension: ExtensionSubstFormat1 = c.de()?;
+                GSUBSubtable::GSUB7_1(Box::new(extension))
+            }
+            _ => panic!(),
+        })
+    }
+}
+
 impl Deserialize for GSUBLookup {
     fn from_bytes(c: &mut crate::ReaderContext) -> Result<Self, crate::DeserializationError>
     where
@@ -95,26 +134,7 @@ impl Deserialize for GSUBLookup {
             let off: uint16 = c.de()?;
             let save = c.ptr;
             c.ptr = c.top_of_table() + off as usize;
-            let subtable = match lookup_type {
-                1 => deserialize_gsub1(c)?,
-                2 => {
-                    let multiple: MultipleSubstFormat1 = c.de()?;
-                    GSUBSubtable::GSUB2_1(multiple)
-                }
-                3 => {
-                    let alternate: AlternateSubstFormat1 = c.de()?;
-                    GSUBSubtable::GSUB3_1(alternate)
-                }
-                4 => {
-                    let ligature: LigatureSubstFormat1 = c.de()?;
-                    GSUBSubtable::GSUB4_1(ligature)
-                }
-                5 => deserialize_gsub5(c)?,
-                6 => deserialize_gsub6(c)?,
-                _ => {
-                    unimplemented!()
-                }
-            };
+            let subtable = GSUBSubtable::deserialize(c, lookup_type)?;
             subtables.push(Offset16::new(off, subtable));
             c.ptr = save;
         }
@@ -134,9 +154,35 @@ impl Deserialize for GSUBLookup {
     }
 }
 
+impl Deserialize for ExtensionSubstFormat1 {
+    fn from_bytes(c: &mut crate::ReaderContext) -> Result<Self, crate::DeserializationError> {
+        c.push();
+        let subst_format: uint16 = c.de()?;
+        let extension_lookup_type: uint16 = c.de()?;
+        if !(0..=6).contains(&extension_lookup_type) {
+            return Err(crate::DeserializationError(format!(
+                "Bad GSUB extension lookup type {:?}",
+                extension_lookup_type
+            )));
+        }
+
+        let off: uint32 = c.de()?;
+        let save = c.ptr;
+        c.ptr = c.top_of_table() + off as usize;
+        let subtable = GSUBSubtable::deserialize(c, extension_lookup_type)?;
+        c.ptr = save;
+
+        c.pop();
+        Ok(ExtensionSubstFormat1 {
+            substFormat: subst_format,
+            extensionLookupType: extension_lookup_type,
+            extension: Offset32::new(off, subtable),
+        })
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum GSUBSubtable {
-    /// Contains a single positioning rule.
     GSUB1_1(SingleSubstFormat1),
     GSUB1_2(SingleSubstFormat2),
     GSUB2_1(MultipleSubstFormat1),
@@ -148,6 +194,7 @@ pub enum GSUBSubtable {
     GSUB6_1(ChainedSequenceContextFormat1),
     GSUB6_2(ChainedSequenceContextFormat2),
     GSUB6_3(ChainedSequenceContextFormat3),
+    GSUB7_1(Box<ExtensionSubstFormat1>),
 }
 
 fn smash_it(g: &GSUBSubtable) -> &dyn Serialize {
@@ -163,6 +210,7 @@ fn smash_it(g: &GSUBSubtable) -> &dyn Serialize {
         GSUBSubtable::GSUB6_1(x) => x,
         GSUBSubtable::GSUB6_2(x) => x,
         GSUBSubtable::GSUB6_3(x) => x,
+        GSUBSubtable::GSUB7_1(x) => x.as_ref(),
     }
 }
 

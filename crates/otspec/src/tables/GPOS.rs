@@ -34,6 +34,13 @@ tables! {
         [offset_base]
         CountedOffset16(GPOSLookup) lookups
     }
+
+    ExtensionPosFormat1 [nodeserialize] {
+        [offset_base]
+        uint16  substFormat
+        uint16  extensionLookupType
+        Offset32(GPOSSubtable) extension
+    }
 }
 
 impl Default for GPOSLookupList {
@@ -83,6 +90,43 @@ impl Serialize for GPOSLookup {
             }
     }
 }
+
+impl GPOSSubtable {
+    fn deserialize(
+        c: &mut crate::ReaderContext,
+        lookup_type: uint16,
+    ) -> Result<Self, crate::DeserializationError> {
+        Ok(match lookup_type {
+            1 => deserialize_gpos1(c)?,
+            2 => deserialize_gpos2(c)?,
+            3 => {
+                let cursive: CursivePosFormat1 = c.de()?;
+                GPOSSubtable::GPOS3_1(cursive)
+            }
+            4 => {
+                let markbase: MarkBasePosFormat1 = c.de()?;
+                GPOSSubtable::GPOS4_1(markbase)
+            }
+            5 => {
+                let marklig: MarkLigPosFormat1 = c.de()?;
+                GPOSSubtable::GPOS5_1(marklig)
+            }
+            6 => {
+                let markmark: MarkMarkPosFormat1 = c.de()?;
+                GPOSSubtable::GPOS6_1(markmark)
+            }
+            7 => deserialize_gpos7(c)?,
+            8 => deserialize_gpos8(c)?,
+            9 => {
+                let extension: ExtensionPosFormat1 = c.de()?;
+                GPOSSubtable::GPOS9_1(Box::new(extension))
+            }
+            _ => {
+                unimplemented!()
+            }
+        })
+    }
+}
 impl Deserialize for GPOSLookup {
     fn from_bytes(c: &mut crate::ReaderContext) -> Result<Self, crate::DeserializationError>
     where
@@ -97,31 +141,8 @@ impl Deserialize for GPOSLookup {
             let off: uint16 = c.de()?;
             let save = c.ptr;
             c.ptr = c.top_of_table() + off as usize;
-            let subtable = match lookup_type {
-                1 => deserialize_gpos1(c)?,
-                2 => deserialize_gpos2(c)?,
-                3 => {
-                    let cursive: CursivePosFormat1 = c.de()?;
-                    GPOSSubtable::GPOS3_1(cursive)
-                }
-                4 => {
-                    let markbase: MarkBasePosFormat1 = c.de()?;
-                    GPOSSubtable::GPOS4_1(markbase)
-                }
-                5 => {
-                    let marklig: MarkLigPosFormat1 = c.de()?;
-                    GPOSSubtable::GPOS5_1(marklig)
-                }
-                6 => {
-                    let markmark: MarkMarkPosFormat1 = c.de()?;
-                    GPOSSubtable::GPOS6_1(markmark)
-                }
-                7 => deserialize_gpos7(c)?,
-                8 => deserialize_gpos8(c)?,
-                _ => {
-                    unimplemented!()
-                }
-            };
+            let subtable = GPOSSubtable::deserialize(c, lookup_type)?;
+
             subtables.push(Offset16::new(off, subtable));
             c.ptr = save;
         }
@@ -137,6 +158,33 @@ impl Deserialize for GPOSLookup {
             lookupFlag: lookup_flag,
             subtables: subtables.into(),
             markFilteringSet: mark_filtering_set,
+        })
+    }
+}
+
+impl Deserialize for ExtensionPosFormat1 {
+    fn from_bytes(c: &mut crate::ReaderContext) -> Result<Self, crate::DeserializationError> {
+        c.push();
+        let subst_format: uint16 = c.de()?;
+        let extension_lookup_type: uint16 = c.de()?;
+        if !(0..=6).contains(&extension_lookup_type) {
+            return Err(crate::DeserializationError(format!(
+                "Bad GSUB extension lookup type {:?}",
+                extension_lookup_type
+            )));
+        }
+
+        let off: uint32 = c.de()?;
+        let save = c.ptr;
+        c.ptr = c.top_of_table() + off as usize;
+        let subtable = GPOSSubtable::deserialize(c, extension_lookup_type)?;
+        c.ptr = save;
+
+        c.pop();
+        Ok(ExtensionPosFormat1 {
+            substFormat: subst_format,
+            extensionLookupType: extension_lookup_type,
+            extension: Offset32::new(off, subtable),
         })
     }
 }
@@ -158,6 +206,7 @@ pub enum GPOSSubtable {
     GPOS8_1(ChainedSequenceContextFormat1),
     GPOS8_2(ChainedSequenceContextFormat2),
     GPOS8_3(ChainedSequenceContextFormat3),
+    GPOS9_1(Box<ExtensionPosFormat1>),
 }
 
 fn smash_it(g: &GPOSSubtable) -> &dyn Serialize {
@@ -176,6 +225,7 @@ fn smash_it(g: &GPOSSubtable) -> &dyn Serialize {
         GPOSSubtable::GPOS8_1(x) => x,
         GPOSSubtable::GPOS8_2(x) => x,
         GPOSSubtable::GPOS8_3(x) => x,
+        GPOSSubtable::GPOS9_1(x) => x.as_ref(),
     }
 }
 

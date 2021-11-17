@@ -6,8 +6,11 @@ use crate::layout::gpos3::CursivePos;
 use crate::layout::gpos4::MarkBasePos;
 use crate::layout::gpos5::MarkLigPos;
 use crate::layout::gpos6::MarkMarkPos;
-use otspec::tables::GPOS::{GPOSLookup as GPOSLookupLowlevel, GPOSSubtable, GPOS10};
+use otspec::tables::GPOS::{
+    ExtensionPosFormat1, GPOSLookup as GPOSLookupLowlevel, GPOSSubtable, GPOS10,
+};
 use otspec::types::*;
+use otspec::utils::is_all_the_same;
 use otspec::{DeserializationError, Deserializer, ReaderContext, SerializationError, Serialize};
 
 /// The 'GPOS' OpenType tag.
@@ -95,6 +98,87 @@ pub(crate) fn from_bytes(
     }
 }
 
+fn extension_from_lowlevel(subtables: Vec<GPOSSubtable>, max_glyph_id: GlyphID) -> Positioning {
+    // Unwrap the subtable enum
+    let extension_tables: Vec<ExtensionPosFormat1> = subtables
+        .into_iter()
+        .map(|st| {
+            if let GPOSSubtable::GPOS9_1(boxed_st) = st {
+                *boxed_st
+            } else {
+                panic!("Found a thing in an extension lookup which wasn't an extension subtable")
+            }
+        })
+        .collect();
+    if !is_all_the_same(extension_tables.iter().map(|st| st.extensionLookupType)) {
+        panic!("Mismatched extension lookup types in extension subtable")
+    }
+    let lookup_type = extension_tables
+        .iter()
+        .map(|st| st.extensionLookupType)
+        .next()
+        .expect("No extension subtables in extension lookup");
+    let inner_subtables: Vec<GPOSSubtable> = extension_tables
+        .into_iter()
+        .map(|st| st.extension.link.unwrap())
+        .collect();
+    subtables_from_lowlevel(lookup_type, inner_subtables, max_glyph_id)
+}
+
+fn subtables_from_lowlevel(
+    lookup_type: uint16,
+    subtables: Vec<GPOSSubtable>,
+    max_glyph_id: GlyphID,
+) -> Positioning {
+    match lookup_type {
+        1 => Positioning::Single(
+            subtables
+                .into_iter()
+                .map(|st| SinglePos::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+        2 => Positioning::Pair(
+            subtables
+                .into_iter()
+                .map(|st| PairPos::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+        3 => Positioning::Cursive(
+            subtables
+                .into_iter()
+                .map(|st| CursivePos::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+        4 => Positioning::MarkToBase(
+            subtables
+                .into_iter()
+                .map(|st| MarkBasePos::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+
+        5 => Positioning::MarkToLig(
+            subtables
+                .into_iter()
+                .map(|st| MarkLigPos::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+        7 => Positioning::Contextual(
+            subtables
+                .into_iter()
+                .map(|st| SequenceContext::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+        8 => Positioning::ChainedContextual(
+            subtables
+                .into_iter()
+                .map(|st| ChainedSequenceContext::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+        9 => extension_from_lowlevel(subtables, max_glyph_id),
+        x => panic!("Unknown GPOS lookup type {:?}", x),
+    }
+}
+
 impl FromLowlevel<GPOS10> for GPOS {
     fn from_lowlevel(val: GPOS10, max_glyph_id: GlyphID) -> Self {
         let lookup_list_lowlevel = val.lookupList.link.unwrap_or_default();
@@ -108,52 +192,8 @@ impl FromLowlevel<GPOS10> for GPOS {
                     .map(|x| x.link.clone())
                     .flatten()
                     .collect();
-                let theirs = match lookup_lowlevel.lookupType {
-                    1 => Positioning::Single(
-                        subtables
-                            .into_iter()
-                            .map(|st| SinglePos::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-                    2 => Positioning::Pair(
-                        subtables
-                            .into_iter()
-                            .map(|st| PairPos::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-                    3 => Positioning::Cursive(
-                        subtables
-                            .into_iter()
-                            .map(|st| CursivePos::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-                    4 => Positioning::MarkToBase(
-                        subtables
-                            .into_iter()
-                            .map(|st| MarkBasePos::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-
-                    5 => Positioning::MarkToLig(
-                        subtables
-                            .into_iter()
-                            .map(|st| MarkLigPos::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-                    7 => Positioning::Contextual(
-                        subtables
-                            .into_iter()
-                            .map(|st| SequenceContext::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-                    8 => Positioning::ChainedContextual(
-                        subtables
-                            .into_iter()
-                            .map(|st| ChainedSequenceContext::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-                    x => panic!("Unknown GPOS lookup type {:?}", x),
-                };
+                let theirs =
+                    subtables_from_lowlevel(lookup_lowlevel.lookupType, subtables, max_glyph_id);
 
                 let lookup_highlevel: Lookup<Positioning> = Lookup {
                     flags: lookup_lowlevel.lookupFlag,

@@ -4,8 +4,11 @@ use crate::layout::gsub1::SingleSubst;
 use crate::layout::gsub2::MultipleSubst;
 use crate::layout::gsub3::AlternateSubst;
 use crate::layout::gsub4::LigatureSubst;
-use otspec::tables::GSUB::{GSUBLookup as GSUBLookupLowlevel, GSUBSubtable, GSUB10};
+use otspec::tables::GSUB::{
+    ExtensionSubstFormat1, GSUBLookup as GSUBLookupLowlevel, GSUBSubtable, GSUB10,
+};
 use otspec::types::*;
+use otspec::utils::is_all_the_same;
 use otspec::{DeserializationError, Deserializer, ReaderContext, SerializationError, Serialize};
 
 /// The 'GSUB' OpenType tag.
@@ -86,6 +89,80 @@ pub(crate) fn from_bytes(
     }
 }
 
+fn extension_from_lowlevel(subtables: Vec<GSUBSubtable>, max_glyph_id: GlyphID) -> Substitution {
+    // Unwrap the subtable enum
+    let extension_tables: Vec<ExtensionSubstFormat1> = subtables
+        .into_iter()
+        .map(|st| {
+            if let GSUBSubtable::GSUB7_1(boxed_st) = st {
+                *boxed_st
+            } else {
+                panic!("Found a thing in an extension lookup which wasn't an extension subtable")
+            }
+        })
+        .collect();
+    if !is_all_the_same(extension_tables.iter().map(|st| st.extensionLookupType)) {
+        panic!("Mismatched extension lookup types in extension subtable")
+    }
+    let lookup_type = extension_tables
+        .iter()
+        .map(|st| st.extensionLookupType)
+        .next()
+        .expect("No extension subtables in extension lookup");
+    let inner_subtables: Vec<GSUBSubtable> = extension_tables
+        .into_iter()
+        .map(|st| st.extension.link.unwrap())
+        .collect();
+    subtables_from_lowlevel(lookup_type, inner_subtables, max_glyph_id)
+}
+
+fn subtables_from_lowlevel(
+    lookup_type: uint16,
+    subtables: Vec<GSUBSubtable>,
+    max_glyph_id: GlyphID,
+) -> Substitution {
+    match lookup_type {
+        1 => Substitution::Single(
+            subtables
+                .into_iter()
+                .map(|st| SingleSubst::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+        2 => Substitution::Multiple(
+            subtables
+                .into_iter()
+                .map(|st| MultipleSubst::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+        3 => Substitution::Alternate(
+            subtables
+                .into_iter()
+                .map(|st| AlternateSubst::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+        4 => Substitution::Ligature(
+            subtables
+                .into_iter()
+                .map(|st| LigatureSubst::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+        5 => Substitution::Contextual(
+            subtables
+                .into_iter()
+                .map(|st| SequenceContext::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+        6 => Substitution::ChainedContextual(
+            subtables
+                .into_iter()
+                .map(|st| ChainedSequenceContext::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
+        7 => extension_from_lowlevel(subtables, max_glyph_id),
+        x => panic!("Unknown GSUB lookup type {:?}", x),
+    }
+}
+
 impl FromLowlevel<GSUB10> for GSUB {
     fn from_lowlevel(val: GSUB10, max_glyph_id: GlyphID) -> Self {
         let lookup_list_lowlevel = val.lookupList.link.unwrap_or_default();
@@ -99,46 +176,8 @@ impl FromLowlevel<GSUB10> for GSUB {
                     .map(|x| x.link.clone())
                     .flatten()
                     .collect();
-                let theirs = match lookup_lowlevel.lookupType {
-                    1 => Substitution::Single(
-                        subtables
-                            .into_iter()
-                            .map(|st| SingleSubst::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-                    2 => Substitution::Multiple(
-                        subtables
-                            .into_iter()
-                            .map(|st| MultipleSubst::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-                    3 => Substitution::Alternate(
-                        subtables
-                            .into_iter()
-                            .map(|st| AlternateSubst::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-                    4 => Substitution::Ligature(
-                        subtables
-                            .into_iter()
-                            .map(|st| LigatureSubst::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-                    5 => Substitution::Contextual(
-                        subtables
-                            .into_iter()
-                            .map(|st| SequenceContext::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-                    6 => Substitution::ChainedContextual(
-                        subtables
-                            .into_iter()
-                            .map(|st| ChainedSequenceContext::from_lowlevel(st, max_glyph_id))
-                            .collect(),
-                    ),
-                    x => panic!("Unknown GSUB lookup type {:?}", x),
-                };
-
+                let theirs =
+                    subtables_from_lowlevel(lookup_lowlevel.lookupType, subtables, max_glyph_id);
                 let lookup_highlevel: Lookup<Substitution> = Lookup {
                     flags: lookup_lowlevel.lookupFlag,
                     mark_filtering_set: lookup_lowlevel.markFilteringSet,
@@ -272,5 +311,27 @@ pub(crate) mod tests {
         let mut gsub_data = vec![];
         to_bytes(&gsub, &mut gsub_data, 200).unwrap();
         assert_eq!(gsub_data, binary_gsub);
+    }
+
+    #[test]
+    fn test_extension_deserialize() {
+        let binary_gsub = vec![
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x1e, 0x00, 0x2c, 0x00, 0x01, 0x44, 0x46,
+            0x4c, 0x54, 0x00, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x74, 0x65, 0x73, 0x74, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x00, 0x07, /* lookup type 7 = extension */
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x08, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x08,
+            0x00, 0x01, 0x00, 0x06, 0x00, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x42,
+        ];
+        let expected = expected_gsub(vec![Lookup {
+            flags: LookupFlags::empty(),
+            mark_filtering_set: None,
+            rule: Substitution::Single(vec![SingleSubst {
+                mapping: btreemap!(
+                    66 => 67
+                ),
+            }]),
+        }]);
+        assert_can_deserialize(binary_gsub, &expected);
     }
 }
