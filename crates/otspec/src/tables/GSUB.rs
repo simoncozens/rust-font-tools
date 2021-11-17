@@ -8,6 +8,7 @@ use crate::layout::gsub1::{deserialize_gsub1, SingleSubstFormat1, SingleSubstFor
 use crate::layout::gsub2::MultipleSubstFormat1;
 use crate::layout::gsub3::AlternateSubstFormat1;
 use crate::layout::gsub4::LigatureSubstFormat1;
+use crate::layout::gsub8::ReverseChainSingleSubstFormat1;
 use crate::{Deserialize, Serialize, Serializer};
 use otspec::types::*;
 use otspec::Deserializer;
@@ -115,6 +116,10 @@ impl GSUBSubtable {
                 let extension: ExtensionSubstFormat1 = c.de()?;
                 GSUBSubtable::GSUB7_1(Box::new(extension))
             }
+            8 => {
+                let reverse: ReverseChainSingleSubstFormat1 = c.de()?;
+                GSUBSubtable::GSUB8_1(reverse)
+            }
             _ => panic!(),
         })
     }
@@ -195,6 +200,7 @@ pub enum GSUBSubtable {
     GSUB6_2(ChainedSequenceContextFormat2),
     GSUB6_3(ChainedSequenceContextFormat3),
     GSUB7_1(Box<ExtensionSubstFormat1>),
+    GSUB8_1(ReverseChainSingleSubstFormat1),
 }
 
 fn smash_it(g: &GSUBSubtable) -> &dyn Serialize {
@@ -211,6 +217,7 @@ fn smash_it(g: &GSUBSubtable) -> &dyn Serialize {
         GSUBSubtable::GSUB6_2(x) => x,
         GSUBSubtable::GSUB6_3(x) => x,
         GSUBSubtable::GSUB7_1(x) => x.as_ref(),
+        GSUBSubtable::GSUB8_1(x) => x,
     }
 }
 
