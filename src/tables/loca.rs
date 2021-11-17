@@ -17,7 +17,7 @@ pub struct loca {
     pub indices: Vec<Option<u32>>,
 }
 
-pub fn from_bytes(
+pub(crate) fn from_bytes(
     c: &mut ReaderContext,
     loca_is_32bit: bool,
 ) -> Result<loca, DeserializationError> {

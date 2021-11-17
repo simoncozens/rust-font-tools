@@ -168,11 +168,17 @@ pub struct Lookup<T> {
 
 // GPOS and GSUB tables
 #[derive(Debug, PartialEq, Clone, Default)]
+/// A list of features within a GPOS or GSUB table
+///
+/// Associates a feature tag with a set of lookup IDs, and optional feature
+// parameters
 pub struct FeatureList(Vec<(Tag, Vec<usize>, Option<FeatureParams>)>);
 impl FeatureList {
+    /// Iterate over the feature list
     pub fn iter(&self) -> std::slice::Iter<'_, (Tag, Vec<usize>, Option<FeatureParams>)> {
         self.0.iter()
     }
+    /// Create a new feature list
     pub fn new(v: Vec<(Tag, Vec<usize>, Option<FeatureParams>)>) -> Self {
         Self(v)
     }

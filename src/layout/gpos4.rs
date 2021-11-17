@@ -61,14 +61,14 @@ impl FromLowlevel<GPOSSubtable> for MarkBasePos {
 }
 impl ToLowlevel<GPOSSubtable> for MarkBasePos {
     fn to_lowlevel(&self, _max_glyph_id: GlyphID) -> GPOSSubtable {
-        let mut markClassCount = 0;
-        let markArray = Offset16::to(MarkArray {
+        let mut mark_class_count = 0;
+        let mark_array = Offset16::to(MarkArray {
             markRecords: self
                 .marks
                 .values()
                 .map(|&(class, anchor)| {
-                    if class + 1 > markClassCount {
-                        markClassCount = class + 1;
+                    if class + 1 > mark_class_count {
+                        mark_class_count = class + 1;
                     }
                     MarkRecord {
                         markClass: class,
@@ -82,7 +82,7 @@ impl ToLowlevel<GPOSSubtable> for MarkBasePos {
             .bases
             .values()
             .map(|base| BaseRecord {
-                baseAnchors: (0..markClassCount)
+                baseAnchors: (0..mark_class_count)
                     .map(|i| {
                         base.get(&i)
                             .copied()
@@ -104,8 +104,8 @@ impl ToLowlevel<GPOSSubtable> for MarkBasePos {
             baseArray: Offset16::to(BaseArray {
                 baseRecords: base_records,
             }),
-            markArray,
-            markClassCount,
+            markArray: mark_array,
+            markClassCount: mark_class_count,
         })
     }
 }

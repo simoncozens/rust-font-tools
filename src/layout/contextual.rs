@@ -1,4 +1,4 @@
-use crate::layout::common::{coverage_or_nah, FromLowlevel, ToLowlevel};
+use crate::layout::common::{coverage_or_nah, FromLowlevel};
 use otspec::layout::contextual::{
     ChainedSequenceContextFormat1, ChainedSequenceContextFormat2, ChainedSequenceContextFormat3,
     SequenceContextFormat1, SequenceContextFormat2, SequenceContextFormat3, SequenceLookupRecord,
@@ -53,7 +53,7 @@ fn collate_lookup_records(
 }
 
 impl SequenceContext {
-    fn from_lowlevel_format1(st: SequenceContextFormat1, max_glyph_id: GlyphID) -> Self {
+    fn from_lowlevel_format1(st: SequenceContextFormat1, _max_glyph_id: GlyphID) -> Self {
         let mut sequence_context = SequenceContext::default();
         for (first_glyph, ruleset) in coverage_or_nah(st.coverage)
             .iter()
@@ -102,7 +102,7 @@ impl SequenceContext {
         }
         sequence_context
     }
-    fn from_lowlevel_format3(st: SequenceContextFormat3, max_glyph_id: GlyphID) -> Self {
+    fn from_lowlevel_format3(st: SequenceContextFormat3, _max_glyph_id: GlyphID) -> Self {
         let mut sequence_context = SequenceContext::default();
         let slots: Vec<Slot> = st.coverages.into_iter().map(coverage_to_slot).collect();
         sequence_context
@@ -179,13 +179,13 @@ impl SequenceContext {
     pub(crate) fn to_lowlevel_subtables_gpos(&self, _max_glyph_id: GlyphID) -> Vec<GPOSSubtable> {
         self.to_format3()
             .into_iter()
-            .map(|x| GPOSSubtable::GPOS7_3(x))
+            .map(GPOSSubtable::GPOS7_3)
             .collect()
     }
     pub(crate) fn to_lowlevel_subtables_gsub(&self, _max_glyph_id: GlyphID) -> Vec<GSUBSubtable> {
         self.to_format3()
             .into_iter()
-            .map(|x| GSUBSubtable::GSUB5_3(x))
+            .map(GSUBSubtable::GSUB5_3)
             .collect()
     }
 }
@@ -207,7 +207,7 @@ pub struct ChainedSequenceContext {
 }
 
 impl ChainedSequenceContext {
-    fn from_lowlevel_format1(st: ChainedSequenceContextFormat1, max_glyph_id: GlyphID) -> Self {
+    fn from_lowlevel_format1(st: ChainedSequenceContextFormat1, _max_glyph_id: GlyphID) -> Self {
         let mut chained_sequence_context = ChainedSequenceContext::default();
         for (first_glyph, ruleset) in coverage_or_nah(st.coverage)
             .iter()
@@ -284,7 +284,7 @@ impl ChainedSequenceContext {
         }
         chained_sequence_context
     }
-    fn from_lowlevel_format3(st: ChainedSequenceContextFormat3, max_glyph_id: GlyphID) -> Self {
+    fn from_lowlevel_format3(st: ChainedSequenceContextFormat3, _max_glyph_id: GlyphID) -> Self {
         let mut chained_sequence_context = ChainedSequenceContext::default();
         let slots: Vec<Slot> = st
             .inputCoverages
@@ -353,7 +353,7 @@ impl ChainedSequenceContext {
             .iter()
             .map(|rule| {
                 let mut coverages: Vec<Offset16<Coverage>> = vec![];
-                let mut lookaheadCoverages: Vec<Offset16<Coverage>> = rule
+                let lookahead_coverages: Vec<Offset16<Coverage>> = rule
                     .lookahead
                     .iter()
                     .map(|slot| {
@@ -362,7 +362,7 @@ impl ChainedSequenceContext {
                         })
                     })
                     .collect();
-                let mut backtrackCoverages: Vec<Offset16<Coverage>> = rule
+                let backtrack_coverages: Vec<Offset16<Coverage>> = rule
                     .backtrack
                     .iter()
                     .map(|slot| {
@@ -389,8 +389,8 @@ impl ChainedSequenceContext {
                     format: 3,
                     inputCoverages: coverages.into(),
                     seqLookupRecords: sequence_lookup_records,
-                    backtrackCoverages: backtrackCoverages.into(),
-                    lookaheadCoverages: lookaheadCoverages.into(),
+                    backtrackCoverages: backtrack_coverages.into(),
+                    lookaheadCoverages: lookahead_coverages.into(),
                 }
             })
             .collect()

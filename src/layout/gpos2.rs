@@ -6,8 +6,6 @@ use otspec::tables::GPOS::GPOSSubtable;
 use otspec::types::*;
 use std::collections::BTreeMap;
 
-use super::common::ToLowlevel;
-
 /// User-friendly mapping between glyph pairs and value record adjustments
 pub type PairPositioningMap = BTreeMap<(GlyphID, GlyphID), (ValueRecord, ValueRecord)>;
 /// Internal mapping between glyph pairs and value record adjustments, used for serialization
@@ -99,8 +97,8 @@ impl PairPos {
         if best_format(&self.mapping) == 1 {
             return vec![self.to_format_1()];
         }
-        let mut subtables: Vec<GPOSSubtable> = vec![];
-        panic!()
+        // let mut subtables: Vec<GPOSSubtable> = vec![];
+        unimplemented!()
     }
 
     fn to_format_1(&self) -> GPOSSubtable {
@@ -150,7 +148,7 @@ impl PairPos {
 mod tests {
     use super::*;
     use crate::layout::common::{Lookup, LookupFlags};
-    use crate::tables::GPOS::tests::{assert_can_deserialize, assert_can_roundtrip, expected_gpos};
+    use crate::tables::GPOS::tests::{assert_can_roundtrip, expected_gpos};
     use crate::tables::GPOS::Positioning;
     use otspec::{btreemap, valuerecord};
     use std::iter::FromIterator;

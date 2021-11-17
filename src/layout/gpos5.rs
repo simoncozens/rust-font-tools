@@ -72,14 +72,14 @@ impl FromLowlevel<GPOSSubtable> for MarkLigPos {
 }
 impl ToLowlevel<GPOSSubtable> for MarkLigPos {
     fn to_lowlevel(&self, _max_glyph_id: GlyphID) -> GPOSSubtable {
-        let mut markClassCount = 0;
-        let markArray = Offset16::to(MarkArray {
+        let mut mark_class_count = 0;
+        let mark_array = Offset16::to(MarkArray {
             markRecords: self
                 .marks
                 .values()
                 .map(|&(class, anchor)| {
-                    if class + 1 > markClassCount {
-                        markClassCount = class + 1;
+                    if class + 1 > mark_class_count {
+                        mark_class_count = class + 1;
                     }
                     MarkRecord {
                         markClass: class,
@@ -97,7 +97,7 @@ impl ToLowlevel<GPOSSubtable> for MarkLigPos {
                     componentRecords: ligature
                         .iter()
                         .map(|component| ComponentRecord {
-                            ligatureAnchors: (0..markClassCount)
+                            ligatureAnchors: (0..mark_class_count)
                                 .map(|i| {
                                     component
                                         .get(&i)
@@ -123,8 +123,8 @@ impl ToLowlevel<GPOSSubtable> for MarkLigPos {
             ligatureArray: Offset16::to(LigatureArray {
                 ligatureAttach: ligature_records.into(),
             }),
-            markArray,
-            markClassCount,
+            markArray: mark_array,
+            markClassCount: mark_class_count,
         })
     }
 }
@@ -133,7 +133,7 @@ impl ToLowlevel<GPOSSubtable> for MarkLigPos {
 mod tests {
     use super::*;
     use crate::layout::common::{Lookup, LookupFlags};
-    use crate::tables::GPOS::tests::{assert_can_deserialize, assert_can_roundtrip, expected_gpos};
+    use crate::tables::GPOS::tests::{assert_can_roundtrip, expected_gpos};
     use crate::tables::GPOS::Positioning;
     use otspec::btreemap;
     use std::iter::FromIterator;

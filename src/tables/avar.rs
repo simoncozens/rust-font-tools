@@ -6,11 +6,15 @@ use otspec::Deserializer;
 /// The 'avar' OpenType tag.
 pub const TAG: Tag = crate::tag!("avar");
 
+/// A segment map, which specifies how an axis's values are modified by the mapping
 #[derive(Debug, PartialEq, Clone)]
 pub struct SegmentMap(pub Vec<(f32, f32)>);
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]
+/// Axis Variations Table
 pub struct avar {
+    /// A set of mappings, one for each axis in the `fvar` table.
     pub maps: Vec<SegmentMap>,
 }
 

@@ -202,6 +202,11 @@ impl TableSet {
         self.tables.len()
     }
 
+    /// Returns `true` if the table store contains no tables.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Attempt to deserialize all the tables in this set.
     pub fn fully_deserialize(&self) -> Result<(), DeserializationError> {
         // Order is important
@@ -448,10 +453,10 @@ impl TableSet {
         self.insert_raw(tables::glyf::TAG, glyf_output);
         self.insert_raw(tables::loca::TAG, loca_data);
 
-        let mut maxp = self.maxp().unwrap().unwrap().clone();
+        let mut maxp = self.maxp().unwrap().unwrap();
         maxp.set_num_glyphs(glyf_count.try_into().unwrap());
 
-        let mut head = self.head().unwrap().unwrap().clone();
+        let mut head = self.head().unwrap().unwrap();
         head.indexToLocFormat = if loca_is32bit { 1 } else { 0 };
         self.insert(head);
 

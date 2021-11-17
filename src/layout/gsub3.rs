@@ -37,16 +37,16 @@ impl ToLowlevel<GSUBSubtable> for AlternateSubst {
         let coverage = Offset16::to(Coverage {
             glyphs: self.mapping.keys().copied().collect(),
         });
-        let mut alternateSets = vec![];
+        let mut alternate_sets = vec![];
         for right in self.mapping.values() {
-            alternateSets.push(Offset16::to(AlternateSet {
+            alternate_sets.push(Offset16::to(AlternateSet {
                 alternateGlyphIDs: right.to_vec(),
             }));
         }
         GSUBSubtable::GSUB3_1(AlternateSubstFormat1 {
             substFormat: 1,
             coverage,
-            alternateSets: alternateSets.into(),
+            alternateSets: alternate_sets.into(),
         })
     }
 }
