@@ -5,6 +5,7 @@ use otspec::layout::contextual::{
 };
 use otspec::layout::coverage::Coverage;
 use otspec::tables::GPOS::GPOSSubtable;
+use otspec::tables::GSUB::GSUBSubtable;
 use otspec::types::*;
 use std::collections::BTreeSet;
 
@@ -127,6 +128,22 @@ impl FromLowlevel<GPOSSubtable> for SequenceContext {
         }
     }
 }
+impl FromLowlevel<GSUBSubtable> for SequenceContext {
+    fn from_lowlevel(st: GSUBSubtable, max_glyph_id: GlyphID) -> Self {
+        match st {
+            GSUBSubtable::GSUB5_1(gsub51) => {
+                SequenceContext::from_lowlevel_format1(gsub51, max_glyph_id)
+            }
+            GSUBSubtable::GSUB5_2(gsub52) => {
+                SequenceContext::from_lowlevel_format2(gsub52, max_glyph_id)
+            }
+            GSUBSubtable::GSUB5_3(gsub53) => {
+                SequenceContext::from_lowlevel_format3(gsub53, max_glyph_id)
+            }
+            _ => panic!(),
+        }
+    }
+}
 
 impl SequenceContext {
     fn to_format3(&self) -> Vec<SequenceContextFormat3> {
@@ -159,10 +176,16 @@ impl SequenceContext {
             .collect()
     }
 
-    pub(crate) fn to_lowlevel_subtables(&self, _max_glyph_id: GlyphID) -> Vec<GPOSSubtable> {
+    pub(crate) fn to_lowlevel_subtables_gpos(&self, _max_glyph_id: GlyphID) -> Vec<GPOSSubtable> {
         self.to_format3()
             .into_iter()
             .map(|x| GPOSSubtable::GPOS7_3(x))
+            .collect()
+    }
+    pub(crate) fn to_lowlevel_subtables_gsub(&self, _max_glyph_id: GlyphID) -> Vec<GSUBSubtable> {
+        self.to_format3()
+            .into_iter()
+            .map(|x| GSUBSubtable::GSUB5_3(x))
             .collect()
     }
 }
@@ -307,6 +330,23 @@ impl FromLowlevel<GPOSSubtable> for ChainedSequenceContext {
     }
 }
 
+impl FromLowlevel<GSUBSubtable> for ChainedSequenceContext {
+    fn from_lowlevel(st: GSUBSubtable, max_glyph_id: GlyphID) -> Self {
+        match st {
+            GSUBSubtable::GSUB6_1(gsub61) => {
+                ChainedSequenceContext::from_lowlevel_format1(gsub61, max_glyph_id)
+            }
+            GSUBSubtable::GSUB6_2(gsub62) => {
+                ChainedSequenceContext::from_lowlevel_format2(gsub62, max_glyph_id)
+            }
+            GSUBSubtable::GSUB6_3(gsub63) => {
+                ChainedSequenceContext::from_lowlevel_format3(gsub63, max_glyph_id)
+            }
+            _ => panic!(),
+        }
+    }
+}
+
 impl ChainedSequenceContext {
     fn to_format3(&self) -> Vec<ChainedSequenceContextFormat3> {
         self.rules
@@ -356,10 +396,16 @@ impl ChainedSequenceContext {
             .collect()
     }
 
-    pub(crate) fn to_lowlevel_subtables(&self, _max_glyph_id: GlyphID) -> Vec<GPOSSubtable> {
+    pub(crate) fn to_lowlevel_subtables_gpos(&self, _max_glyph_id: GlyphID) -> Vec<GPOSSubtable> {
         self.to_format3()
             .into_iter()
             .map(GPOSSubtable::GPOS8_3)
+            .collect()
+    }
+    pub(crate) fn to_lowlevel_subtables_gsub(&self, _max_glyph_id: GlyphID) -> Vec<GSUBSubtable> {
+        self.to_format3()
+            .into_iter()
+            .map(GSUBSubtable::GSUB6_3)
             .collect()
     }
 }

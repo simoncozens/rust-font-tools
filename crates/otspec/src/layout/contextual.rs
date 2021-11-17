@@ -1,4 +1,5 @@
 use crate::tables::GPOS::GPOSSubtable;
+use crate::tables::GSUB::GSUBSubtable;
 use otspec::layout::classdef::ClassDef;
 use otspec::layout::coverage::Coverage;
 use otspec::types::*;
@@ -194,6 +195,46 @@ pub(crate) fn deserialize_gpos8(
             Ok(GPOSSubtable::GPOS8_3(st))
         }
         _ => Err(crate::DeserializationError("Bad GPOS8 format".to_string())),
+    }
+}
+
+pub(crate) fn deserialize_gsub5(
+    c: &mut crate::ReaderContext,
+) -> Result<GSUBSubtable, crate::DeserializationError> {
+    match c.peek(2)? {
+        [0x00, 0x01] => {
+            let st: SequenceContextFormat1 = c.de()?;
+            Ok(GSUBSubtable::GSUB5_1(st))
+        }
+        [0x00, 0x02] => {
+            let st: SequenceContextFormat2 = c.de()?;
+            Ok(GSUBSubtable::GSUB5_2(st))
+        }
+        [0x00, 0x03] => {
+            let st: SequenceContextFormat3 = c.de()?;
+            Ok(GSUBSubtable::GSUB5_3(st))
+        }
+        _ => Err(crate::DeserializationError("Bad GSUB5 format".to_string())),
+    }
+}
+
+pub(crate) fn deserialize_gsub6(
+    c: &mut crate::ReaderContext,
+) -> Result<GSUBSubtable, crate::DeserializationError> {
+    match c.peek(2)? {
+        [0x00, 0x01] => {
+            let st: ChainedSequenceContextFormat1 = c.de()?;
+            Ok(GSUBSubtable::GSUB6_1(st))
+        }
+        [0x00, 0x02] => {
+            let st: ChainedSequenceContextFormat2 = c.de()?;
+            Ok(GSUBSubtable::GSUB6_2(st))
+        }
+        [0x00, 0x03] => {
+            let st: ChainedSequenceContextFormat3 = c.de()?;
+            Ok(GSUBSubtable::GSUB6_3(st))
+        }
+        _ => Err(crate::DeserializationError("Bad GSUB6 format".to_string())),
     }
 }
 

@@ -83,8 +83,8 @@ pub enum LoadedTable {
     GDEF(Rc<tables::GDEF::GDEF>),
     /// Contains a glyph positioning table.
     GPOS(Rc<tables::GPOS::GPOS>),
-    // /// Contains a glyph substitution table.
-    // GSUB(Rc<tables::GSUB::GSUB>),
+    /// Contains a glyph substitution table.
+    GSUB(Rc<tables::GSUB::GSUB>),
     /// Contains a glyph data table.
     glyf(Rc<tables::glyf::glyf>),
     /// Contains a glyph variations table.
@@ -326,7 +326,13 @@ impl TableSet {
                     .ok_or_else(|| DeserializationError("deserialize head before loca".into()))?;
                 tables::GPOS::from_bytes(&mut ReaderContext::new(data.to_vec()), num_glyphs)?.into()
             }
-            // b"GSUB" => otspec::de::from_bytes::<tables::GSUB::GSUB>(&data)?.into(),
+            b"GSUB" => {
+                let num_glyphs = self
+                    .maxp()?
+                    .map(|maxp| maxp.num_glyphs())
+                    .ok_or_else(|| DeserializationError("deserialize head before loca".into()))?;
+                tables::GSUB::from_bytes(&mut ReaderContext::new(data.to_vec()), num_glyphs)?.into()
+            }
             b"head" => otspec::de::from_bytes::<tables::head::head>(&data)?.into(),
             b"hhea" => otspec::de::from_bytes::<tables::hhea::hhea>(&data)?.into(),
             b"MATH" => otspec::de::from_bytes::<tables::MATH::MATH>(&data)?.into(),
@@ -466,6 +472,13 @@ impl TableSet {
                 self.insert_raw(tables::GPOS::TAG, gpos_data)
             }
         }
+        if !self.is_serialized(tables::GSUB::TAG).unwrap_or(true) {
+            if let Some(gsub) = self.GSUB().unwrap() {
+                let mut gsub_data = vec![];
+                tables::GSUB::to_bytes(&gsub, &mut gsub_data, num_glyphs).unwrap();
+                self.insert_raw(tables::GSUB::TAG, gsub_data)
+            }
+        }
     }
 
     pub(crate) fn write_table(
@@ -579,7 +592,7 @@ macro_rules! table_boilerplate {
 
 table_boilerplate!(tables::GDEF::GDEF, GDEF);
 table_boilerplate!(tables::GPOS::GPOS, GPOS);
-// table_boilerplate!(tables::GSUB::GSUB, GSUB);
+table_boilerplate!(tables::GSUB::GSUB, GSUB);
 table_boilerplate!(tables::STAT::STAT, STAT);
 table_boilerplate!(tables::avar::avar, avar);
 table_boilerplate!(tables::cmap::cmap, cmap);
@@ -605,9 +618,9 @@ impl Serialize for LoadedTable {
             LoadedTable::cmap(expr) => expr.to_bytes(data),
             LoadedTable::fvar(expr) => expr.to_bytes(data),
             LoadedTable::gasp(expr) => expr.to_bytes(data),
-            // LoadedTable::GSUB(expr) => expr.to_bytes(data),
             LoadedTable::GDEF(expr) => expr.to_bytes(data),
             LoadedTable::GPOS(_) => unimplemented!(),
+            LoadedTable::GSUB(_) => unimplemented!(),
             LoadedTable::gvar(_) => unimplemented!(),
             LoadedTable::head(expr) => expr.to_bytes(data),
             LoadedTable::hhea(expr) => expr.to_bytes(data),

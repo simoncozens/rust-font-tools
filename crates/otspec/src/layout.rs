@@ -22,5 +22,7 @@ pub mod gpos4;
 pub mod gpos5;
 /// GPOS5 mark-to-mark positioning
 pub mod gpos6;
+/// GSUB1 single substitution
+pub mod gsub1;
 /// GPOS value records
 pub mod valuerecord;

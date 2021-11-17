@@ -4,9 +4,9 @@ pub mod GDEF;
 /// The `GPOS` (Glyph positioning) table
 #[allow(non_snake_case)]
 pub mod GPOS;
-// // The `GSUB` (Glyph substitution) table
-// #[allow(non_snake_case)]
-// pub mod GSUB;
+// The `GSUB` (Glyph substitution) table
+#[allow(non_snake_case)]
+pub mod GSUB;
 /// The `MATH` (Mathematical typesetting) table
 #[allow(non_snake_case)]
 pub mod MATH;

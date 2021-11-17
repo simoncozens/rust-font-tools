@@ -208,7 +208,7 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
                 .iter()
                 .map(|subtable| {
                     subtable
-                        .to_lowlevel_subtables(max_glyph_id)
+                        .to_lowlevel_subtables_gpos(max_glyph_id)
                         .into_iter()
                         .map(Offset16::to)
                 })
@@ -218,7 +218,7 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
                 .iter()
                 .map(|subtable| {
                     subtable
-                        .to_lowlevel_subtables(max_glyph_id)
+                        .to_lowlevel_subtables_gpos(max_glyph_id)
                         .into_iter()
                         .map(Offset16::to)
                 })
