@@ -1,10 +1,8 @@
+use crate::layout::common::{coverage_or_nah, FromLowlevel, ToLowlevel};
 use otspec::layout::coverage::Coverage;
-use otspec::layout::gsub2::{MultipleSubstFormat1, Sequence};
+use otspec::layout::gsub3::{AlternateSet, AlternateSubstFormat1};
+use otspec::tables::GSUB::GSUBSubtable;
 use otspec::types::*;
-use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-};
-
 use std::collections::BTreeMap;
 
 #[derive(Debug, PartialEq, Clone, Default)]
@@ -14,78 +12,76 @@ pub struct AlternateSubst {
     pub mapping: BTreeMap<GlyphID, Vec<GlyphID>>,
 }
 
-// This is very naughty. AltSubst is the same layout as MultipleSubst, so we
-// just pretend it is one.
-impl From<&AlternateSubst> for MultipleSubstFormat1 {
-    fn from(lookup: &AlternateSubst) -> Self {
+impl FromLowlevel<GSUBSubtable> for AlternateSubst {
+    fn from_lowlevel(st: GSUBSubtable, _max_glyph_id: GlyphID) -> Self {
+        let mut alternatesubst = AlternateSubst::default();
+        match st {
+            GSUBSubtable::GSUB3_1(alternatesubst1) => {
+                for (glyph, sequence) in coverage_or_nah(alternatesubst1.coverage)
+                    .iter()
+                    .zip(alternatesubst1.alternateSets.v.into_iter())
+                {
+                    alternatesubst
+                        .mapping
+                        .insert(*glyph, sequence.link.unwrap_or_default().alternateGlyphIDs);
+                }
+            }
+            _ => panic!(),
+        }
+        alternatesubst
+    }
+}
+
+impl ToLowlevel<GSUBSubtable> for AlternateSubst {
+    fn to_lowlevel(&self, _max_glyph_id: GlyphID) -> GSUBSubtable {
         let coverage = Offset16::to(Coverage {
-            glyphs: lookup.mapping.keys().copied().collect(),
+            glyphs: self.mapping.keys().copied().collect(),
         });
-        let mut sequences = vec![];
-        for right in lookup.mapping.values() {
-            sequences.push(Offset16::to(Sequence {
-                substituteGlyphIDs: right.to_vec(),
+        let mut alternateSets = vec![];
+        for right in self.mapping.values() {
+            alternateSets.push(Offset16::to(AlternateSet {
+                alternateGlyphIDs: right.to_vec(),
             }));
         }
-        MultipleSubstFormat1 {
+        GSUBSubtable::GSUB3_1(AlternateSubstFormat1 {
             substFormat: 1,
             coverage,
-            sequences: sequences.into(),
-        }
-    }
-}
-
-impl Deserialize for AlternateSubst {
-    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        let msf1: MultipleSubstFormat1 = c.de()?;
-        let mut mapping = BTreeMap::new();
-        for (input, sequence) in msf1
-            .coverage
-            .link
-            .unwrap()
-            .glyphs
-            .iter()
-            .zip(msf1.sequences.v.iter())
-        {
-            mapping.insert(
-                *input,
-                sequence.link.as_ref().unwrap().substituteGlyphIDs.clone(),
-            );
-        }
-        Ok(AlternateSubst { mapping })
-    }
-}
-
-impl Serialize for AlternateSubst {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let i: MultipleSubstFormat1 = self.into();
-        i.to_bytes(data)
+            alternateSets: alternateSets.into(),
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout::common::{Lookup, LookupFlags};
+    use crate::tables::GSUB::tests::{assert_can_roundtrip, expected_gsub};
+    use crate::tables::GSUB::Substitution;
+    use otspec::btreemap;
     use std::iter::FromIterator;
 
-    macro_rules! btreemap {
-        ($($k:expr => $v:expr),* $(,)?) => {
-            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
-        };
-    }
     #[test]
-    fn test_mult_subst_ser() {
-        let subst = AlternateSubst {
-            mapping: btreemap!(77 => vec![71,77], 74 => vec![71,74]),
-        };
-        let serialized = otspec::ser::to_bytes(&subst).unwrap();
-        assert_eq!(
-            serialized,
-            vec![
-                0x00, 0x01, 0x00, 0x0A, 0x00, 0x02, 0x00, 0x12, 0x00, 0x18, 0x00, 0x01, 0x00, 0x02,
-                0x00, 0x4A, 0x00, 0x4D, 0x00, 0x02, 0x00, 0x47, 0x00, 0x4A, 0x00, 0x02, 0x00, 0x47,
-                0x00, 0x4D
-            ]
-        );
+    fn test_gsub3_deser() {
+        // Note that this is different from the data produced by Python fonttools, which puts the
+        // coverage table at the end, before the mapping table.
+        let binary_gsub = vec![
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x1e, 0x00, 0x2c, 0x00, 0x01, 0x44, 0x46,
+            0x4c, 0x54, 0x00, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x74, 0x65, 0x73, 0x74, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08,
+            0x00, 0x01, 0x00, 0x0a, 0x00, 0x02, 0x00, 0x12, 0x00, 0x18, 0x00, 0x01, 0x00, 0x02,
+            0x00, 66, 0x00, 69, 0x00, 0x02, 0x00, 67, 0x00, 68, 0x00, 0x02, 0x00, 72, 0x00, 73,
+        ];
+        let expected = expected_gsub(vec![Lookup {
+            flags: LookupFlags::empty(),
+            mark_filtering_set: None,
+            rule: Substitution::Alternate(vec![AlternateSubst {
+                mapping: btreemap!(
+                    66 => vec![67, 68],
+                    69 => vec![72, 73]
+                ),
+            }]),
+        }]);
+        assert_can_roundtrip(binary_gsub, &expected);
     }
 }

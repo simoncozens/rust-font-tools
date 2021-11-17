@@ -6,6 +6,7 @@ use crate::layout::contextual::{
 };
 use crate::layout::gsub1::{deserialize_gsub1, SingleSubstFormat1, SingleSubstFormat2};
 use crate::layout::gsub2::MultipleSubstFormat1;
+use crate::layout::gsub3::AlternateSubstFormat1;
 use crate::{Deserialize, Serialize, Serializer};
 use otspec::types::*;
 use otspec::Deserializer;
@@ -99,6 +100,10 @@ impl Deserialize for GSUBLookup {
                     let multiple: MultipleSubstFormat1 = c.de()?;
                     GSUBSubtable::GSUB2_1(multiple)
                 }
+                3 => {
+                    let alternate: AlternateSubstFormat1 = c.de()?;
+                    GSUBSubtable::GSUB3_1(alternate)
+                }
                 // 4 => {
                 //     let markbase: MarkBasePosFormat1 = c.de()?;
                 //     GSUBSubtable::GSUB4_1(markbase)
@@ -142,7 +147,7 @@ pub enum GSUBSubtable {
     GSUB1_1(SingleSubstFormat1),
     GSUB1_2(SingleSubstFormat2),
     GSUB2_1(MultipleSubstFormat1),
-    // GSUB3_1(CursivePosFormat1),
+    GSUB3_1(AlternateSubstFormat1),
     // GSUB4_1(MarkBasePosFormat1),
     // GSUB5_1(MarkLigPosFormat1),
     // GSUB6_1(MarkMarkPosFormat1),
@@ -159,8 +164,7 @@ fn smash_it(g: &GSUBSubtable) -> &dyn Serialize {
         GSUBSubtable::GSUB1_1(x) => x,
         GSUBSubtable::GSUB1_2(x) => x,
         GSUBSubtable::GSUB2_1(x) => x,
-        // GSUBSubtable::GSUB2_2(x) => x,
-        // GSUBSubtable::GSUB3_1(x) => x,
+        GSUBSubtable::GSUB3_1(x) => x,
         // GSUBSubtable::GSUB4_1(x) => x,
         // GSUBSubtable::GSUB5_1(x) => x,
         // GSUBSubtable::GSUB6_1(x) => x,

@@ -26,5 +26,7 @@ pub mod gpos6;
 pub mod gsub1;
 /// GSUB2 multiple substitution
 pub mod gsub2;
+/// GSUB3 alternate substitution
+pub mod gsub3;
 /// GPOS value records
 pub mod valuerecord;
