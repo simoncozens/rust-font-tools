@@ -22,4 +22,6 @@ pub mod gsub2;
 pub mod gsub3;
 /// GSUB4 ligature substitution
 pub mod gsub4;
+/// GSUB8 reverse chaining contextual single substitution
+pub mod gsub8;
 pub(crate) mod macros;

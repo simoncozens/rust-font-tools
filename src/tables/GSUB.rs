@@ -4,6 +4,7 @@ use crate::layout::gsub1::SingleSubst;
 use crate::layout::gsub2::MultipleSubst;
 use crate::layout::gsub3::AlternateSubst;
 use crate::layout::gsub4::LigatureSubst;
+use crate::layout::gsub8::ReverseChainSubst;
 use otspec::tables::GSUB::{
     ExtensionSubstFormat1, GSUBLookup as GSUBLookupLowlevel, GSUBSubtable, GSUB10,
 };
@@ -32,6 +33,8 @@ pub enum Substitution {
     Contextual(Vec<SequenceContext>),
     /// Contains a chained contextual substitution rule.
     ChainedContextual(Vec<ChainedSequenceContext>),
+    /// Contains a reverse chaining contextual single substitution rules
+    ReverseChainContextual(Vec<ReverseChainSubst>),
 }
 
 impl Substitution {
@@ -44,6 +47,7 @@ impl Substitution {
             Substitution::Ligature(v) => v.push(LigatureSubst::default()),
             Substitution::Contextual(v) => v.push(SequenceContext::default()),
             Substitution::ChainedContextual(v) => v.push(ChainedSequenceContext::default()),
+            Substitution::ReverseChainContextual(v) => v.push(ReverseChainSubst::default()),
         }
     }
 }
@@ -58,6 +62,7 @@ impl Lookup<Substitution> {
             Substitution::Ligature(_) => 4,
             Substitution::Contextual(_) => 5,
             Substitution::ChainedContextual(_) => 6,
+            Substitution::ReverseChainContextual(_) => 8,
         }
     }
 }
@@ -155,6 +160,12 @@ fn subtables_from_lowlevel(
                 .collect(),
         ),
         7 => extension_from_lowlevel(subtables, max_glyph_id),
+        8 => Substitution::ReverseChainContextual(
+            subtables
+                .into_iter()
+                .map(|st| ReverseChainSubst::from_lowlevel(st, max_glyph_id))
+                .collect(),
+        ),
         x => panic!("Unknown GSUB lookup type {:?}", x),
     }
 }
@@ -228,6 +239,10 @@ impl ToLowlevel<GSUBLookupLowlevel> for Lookup<Substitution> {
                         .map(Offset16::to)
                 })
                 .flatten()
+                .collect(),
+            Substitution::ReverseChainContextual(rs) => rs
+                .iter()
+                .map(|subtable| Offset16::to(subtable.to_lowlevel(max_glyph_id)))
                 .collect(),
         };
         GSUBLookupLowlevel {

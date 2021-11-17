@@ -24,7 +24,7 @@ pub struct SequenceContext {
     pub rules: Vec<SequenceContextRule>,
 }
 
-fn coverage_to_slot(off: Offset16<Coverage>) -> Slot {
+pub(crate) fn coverage_to_slot(off: Offset16<Coverage>) -> Slot {
     off.link
         .map(|x| x.glyphs)
         .iter()
@@ -193,9 +193,9 @@ impl SequenceContext {
 #[derive(Debug, PartialEq, Clone, Default)]
 /// A chained contextual rule, with backtrack and lookahead
 pub struct ChainedSequenceContextRule {
-    backtrack: Vec<Slot>,
-    lookahead: Vec<Slot>,
-    input: SequenceContextRule,
+    pub backtrack: Vec<Slot>,
+    pub lookahead: Vec<Slot>,
+    pub input: SequenceContextRule,
 }
 
 /* This struct is the user-facing representation of chained sequence context. */

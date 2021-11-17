@@ -1,4 +1,4 @@
-#![warn(missing_docs, missing_crate_level_docs)]
+#![warn(missing_docs, rustdoc::missing_crate_level_docs)]
 //! A library for parsing, manipulating and writing OpenType fonts
 //!
 //! *This is a prerelease version; it is not feature complete.*
