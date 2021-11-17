@@ -1,34 +1,9 @@
+use crate::layout::common::{FromLowlevel, ToLowlevel};
 use otspec::layout::coverage::Coverage;
+use otspec::layout::gsub4::{Ligature, LigatureSet, LigatureSubstFormat1};
+use otspec::tables::GSUB::GSUBSubtable;
 use otspec::types::*;
-use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-    Serializer,
-};
-use otspec_macros::tables;
 use std::collections::BTreeMap;
-
-tables!(
-  LigatureSubstFormat1 {
-    [offset_base]
-    uint16 substFormat
-    Offset16(Coverage) coverage
-    CountedOffset16(LigatureSet)  ligatureSet
-  }
-  LigatureSet {
-    [offset_base]
-    CountedOffset16(Ligature) ligatureOffsets
-  }
-);
-
-// We can't use the magic tables here because the component count is the array
-// length MINUS ONE.
-/// Internal representation of a ligature substitution for serialization/deserialization
-#[allow(non_camel_case_types, non_snake_case)]
-#[derive(Debug, PartialEq, Clone)]
-pub struct Ligature {
-    ligatureGlyph: uint16,
-    componentGlyphIDs: Vec<uint16>,
-}
 
 #[derive(Debug, PartialEq, Clone, Default)]
 /// A ligature substitution (many-to-one) subtable.
@@ -37,10 +12,10 @@ pub struct LigatureSubst {
     pub mapping: BTreeMap<Vec<GlyphID>, GlyphID>,
 }
 
-impl From<&LigatureSubst> for LigatureSubstFormat1 {
-    fn from(ls: &LigatureSubst) -> Self {
+impl ToLowlevel<GSUBSubtable> for LigatureSubst {
+    fn to_lowlevel(&self, _max_glyph_id: GlyphID) -> GSUBSubtable {
         let mut split_map: BTreeMap<u16, Vec<Vec<u16>>> = BTreeMap::new();
-        let mut mapping_keys: Vec<&Vec<uint16>> = ls.mapping.keys().collect();
+        let mut mapping_keys: Vec<&Vec<uint16>> = self.mapping.keys().collect();
         mapping_keys.sort_by_key(|a| -(a.len() as isize));
         for left in mapping_keys {
             let covered = left.first().unwrap();
@@ -62,7 +37,7 @@ impl From<&LigatureSubst> for LigatureSubstFormat1 {
                 .iter()
                 .map(|k| {
                     Offset16::to(Ligature {
-                        ligatureGlyph: *ls.mapping.get(k).unwrap(),
+                        ligatureGlyph: *self.mapping.get(k).unwrap(),
                         componentGlyphIDs: k[1..].to_vec(),
                     })
                 })
@@ -73,122 +48,71 @@ impl From<&LigatureSubst> for LigatureSubstFormat1 {
             };
             ligature_sets.push(Offset16::to(ls));
         }
-        LigatureSubstFormat1 {
+        GSUBSubtable::GSUB4_1(LigatureSubstFormat1 {
             substFormat: 1,
             coverage: Offset16::to(coverage),
             ligatureSet: VecOffset16 { v: ligature_sets },
-        }
+        })
     }
 }
 
-impl From<LigatureSubstFormat1> for LigatureSubst {
-    fn from(lsf1: LigatureSubstFormat1) -> Self {
+impl FromLowlevel<GSUBSubtable> for LigatureSubst {
+    fn from_lowlevel(st: GSUBSubtable, _max_glyph_id: GlyphID) -> Self {
         let mut mapping = BTreeMap::new();
-        for (input, lig_set) in lsf1
-            .coverage
-            .link
-            .unwrap()
-            .glyphs
-            .iter()
-            .zip(lsf1.ligatureSet.v.iter())
-        {
-            for ligature in lig_set.link.as_ref().unwrap().ligatureOffsets.v.iter() {
-                let ligature = ligature.link.as_ref().unwrap();
-                let mut input_sequence: Vec<u16> = vec![*input];
-                input_sequence.extend(ligature.componentGlyphIDs.clone());
-                mapping.insert(input_sequence, ligature.ligatureGlyph);
+        match st {
+            GSUBSubtable::GSUB4_1(lsf1) => {
+                for (input, lig_set) in lsf1
+                    .coverage
+                    .link
+                    .unwrap()
+                    .glyphs
+                    .iter()
+                    .zip(lsf1.ligatureSet.v.iter())
+                {
+                    for ligature in lig_set.link.as_ref().unwrap().ligatureOffsets.v.iter() {
+                        let ligature = ligature.link.as_ref().unwrap();
+                        let mut input_sequence: Vec<u16> = vec![*input];
+                        input_sequence.extend(ligature.componentGlyphIDs.clone());
+                        mapping.insert(input_sequence, ligature.ligatureGlyph);
+                    }
+                }
             }
+            _ => panic!(),
         }
         LigatureSubst { mapping }
-    }
-}
-
-impl Serialize for LigatureSubst {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let lsf1: LigatureSubstFormat1 = self.into();
-        lsf1.to_bytes(data)
-    }
-}
-
-impl Deserialize for LigatureSubst {
-    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        let lsf1: LigatureSubstFormat1 = c.de()?;
-        Ok(lsf1.into())
-    }
-}
-
-impl Serialize for Ligature {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        data.put(self.ligatureGlyph)?;
-        data.put(self.componentGlyphIDs.len() as uint16 + 1)?;
-        data.put(&self.componentGlyphIDs)
-    }
-}
-
-impl Deserialize for Ligature {
-    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        let ligature_glyph: uint16 = c.de()?;
-        let component_count: uint16 = c.de()?;
-        let components: Vec<uint16> = c.de_counted(component_count as usize - 1)?;
-        Ok(Ligature {
-            ligatureGlyph: ligature_glyph,
-            componentGlyphIDs: components,
-        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout::common::{Lookup, LookupFlags};
+    use crate::tables::GSUB::tests::{assert_can_roundtrip, expected_gsub};
+    use crate::tables::GSUB::Substitution;
+    use otspec::btreemap;
     use std::iter::FromIterator;
 
-    macro_rules! btreemap {
-        ($($k:expr => $v:expr),* $(,)?) => {
-            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
-        };
-    }
-
     #[test]
-    fn test_ligature_ser() {
-        let subst = LigatureSubst {
-            mapping: btreemap!(
-                vec![ 10, 20, 30] => 11,
-                vec![ 10, 20, 31] => 12,
-                vec![ 20, 30] => 21,
-                vec![ 20, 40, 50] => 22,
-            ),
-        };
-        let serialized = otspec::ser::to_bytes(&subst).unwrap();
-        assert_eq!(
-            serialized,
-            vec![
-                0, 1, 0, 10, 0, 2, 0, 18, 0, 40, 0, 1, 0, 2, 0, 10, 0, 20, 0, 2, 0, 6, 0, 14, 0,
-                11, 0, 3, 0, 20, 0, 30, 0, 12, 0, 3, 0, 20, 0, 31, 0, 2, 0, 6, 0, 14, 0, 22, 0, 3,
-                0, 40, 0, 50, 0, 21, 0, 2, 0, 30
-            ]
-        );
-    }
-
-    #[test]
-    fn test_ligature_de() {
-        let expected = LigatureSubst {
-            mapping: btreemap!(
-                vec![ 10, 20, 30] => 11,
-                vec![ 10, 20, 31] => 12,
-                vec![ 20, 30] => 21,
-                vec![ 20, 40, 50] => 22,
-            ),
-        };
-        let binary_lig = vec![
-            0, 1, // subst format
-            0, 10, // coverage offset
-            0, 2, // ligature set count
-            0, 18, // ligature set offset (0)
-            0, 40, // ligature set offset (1)
-            0, 1, 0, 2, 0, 10, 0, 20, 0, 2, 0, 6, 0, 14, 0, 11, 0, 3, 0, 20, 0, 30, 0, 12, 0, 3, 0,
-            20, 0, 31, 0, 2, 0, 6, 0, 12, 0, 21, 0, 2, 0, 30, 0, 22, 0, 3, 0, 40, 0, 50,
+    fn test_gsub4_deser() {
+        let binary_gsub = vec![
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x1e, 0x00, 0x2c, 0x00, 0x01, 0x44, 0x46,
+            0x4c, 0x54, 0x00, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x74, 0x65, 0x73, 0x74, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x00, 0x04, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08,
+            0x00, 0x01, 0x00, 0x08, 0x00, 0x01, 0x00, 0x0e, 0x00, 0x01, 0x00, 0x01, 0x00, 71, 0x00,
+            0x02, 0x00, 0x06, 0x00, 0x0e, 0x00, 240, 0x00, 0x03, 0x00, 71, 0x00, 77, 0x00, 109,
+            0x00, 0x02, 0x00, 74,
         ];
-        let deserialized: LigatureSubst = otspec::de::from_bytes(&binary_lig).unwrap();
-        assert_eq!(deserialized, expected);
+        let expected = expected_gsub(vec![Lookup {
+            flags: LookupFlags::empty(),
+            mark_filtering_set: None,
+            rule: Substitution::Ligature(vec![LigatureSubst {
+                mapping: btreemap!(
+                    vec![71, 71, 77] => 240,
+                    vec![71, 74] => 109,
+                ),
+            }]),
+        }]);
+        assert_can_roundtrip(binary_gsub, &expected);
     }
 }

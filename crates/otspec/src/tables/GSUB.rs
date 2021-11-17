@@ -7,6 +7,7 @@ use crate::layout::contextual::{
 use crate::layout::gsub1::{deserialize_gsub1, SingleSubstFormat1, SingleSubstFormat2};
 use crate::layout::gsub2::MultipleSubstFormat1;
 use crate::layout::gsub3::AlternateSubstFormat1;
+use crate::layout::gsub4::LigatureSubstFormat1;
 use crate::{Deserialize, Serialize, Serializer};
 use otspec::types::*;
 use otspec::Deserializer;
@@ -104,18 +105,10 @@ impl Deserialize for GSUBLookup {
                     let alternate: AlternateSubstFormat1 = c.de()?;
                     GSUBSubtable::GSUB3_1(alternate)
                 }
-                // 4 => {
-                //     let markbase: MarkBasePosFormat1 = c.de()?;
-                //     GSUBSubtable::GSUB4_1(markbase)
-                // }
-                // 5 => {
-                //     let marklig: MarkLigPosFormat1 = c.de()?;
-                //     GSUBSubtable::GSUB5_1(marklig)
-                // }
-                // 6 => {
-                //     let markmark: MarkMarkPosFormat1 = c.de()?;
-                //     GSUBSubtable::GSUB6_1(markmark)
-                // }
+                4 => {
+                    let ligature: LigatureSubstFormat1 = c.de()?;
+                    GSUBSubtable::GSUB4_1(ligature)
+                }
                 5 => deserialize_gsub5(c)?,
                 6 => deserialize_gsub6(c)?,
                 _ => {
@@ -148,9 +141,7 @@ pub enum GSUBSubtable {
     GSUB1_2(SingleSubstFormat2),
     GSUB2_1(MultipleSubstFormat1),
     GSUB3_1(AlternateSubstFormat1),
-    // GSUB4_1(MarkBasePosFormat1),
-    // GSUB5_1(MarkLigPosFormat1),
-    // GSUB6_1(MarkMarkPosFormat1),
+    GSUB4_1(LigatureSubstFormat1),
     GSUB5_1(SequenceContextFormat1),
     GSUB5_2(SequenceContextFormat2),
     GSUB5_3(SequenceContextFormat3),
@@ -165,9 +156,7 @@ fn smash_it(g: &GSUBSubtable) -> &dyn Serialize {
         GSUBSubtable::GSUB1_2(x) => x,
         GSUBSubtable::GSUB2_1(x) => x,
         GSUBSubtable::GSUB3_1(x) => x,
-        // GSUBSubtable::GSUB4_1(x) => x,
-        // GSUBSubtable::GSUB5_1(x) => x,
-        // GSUBSubtable::GSUB6_1(x) => x,
+        GSUBSubtable::GSUB4_1(x) => x,
         GSUBSubtable::GSUB5_1(x) => x,
         GSUBSubtable::GSUB5_2(x) => x,
         GSUBSubtable::GSUB5_3(x) => x,
