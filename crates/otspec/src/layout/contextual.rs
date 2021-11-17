@@ -3,7 +3,7 @@ use crate::tables::GSUB::GSUBSubtable;
 use otspec::layout::classdef::ClassDef;
 use otspec::layout::coverage::Coverage;
 use otspec::types::*;
-use otspec::{DeserializationError, Deserialize, Deserializer, ReaderContext, Serialize};
+use otspec::{DeserializationError, Deserialize, Deserializer, ReaderContext};
 use otspec_macros::{tables, Serialize};
 
 tables!(
