@@ -35,6 +35,8 @@ tables!(
 pub struct InstanceRecord {
     /// The name ID for entries in the 'name' table that provide subfamily names for this instance.
     pub subfamilyNameID: uint16,
+    /// Flags (unused)
+    pub flags: uint16,
     /// Location of this instance in the design space.
     pub coordinates: Tuple,
     /// The name ID for entries in the 'name' table that provide PostScript names for this instance.
@@ -49,7 +51,7 @@ impl InstanceRecord {
         has_postscript_name_id: bool,
     ) -> Result<Self, DeserializationError> {
         let subfamilyNameID = c.de()?;
-        let _flags: uint16 = c.de()?;
+        let flags: uint16 = c.de()?;
         let coordinates: Vec<f32> = c
             .de_counted(axis_count.into())?
             .iter()
@@ -62,6 +64,7 @@ impl InstanceRecord {
         };
         Ok(InstanceRecord {
             subfamilyNameID,
+            flags,
             coordinates,
             postscriptNameID,
         })
@@ -174,81 +177,97 @@ mod tests {
             instances: vec![
                 InstanceRecord {
                     subfamilyNameID: 17,
+                    flags: 0,
                     coordinates: vec![200.0, 0.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 258,
+                    flags: 0,
                     coordinates: vec![300.0, 0.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 259,
+                    flags: 0,
                     coordinates: vec![400.0, 0.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 260,
+                    flags: 0,
                     coordinates: vec![600.0, 0.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 261,
+                    flags: 0,
                     coordinates: vec![700.0, 0.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 262,
+                    flags: 0,
                     coordinates: vec![800.0, 0.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 263,
+                    flags: 0,
                     coordinates: vec![900.0, 0.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 259,
+                    flags: 0,
                     coordinates: vec![1000.0, 0.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 264,
+                    flags: 0,
                     coordinates: vec![200.0, 9.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 265,
+                    flags: 0,
                     coordinates: vec![300.0, 9.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 257,
+                    flags: 0,
                     coordinates: vec![400.0, 9.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 266,
+                    flags: 0,
                     coordinates: vec![600.0, 9.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 267,
+                    flags: 0,
                     coordinates: vec![700.0, 9.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 268,
+                    flags: 0,
                     coordinates: vec![800.0, 9.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 269,
+                    flags: 0,
                     coordinates: vec![900.0, 9.0],
                     postscriptNameID: None,
                 },
                 InstanceRecord {
                     subfamilyNameID: 257,
+                    flags: 0,
                     coordinates: vec![1000.0, 9.0],
                     postscriptNameID: None,
                 },

@@ -1,135 +1,34 @@
-use crate::layout::anchor::Anchor;
-use bitflags::bitflags;
-use otspec::types::*;
-use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-    Serializer,
+use otspec::layout::common::{
+    FeatureList as FeatureListLowLevel, FeatureParams, LangSys, LangSysRecord,
+    Script as ScriptLowLevel, ScriptList as ScriptListLowLevel, ScriptRecord,
 };
-use otspec_macros::{tables, Deserialize, Serialize};
+use otspec::layout::coverage::Coverage;
+use otspec::types::*;
+
+pub use otspec::layout::common::LookupFlags;
+pub use otspec::layout::valuerecord::{ValueRecord, ValueRecordFlags};
 use std::collections::BTreeMap; // For predictable ordering
 use std::fmt::Debug;
 
-tables!(
-    ScriptListInternal {
-        [offset_base]
-        [embed]
-        Counted(ScriptRecord) scriptRecords
-    }
-    ScriptRecord [embedded] [nodebug] {
-        Tag scriptTag
-        Offset16(ScriptInternal) scriptOffset
-    }
-    ScriptInternal {
-        [offset_base]
-        Offset16(LangSys) defaultLangSys
-        [embed]
-        Counted(LangSysRecord) langSysRecords
-    }
-    LangSysRecord [embedded] {
-        Tag langSysTag
-        Offset16(LangSys) langSys
-    }
-    LangSys {
-        uint16	lookupOrderOffset // Null, ignore it
-        uint16	requiredFeatureIndex
-        Counted(uint16) featureIndices
-    }
-    FeatureList {
-        [offset_base]
-        [embed]
-        Counted(FeatureRecord) featureRecords
-    }
-    FeatureRecord [embedded] {
-            Tag	featureTag
-            Offset16(FeatureTable)	feature
-    }
-    FeatureTable {
-            uint16	featureParamsOffset
-            Counted(uint16) lookupListIndices
-    }
-    cvFeatureParams {
-        uint16 format
-        uint16  featUiLabelNameId
-        uint16  featUiTooltipTextNameId
-        uint16  sampleTextNameId
-        uint16  numNamedParameters
-        uint16  firstParamUiLabelNameId
-        // everything is horrible
-        // Counted(uint24) character
-    }
-    sizeFeatureParams {
-        uint16 designSize
-        uint16 subfamilyIdentifier
-        uint16 subfamilyNameID
-        uint16 smallest
-        uint16 largest
-    }
-
-    MarkArray {
-        [offset_base]
-        [embed]
-        Counted(MarkRecord) markRecords
-    }
-
-    MarkRecord [embedded] {
-        uint16 markClass
-        Offset16(Anchor) markAnchor
-    }
-);
-
-impl Debug for ScriptRecord {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if f.alternate() {
-            write!(f, "{} => {:#?}", self.scriptTag, self.scriptOffset.link)
-        } else {
-            write!(f, "{} => {:?}", self.scriptTag, self.scriptOffset.link)
-        }
-    }
+// A trait for moving things from the otspec representation to our representation.
+// We use this in situations where we can't just use From/into, because we need
+// the max_glyph_id in layout operations to know how to interpret class 0 in
+// class-based subtables. i.e. lookups and anything above them.
+pub(crate) trait FromLowlevel<T> {
+    fn from_lowlevel(lowlevel: T, max_glyph_id: GlyphID) -> Self;
+}
+// ...and back again
+pub(crate) trait ToLowlevel<T> {
+    fn to_lowlevel(&self, max_glyph_id: GlyphID) -> T;
 }
 
-#[derive(Debug, PartialEq, Clone)]
-/// Feature parameter data.
-///
-/// Certain OpenType features may have various ancillary data attached to them.
-/// The format of this data varies from feature to feature, so this container
-/// wraps the general concept of feature parameter data.
-pub enum FeatureParams {
-    /// The stylistic set features (`ss01`-`ss20`) may provide two parameters: a
-    /// parameter data version, currently set to zero, and a name table ID
-    /// which is used to display the stylistic set name to the user.
-    StylisticSet(uint16, uint16),
-    /// Feature parameter information for the `size` feature, including the
-    /// design size, subfamily identifier and name ID, and largest and smallest
-    /// intended sizes. This has been superseded by the `STAT` table.
-    SizeFeature(sizeFeatureParams),
-    /// The character variant features (`cv01`-`cv99`) provide various name
-    /// parameters to display information to the user.
-    CharacterVariant(cvFeatureParams),
-}
-
-bitflags! {
-    /// Lookup qualifiers
-    #[derive(Serialize, Deserialize)]
-    pub struct LookupFlags: u16 {
-        /// Position the last glyph of a cursive positioning sequence on the baseline
-        const RIGHT_TO_LEFT = 0x0001;
-        /// Skip over base glyphs
-        const IGNORE_BASE_GLYPHS = 0x0002;
-        /// Skip over ligatures
-        const IGNORE_LIGATURES = 0x0004;
-        /// Skip over all combining marks
-        const IGNORE_MARKS = 0x0008;
-        /// Indicates that the lookup table structure is followed by a MarkFilteringSet field
-        const USE_MARK_FILTERING_SET = 0x0010;
-        /// Mask off the high bits to reveal a mark class defined in the GDEF table
-        const MARK_ATTACHMENT_TYPE_MASK = 0xFF00;
-    }
-}
-
-impl Default for LookupFlags {
-    fn default() -> Self {
-        LookupFlags::empty()
-    }
+pub(crate) fn coverage_or_nah(off: Offset16<Coverage>) -> Vec<GlyphID> {
+    off.link
+        .map(|x| x.glyphs)
+        .iter()
+        .flatten()
+        .copied()
+        .collect()
 }
 
 /// A script list
@@ -184,8 +83,8 @@ impl From<&LanguageSystem> for LangSys {
     }
 }
 
-impl From<&ScriptInternal> for Script {
-    fn from(si: &ScriptInternal) -> Self {
+impl From<&ScriptLowLevel> for Script {
+    fn from(si: &ScriptLowLevel) -> Self {
         let mut script = Script {
             default_language_system: (*si.defaultLangSys).as_ref().map(|langsys| langsys.into()),
             language_systems: BTreeMap::new(),
@@ -199,7 +98,7 @@ impl From<&ScriptInternal> for Script {
     }
 }
 
-impl From<&Script> for ScriptInternal {
+impl From<&Script> for ScriptLowLevel {
     fn from(script: &Script) -> Self {
         let default_lang_sys = if script.default_language_system.is_some() {
             let langsys: LangSys = script.default_language_system.as_ref().unwrap().into();
@@ -218,48 +117,41 @@ impl From<&Script> for ScriptInternal {
                 }
             })
             .collect();
-        ScriptInternal {
+        ScriptLowLevel {
             defaultLangSys: default_lang_sys,
             langSysRecords: lang_sys_records,
         }
     }
 }
 
-impl Deserialize for ScriptList {
-    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        let sl: ScriptListInternal = c.de()?;
-        let mut scripts = BTreeMap::new();
-        for rec in sl.scriptRecords {
-            let script = rec.scriptOffset.as_ref().map(Script::from).unwrap();
-            scripts.insert(rec.scriptTag, script);
-        }
-        Ok(ScriptList { scripts })
-    }
-}
-
-impl From<&ScriptList> for ScriptListInternal {
+impl From<&ScriptList> for ScriptListLowLevel {
     fn from(sl: &ScriptList) -> Self {
         let script_records = sl
             .scripts
             .iter()
             .map(|(k, v)| {
-                let si: ScriptInternal = v.into();
+                let si: ScriptLowLevel = v.into();
                 ScriptRecord {
                     scriptTag: *k,
-                    scriptOffset: Offset16::to(si),
+                    script: Offset16::to(si),
                 }
             })
             .collect();
-        ScriptListInternal {
+        ScriptListLowLevel {
             scriptRecords: script_records,
         }
     }
 }
 
-impl Serialize for ScriptList {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let i: ScriptListInternal = self.into();
-        i.to_bytes(data)
+impl From<ScriptListLowLevel> for ScriptList {
+    fn from(val: ScriptListLowLevel) -> Self {
+        let mut mapping: BTreeMap<Tag, Script> = BTreeMap::new();
+        for script_record in val.scriptRecords {
+            let tag = script_record.scriptTag;
+            let s = script_record.script.link.unwrap();
+            mapping.insert(tag, (&s).into());
+        }
+        ScriptList { scripts: mapping }
     }
 }
 
@@ -275,6 +167,48 @@ pub struct Lookup<T> {
 }
 
 // GPOS and GSUB tables
+#[derive(Debug, PartialEq, Clone, Default)]
+pub struct FeatureList(Vec<(Tag, Vec<usize>, Option<FeatureParams>)>);
+impl FeatureList {
+    pub fn iter(&self) -> std::slice::Iter<'_, (Tag, Vec<usize>, Option<FeatureParams>)> {
+        self.0.iter()
+    }
+    pub fn new(v: Vec<(Tag, Vec<usize>, Option<FeatureParams>)>) -> Self {
+        Self(v)
+    }
+}
+
+impl From<FeatureListLowLevel> for FeatureList {
+    fn from(val: FeatureListLowLevel) -> Self {
+        let mut features = vec![];
+        for fr in val.featureRecords {
+            let tag = fr.featureTag;
+            let feature_table = fr.feature.link.unwrap();
+            let indices = feature_table.lookupListIndices;
+            features.push((tag, indices.iter().map(|x| usize::from(*x)).collect(), None));
+        }
+        FeatureList(features)
+    }
+}
+
+impl From<&FeatureList> for FeatureListLowLevel {
+    fn from(val: &FeatureList) -> Self {
+        let mut out = FeatureListLowLevel {
+            featureRecords: vec![],
+        };
+        for (tag, lookups, _params) in val.iter() {
+            out.featureRecords
+                .push(otspec::layout::common::FeatureRecord {
+                    featureTag: *tag,
+                    feature: Offset16::to(otspec::layout::common::FeatureTable {
+                        featureParamsOffset: 0,
+                        lookupListIndices: lookups.iter().map(|x| *x as uint16).collect(),
+                    }),
+                })
+        }
+        out
+    }
+}
 
 #[derive(Debug, PartialEq, Clone)]
 #[allow(clippy::upper_case_acronyms)]
@@ -286,92 +220,7 @@ pub struct GPOSGSUB<T> {
     pub scripts: ScriptList,
     /// The association between feature tags and the list of indices into the
     /// lookup table used to process this feature, together with any feature parameters.
-    pub features: Vec<(Tag, Vec<usize>, Option<FeatureParams>)>,
-}
-
-#[allow(missing_docs, non_snake_case, non_camel_case_types)]
-#[derive(Debug, Serialize)]
-pub struct gsubgposoutgoing {
-    pub majorVersion: uint16,
-    pub minorVersion: uint16,
-    pub scriptList: Offset16<ScriptList>,
-    pub featureList: Offset16<FeatureList>,
-    pub lookupList: Offset16<LookupListOutgoing>,
-}
-
-// We have to do horrible things for the Lookup table because it has
-// a heterogenous subtable vec field.
-#[allow(missing_docs, non_snake_case, non_camel_case_types)]
-#[derive(Debug)]
-pub struct LookupInternal {
-    pub lookupType: uint16,
-    pub flags: LookupFlags,
-    pub subtables: Vec<Box<dyn OffsetMarkerTrait>>,
-    pub mark_filtering_set: Option<uint16>,
-}
-
-impl otspec::Serialize for LookupInternal {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        let obj = otspec::offsetmanager::resolve_offsets(self);
-        self.to_bytes_shallow(data)?;
-        otspec::offsetmanager::resolve_offsets_and_serialize(obj, data, false)?;
-        Ok(())
-    }
-    fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        let obj = self;
-        obj.lookupType.to_bytes(data)?;
-        obj.flags.to_bytes(data)?;
-        (obj.subtables.len() as uint16).to_bytes(data)?;
-        for st in &obj.subtables {
-            st.to_bytes_shallow(data)?;
-        }
-        obj.mark_filtering_set.to_bytes(data)?;
-        Ok(())
-    }
-    fn ot_binary_size(&self) -> usize {
-        self.lookupType.ot_binary_size()
-            + self.flags.ot_binary_size()
-            + 2
-            + 2 * self.subtables.len()
-            + self.mark_filtering_set.ot_binary_size()
-    }
-    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
-        self.subtables.iter().map(|x| x.as_ref()).collect()
-    }
-}
-
-impl Clone for LookupInternal {
-    fn clone(&self) -> Self {
-        panic!("Can't clone this")
-    }
-}
-
-#[allow(missing_docs, non_snake_case, non_camel_case_types)]
-#[derive(Debug)]
-pub struct LookupListOutgoing {
-    pub(crate) lookups: VecOffset16<LookupInternal>,
-}
-
-impl Serialize for LookupListOutgoing {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        let obj = otspec::offsetmanager::resolve_offsets(self);
-        self.to_bytes_shallow(data)?;
-        otspec::offsetmanager::resolve_offsets_and_serialize(obj, data, false)?;
-        Ok(())
-    }
-    fn to_bytes_shallow(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        data.put(self.lookups.v.len() as uint16)?;
-        self.lookups.v.to_bytes_shallow(data)?;
-        Ok(())
-    }
-    fn ot_binary_size(&self) -> usize {
-        2 + 2 * self.lookups.v.len()
-    }
-    fn offset_fields(&self) -> Vec<&dyn OffsetMarkerTrait> {
-        let mut v: Vec<&dyn OffsetMarkerTrait> = Vec::new();
-        v.extend(self.lookups.offset_fields());
-        v
-    }
+    pub features: FeatureList,
 }
 
 impl<T> Default for GPOSGSUB<T> {
@@ -381,158 +230,5 @@ impl<T> Default for GPOSGSUB<T> {
             scripts: Default::default(),
             features: Default::default(),
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::tag;
-    use otspec::offsetmanager::OffsetManager;
-    use std::iter::FromIterator;
-
-    macro_rules! hashmap {
-            ($($k:expr => $v:expr),* $(,)?) => {
-                std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
-            };
-        }
-
-    #[test]
-    fn test_scriptlist_de() {
-        let binary_scriptlist = vec![
-            0x00, 0x02, 0x61, 0x72, 0x61, 0x62, 0x00, 0x0E, 0x6C, 0x61, 0x74, 0x6E, 0x00, 0x40,
-            0x00, 0x0A, 0x00, 0x01, 0x55, 0x52, 0x44, 0x20, 0x00, 0x1E, 0x00, 0x00, 0xFF, 0xFF,
-            0x00, 0x07, 0x00, 0x01, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x06, 0x00, 0x07,
-            0x00, 0x08, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x07, 0x00, 0x00, 0x00, 0x03, 0x00, 0x04,
-            0x00, 0x05, 0x00, 0x06, 0x00, 0x07, 0x00, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00,
-            0xFF, 0xFF, 0x00, 0x07, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x06,
-            0x00, 0x07, 0x00, 0x08,
-        ];
-        let deserialized: ScriptList = otspec::de::from_bytes(&binary_scriptlist).unwrap();
-        let script_list: ScriptList = ScriptList {
-            scripts: hashmap!(
-                tag!("arab") => Script {
-                    default_language_system: Some(
-                        LanguageSystem {
-                            required_feature: None,
-                            feature_indices: vec![
-                                1,
-                                3,
-                                4,
-                                5,
-                                6,
-                                7,
-                                8,
-                            ],
-                        },
-                    ),
-                    language_systems: hashmap!(tag!("URD ") =>
-                        LanguageSystem {
-                            required_feature: None,
-                            feature_indices: vec![
-                                0,
-                                3,
-                                4,
-                                5,
-                                6,
-                                7,
-                                8,
-                            ],
-                        },
-                    ),
-                },
-                tag!("latn") => Script {
-                    default_language_system: Some(
-                        LanguageSystem {
-                            required_feature: None,
-                            feature_indices: vec![
-                                2,
-                                3,
-                                4,
-                                5,
-                                6,
-                                7,
-                                8,
-                            ],
-                        },
-                    ),
-                    language_systems: hashmap!(),
-                },
-            ),
-        };
-        assert_eq!(deserialized, script_list);
-    }
-
-    #[test]
-    fn test_scriptlist_ser() {
-        let binary_scriptlist = vec![
-            0x00, 0x02, 0x61, 0x72, 0x61, 0x62, 0x00, 0x0E, 0x6C, 0x61, 0x74, 0x6E, 0x00, 0x40,
-            0x00, 0x0A, 0x00, 0x01, 0x55, 0x52, 0x44, 0x20, 0x00, 0x1E, 0x00, 0x00, 0xFF, 0xFF,
-            0x00, 0x07, 0x00, 0x01, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x06, 0x00, 0x07,
-            0x00, 0x08, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x07, 0x00, 0x00, 0x00, 0x03, 0x00, 0x04,
-            0x00, 0x05, 0x00, 0x06, 0x00, 0x07, 0x00, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00,
-            0xFF, 0xFF, 0x00, 0x07, 0x00, 0x02, 0x00, 0x03, 0x00, 0x04, 0x00, 0x05, 0x00, 0x06,
-            0x00, 0x07, 0x00, 0x08,
-        ];
-        let script_list: ScriptList = ScriptList {
-            scripts: hashmap!(
-                tag!("arab") => Script {
-                    default_language_system: Some(
-                        LanguageSystem {
-                            required_feature: None,
-                            feature_indices: vec![
-                                1,
-                                3,
-                                4,
-                                5,
-                                6,
-                                7,
-                                8,
-                            ],
-                        },
-                    ),
-                    language_systems: hashmap!(tag!("URD ") =>
-                        LanguageSystem {
-                            required_feature: None,
-                            feature_indices: vec![
-                                0,
-                                3,
-                                4,
-                                5,
-                                6,
-                                7,
-                                8,
-                            ],
-                        },
-                    ),
-                },
-                tag!("latn") => Script {
-                    default_language_system: Some(
-                        LanguageSystem {
-                            required_feature: None,
-                            feature_indices: vec![
-                                2,
-                                3,
-                                4,
-                                5,
-                                6,
-                                7,
-                                8,
-                            ],
-                        },
-                    ),
-                    language_systems: hashmap!(),
-                },
-            ),
-        };
-
-        let mut serialized = vec![];
-        let sli: ScriptListInternal = (&script_list).into();
-        let root = Offset16::to(sli);
-        let mut mgr = OffsetManager::new(&root);
-        mgr.resolve();
-        mgr.dump_graph();
-        mgr.serialize(&mut serialized, true).unwrap();
-        assert_eq!(serialized, binary_scriptlist);
     }
 }

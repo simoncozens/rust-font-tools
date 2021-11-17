@@ -9,9 +9,12 @@ use crate::types::*;
 use std::convert::TryInto;
 use std::mem;
 mod counted;
+pub mod layout;
 pub mod offsetmanager;
 mod offsets;
+pub mod utils;
 pub use counted::{Counted, Counted32};
+pub mod tables;
 mod tag;
 pub mod types;
 
@@ -72,6 +75,19 @@ impl ReaderContext {
     }
     pub fn skip(&mut self, bytes: usize) {
         self.ptr += bytes;
+    }
+
+    pub fn follow_offset<T>(&mut self, offset: uint16) -> Result<(), DeserializationError> {
+        let destination = self.top_of_table() + offset as usize;
+        if destination > self.input.len() {
+            return Err(DeserializationError(
+                format!("Offset fell off end of data trying to deserialize a {:?} (probably a missing [offset_base])",
+                    std::any::type_name::<T>()
+                    )
+            ));
+        }
+        self.ptr = destination;
+        Ok(())
     }
 }
 
@@ -286,9 +302,7 @@ where
 
 /* Provide a serde-style interface */
 pub mod ser {
-    use crate::SerializationError;
-    use crate::Serialize;
-    use crate::Serializer;
+    use crate::{SerializationError, Serialize, Serializer};
 
     pub fn to_bytes<T: Serialize>(data: &T) -> Result<Vec<u8>, SerializationError> {
         let mut out = vec![];
@@ -303,6 +317,8 @@ pub mod de {
         rc.de()
     }
 }
+
+extern crate self as otspec;
 
 #[cfg(test)]
 mod tests {

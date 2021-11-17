@@ -1,5 +1,5 @@
-use otspec::types::*;
-use otspec::{
+use crate::types::*;
+use crate::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
     Serializer,
 };
@@ -23,6 +23,8 @@ tables!(
     }
 );
 
+// XXX This is also still too clever
+
 #[derive(Debug, PartialEq, Clone, Default)]
 /// A class definition table.
 ///
@@ -35,7 +37,12 @@ pub struct ClassDef {
 
 impl ClassDef {
     /// Get a set of glyph IDs corresponding to the given class
-    pub fn get_glyphs(&self, class_id: uint16) -> BTreeSet<GlyphID> {
+    pub fn get_glyphs(&self, class_id: uint16, max_glyph_id: uint16) -> BTreeSet<GlyphID> {
+        if class_id == 0 {
+            let mut glyphs: BTreeSet<GlyphID> = (0..=max_glyph_id).collect();
+            glyphs.retain(|g| !self.classes.contains_key(g));
+            return glyphs;
+        }
         // "Doing linear scans over an associative array is like trying to
         // club someone to death with a loaded Uzi." - Larry Wall
         self.classes
@@ -87,10 +94,9 @@ impl Serialize for ClassDef {
         let pairs: Vec<(u16, u16)> = self.classes.iter().map(|(k, v)| (*k, *v)).collect();
         let as_consecutive = consecutive_slices(&pairs);
         if self.classes.is_empty() {
-            data.put(1_u16)?;
-            data.put(ClassDefFormat1 {
-                startGlyphID: 0,
-                classValueArray: vec![],
+            data.put(2_u16)?;
+            data.put(ClassDefFormat2 {
+                classRangeRecords: vec![],
             })?;
             return Ok(());
         }
@@ -149,9 +155,9 @@ mod tests {
             0x00, 0x51, 0x00, 0x01, 0x00, 0x52, 0x00, 0x52, 0x00, 0x02, 0x00, 0x53, 0x00, 0x53,
             0x00, 0x01, 0x00, 0x54, 0x00, 0x54, 0x00, 0x02,
         ];
-        let deserialized: ClassDef = otspec::de::from_bytes(&binary_classdef).unwrap();
+        let deserialized: ClassDef = crate::de::from_bytes(&binary_classdef).unwrap();
         assert_eq!(deserialized, expected);
-        let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
+        let serialized = crate::ser::to_bytes(&deserialized).unwrap();
         assert_eq!(serialized, binary_classdef);
     }
 
@@ -179,9 +185,9 @@ mod tests {
             0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x02,
             0x00, 0x00, 0x00, 0x01, 0x00, 0x02,
         ];
-        let deserialized: ClassDef = otspec::de::from_bytes(&binary_classdef).unwrap();
+        let deserialized: ClassDef = crate::de::from_bytes(&binary_classdef).unwrap();
         assert_eq!(deserialized, expected);
-        let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
+        let serialized = crate::ser::to_bytes(&deserialized).unwrap();
         assert_eq!(serialized, binary_classdef);
     }
 }

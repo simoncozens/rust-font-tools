@@ -1,5 +1,5 @@
-use otspec::types::*;
-use otspec::{
+use crate::types::*;
+use crate::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
 };
 
@@ -18,6 +18,8 @@ tables!(
         uint16    startCoverageIndex
     }
 );
+
+// XXX This is still clever
 
 #[derive(Debug, PartialEq, Clone, Default)]
 /// A coverage table.

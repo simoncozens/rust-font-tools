@@ -1,26 +1,9 @@
-use crate::layout::coverage::Coverage;
-
+use crate::layout::common::{coverage_or_nah, FromLowlevel, ToLowlevel};
+use otspec::layout::coverage::Coverage;
+use otspec::layout::gsub2::{MultipleSubstFormat1, Sequence};
+use otspec::tables::GSUB::GSUBSubtable;
 use otspec::types::*;
-use otspec::DeserializationError;
-use otspec::Deserialize;
-use otspec::Deserializer;
-use otspec::ReaderContext;
-use otspec::SerializationError;
-use otspec::Serialize;
-use otspec_macros::tables;
 use std::collections::BTreeMap;
-
-tables!(
-  MultipleSubstFormat1 {
-    [offset_base]
-    uint16 substFormat
-    Offset16(Coverage) coverage
-    CountedOffset16(Sequence)  sequences
-  }
-  Sequence {
-    Counted(uint16) substituteGlyphIDs
-  }
-);
 
 #[derive(Debug, PartialEq, Clone, Default)]
 /// A multiple substitution (one-to-many) subtable.
@@ -29,103 +12,75 @@ pub struct MultipleSubst {
     pub mapping: BTreeMap<GlyphID, Vec<GlyphID>>,
 }
 
-impl Deserialize for MultipleSubst {
-    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
-        let msf1: MultipleSubstFormat1 = c.de()?;
-        let mut mapping = BTreeMap::new();
-        for (input, sequence) in msf1
-            .coverage
-            .link
-            .unwrap()
-            .glyphs
-            .iter()
-            .zip(msf1.sequences.v.iter())
-        {
-            mapping.insert(
-                *input,
-                sequence.link.as_ref().unwrap().substituteGlyphIDs.clone(),
-            );
+impl FromLowlevel<GSUBSubtable> for MultipleSubst {
+    fn from_lowlevel(st: GSUBSubtable, _max_glyph_id: GlyphID) -> Self {
+        let mut multsubst = MultipleSubst::default();
+        match st {
+            GSUBSubtable::GSUB2_1(multsubst1) => {
+                for (glyph, sequence) in coverage_or_nah(multsubst1.coverage)
+                    .iter()
+                    .zip(multsubst1.sequences.v.into_iter())
+                {
+                    multsubst
+                        .mapping
+                        .insert(*glyph, sequence.link.unwrap_or_default().substituteGlyphIDs);
+                }
+            }
+            _ => panic!(),
         }
-        Ok(MultipleSubst { mapping })
+        multsubst
     }
 }
 
-impl From<&MultipleSubst> for MultipleSubstFormat1 {
-    fn from(lookup: &MultipleSubst) -> Self {
+impl ToLowlevel<GSUBSubtable> for MultipleSubst {
+    fn to_lowlevel(&self, _max_glyph_id: GlyphID) -> GSUBSubtable {
         let coverage = Offset16::to(Coverage {
-            glyphs: lookup.mapping.keys().copied().collect(),
+            glyphs: self.mapping.keys().copied().collect(),
         });
         let mut sequences = vec![];
-        for right in lookup.mapping.values() {
+        for right in self.mapping.values() {
             sequences.push(Offset16::to(Sequence {
                 substituteGlyphIDs: right.to_vec(),
             }));
         }
-        MultipleSubstFormat1 {
+        GSUBSubtable::GSUB2_1(MultipleSubstFormat1 {
             substFormat: 1,
             coverage,
             sequences: sequences.into(),
-        }
-    }
-}
-impl Serialize for MultipleSubst {
-    fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
-        let i: MultipleSubstFormat1 = self.into();
-        i.to_bytes(data)
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::layout::common::{Lookup, LookupFlags};
+    use crate::tables::GSUB::tests::{assert_can_roundtrip, expected_gsub};
+    use crate::tables::GSUB::Substitution;
+    use otspec::btreemap;
     use std::iter::FromIterator;
 
-    macro_rules! btreemap {
-        ($($k:expr => $v:expr),* $(,)?) => {
-            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
-        };
-    }
-
     #[test]
-    fn test_mult_subst_ser() {
-        let subst = MultipleSubst {
-            mapping: btreemap!(77 => vec![71,77], 74 => vec![71,74]),
-        };
-        let serialized = otspec::ser::to_bytes(&subst).unwrap();
-        assert_eq!(
-            serialized,
-            vec![
-                /* 00 */ 0x00, 0x01, // fmt 1
-                /* 02 */ 0x00, 0x0A, // Offset 10 to coverage
-                /* 04 */ 0x00, 0x02, // count of sequences
-                /* 06 */ 0x00, 0x12, // Offset to seq 1
-                /* 08 */ 0x00, 0x18, // Offset to seq 2
-                /* 0A */ 0x00, 0x01, // Coverage format 1
-                /* 0C */ 0x00, 0x02, // Coverage: Count of glyph ids
-                /* 0E */ 0x00, 0x4A, // First glyph ID
-                /* 10 */ 0x00, 0x4D, // Second glyph ID
-                /* 12 */ 0x00, 0x02, // First seq: Count of gids
-                /* 14 */ 0x00, 0x47, // First seq: GID1
-                /* 16 */ 0x00, 0x4A, // First seq: GID2
-                /* 18 */ 0x00, 0x02, // Second seq: count of gids
-                /* 1A */ 0x00, 0x47, // Second seq: GID1
-                /* 1C */ 0x00, 0x4D, // Second seq: GID2
-            ]
-        );
-    }
-
-    #[test]
-    fn test_mult_subst_de() {
-        let subst = MultipleSubst {
-            mapping: btreemap!(77 => vec![71,77], 74 => vec![71,74]),
-        };
-        let binary_subst = vec![
-            0x00, 0x01, 0x00, 0x0A, 0x00, 0x02, 0x00, 0x12, 0x00, 0x18, 0x00, 0x01, 0x00, 0x02,
-            0x00, 0x4A, 0x00, 0x4D, 0x00, 0x02, 0x00, 0x47, 0x00, 0x4A, 0x00, 0x02, 0x00, 0x47,
-            0x00, 0x4D,
+    fn test_gsub2_deser() {
+        let binary_gsub = vec![
+            0x00, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x1e, 0x00, 0x2c, 0x00, 0x01, 0x44, 0x46,
+            0x4c, 0x54, 0x00, 0x08, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x74, 0x65, 0x73, 0x74, 0x00, 0x08, 0x00, 0x00, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x04, 0x00, 0x02, 0x00, 0x00, 0x00, 0x01, 0x00, 0x08,
+            0x00, 0x01, 0x00, 0x0a, 0x00, 0x02, 0x00, 0x12, 0x00, 0x18, 0x00, 0x01, 0x00, 0x02,
+            0x00, 0x42, 0x00, 0x45, 0x00, 0x02, 0x00, 0x43, 0x00, 0x44, 0x00, 0x02, 0x00, 0x48,
+            0x00, 0x49,
         ];
-
-        let deserialized: MultipleSubst = otspec::de::from_bytes(&binary_subst).unwrap();
-        assert_eq!(deserialized, subst);
+        let expected = expected_gsub(vec![Lookup {
+            flags: LookupFlags::empty(),
+            mark_filtering_set: None,
+            rule: Substitution::Multiple(vec![MultipleSubst {
+                mapping: btreemap!(
+                    66 => vec![67, 68],
+                    69 => vec![72, 73]
+                ),
+            }]),
+        }]);
+        assert_can_roundtrip(binary_gsub, &expected);
     }
 }

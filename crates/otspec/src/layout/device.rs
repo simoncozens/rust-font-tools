@@ -1,5 +1,5 @@
-use otspec::types::*;
-use otspec::{
+use crate::types::*;
+use crate::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
     Serializer,
 };

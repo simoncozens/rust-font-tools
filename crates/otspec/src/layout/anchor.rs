@@ -1,5 +1,5 @@
-use otspec::types::*;
-use otspec::{
+use crate::types::*;
+use crate::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
     Serializer,
 };
@@ -46,7 +46,10 @@ impl Deserialize for Anchor {
                 anchorPoint: Some(anchorPoint),
             })
         } else {
-            unimplemented!();
+            Err(DeserializationError(format!(
+                "Invalid anchor format {:}",
+                format
+            )))
         }
     }
 }

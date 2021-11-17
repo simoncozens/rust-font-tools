@@ -137,6 +137,14 @@ impl<T, U: OffsetType> Offset<T, U> {
         }
     }
 
+    /// Create a new offset pointing to a subtable with a known offset.
+    pub fn new(off: U, thing: T) -> Self {
+        Self {
+            off: RefCell::new(Some(off)),
+            link: Some(thing),
+        }
+    }
+
     /// Create a new offset pointing to nothing.
     pub fn to_nothing() -> Self {
         Self {
@@ -184,18 +192,15 @@ impl<T: Deserialize + Debug, U: OffsetType> Deserialize for Offset<T, U> {
         let off: U = c.de()?;
         if off == U::zero() {
             return Ok(Self {
-                off: RefCell::new(None),
+                off: RefCell::new(Some(U::zero())), // If things break, this is why
                 link: None,
             });
         }
         let oldptr = c.ptr;
-        c.ptr = c.top_of_table() + off.as_();
+        c.follow_offset::<T>(off.as_().try_into().unwrap())?;
         let obj: T = c.de()?;
         c.ptr = oldptr;
-        Ok(Self {
-            off: RefCell::new(Some(off)),
-            link: Some(obj),
-        })
+        Ok(Self::new(off, obj))
     }
 }
 
@@ -232,12 +237,21 @@ where
 
 // Vector of offsets
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct VecOffset<T, U: OffsetType> {
     pub v: Vec<Offset<T, U>>,
 }
 pub type VecOffset16<T> = VecOffset<T, u16>;
 pub type VecOffset32<T> = VecOffset<T, u32>;
+
+impl<T, U> VecOffset<T, U>
+where
+    U: OffsetType,
+{
+    pub fn push(&mut self, data: Offset<T, U>) {
+        self.v.push(data);
+    }
+}
 
 impl<T, U> Serialize for VecOffset<T, U>
 where

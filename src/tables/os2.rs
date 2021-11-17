@@ -1,5 +1,5 @@
-use crate::utils::int_list_to_num;
 use otspec::types::*;
+use otspec::utils::int_list_to_num;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
 };

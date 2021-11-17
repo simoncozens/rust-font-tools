@@ -1,8 +1,8 @@
 use bitflags::bitflags;
 use otspec::types::*;
-use otspec::ReaderContext;
 use otspec::{
-    DeserializationError, Deserialize, Deserializer, SerializationError, Serialize, Serializer,
+    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
+    Serializer,
 };
 use otspec_macros::{tables, Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -388,7 +388,8 @@ impl AxisValue {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{btreemap, tag};
+    use crate::tag;
+    use otspec::btreemap;
     use pretty_assertions::assert_eq;
     use std::iter::FromIterator;
     #[test]

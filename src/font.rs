@@ -116,6 +116,7 @@ impl Font {
     /// Attempt to write the font into the provided [`Writer`][std::io::Write];
     pub fn write(&mut self, mut writer: impl std::io::Write) -> Result<(), Box<dyn Error>> {
         self.tables.compile_glyf_loca_maxp();
+        self.tables.compile_gsub_gpos();
         let mut bytes = Vec::new();
         self.to_bytes(&mut bytes)?;
         writer.write_all(&bytes).map_err(Into::into)
