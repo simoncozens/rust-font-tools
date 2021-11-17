@@ -32,8 +32,6 @@ pub enum Substitution {
     Contextual(Vec<SequenceContext>),
     /// Contains a chained contextual substitution rule.
     ChainedContextual(Vec<ChainedSequenceContext>),
-    /// Contains an extension subtable.
-    Extension,
 }
 
 impl Substitution {
@@ -46,7 +44,6 @@ impl Substitution {
             Substitution::Ligature(v) => v.push(LigatureSubst::default()),
             Substitution::Contextual(v) => v.push(SequenceContext::default()),
             Substitution::ChainedContextual(v) => v.push(ChainedSequenceContext::default()),
-            Substitution::Extension => todo!(),
         }
     }
 }
@@ -61,7 +58,6 @@ impl Lookup<Substitution> {
             Substitution::Ligature(_) => 4,
             Substitution::Contextual(_) => 5,
             Substitution::ChainedContextual(_) => 6,
-            Substitution::Extension => 7,
         }
     }
 }
@@ -233,7 +229,6 @@ impl ToLowlevel<GSUBLookupLowlevel> for Lookup<Substitution> {
                 })
                 .flatten()
                 .collect(),
-            Substitution::Extension => panic!("This can't happen"),
         };
         GSUBLookupLowlevel {
             lookupType: self.lookup_type(),

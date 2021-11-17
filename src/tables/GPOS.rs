@@ -37,8 +37,6 @@ pub enum Positioning {
     Contextual(Vec<SequenceContext>),
     /// Contains a chained contextual positioning rule.
     ChainedContextual(Vec<ChainedSequenceContext>),
-    /// Contains an extension subtable.
-    Extension,
 }
 
 impl Positioning {
@@ -53,7 +51,6 @@ impl Positioning {
             Positioning::MarkToMark(v) => v.push(MarkMarkPos::default()),
             Positioning::Contextual(v) => v.push(SequenceContext::default()),
             Positioning::ChainedContextual(v) => v.push(ChainedSequenceContext::default()),
-            Positioning::Extension => todo!(),
         }
     }
 }
@@ -70,7 +67,6 @@ impl Lookup<Positioning> {
             Positioning::MarkToMark(_) => 6,
             Positioning::Contextual(_) => 7,
             Positioning::ChainedContextual(_) => 8,
-            Positioning::Extension => 9,
         }
     }
 }
@@ -264,7 +260,6 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
                 })
                 .flatten()
                 .collect(),
-            Positioning::Extension => panic!("This can't happen"),
         };
         GPOSLookupLowlevel {
             lookupType: self.lookup_type(),
