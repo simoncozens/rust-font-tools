@@ -75,6 +75,10 @@ pub enum LoadedTable {
     avar(Rc<tables::avar::avar>),
     /// Contains a character to glyph index mapping table.
     cmap(Rc<tables::cmap::cmap>),
+    /// Contains a control value table.
+    cvt(Rc<tables::cvt::cvt>),
+    /// Contains a font program table.
+    fpgm(Rc<tables::fpgm::fpgm>),
     /// Contains a font variations table.
     fvar(Rc<tables::fvar::fvar>),
     /// Contains a grid-fitting and scan-conversion procedure table.
@@ -107,6 +111,8 @@ pub enum LoadedTable {
     os2(Rc<tables::os2::os2>),
     /// Contains a postscript table.
     post(Rc<tables::post::post>),
+    /// Contains a control value program table.
+    prep(Rc<tables::prep::prep>),
     /// Contains a style attributes table.
     STAT(Rc<tables::STAT::STAT>),
     /// Any unknown table.
@@ -321,6 +327,8 @@ impl TableSet {
         let typed_data: LoadedTable = match tag.as_bytes() {
             b"avar" => otspec::de::from_bytes::<tables::avar::avar>(&data)?.into(),
             b"cmap" => otspec::de::from_bytes::<tables::cmap::cmap>(&data)?.into(),
+            b"cvt " => otspec::de::from_bytes::<tables::cvt::cvt>(&data)?.into(),
+            b"fpgm" => otspec::de::from_bytes::<tables::fpgm::fpgm>(&data)?.into(),
             b"fvar" => otspec::de::from_bytes::<tables::fvar::fvar>(&data)?.into(),
             b"gasp" => otspec::de::from_bytes::<tables::gasp::gasp>(&data)?.into(),
             b"GDEF" => otspec::de::from_bytes::<tables::GDEF::GDEF>(&data)?.into(),
@@ -345,6 +353,7 @@ impl TableSet {
             b"name" => otspec::de::from_bytes::<tables::name::name>(&data)?.into(),
             b"OS/2" => otspec::de::from_bytes::<tables::os2::os2>(&data)?.into(),
             b"post" => otspec::de::from_bytes::<tables::post::post>(&data)?.into(),
+            b"prep" => otspec::de::from_bytes::<tables::prep::prep>(&data)?.into(),
             b"STAT" => otspec::de::from_bytes::<tables::STAT::STAT>(&data)?.into(),
             b"hmtx" => {
                 let number_of_hmetrics = self
@@ -601,6 +610,8 @@ table_boilerplate!(tables::GSUB::GSUB, GSUB);
 table_boilerplate!(tables::STAT::STAT, STAT);
 table_boilerplate!(tables::avar::avar, avar);
 table_boilerplate!(tables::cmap::cmap, cmap);
+table_boilerplate!(tables::cvt::cvt, cvt);
+table_boilerplate!(tables::fpgm::fpgm, fpgm);
 table_boilerplate!(tables::fvar::fvar, fvar);
 table_boilerplate!(tables::gasp::gasp, gasp);
 table_boilerplate!(tables::glyf::glyf, glyf);
@@ -613,6 +624,7 @@ table_boilerplate!(tables::maxp::maxp, maxp);
 table_boilerplate!(tables::name::name, name);
 table_boilerplate!(tables::os2::os2, os2);
 table_boilerplate!(tables::post::post, post);
+table_boilerplate!(tables::prep::prep, prep);
 table_boilerplate!(tables::MATH::MATH, MATH);
 
 impl Serialize for LoadedTable {
@@ -621,6 +633,8 @@ impl Serialize for LoadedTable {
             LoadedTable::Unknown(expr) => expr.to_bytes(data),
             LoadedTable::avar(expr) => expr.to_bytes(data),
             LoadedTable::cmap(expr) => expr.to_bytes(data),
+            LoadedTable::cvt(expr) => expr.to_bytes(data),
+            LoadedTable::fpgm(expr) => expr.to_bytes(data),
             LoadedTable::fvar(expr) => expr.to_bytes(data),
             LoadedTable::gasp(expr) => expr.to_bytes(data),
             LoadedTable::GDEF(expr) => expr.to_bytes(data),
@@ -637,6 +651,7 @@ impl Serialize for LoadedTable {
             LoadedTable::name(expr) => expr.to_bytes(data),
             LoadedTable::os2(expr) => expr.to_bytes(data),
             LoadedTable::post(expr) => expr.to_bytes(data),
+            LoadedTable::prep(expr) => expr.to_bytes(data),
             LoadedTable::STAT(expr) => expr.to_bytes(data),
         }
     }

@@ -17,6 +17,10 @@ pub mod STAT;
 pub mod avar;
 /// The `cmap` (Character To Glyph Index Mapping) table
 pub mod cmap;
+/// The `cvt ` (Control Value) table
+pub mod cvt;
+/// The `fpgm` (Font program) table
+pub mod fpgm;
 /// The `fvar` (Font variations) table
 pub mod fvar;
 /// The `gasp` (Grid-fitting and Scan-conversion Procedure) table
@@ -41,6 +45,8 @@ pub mod name;
 pub mod os2;
 /// The `post` (PostScript) table
 pub mod post;
+/// The `prep` (Control Value Program) table
+pub mod prep;
 
 #[macro_export]
 /// A macro that allows a high-level table structure to delegate serialization and
