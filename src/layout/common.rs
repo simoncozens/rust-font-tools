@@ -173,14 +173,43 @@ pub struct Lookup<T> {
 /// Associates a feature tag with a set of lookup IDs, and optional feature
 // parameters
 pub struct FeatureList(Vec<(Tag, Vec<usize>, Option<FeatureParams>)>);
+
 impl FeatureList {
+    /// Create a new feature list
+    pub fn new(v: Vec<(Tag, Vec<usize>, Option<FeatureParams>)>) -> Self {
+        Self(v)
+    }
+
     /// Iterate over the feature list
     pub fn iter(&self) -> std::slice::Iter<'_, (Tag, Vec<usize>, Option<FeatureParams>)> {
         self.0.iter()
     }
-    /// Create a new feature list
-    pub fn new(v: Vec<(Tag, Vec<usize>, Option<FeatureParams>)>) -> Self {
-        Self(v)
+
+    /// A mutable iterator over the feature list.
+    pub fn iter_mut(
+        &mut self,
+    ) -> impl Iterator<Item = &mut (Tag, Vec<usize>, Option<FeatureParams>)> {
+        self.0.iter_mut()
+    }
+
+    /// The length of the feature list.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// `true` if the feature list is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Get the item at the provided index, if it exists.
+    pub fn get(&self, idx: usize) -> Option<&(Tag, Vec<usize>, Option<FeatureParams>)> {
+        self.0.get(idx)
+    }
+
+    /// Add an entry to the list.
+    pub fn push(&mut self, item: (Tag, Vec<usize>, Option<FeatureParams>)) {
+        self.0.push(item);
     }
 }
 
