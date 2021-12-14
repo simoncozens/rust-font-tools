@@ -1,6 +1,6 @@
 [workspace]
 
-members = [ ".", "crates/otspec", "crates/otspec_macros", "crates/fonttools-cli", "crates/designspace" ]
+members = [ ".", "crates/otspec", "crates/otspec_macros", "crates/fonttools-cli" ]
 
 [package]
 name = "fonttools"
