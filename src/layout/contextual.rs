@@ -193,8 +193,14 @@ impl SequenceContext {
 #[derive(Debug, PartialEq, Clone, Default)]
 /// A chained contextual rule, with backtrack and lookahead
 pub struct ChainedSequenceContextRule {
+    /// Glyphs which must appear before the input sequence
     pub backtrack: Vec<Slot>,
+    /// Glyphs which must appear after the input sequence
     pub lookahead: Vec<Slot>,
+    /// The input sequence
+    ///
+    /// This consists of one or more inputs, where each input is a set of
+    /// one or more glyphs and zero or more lookups.
     pub input: SequenceContextRule,
 }
 
