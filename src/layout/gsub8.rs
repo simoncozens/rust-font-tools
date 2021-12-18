@@ -12,9 +12,9 @@ pub struct ReverseChainSubst {
     /// The mapping of input glyph IDs to substitute.
     pub mapping: BTreeMap<GlyphID, GlyphID>,
     /// Glyphs which must appear before the input glyph
-    backtrack: Vec<Slot>,
+    pub backtrack: Vec<Slot>,
     /// Glyphs which must appear after the input glyph
-    lookahead: Vec<Slot>,
+    pub lookahead: Vec<Slot>,
 }
 
 impl ToLowlevel<GSUBSubtable> for ReverseChainSubst {
