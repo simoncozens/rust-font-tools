@@ -4,16 +4,15 @@
 
 use std::collections::HashMap;
 use std::fs::File;
+#[cfg(feature = "norad")]
 use std::path::Path;
 
 use fonttools::otvar::{Location as OTVarLocation, NormalizedLocation, VariationModel};
-use fonttools::tag;
 use fonttools::types::Tag;
 use serde::{Deserialize, Serialize};
 pub use serde_xml_rs::from_reader;
 
 use fonttools::font::Font;
-use fonttools::tables;
 use fonttools::tables::avar::{avar, SegmentMap};
 use fonttools::tables::fvar::{fvar, InstanceRecord, VariationAxisRecord};
 use fonttools::tables::name::NameRecord;
@@ -111,6 +110,7 @@ impl Designspace {
                     subfamilyNameID: ix,
                     coordinates: self.location_to_tuple(&instance.location),
                     postscriptNameID: None,
+                    flags: 0,
                 };
                 ix += 1;
                 if let Some(psname) = &instance.postscriptfontname {
@@ -128,12 +128,7 @@ impl Designspace {
         font.tables.insert(name);
 
         // Handle avar here
-        let avar_table = avar {
-            majorVersion: 1,
-            minorVersion: 0,
-            reserved: 0,
-            axisSegmentMaps: maps,
-        };
+        let avar_table = avar { maps };
         font.tables.insert(avar_table);
 
         Ok(())
