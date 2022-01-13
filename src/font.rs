@@ -11,10 +11,14 @@ use chrono::Local;
 use fonttools::font::Font as FTFont;
 use fonttools::otvar::Location as OTVarLocation;
 use fonttools::otvar::{NormalizedLocation, VariationModel};
-use fonttools::tables::avar::{avar, SegmentMap};
-use fonttools::tables::fvar::{fvar, InstanceRecord, VariationAxisRecord};
-use fonttools::tables::name::NameRecord;
-use fonttools::types::Tag;
+use fonttools::{
+    tables::{
+        avar::{avar, SegmentMap},
+        fvar::{fvar, InstanceRecord, VariationAxisRecord},
+        name::NameRecord,
+    },
+    types::Tag,
+};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 
@@ -217,10 +221,11 @@ impl Font {
                 ix,
                 instance.style_name.default().expect("Bad instance name"),
             ));
-            let mut ir = InstanceRecord {
+            let ir = InstanceRecord {
                 subfamilyNameID: ix,
                 coordinates: self.location_to_tuple(&instance.location),
                 postscriptNameID: None,
+                flags: 0,
             };
             ix += 1;
             // if let Some(psname) = &instance.postscriptfontname {
@@ -239,14 +244,7 @@ impl Font {
         }
         font.tables.insert(fvar { axes, instances });
 
-        // Handle avar here
-        let avar_table = avar {
-            majorVersion: 1,
-            minorVersion: 0,
-            reserved: 0,
-            axisSegmentMaps: maps,
-        };
-        font.tables.insert(avar_table);
+        font.tables.insert(avar { maps });
         font.tables.insert(name);
 
         Ok(())

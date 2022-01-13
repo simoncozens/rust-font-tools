@@ -1,13 +1,13 @@
+use std::fs::File;
+use std::path::PathBuf;
+
 use crate::convertors::ufo::load_font_info;
 use crate::convertors::ufo::load_glyphs;
 use crate::convertors::ufo::load_master_info;
 use crate::convertors::ufo::norad_glyph_to_babelfont_layer;
-use std::fs::File;
-use std::path::PathBuf;
+use crate::{Axis, BabelfontError, Font, Location, Master};
 
 use designspace::{Axis as DSAxis, Designspace, Instance as DSInstance};
-
-use crate::{Axis, BabelfontError, Font, Location, Master};
 
 pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     let ds_file = File::open(path.clone()).map_err(|source| BabelfontError::IO {

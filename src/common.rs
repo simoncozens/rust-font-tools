@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 
-pub type Tag = [u8; 4];
-
 #[derive(Debug, Copy, Clone)]
 pub struct Position {
     pub x: i32,

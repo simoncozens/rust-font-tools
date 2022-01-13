@@ -1,7 +1,10 @@
-use crate::common::Tag;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fmt::Formatter;
+
+use fonttools::types::Tag;
+
+const DFLT: Tag = fonttools::tag!("dflt");
 
 pub struct I18NDictionary(pub HashMap<Tag, String>);
 
@@ -15,7 +18,7 @@ impl I18NDictionary {
     }
 
     pub fn set_default(&mut self, s: String) {
-        self.0.insert(*b"dflt", s);
+        self.0.insert(DFLT, s);
     }
 }
 
@@ -35,7 +38,7 @@ impl Debug for I18NDictionary {
 impl Into<I18NDictionary> for String {
     fn into(self) -> I18NDictionary {
         let mut f = I18NDictionary::new();
-        f.0.insert(*b"dflt", self);
+        f.0.insert(DFLT, self);
         f
     }
 }
@@ -43,7 +46,7 @@ impl Into<I18NDictionary> for String {
 impl Into<I18NDictionary> for &str {
     fn into(self) -> I18NDictionary {
         let mut f = I18NDictionary::new();
-        f.0.insert(*b"dflt", self.to_string());
+        f.0.insert(DFLT, self.to_string());
         f
     }
 }
@@ -51,7 +54,7 @@ impl Into<I18NDictionary> for &str {
 impl Into<I18NDictionary> for &String {
     fn into(self) -> I18NDictionary {
         let mut f = I18NDictionary::new();
-        f.0.insert(*b"dflt", self.to_string());
+        f.0.insert(DFLT, self.to_string());
         f
     }
 }
