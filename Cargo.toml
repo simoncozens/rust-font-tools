@@ -17,7 +17,7 @@ snafu = "0.6.10"
 uuid = { version = "0.8", features = ["v4"] }
 shrinkwraprs = "0.3.0"
 fonttools = { path = "../fonttools-rs", features = ["rayon"], version = "0" }
-norad = { version = "0.6.0", git="https://github.com/linebender/norad", features = ["rayon", "kurbo"]}
+norad = { version = "0.6", features = ["rayon", "kurbo"]}
 designspace = { path = "../fonttools-rs/crates/designspace", features = ["norad"], version = "0" }
 lazy_static = "1.4.0"
 log = "0.4.14"

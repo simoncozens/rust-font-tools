@@ -1,9 +1,9 @@
+use std::collections::HashMap;
+
 use crate::i18ndictionary::I18NDictionary;
 use crate::BabelfontError;
-use fonttools::tables::fvar::VariationAxisRecord;
-use fonttools::types::Tag;
-use std::collections::HashMap;
-use std::convert::TryInto;
+
+use fonttools::{tables::fvar::VariationAxisRecord, types::Tag};
 use uuid::Uuid;
 
 #[derive(Debug)]

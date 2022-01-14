@@ -34,5 +34,3 @@ pub enum BabelfontError {
     #[snafu(display("Ill-constructed path"))]
     BadPath,
 }
-
-type Result<T, E = BabelfontError> = std::result::Result<T, E>;

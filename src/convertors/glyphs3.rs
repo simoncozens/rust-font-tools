@@ -8,9 +8,9 @@ use crate::{
     Axis, BabelfontError, Component, Font, Glyph, Guide, Instance, Layer, Location, Master, Node,
     NodeType, Path, Position, Shape,
 };
+use fonttools::types::Tag;
 use openstep_plist::Plist;
 use std::collections::HashMap;
-use std::convert::TryInto;
 
 use chrono::TimeZone;
 use lazy_static::lazy_static;
@@ -503,7 +503,7 @@ fn load_properties(font: &mut Font, plist: &Plist) {
                                 if l.len() != 4 {
                                     continue;
                                 };
-                                let l = l.as_bytes()[0..4].try_into().unwrap();
+                                let l = Tag::from_raw(l.as_bytes()).unwrap();
                                 val.0.insert(l, v.to_string());
                             }
                         }
