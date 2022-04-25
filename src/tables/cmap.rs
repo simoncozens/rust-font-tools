@@ -645,10 +645,14 @@ impl Deserialize for cmap {
                     })
                 }
                 [a, b] => {
-                    panic!("Unknown cmap format {:}{:}", a, b);
+                    return Err(DeserializationError(format!(
+                        "Unknown cmap format {:}{:}",
+                        a, b
+                    )))
                 }
+
                 _ => {
-                    panic!("Reading cmap format failed");
+                    return Err(DeserializationError(format!("Reading cmap format failed")));
                 }
             }
         }
