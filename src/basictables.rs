@@ -12,7 +12,6 @@ use fonttools::types::Tag;
 use std::cmp::{max, min};
 
 use std::collections::BTreeMap;
-use std::convert::TryInto;
 
 // This takes a babelfont font, and creates most of the output fonttools-rs font.
 pub fn fill_tables(
@@ -74,17 +73,33 @@ pub fn compile_head(font: &babelfont::Font, glyf: &glyf::glyf) -> head {
         y_min = min(y_min, glyph.yMin);
         y_max = max(y_max, glyph.yMax);
     }
-    let mut head_table = head::new(font_revision, font.upm, x_min, y_min, x_max, y_max);
 
-    // dates (modified is set to now by default)
-    head_table.created = font.date.naive_local();
+    let created_date = font.date.naive_local();
 
-    if let Some(lowest_rec_ppm) = font.ot_value("head", "lowestRecPPEM", true) {
-        head_table.lowestRecPPEM = u16::from(lowest_rec_ppm);
-    }
-
-    head_table.flags = head_flags(font);
-    head_table.macStyle = head_mac_style(font);
+    let head_table = head {
+        checksumAdjustment: 0,
+        created: created_date,
+        flags: head_flags(font),
+        fontDirectionHint: 2,
+        fontRevision: font_revision,
+        glyphDataFormat: 0,
+        indexToLocFormat: 1,
+        lowestRecPPEM: if let Some(lowest_rec_ppm) = font.ot_value("head", "lowestRecPPEM", true) {
+            u16::from(lowest_rec_ppm)
+        } else {
+            9
+        },
+        macStyle: head_mac_style(font),
+        magicNumber: 0x5F0F3CF5,
+        majorVersion: 1,
+        minorVersion: 0,
+        modified: created_date,
+        unitsPerEm: font.upm,
+        xMax: x_max,
+        xMin: x_min,
+        yMax: y_max,
+        yMin: y_min,
+    };
 
     head_table
 }
