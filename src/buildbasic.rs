@@ -185,6 +185,7 @@ fn decomposed_components(layer: &Layer, font: &Font) -> Vec<Path> {
                         nodetype: node.nodetype,
                     })
                 }
+                decomposed_contour.closed = contour.closed;
                 contours.push(decomposed_contour);
             }
 
