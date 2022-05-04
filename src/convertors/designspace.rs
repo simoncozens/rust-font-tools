@@ -1,6 +1,8 @@
 use std::fs::File;
 use std::path::PathBuf;
 
+use uuid::Uuid;
+
 use crate::convertors::ufo::load_font_info;
 use crate::convertors::ufo::load_glyphs;
 use crate::convertors::ufo::load_master_info;
@@ -78,16 +80,14 @@ fn load_masters(
                 .zip(ds.location_to_tuple(&source.location))
                 .collect(),
         );
+        let uuid = Uuid::new_v4().to_string();
 
         let mut master = Master::new(
             source
                 .name
                 .as_ref()
                 .unwrap_or(&"Unnamed master".to_string()),
-            source
-                .name
-                .as_ref()
-                .unwrap_or(&"Unnamed master".to_string()),
+            source.name.as_ref().unwrap_or(&uuid),
             location,
         );
         let relative_path_to_master = if let Some(r) = relative {
