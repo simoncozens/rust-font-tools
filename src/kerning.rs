@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use babelfont::Font;
 use fonttools::layout::common::{
     FeatureList, LanguageSystem, Lookup, LookupFlags, Script, ScriptList,
@@ -5,17 +7,8 @@ use fonttools::layout::common::{
 use fonttools::layout::gpos2::{PairPos, PairPositioningMap};
 use fonttools::tables::GPOS::{Positioning, GPOS};
 use fonttools::tag;
-use otspec::layout::common::FeatureRecord;
 use otspec::layout::valuerecord::ValueRecord;
 use otspec::valuerecord;
-use std::collections::BTreeMap;
-use std::iter::FromIterator;
-
-macro_rules! hashmap {
-        ($($k:expr => $v:expr),* $(,)?) => {
-            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
-        };
-    }
 
 pub fn build_kerning(font: &Font, mapping: &BTreeMap<String, u16>) -> GPOS {
     let master = font.default_master().unwrap();
@@ -52,17 +45,16 @@ pub fn build_kerning(font: &Font, mapping: &BTreeMap<String, u16>) -> GPOS {
             rule: Positioning::Pair(vec![pairpos]),
         }],
         scripts: ScriptList {
-            scripts: hashmap!(tag!("DFLT") => Script {
-                default_language_system: Some(
-                    LanguageSystem {
+            scripts: BTreeMap::from([(
+                tag!("DFLT"),
+                Script {
+                    default_language_system: Some(LanguageSystem {
                         required_feature: None,
-                        feature_indices: vec![
-                            0,
-                       ],
-                    },
-                ),
-                language_systems: BTreeMap::new()
-            }),
+                        feature_indices: vec![0],
+                    }),
+                    language_systems: BTreeMap::new(),
+                },
+            )]),
         },
         features: FeatureList::new(vec![(tag!("kern"), vec![0], None)]),
     }

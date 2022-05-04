@@ -76,7 +76,7 @@ pub fn compile_head(font: &babelfont::Font, glyf: &glyf::glyf) -> head {
 
     let created_date = font.date.naive_local();
 
-    let head_table = head {
+    head {
         checksumAdjustment: 0,
         created: created_date,
         flags: head_flags(font),
@@ -99,9 +99,7 @@ pub fn compile_head(font: &babelfont::Font, glyf: &glyf::glyf) -> head {
         xMin: x_min,
         yMax: y_max,
         yMin: y_min,
-    };
-
-    head_table
+    }
 }
 
 pub fn compile_post(font: &babelfont::Font, glyph_names: &[String]) -> post {
@@ -404,7 +402,7 @@ pub fn compile_os2(
     if let Some(OTScalar::BitField(page_ranges)) = input.ot_value("OS2", "codePageRanges", true) {
         table.int_list_to_code_page_ranges(&page_ranges);
     } else {
-        table.calc_code_page_ranges(&mapping);
+        table.calc_code_page_ranges(mapping);
     }
     table
 }
