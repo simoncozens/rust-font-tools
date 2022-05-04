@@ -190,8 +190,7 @@ fn decomposed_components(layer: &Layer, font: &Font) -> Vec<Path> {
             }
 
             // We need to do this backwards.
-            let components: Vec<&Component> = new_outline.components().collect();
-            for new_component in components.into_iter().rev() {
+            for new_component in new_outline.components().rev() {
                 let new_transform: kurbo::Affine = new_component.transform;
                 stack.push((new_component, transform * new_transform));
             }
