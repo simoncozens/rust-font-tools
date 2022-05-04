@@ -1,7 +1,6 @@
 use core::ops::{Mul, Sub};
 use otspec::types::{Tag, Tuple, F2DOT14};
 use permutation::Permutation;
-use std::array::IntoIter;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
 
@@ -114,7 +113,7 @@ impl VariationModel {
             if let Some((axis, value)) = loc.iter().next() {
                 let entry = axis_points
                     .entry(*axis)
-                    .or_insert_with(|| IntoIter::new([F2DOT14::from(0.0)]).collect());
+                    .or_insert_with(|| vec![F2DOT14::from(0.0)].into_iter().collect());
                 entry.insert(F2DOT14::from(*value));
             }
         }

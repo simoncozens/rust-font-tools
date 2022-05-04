@@ -1,7 +1,6 @@
 use otspec::types::*;
 use otspec::{
-    DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
-    Serializer,
+    DeserializationError, Deserialize, ReaderContext, SerializationError, Serialize, Serializer,
 };
 
 /// The 'prep' OpenType tag.
