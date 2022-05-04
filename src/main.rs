@@ -108,10 +108,15 @@ fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: Option<HashSet<S
         .iter()
         .enumerate()
         .map(|(ix, master)| {
-            master
+            let master_name = master
                 .name
                 .default()
-                .unwrap_or_else(|| format!("Master{}", ix))
+                .unwrap_or_else(|| format!("Master{}", ix));
+            if master_name == "Unnamed master" {
+                format!("Master{}", ix)
+            } else {
+                master_name
+            }
         })
         .collect();
     for (ix, master_name) in master_names.iter().enumerate() {
