@@ -60,7 +60,7 @@ fn load_axes(font: &mut Font, axes: &[DSAxis]) {
     }
 }
 
-pub(crate) fn load_instances(font: &mut Font, _instances: &[DSInstance]) {
+pub(crate) fn load_instances(_font: &mut Font, _instances: &[DSInstance]) {
     // unimplemented!()
 }
 

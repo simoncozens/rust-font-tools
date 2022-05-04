@@ -17,6 +17,7 @@ impl Position {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 pub struct Color {
     r: i32,
