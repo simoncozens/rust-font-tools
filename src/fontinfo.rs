@@ -65,7 +65,7 @@ pub fn style_map_family_name(input: &babelfont::Font) -> String {
             let mut res = String::new();
             res.push_str(&family_name);
             if !lower.is_empty() {
-                res.push_str(&" ".to_string());
+                res.push(' ');
                 res.push_str(&style_name.unwrap());
             }
             res
@@ -80,7 +80,7 @@ pub fn style_map_style_name(input: &babelfont::Font) -> String {
         Some(StyleMapStyle::Italic) => "italic",
         Some(StyleMapStyle::Regular) => "regular",
         None => {
-            let preferred_style_name = preferred_subfamily_name(&input);
+            let preferred_style_name = preferred_subfamily_name(input);
             match preferred_style_name.to_lowercase().as_str() {
                 "bold italic" => "bold italic",
                 "bold" => "bold",

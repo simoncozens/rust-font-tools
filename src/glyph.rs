@@ -106,7 +106,7 @@ pub fn layers_to_glyph(
         let all_contours: Vec<&babelfont::Path> = layers
             .iter()
             .filter(|g| g.is_some())
-            .map(|x| x.unwrap().paths().skip(index).next().unwrap())
+            .map(|x| x.unwrap().paths().nth(index).unwrap())
             .collect();
 
         // Convert them together into OT contours
