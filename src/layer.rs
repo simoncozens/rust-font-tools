@@ -38,7 +38,7 @@ impl Layer {
         }
     }
 
-    pub fn components(&self) -> impl Iterator<Item = &Component> {
+    pub fn components(&self) -> impl DoubleEndedIterator<Item = &Component> {
         self.shapes.iter().filter_map(|x| {
             if let Shape::ComponentShape(c) = x {
                 Some(c)
@@ -48,7 +48,7 @@ impl Layer {
         })
     }
 
-    pub fn paths(&self) -> impl Iterator<Item = &Path> {
+    pub fn paths(&self) -> impl DoubleEndedIterator<Item = &Path> {
         self.shapes.iter().filter_map(|x| {
             if let Shape::PathShape(p) = x {
                 Some(p)
