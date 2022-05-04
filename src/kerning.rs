@@ -1,9 +1,13 @@
 use babelfont::Font;
-use fonttools::layout::common::{LanguageSystem, Lookup, LookupFlags, Script, ScriptList};
+use fonttools::layout::common::{
+    FeatureList, LanguageSystem, Lookup, LookupFlags, Script, ScriptList,
+};
 use fonttools::layout::gpos2::{PairPos, PairPositioningMap};
-use fonttools::layout::valuerecord::ValueRecord;
 use fonttools::tables::GPOS::{Positioning, GPOS};
-use fonttools::{tag, valuerecord};
+use fonttools::tag;
+use otspec::layout::common::FeatureRecord;
+use otspec::layout::valuerecord::ValueRecord;
+use otspec::valuerecord;
 use std::collections::BTreeMap;
 use std::iter::FromIterator;
 
@@ -60,7 +64,7 @@ pub fn build_kerning(font: &Font, mapping: &BTreeMap<String, u16>) -> GPOS {
                 language_systems: BTreeMap::new()
             }),
         },
-        features: vec![(tag!("kern"), vec![0], None)],
+        features: FeatureList::new(vec![(tag!("kern"), vec![0], None)]),
     }
 }
 

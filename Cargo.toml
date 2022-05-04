@@ -2,7 +2,7 @@
 name = "fonticulus"
 version = "0.1.0"
 authors = ["Simon Cozens <simon@simon-cozens.org>"]
-edition = "2018"
+edition = "2021"
 license = "Apache-2.0"
 description = "A fonticulously fast variable font builder"
 repository = "https://github.com/simoncozens/fonttools-rs"
@@ -11,6 +11,7 @@ repository = "https://github.com/simoncozens/fonttools-rs"
 fonttools = { path = "../fonttools-rs", features = ["rayon"], version = "0" }
 babelfont = { path = "../babelfont-rs",  version = "0" }
 designspace = { path = "../fonttools-rs/crates/designspace", features = ["norad"], version="0" }
+otspec = { path = "../fonttools-rs/crates/otspec", version="0" }
 clap = "2.33.3"
 itertools = "0.10.0"
 kurbo = "0.8.2"

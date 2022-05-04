@@ -1,7 +1,7 @@
 use babelfont::names::StyleMapStyle;
 use babelfont::OTScalar;
 use fonttools::tables::os2;
-use fonttools::utils::int_list_to_num;
+use otspec::utils::int_list_to_num;
 
 pub fn ascender(input: &babelfont::Font) -> i16 {
     let upm = input.upm as f32;
