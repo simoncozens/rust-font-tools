@@ -80,6 +80,7 @@ fn load_masters(
                 .zip(ds.location_to_tuple(&source.location))
                 .collect(),
         );
+        let required_layer = &source.layer;
         let uuid = Uuid::new_v4().to_string();
 
         let mut master = Master::new(
@@ -112,6 +113,15 @@ fn load_masters(
             }
         }
         for layer in source_font.iter_layers() {
+            let layername = layer.name().to_string();
+            // We should probably keep all layers for interchange purposes,
+            // but this is correct for compilation purposes
+            if let Some(wanted) = &required_layer {
+                if &layername != wanted {
+                    continue;
+                }
+            }
+
             for g in font.glyphs.iter_mut() {
                 if let Some(norad_glyph) = layer.get_glyph(g.name.as_str()) {
                     g.layers
