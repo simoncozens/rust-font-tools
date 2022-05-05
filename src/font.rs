@@ -5,6 +5,7 @@ use crate::glyph::GlyphList;
 use crate::instance::Instance;
 use crate::master::Master;
 use crate::names::Names;
+use crate::utils::otcmp;
 use crate::Location;
 use crate::{BabelfontError, Layer};
 use chrono::Local;
@@ -196,24 +197,13 @@ impl Font {
             ));
             ix += 1;
             if axis.map.is_some() {
-                let mut sm: Vec<(f32, f32)> = vec![(-1.0, -1.0)];
+                let mut sm: Vec<(f32, f32)> = vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)];
                 sm.extend(
                     axis.map
                         .as_ref()
                         .unwrap()
                         .iter()
                         .map(|x| {
-                            println!("Input: {:?}", x.0);
-                            println!("Output: {:?}", x.1);
-                            println!(
-                                "Normalized userspace 0: {:?}",
-                                axis.normalize_userspace_value(x.0)
-                            );
-                            println!(
-                                "Normalized DS 1: {:?}",
-                                axis.normalize_designspace_value(x.1)
-                            );
-
                             (
                                 axis.normalize_userspace_value(x.0).expect("Bad map"),
                                 axis.normalize_designspace_value(x.1).expect("Bad map"),
@@ -221,6 +211,8 @@ impl Font {
                         })
                         .collect::<Vec<(f32, f32)>>(),
                 );
+                sm.sort_by(|a, b| otcmp(a.0, b.0));
+                sm.dedup();
                 maps.push(SegmentMap::new(sm));
             } else {
                 maps.push(SegmentMap::new(vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)]));

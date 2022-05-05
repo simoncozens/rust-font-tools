@@ -3,6 +3,7 @@ extern crate shrinkwraprs;
 
 pub mod convertors;
 mod error;
+mod utils;
 
 mod anchor;
 mod axis;
