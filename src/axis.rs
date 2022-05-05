@@ -56,6 +56,22 @@ fn piecewise_linear_map(mapping: &[(f32, f32)], value: f32) -> f32 {
     va + (vb - va) * (value - a) / (*b - *a)
 }
 
+fn normalize_value(mut l: f32, min: f32, max: f32, default: f32) -> f32 {
+    if l < min {
+        l = min;
+    }
+    if l > max {
+        l = max;
+    }
+    if l < default {
+        -(default - l) / (default - min) as f32
+    } else if l > default {
+        (l - default) / (max - default) as f32
+    } else {
+        0_f32
+    }
+}
+
 impl Axis {
     pub fn new<T>(name: T, tag: String) -> Self
     where
@@ -103,7 +119,7 @@ impl Axis {
         Tag::from_raw(self.tag.as_bytes()).unwrap()
     }
 
-    pub fn normalize_userspace_value(&self, mut l: f32) -> Result<f32, BabelfontError> {
+    pub fn normalize_userspace_value(&self, l: f32) -> Result<f32, BabelfontError> {
         let min = self.min.ok_or_else(|| BabelfontError::IllDefinedAxis {
             axis_name: self.name.default(),
         })?;
@@ -113,26 +129,27 @@ impl Axis {
         let default = self.default.ok_or_else(|| BabelfontError::IllDefinedAxis {
             axis_name: self.name.default(),
         })?;
-
-        if l < min {
-            l = min;
-        }
-        if l > max {
-            l = max;
-        }
-        if l < default {
-            Ok(-(default - l) / (default - min) as f32)
-        } else if l > default {
-            Ok((l - default) / (max - default) as f32)
-        } else {
-            Ok(0_f32)
-        }
+        Ok(normalize_value(l, min, max, default))
     }
     pub fn normalize_designspace_value(&self, l: f32) -> Result<f32, BabelfontError> {
         if self.map.is_none() || self.map.as_ref().unwrap().is_empty() {
             return self.normalize_userspace_value(l);
         }
-        self.normalize_userspace_value(self.designspace_to_userspace(l))
+        let min = self.min.ok_or_else(|| BabelfontError::IllDefinedAxis {
+            axis_name: self.name.default(),
+        })?;
+        let max = self.max.ok_or_else(|| BabelfontError::IllDefinedAxis {
+            axis_name: self.name.default(),
+        })?;
+        let default = self.default.ok_or_else(|| BabelfontError::IllDefinedAxis {
+            axis_name: self.name.default(),
+        })?;
+        Ok(normalize_value(
+            l,
+            self.userspace_to_designspace(min),
+            self.userspace_to_designspace(max),
+            self.userspace_to_designspace(default),
+        ))
     }
 
     pub fn to_variation_axis_record(
@@ -158,6 +175,22 @@ impl Axis {
 #[cfg(test)]
 mod tests {
     use super::*;
+    macro_rules! assert_ot_eq {
+        ($left:expr, $right:expr) => {{
+            match (&$left, &$right) {
+                (left_val, right_val) => {
+                    if otcmp(*left_val, *right_val) != Ordering::Equal {
+                        panic!(
+                            r#"assertion failed: `(left == right)`
+  left: `{:?}`,
+ right: `{:?}`"#,
+                            left_val, right_val
+                        )
+                    }
+                }
+            }
+        }};
+    }
 
     #[test]
     fn test_linear_map() {
@@ -188,7 +221,18 @@ mod tests {
             (1000.0, 208.0),
         ]);
 
-        assert_eq!(weight.userspace_to_designspace(250.0), 51.5);
-        assert_eq!(weight.designspace_to_userspace(138.0), 750.0);
+        assert_ot_eq!(weight.userspace_to_designspace(250.0), 51.5);
+        assert_ot_eq!(weight.designspace_to_userspace(138.0), 750.0);
+    }
+
+    #[test]
+    fn test_normalize_map() {
+        let mut opsz = Axis::new("Optical Size".to_string(), "opsz".to_string());
+        opsz.min = Some(17.0);
+        opsz.max = Some(18.0);
+        opsz.default = Some(18.0);
+        opsz.map = Some(vec![(17.0, 17.0), (17.99, 17.1), (18.0, 18.0)]);
+        assert_ot_eq!(opsz.normalize_userspace_value(17.99).unwrap(), -0.01);
+        assert_ot_eq!(opsz.normalize_designspace_value(17.1).unwrap(), -0.9);
     }
 }
