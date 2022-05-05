@@ -1,3 +1,4 @@
+use core::cmp::Ordering;
 use std::collections::HashMap;
 
 use crate::i18ndictionary::I18NDictionary;
@@ -18,26 +19,48 @@ pub struct Axis {
     pub hidden: bool, // lib
 }
 
-fn piecewise_linear_map(mapping: HashMap<i32, f32>, value: i32) -> f32 {
-    if mapping.contains_key(&value) {
-        return *mapping.get(&value).unwrap();
+fn ot_round(value: f32) -> i32 {
+    (value + 0.5).floor() as i32
+}
+
+fn otcmp(a: f32, b: f32) -> Ordering {
+    ot_round(a * 16384.0).cmp(&ot_round(b * 16384.0))
+}
+
+fn piecewise_linear_map(mapping: &[(f32, f32)], value: f32) -> f32 {
+    if let Some(exact) = mapping
+        .iter()
+        .find(|(a, _b)| otcmp(*a, value) == Ordering::Equal)
+    {
+        return exact.1;
     }
-    if mapping.keys().len() == 0 {
-        return value as f32;
+    if mapping.is_empty() {
+        return value;
     }
-    let min = *mapping.keys().min().unwrap();
-    if value < min {
-        return value as f32 + *mapping.get(&min).unwrap() - (min as f32);
+    let (min, mapped_min) = mapping.first().unwrap();
+    if otcmp(value, *min) == Ordering::Less {
+        return value + mapped_min - min;
     }
-    let max = *mapping.keys().max().unwrap();
-    if value > max {
-        return value as f32 + mapping.get(&max).unwrap() - (max as f32);
+    let (max, mapped_max) = mapping.last().unwrap();
+    if otcmp(value, *max) == Ordering::Greater {
+        return value + mapped_max - max;
     }
-    let a = mapping.keys().filter(|k| *k < &value).max().unwrap();
-    let b = mapping.keys().filter(|k| *k > &value).min().unwrap();
-    let va = mapping.get(a).unwrap();
-    let vb = mapping.get(b).unwrap();
-    va + (vb - va) * (value - a) as f32 / (*b - *a) as f32
+    println!("Value = {:?}", value);
+    println!("Mapipng = {:?}", mapping);
+    let (a, va) = mapping
+        .iter()
+        .filter(|(k, _v)| otcmp(*k, value) == Ordering::Less)
+        .max_by(|(k1, _v1), (k2, _v2)| otcmp(*k1, *k2))
+        .unwrap();
+    println!("a = {:?}, va={:?}", a, va);
+
+    let (b, vb) = mapping
+        .iter()
+        .filter(|(k, _v)| otcmp(*k, value) == Ordering::Greater)
+        .min_by(|(k1, _v1), (k2, _v2)| otcmp(*k1, *k2))
+        .unwrap();
+    println!("b = {:?}, vb={:?}", b, vb);
+    va + (vb - va) * (value - a) / (*b - *a)
 }
 
 impl Axis {
@@ -65,28 +88,22 @@ impl Axis {
     }
 
     /// Converts a position on this axis from designspace coordinates to userspace coordinates
-    pub fn designspace_to_userspace(&self, l: i32) -> f32 {
-        let mut mapping: HashMap<i32, f32> = HashMap::new();
-        if self.map.is_none() {
-            return l as f32;
+    pub fn designspace_to_userspace(&self, l: f32) -> f32 {
+        if let Some(map) = &self.map {
+            let inverted_map: Vec<(f32, f32)> = map.iter().map(|(a, b)| (*b, *a)).collect();
+            piecewise_linear_map(&inverted_map, l)
+        } else {
+            l as f32
         }
-        for m in self.map.as_ref().unwrap().iter() {
-            mapping.insert(m.1 as i32, m.0);
-        }
-        piecewise_linear_map(mapping, l)
     }
 
     /// Converts a position on this axis in userspace coordinates to designspace coordinates
-    pub fn userspace_to_designspace(&self, l: i32) -> f32 {
-        let mut mapping: HashMap<i32, f32> = HashMap::new();
-        if self.map.is_none() {
-            return l as f32;
+    pub fn userspace_to_designspace(&self, l: f32) -> f32 {
+        if let Some(map) = &self.map {
+            piecewise_linear_map(map, l)
+        } else {
+            l as f32
         }
-        for m in self.map.as_ref().unwrap().iter() {
-            mapping.insert(m.0 as i32, m.1);
-        }
-
-        piecewise_linear_map(mapping, l)
     }
 
     pub fn tag_as_tag(&self) -> Tag {
@@ -162,5 +179,43 @@ impl Axis {
             flags: if self.hidden { 0x0001 } else { 0x0000 },
             axisNameID: name_id,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_linear_map() {
+        let mut weight = Axis::new("Weight".to_string(), "wght".to_string());
+        weight.min = Some(100.0);
+        weight.max = Some(900.0);
+        weight.default = Some(100.0);
+        weight.map = Some(vec![(100.0, 10.0), (900.0, 90.0)]);
+
+        assert_eq!(weight.userspace_to_designspace(400.0), 40.0);
+        assert_eq!(weight.designspace_to_userspace(40.0), 400.0);
+    }
+
+    #[test]
+    fn test_nonlinear_map() {
+        let mut weight = Axis::new("Weight".to_string(), "wght".to_string());
+        weight.min = Some(200.0);
+        weight.max = Some(1000.0);
+        weight.default = Some(200.0);
+        weight.map = Some(vec![
+            (200.0, 42.0),
+            (300.0, 61.0),
+            (400.0, 81.0),
+            (600.0, 101.0),
+            (700.0, 125.0),
+            (800.0, 151.0),
+            (900.0, 178.0),
+            (1000.0, 208.0),
+        ]);
+
+        assert_eq!(weight.userspace_to_designspace(250.0), 51.5);
+        assert_eq!(weight.designspace_to_userspace(138.0), 750.0);
     }
 }

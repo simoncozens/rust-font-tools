@@ -696,9 +696,9 @@ fn fixup_axis_mappings(font: &mut Font) {
             continue;
         }
         if let Some((min, default, max)) = axis.bounds() {
-            axis.min = Some(axis.designspace_to_userspace(min as i32));
-            axis.max = Some(axis.designspace_to_userspace(max as i32));
-            axis.default = Some(axis.designspace_to_userspace(default as i32));
+            axis.min = Some(axis.designspace_to_userspace(min));
+            axis.max = Some(axis.designspace_to_userspace(max));
+            axis.default = Some(axis.designspace_to_userspace(default));
         }
     }
 }

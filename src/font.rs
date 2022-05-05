@@ -72,7 +72,7 @@ impl Font {
                 .map(|axis| {
                     (
                         axis.tag.clone(),
-                        axis.userspace_to_designspace(axis.default.unwrap_or(0.0) as i32),
+                        axis.userspace_to_designspace(axis.default.unwrap_or(0.0)),
                     )
                 })
                 .collect(),
@@ -203,6 +203,17 @@ impl Font {
                         .unwrap()
                         .iter()
                         .map(|x| {
+                            println!("Input: {:?}", x.0);
+                            println!("Output: {:?}", x.1);
+                            println!(
+                                "Normalized userspace 0: {:?}",
+                                axis.normalize_userspace_value(x.0)
+                            );
+                            println!(
+                                "Normalized DS 1: {:?}",
+                                axis.normalize_designspace_value(x.1)
+                            );
+
                             (
                                 axis.normalize_userspace_value(x.0).expect("Bad map"),
                                 axis.normalize_designspace_value(x.1).expect("Bad map"),
