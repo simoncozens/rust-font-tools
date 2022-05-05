@@ -42,21 +42,17 @@ fn piecewise_linear_map(mapping: &[(f32, f32)], value: f32) -> f32 {
     if otcmp(value, *max) == Ordering::Greater {
         return value + mapped_max - max;
     }
-    println!("Value = {:?}", value);
-    println!("Mapipng = {:?}", mapping);
     let (a, va) = mapping
         .iter()
         .filter(|(k, _v)| otcmp(*k, value) == Ordering::Less)
         .max_by(|(k1, _v1), (k2, _v2)| otcmp(*k1, *k2))
         .unwrap();
-    println!("a = {:?}, va={:?}", a, va);
 
     let (b, vb) = mapping
         .iter()
         .filter(|(k, _v)| otcmp(*k, value) == Ordering::Greater)
         .min_by(|(k1, _v1), (k2, _v2)| otcmp(*k1, *k2))
         .unwrap();
-    println!("b = {:?}, vb={:?}", b, vb);
     va + (vb - va) * (value - a) / (*b - *a)
 }
 
@@ -132,31 +128,11 @@ impl Axis {
             Ok(0_f32)
         }
     }
-    pub fn normalize_designspace_value(&self, mut l: f32) -> Result<f32, BabelfontError> {
+    pub fn normalize_designspace_value(&self, l: f32) -> Result<f32, BabelfontError> {
         if self.map.is_none() || self.map.as_ref().unwrap().is_empty() {
             return self.normalize_userspace_value(l);
         }
-        let designspace_min = self
-            .map
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|m| m.1)
-            .fold(1. / 0., f32::min);
-        let designspace_max = self
-            .map
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|m| m.1)
-            .fold(-1. / 0., f32::max);
-        if l < designspace_min {
-            l = designspace_min;
-        }
-        if l > designspace_max {
-            l = designspace_max;
-        }
-        Ok((l - designspace_min) / (designspace_max - designspace_min))
+        self.normalize_userspace_value(self.designspace_to_userspace(l))
     }
 
     pub fn to_variation_axis_record(
