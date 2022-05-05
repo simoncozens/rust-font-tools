@@ -1,9 +1,6 @@
-use core::cmp::Ordering;
-use std::collections::HashMap;
-
 use crate::i18ndictionary::I18NDictionary;
 use crate::BabelfontError;
-
+use core::cmp::Ordering;
 use fonttools::{tables::fvar::VariationAxisRecord, types::Tag};
 use uuid::Uuid;
 
