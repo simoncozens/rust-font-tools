@@ -396,6 +396,16 @@ impl Glyph {
         );
         (coords, ends)
     }
+
+    /// Number of points in this glyph (without counting components)
+    pub fn num_points(&self) -> usize {
+        self.contours.iter().map(|x| x.len()).sum()
+    }
+
+    /// Number of contours in this glyph (without counting components)
+    fn num_contours(&self) -> usize {
+        self.contours.len()
+    }
 }
 
 impl Serialize for Glyph {
