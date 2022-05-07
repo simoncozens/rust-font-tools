@@ -179,7 +179,22 @@ impl glyf {
             .map(|x| x.contours.len())
             .max()
             .unwrap_or(0) as u16;
-        let max_composite_points = 0;
+        let max_composite_points = self
+            .glyphs
+            .iter()
+            .map(|x| {
+                self.flat_components(x)
+                    .iter()
+                    .map(|c| {
+                        self.glyphs
+                            .get(c.glyph_index as usize)
+                            .unwrap()
+                            .num_points()
+                    })
+                    .sum()
+            })
+            .max()
+            .unwrap_or(0) as u16;
         let max_composite_contours = 0;
         let max_component_elements = self
             .glyphs
