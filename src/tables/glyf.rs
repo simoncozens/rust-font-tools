@@ -67,8 +67,11 @@ pub fn from_rc(
 impl glyf {
     /// Given a `Glyph` object, return all components used by this glyph,
     /// including recursively descending into nested components and positioning
-    /// them accordingly. Should be called with `depth=0`.
-    pub fn flat_components(&self, g: &Glyph, depth: u32) -> Vec<Component> {
+    /// them accordingly.
+    pub fn flat_components(&self, g: &Glyph) -> Vec<Component> {
+        self._flat_components(g, 0)
+    }
+    fn _flat_components(&self, g: &Glyph, depth: u32) -> Vec<Component> {
         let mut new_components = vec![];
         if depth > 64 {
             log::warn!(
@@ -80,7 +83,7 @@ impl glyf {
         for comp in &g.components {
             let component_glyph = &self.glyphs[comp.glyph_index as usize];
             if component_glyph.has_components() {
-                let mut flattened = self.flat_components(component_glyph, depth + 1);
+                let mut flattened = self._flat_components(component_glyph, depth + 1);
                 for f in flattened.iter_mut() {
                     f.transformation = comp.transformation * f.transformation;
                     // This may be the wrong way around...
@@ -101,7 +104,7 @@ impl glyf {
             if !g.has_components() {
                 continue;
             }
-            let flat = self.flat_components(g, 0);
+            let flat = self.flat_components(g);
             if g.components != flat {
                 needs_flattening.push((id, flat));
             }
