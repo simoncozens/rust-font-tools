@@ -57,9 +57,6 @@ pub fn layers_to_glyph(
         if let Some(glyf_component) = babelfont_component_to_glyf_component(component, mapping) {
             glyph.components.push(glyf_component);
         }
-        /* Ideally at this point we would have decomposed mixed glyphs and we
-        could go home here, but because that is still a todo item in
-        buildbasic, we continue, hackily. */
         // XXX Oops, we also need to compute variations on the component positions
     }
 
@@ -131,11 +128,6 @@ pub fn layers_to_glyph(
         && !contours.is_empty()
         && !contours[default_master].as_ref().unwrap().is_empty()
     {
-        if !glyph.components.is_empty() {
-            log::warn!("Can't create gvar deltas for mixed glyph {:}", glif_name);
-            return (glyph, None);
-        }
-
         // Gather all contour lengths, ensure they are the same.
         // XXX should be caught in babelfont_contours_to_glyf_contours?
         let lengths: Vec<usize> = contours
