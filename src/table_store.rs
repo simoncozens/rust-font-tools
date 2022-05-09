@@ -425,7 +425,7 @@ impl TableSet {
         let glyf = match self.glyf().unwrap() {
             Some(table) => table,
             None => {
-                println!("Warning: no glyf table");
+                log::warn!("No glyf table");
                 return;
             }
         };
