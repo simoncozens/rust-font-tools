@@ -7,7 +7,28 @@ mod kerning;
 mod utils;
 
 use buildbasic::build_font;
-use clap::{App, Arg, ArgMatches};
+use clap::ArgMatches;
+use clap::Parser;
+
+/// A fonticulusly fast font builder
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// Only convert the given glyphs (for testing only)
+    #[clap(short, long)]
+    subset: Option<String>,
+
+    /// Don't make a variable font, make a static font for each master
+    #[clap(long)]
+    masters: bool,
+
+    /// Increase logging
+    #[clap(short, long, parse(from_occurrences))]
+    verbose: usize,
+
+    input: String,
+    output: Option<String>,
+}
 
 // use rayon::prelude::*;
 use std::collections::HashSet;
@@ -31,57 +52,32 @@ use std::path::PathBuf;
 
 fn main() {
     // Command line handling
-    env_logger::init_from_env(
-        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "warn"),
-    );
-    let matches = parse_command_line();
+    let args = Args::parse();
 
-    let filename = matches.value_of("INPUT").unwrap();
+    env_logger::init_from_env(env_logger::Env::default().filter_or(
+        env_logger::DEFAULT_FILTER_ENV,
+        match args.verbose {
+            0 => "warn",
+            1 => "info",
+            _ => "debug",
+        },
+    ));
 
     // If we are only handling a subset of the glyphs (usually for debugging
     // purposes), split that into a set here.
-    let subset: Option<HashSet<String>> = matches
-        .value_of("subset")
+    let subset: Option<HashSet<String>> = args
+        .subset
+        .as_ref()
         .map(|x| x.split(',').map(|y| y.to_string()).collect());
 
-    let mut in_font = load_with_babelfont(filename);
+    let mut in_font = load_with_babelfont(&args.input);
 
     // --masters means we produce a TTF for each master and don't do interpolation
-    if matches.is_present("masters") {
+    if args.masters {
         create_ttf_per_master(&mut in_font, subset);
     } else {
-        create_variable_font(&mut in_font, subset, matches);
+        create_variable_font(&mut in_font, subset, &args.output);
     }
-}
-
-fn parse_command_line() -> ArgMatches<'static> {
-    App::new("fonticulous")
-        .about("A variable font builder")
-        .arg(
-            Arg::with_name("subset")
-                .help("Only convert the given glyphs (for testing only)")
-                .required(false)
-                .takes_value(true)
-                .long("subset"),
-        )
-        .arg(
-            Arg::with_name("masters")
-                .help("Don't make a variable font, make a static font for each master")
-                .required(false)
-                .takes_value(false)
-                .long("masters"),
-        )
-        .arg(
-            Arg::with_name("INPUT")
-                .help("Sets the input file to use")
-                .required(true),
-        )
-        .arg(
-            Arg::with_name("OUTPUT")
-                .help("Sets the output file to use")
-                .required(false),
-        )
-        .get_matches()
 }
 
 fn load_with_babelfont(filename: &str) -> babelfont::Font {
@@ -131,7 +127,7 @@ fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: Option<HashSet<S
 fn create_variable_font(
     in_font: &mut babelfont::Font,
     subset: Option<HashSet<String>>,
-    matches: ArgMatches<'static>,
+    output: &Option<String>,
 ) {
     let mut out_font;
     if in_font.masters.len() > 1 {
@@ -144,11 +140,8 @@ fn create_variable_font(
         out_font = build_font(in_font, &subset, Some(0));
     }
 
-    if matches.is_present("OUTPUT") {
-        out_font
-            .save(matches.value_of("OUTPUT").unwrap())
-            .expect("Could not write font");
-    } else {
-        out_font.write(io::stdout()).expect("Could not write font");
-    };
+    match output {
+        Some(filename) => out_font.save(filename).expect("Could not write font"),
+        None => out_font.write(io::stdout()).expect("Could not write font"),
+    }
 }

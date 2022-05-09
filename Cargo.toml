@@ -12,7 +12,7 @@ fonttools = { path = "../fonttools-rs", features = ["rayon"], version = "0" }
 babelfont = { path = "../babelfont-rs",  version = "0" }
 designspace = { path = "../fonttools-rs/crates/designspace", features = ["norad"], version="0" }
 otspec = { path = "../fonttools-rs/crates/otspec", version="0" }
-clap = "2.33.3"
+clap = { version = "3.1.17", features=["derive"]}
 itertools = "0.10.0"
 kurbo = "0.8.2"
 chrono = { version = "0.4.3" }
