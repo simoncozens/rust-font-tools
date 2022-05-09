@@ -445,6 +445,10 @@ impl TableSet {
                 glyf_output.push(0);
             }
         }
+        if glyf_output.is_empty() {
+            // Sad special case
+            glyf_output.push(0);
+        }
         loca_indices.push(glyf_output.len().try_into().unwrap());
         let loca_is32bit = u16::try_from(glyf_output.len()).is_err();
 
