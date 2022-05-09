@@ -160,7 +160,7 @@ pub fn compile_cmap(
         subtables.push(cmap::CmapSubtable {
             format: 12,
             platformID: 0,
-            encodingID: 3,
+            encodingID: 4,
             languageID: 0,
             mapping: codepoint_to_gid_mapping.clone(),
             uvs_mapping: None,
