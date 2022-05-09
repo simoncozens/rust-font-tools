@@ -1,3 +1,4 @@
+use norad::GlyphName;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -179,8 +180,32 @@ pub(crate) fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
         .lib
         .get("public.postscriptNames")
         .and_then(|x| x.as_dictionary());
-    for glyphname in ufo.iter_names() {
-        if let Some(glyph) = ufo.get_glyph(&glyphname) {
+    let glyphorder: Vec<String> = ufo
+        .lib
+        .get("public.glyphOrder")
+        .and_then(|x| x.as_array())
+        .unwrap_or(&vec![])
+        .iter()
+        .flat_map(|x| x.as_string())
+        .map(|x| x.to_string())
+        .collect();
+    let mut order: Vec<String> = vec![];
+    let mut ufo_names: Vec<String> = ufo.iter_names().map(|x| x.to_string()).collect();
+    if ufo_names.contains(&".notdef".to_string()) {
+        order.push(".notdef".to_string());
+        ufo_names.retain(|x| x != ".notdef");
+    }
+    for name in glyphorder {
+        if !ufo_names.contains(&name) {
+            continue;
+        }
+        ufo_names.retain(|x| x != &name);
+        order.push(name);
+    }
+    order.append(&mut ufo_names);
+
+    for glyphname in order {
+        if let Some(glyph) = ufo.get_glyph(glyphname.as_str()) {
             let cat = if let Some(cats) = categories {
                 match cats.get(&glyphname).and_then(|x| x.as_string()) {
                     Some("base") => GlyphCategory::Base,
