@@ -168,7 +168,7 @@ pub fn compile_cmap(
         subtables.push(cmap::CmapSubtable {
             format: 12,
             platformID: 3,
-            encodingID: 1,
+            encodingID: 10,
             languageID: 0,
             mapping: codepoint_to_gid_mapping,
             uvs_mapping: None,
@@ -191,6 +191,8 @@ pub fn compile_cmap(
             uvs_mapping: Some(uvs_mapping),
         })
     }
+
+    subtables.sort_by_key(|s| (s.platformID, s.encodingID, s.languageID));
     cmap::cmap { subtables }
 }
 
