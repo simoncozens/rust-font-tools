@@ -29,10 +29,11 @@ fn get_glyph_names_and_mapping(
             continue;
         }
         names.push(name.clone());
+        log::debug!("Assigning GID {:} to {:}", glyph_id, name);
         name_to_id.insert(name, glyph_id as u16);
-        let cp = &glyf.codepoints;
-        if !cp.is_empty() {
-            codepoint_to_gid.insert(cp[0] as u32, glyph_id as u16);
+        for cp in &glyf.codepoints {
+            codepoint_to_gid.insert(*cp as u32, glyph_id as u16);
+            log::debug!("Mapping U+{:04X} to {:}", cp, glyph_id);
         }
     }
     names
