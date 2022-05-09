@@ -343,8 +343,13 @@ SequentialMapGroup {
 }
 );
 
-fn in_run(gid: u16, last_gid: u16, code: u32, last_code: u32) -> bool {
-    (gid == 1 + last_gid) && (code == 1 + last_code)
+fn in_run(gid: u16, last_gid: u16, code: u32, last_code: Option<u32>) -> bool {
+    (gid == 1 + last_gid)
+        && if let Some(lc) = last_code {
+            code == 1 + lc
+        } else {
+            true
+        }
 }
 impl cmap12 {
     /// Creates a new cmap12 subtable for a given language ID, from a mapping of
@@ -354,11 +359,11 @@ impl cmap12 {
         char_codes.sort_unstable();
         let mut iter = char_codes.iter();
         let mut start_code: u32 = *(iter.next().unwrap());
-        if start_code == 0 {
-            // Try again
-            start_code = *(iter.next().unwrap());
-        }
-        let mut last_code = start_code - 1;
+        let mut last_code: Option<u32> = if start_code == 0 {
+            None
+        } else {
+            Some(start_code - 1)
+        };
         let mut start_gid = map.get(&start_code).unwrap();
         let mut last_gid = start_gid - 1;
         let mut groups: Vec<SequentialMapGroup> = vec![];
@@ -367,18 +372,18 @@ impl cmap12 {
             if !in_run(*gid, last_gid, code, last_code) {
                 groups.push(SequentialMapGroup {
                     startCharCode: start_code,
-                    endCharCode: last_code,
+                    endCharCode: last_code.unwrap_or(start_code),
                     startGlyphID: *start_gid as u32,
                 });
                 start_code = code;
                 start_gid = gid;
             }
             last_gid = *gid;
-            last_code = code;
+            last_code = Some(code);
         }
         groups.push(SequentialMapGroup {
             startCharCode: start_code,
-            endCharCode: last_code,
+            endCharCode: last_code.unwrap_or(start_code),
             startGlyphID: *start_gid as u32,
         });
         cmap12 {
@@ -717,6 +722,7 @@ impl cmap {
 
 #[cfg(test)]
 mod tests {
+    use otspec::Serialize;
     use pretty_assertions::assert_eq;
     use std::collections::BTreeMap;
     use std::iter::FromIterator;
@@ -888,5 +894,106 @@ mod tests {
         );
         let serialized = otspec::ser::to_bytes(&deserialized).unwrap();
         assert_eq!(serialized, binary_cmap);
+    }
+
+    #[test]
+    fn cmap_deser_12() {
+        let binary_cmap12 = vec![
+            0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+            0x00, 0x00, 0x00, 0x0d, 0x00, 0x00, 0x00, 0x0d, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00,
+            0x00, 0x20, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0xa0,
+            0x00, 0x00, 0x00, 0xa0, 0x00, 0x00, 0x00, 0x4b, 0x00, 0x01, 0xe1, 0x00, 0x00, 0x01,
+            0xe1, 0x2c, 0x00, 0x00, 0x00, 0x04, 0x00, 0x01, 0xe1, 0x30, 0x00, 0x01, 0xe1, 0x3d,
+            0x00, 0x00, 0x00, 0x31, 0x00, 0x01, 0xe1, 0x40, 0x00, 0x01, 0xe1, 0x49, 0x00, 0x00,
+            0x00, 0x3f, 0x00, 0x01, 0xe1, 0x4e, 0x00, 0x01, 0xe1, 0x4f, 0x00, 0x00, 0x00, 0x49,
+        ];
+
+        let deserialized: super::cmap12 = otspec::de::from_bytes(&binary_cmap12).unwrap();
+        let mapping = deserialized.to_mapping();
+        assert_eq!(
+            mapping,
+            btreemap!(0 => 1, // null
+                0xd => 2,
+            0x20 => 3, // space
+            0xa0 => 75, // uni00A0
+            0x1e100 => 4, // u1E100
+            0x1e101 => 5, // u1E101
+            0x1e102 => 6, // u1E102
+            0x1e103 => 7, // u1E103
+            0x1e104 => 8, // u1E104
+            0x1e105 => 9, // u1E105
+            0x1e106 => 10, // u1E106
+            0x1e107 => 11, // u1E107
+            0x1e108 => 12, // u1E108
+            0x1e109 => 13, // u1E109
+            0x1e10a => 14, // u1E10A
+            0x1e10b => 15, // u1E10B
+            0x1e10c => 16, // u1E10C
+            0x1e10d => 17, // u1E10D
+            0x1e10e => 18, // u1E10E
+            0x1e10f => 19, // u1E10F
+            0x1e110 => 20, // u1E110
+            0x1e111 => 21, // u1E111
+            0x1e112 => 22, // u1E112
+            0x1e113 => 23, // u1E113
+            0x1e114 => 24, // u1E114
+            0x1e115 => 25, // u1E115
+            0x1e116 => 26, // u1E116
+            0x1e117 => 27, // u1E117
+            0x1e118 => 28, // u1E118
+            0x1e119 => 29, // u1E119
+            0x1e11a => 30, // u1E11A
+            0x1e11b => 31, // u1E11B
+            0x1e11c => 32, // u1E11C
+            0x1e11d => 33, // u1E11D
+            0x1e11e => 34, // u1E11E
+            0x1e11f => 35, // u1E11F
+            0x1e120 => 36, // u1E120
+            0x1e121 => 37, // u1E121
+            0x1e122 => 38, // u1E122
+            0x1e123 => 39, // u1E123
+            0x1e124 => 40, // u1E124
+            0x1e125 => 41, // u1E125
+            0x1e126 => 42, // u1E126
+            0x1e127 => 43, // u1E127
+            0x1e128 => 44, // u1E128
+            0x1e129 => 45, // u1E129
+            0x1e12a => 46, // u1E12A
+            0x1e12b => 47, // u1E12B
+            0x1e12c => 48, // u1E12C
+            0x1e130 => 49, // u1E130
+            0x1e131 => 50, // u1E131
+            0x1e132 => 51, // u1E132
+            0x1e133 => 52, // u1E133
+            0x1e134 => 53, // u1E134
+            0x1e135 => 54, // u1E135
+            0x1e136 => 55, // u1E136
+            0x1e137 => 56, // u1E137
+            0x1e138 => 57, // u1E138
+            0x1e139 => 58, // u1E139
+            0x1e13a => 59, // u1E13A
+            0x1e13b => 60, // u1E13B
+            0x1e13c => 61, // u1E13C
+            0x1e13d => 62, // u1E13D
+            0x1e140 => 63, // u1E140
+            0x1e141 => 64, // u1E141
+            0x1e142 => 65, // u1E142
+            0x1e143 => 66, // u1E143
+            0x1e144 => 67, // u1E144
+            0x1e145 => 68, // u1E145
+            0x1e146 => 69, // u1E146
+            0x1e147 => 70, // u1E147
+            0x1e148 => 71, // u1E148
+            0x1e149 => 72, // u1E149
+            0x1e14e => 73, // u1E14E
+            0x1e14f => 74, // u1E14F
+            )
+        );
+        let mut data: Vec<u8> = vec![];
+        super::cmap12::from_mapping(0x0, &mapping)
+            .to_bytes(&mut data)
+            .expect("Serialization failure");
+        assert_eq!(data, binary_cmap12);
     }
 }
