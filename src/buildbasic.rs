@@ -146,7 +146,7 @@ pub fn build_font(
     let gpos_table = build_kerning(input, &name_to_id);
     font.tables.insert(gpos_table);
 
-    if just_one_master.is_none() {
+    if just_one_master.is_none() && variations.iter().any(|x| x.is_some()) {
         // Put the gvar table in there
         let gvar_table = fonttools::tables::gvar::gvar { variations };
         font.tables
