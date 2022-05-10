@@ -486,14 +486,18 @@ impl TableSet {
         if !self.is_serialized(tables::GPOS::TAG).unwrap_or(true) {
             if let Some(gpos) = self.GPOS().unwrap() {
                 let mut gpos_data = vec![];
-                tables::GPOS::to_bytes(&gpos, &mut gpos_data, num_glyphs).unwrap();
+                if tables::GPOS::to_bytes(&gpos, &mut gpos_data, num_glyphs).is_err() {
+                    log::error!("GPOS table overflow");
+                }
                 self.insert_raw(tables::GPOS::TAG, gpos_data)
             }
         }
         if !self.is_serialized(tables::GSUB::TAG).unwrap_or(true) {
             if let Some(gsub) = self.GSUB().unwrap() {
                 let mut gsub_data = vec![];
-                tables::GSUB::to_bytes(&gsub, &mut gsub_data, num_glyphs).unwrap();
+                if tables::GSUB::to_bytes(&gsub, &mut gsub_data, num_glyphs).is_err() {
+                    log::error!("GSUB table overflow");
+                }
                 self.insert_raw(tables::GSUB::TAG, gsub_data)
             }
         }
