@@ -7,7 +7,6 @@ mod kerning;
 mod utils;
 
 use buildbasic::build_font;
-use clap::ArgMatches;
 use clap::Parser;
 
 /// A fonticulusly fast font builder
