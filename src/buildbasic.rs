@@ -86,9 +86,14 @@ pub fn build_font(
             if subset.is_some() && !subset.as_ref().unwrap().contains(&glif.name.to_string()) {
                 return None;
             }
-            if !glif.exported {
-                return None;
-            }
+
+            // We do need to do this at some point, but we have to get decomposition
+            // working properly first. That can come later, but for now it's
+            // just breaking things, so export everything.
+
+            // if !glif.exported {
+            //     return None;
+            // }
 
             let all_layers: Vec<Option<&Layer>> = if just_one_master.is_none() {
                 // Find all layers for this glyph across the designspace
