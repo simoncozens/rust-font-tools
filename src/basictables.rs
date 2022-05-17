@@ -87,7 +87,7 @@ pub fn compile_head(font: &babelfont::Font, glyf: &glyf::glyf) -> head {
         lowestRecPPEM: if let Some(lowest_rec_ppm) = font.ot_value("head", "lowestRecPPEM", true) {
             u16::from(lowest_rec_ppm)
         } else {
-            9
+            6
         },
         macStyle: head_mac_style(font),
         magicNumber: 0x5F0F3CF5,
