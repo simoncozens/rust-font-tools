@@ -280,7 +280,7 @@ pub fn compile_os2(
     let sTypoLineGap = input
         .ot_value("OS2", "sTypoLineGap", true)
         .map(i32::from)
-        .unwrap_or((upm * 1.2) as i32 + (font_ascender - font_descender) as i32)
+        .unwrap_or((upm * 1.2) as i32 + (-font_ascender + font_descender) as i32)
         as i16;
 
     let ySubscriptYOffset = input
@@ -439,7 +439,10 @@ pub fn compile_name(input: &babelfont::Font) -> name {
         (NameRecordID::FontSubfamilyName, style_name.clone()),
         (NameRecordID::UniqueID, unique_id(input)),
         (NameRecordID::FullFontName, format!("{0} {1}", pfn, psfn)),
-        (NameRecordID::Version, name_version(input)),
+        (
+            NameRecordID::Version,
+            format!("Version {}", name_version(input)),
+        ),
         (NameRecordID::PostscriptName, postscript_font_name(input)),
     ]);
     for (id, field) in &[

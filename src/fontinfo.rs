@@ -19,6 +19,7 @@ pub fn hhea_ascender(input: &babelfont::Font) -> i16 {
     input
         .ot_value("hhea", "ascent", true)
         .map_or_else(|| ascender(input), i16::from)
+    // XXX Plus typolinegap
 }
 pub fn hhea_descender(input: &babelfont::Font) -> i16 {
     input
@@ -98,11 +99,12 @@ pub fn postscript_font_name(input: &babelfont::Font) -> String {
         preferred_family_name(input),
         preferred_subfamily_name(input)
     )
+    .replace(" ", "")
     // XXX check postscript characters here
 }
 pub fn name_version(input: &babelfont::Font) -> String {
     input.names.version.default().as_ref().map_or_else(
-        || format!("Version {0}.{1:03}", input.version.0, input.version.1),
+        || format!("{0}.{1:03}", input.version.0, input.version.1),
         |x| x.clone(),
     )
 }
