@@ -29,6 +29,9 @@ impl hmtx {
     /// Serialize the horizontal metrics table to a binary vector and a corresponding
     /// number of horizontal metrics (to be stored in the `hhea` table)
     pub fn to_bytes(&self) -> (Vec<u8>, uint16) {
+        if self.metrics.is_empty() {
+            return (vec![], 0);
+        }
         let mut end_index_h_metrics = self.metrics.len() - 1;
         while end_index_h_metrics > 0
             && self.metrics[end_index_h_metrics - 1].advanceWidth
