@@ -1,5 +1,6 @@
 use norad::GlyphName;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::path::PathBuf;
 
 use chrono::TimeZone;
@@ -180,6 +181,11 @@ pub(crate) fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
         .lib
         .get("public.postscriptNames")
         .and_then(|x| x.as_dictionary());
+    let unexported = ufo
+        .lib
+        .get("public.skipExportGlyphs")
+        .and_then(|x| x.as_array())
+        .unwrap_or_else(|| &vec![]);
     let glyphorder: Vec<String> = ufo
         .lib
         .get("public.glyphOrder")
@@ -191,6 +197,11 @@ pub(crate) fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
         .collect();
     let mut order: Vec<String> = vec![];
     let mut ufo_names: Vec<String> = ufo.iter_names().map(|x| x.to_string()).collect();
+    let mut skipped: HashSet<String> = unexported
+        .iter()
+        .flat_map(|x| x.as_string())
+        .map(|x| x.to_string())
+        .collect();
     if ufo_names.contains(&".notdef".to_string()) {
         order.push(".notdef".to_string());
         ufo_names.retain(|x| x != ".notdef");
@@ -226,7 +237,7 @@ pub(crate) fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
                 production_name,
                 codepoints: glyph.codepoints.iter().map(|x| *x as usize).collect(),
                 layers: vec![],
-                exported: true, // urgh
+                exported: skipped.contains(&glyphname),
                 direction: None,
             })
         }
