@@ -86,6 +86,9 @@ pub fn build_font(
             if subset.is_some() && !subset.as_ref().unwrap().contains(&glif.name.to_string()) {
                 return None;
             }
+            if !glif.exported {
+                return None;
+            }
 
             let all_layers: Vec<Option<&Layer>> = if just_one_master.is_none() {
                 // Find all layers for this glyph across the designspace
