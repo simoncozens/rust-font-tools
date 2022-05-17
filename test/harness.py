@@ -36,15 +36,15 @@ def get_expectation(source: pathlib.Path):
     if not expectation_file.exists():
         # Compile with fontmake
         if source.suffix == ".glyphs":
-            build_arg = "-g"
+            build_arg = "-o variable -g"
         elif source.suffix == ".ufo":
-            build_arg = "-u"
+            build_arg = "-o ttf -u"
         elif source.suffix == ".designspace":
-            build_arg = "-m"
+            build_arg = "-o variable -m"
         else:
             raise ValueError("Unknown source file type")
         with tempfile.NamedTemporaryFile() as tf:
-            cmd = f"fontmake {build_arg} {source} -o variable --output-path {tf.name}"
+            cmd = f"fontmake {build_arg} {source} --output-path {tf.name}"
             subprocess.run(cmd, shell=True, check=True)
             ttjfont = TTJ(TTFont(tf))
         as_json = json.dumps(ttjfont, indent=4)
