@@ -7,6 +7,13 @@ pub fn int_list_to_num(int_list: &[u8]) -> u32 {
     flags
 }
 
+/// Convert an array of bits into an integer, but split into a range of U32s
+pub fn filtered_bitset_to_num<'a>(bs: impl Iterator<Item = &'a u8>, low: u8, high: u8) -> u32 {
+    bs.filter(|&x| x >= &low && x <= &high)
+        .map(|x| 2_i32.pow((x - low).into()) as u32)
+        .sum()
+}
+
 /// Tests if all elements of an iterator have the same content
 pub fn is_all_the_same<T, U>(mut iter: T) -> bool
 where
