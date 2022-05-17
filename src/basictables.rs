@@ -9,6 +9,7 @@ use fonttools::tables::post::post;
 use fonttools::tables::{cmap, glyf, hhea, hmtx};
 use fonttools::tag;
 use fonttools::types::Tag;
+use otspec::utils::filtered_bitset_to_num;
 use std::cmp::{max, min};
 
 use std::collections::BTreeMap;
@@ -391,10 +392,10 @@ pub fn compile_os2(
         panose: get_panose(input),
         ulCodePageRange1: Some(0),
         ulCodePageRange2: Some(0),
-        ulUnicodeRange1: 0b10100001000000000000000011111111, // XXX
-        ulUnicodeRange2: 0,                                  // XXX
-        ulUnicodeRange3: 0,                                  // XXX
-        ulUnicodeRange4: 0,                                  // XXX
+        ulUnicodeRange1: 0, // XXX
+        ulUnicodeRange2: 0, // XXX
+        ulUnicodeRange3: 0, // XXX
+        ulUnicodeRange4: 0, // XXX
         usFirstCharIndex,
         usLastCharIndex,
         usLowerOpticalPointSize: None,
@@ -402,10 +403,12 @@ pub fn compile_os2(
         fsSelection: get_selection(input),
     };
     if let Some(OTScalar::BitField(page_ranges)) = input.ot_value("OS2", "codePageRanges", true) {
-        table.int_list_to_code_page_ranges(&page_ranges);
+        table.ulCodePageRange1 = Some(filtered_bitset_to_num(page_ranges.iter(), 0, 31) as u32);
+        table.ulCodePageRange2 = Some(filtered_bitset_to_num(page_ranges.iter(), 32, 63) as u32);
     } else {
         table.calc_code_page_ranges(mapping);
     }
+    table.calc_unicode_ranges(mapping);
     table
 }
 
