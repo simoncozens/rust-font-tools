@@ -91,7 +91,7 @@ impl maxp {
                 maxContours,
                 maxCompositePoints,
                 maxCompositeContours,
-                maxZones: 2,
+                maxZones: 1,
                 maxTwilightPoints: 0,
                 maxStorage: 0,
                 maxFunctionDefs: 0,
