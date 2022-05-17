@@ -237,7 +237,7 @@ pub(crate) fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
                 production_name,
                 codepoints: glyph.codepoints.iter().map(|x| *x as usize).collect(),
                 layers: vec![],
-                exported: skipped.contains(&glyphname),
+                exported: !skipped.contains(&glyphname),
                 direction: None,
             })
         }
