@@ -125,6 +125,16 @@ pub(crate) fn load_font_info(font: &mut Font, info: &norad::FontInfo) {
     if let Some(v) = info.open_type_head_lowest_rec_ppem {
         font.set_ot_value("head", "lowestRecPPEM", OTScalar::Unsigned(v))
     }
+    if let Some(v) = &info.open_type_os2_type {
+        font.set_ot_value("OS/2", "fsType", OTScalar::BitField(v.to_vec()))
+    }
+    if let Some(v) = &info.postscript_underline_position {
+        font.set_ot_value(
+            "post",
+            "underlinePosition",
+            OTScalar::Signed(v.get() as i32),
+        )
+    }
     // XXX and much more
     if let Some(v) = &info.trademark {
         font.names.trademark = v.into();
