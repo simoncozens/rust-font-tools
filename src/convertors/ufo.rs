@@ -181,11 +181,16 @@ pub(crate) fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
         .lib
         .get("public.postscriptNames")
         .and_then(|x| x.as_dictionary());
-    let unexported = ufo
+    let skipped: HashSet<String> = ufo
         .lib
         .get("public.skipExportGlyphs")
         .and_then(|x| x.as_array())
-        .unwrap_or_else(|| &vec![]);
+        .cloned()
+        .unwrap_or_else(|| vec![])
+        .iter()
+        .flat_map(|x| x.as_string())
+        .map(|x| x.to_string())
+        .collect();
     let glyphorder: Vec<String> = ufo
         .lib
         .get("public.glyphOrder")
@@ -197,11 +202,6 @@ pub(crate) fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
         .collect();
     let mut order: Vec<String> = vec![];
     let mut ufo_names: Vec<String> = ufo.iter_names().map(|x| x.to_string()).collect();
-    let mut skipped: HashSet<String> = unexported
-        .iter()
-        .flat_map(|x| x.as_string())
-        .map(|x| x.to_string())
-        .collect();
     if ufo_names.contains(&".notdef".to_string()) {
         order.push(".notdef".to_string());
         ufo_names.retain(|x| x != ".notdef");
