@@ -218,17 +218,32 @@ pub fn compile_hhea(
         .ot_value("hhea", "caretSlopeRun", true)
         .map(i16::from)
         .unwrap_or_else(|| caret_slope_run(input));
-
-    let advanceWidthMax = metrics.iter().map(|x| x.advanceWidth).max().unwrap_or(0);
-    let minLeftSideBearing = metrics.iter().map(|x| x.lsb).min().unwrap_or(0);
-    let minRightSideBearing = metrics
+    let filtered_metrics = metrics
         .iter()
+        .zip(&glyf.glyphs)
+        .filter(|(_m, g)| !g.is_empty())
+        .map(|(m, _g)| m);
+
+    let advanceWidthMax = filtered_metrics
+        .clone()
+        .map(|x| x.advanceWidth)
+        .max()
+        .unwrap_or(0);
+    let minLeftSideBearing = filtered_metrics.clone().map(|x| x.lsb).min().unwrap_or(0);
+    let minRightSideBearing = filtered_metrics
+        .clone()
         .map(|x| x.advanceWidth as i16)
         .zip(glyf.glyphs.iter().map(|g| g.xMax))
         .map(|t| t.0 - t.1)
         .min()
         .unwrap_or(0);
-    let xMaxExtent = glyf.glyphs.iter().map(|g| g.xMax).max().unwrap_or(0);
+    let xMaxExtent = glyf
+        .glyphs
+        .iter()
+        .filter(|g| !g.is_empty())
+        .map(|g| g.xMax)
+        .max()
+        .unwrap_or(0);
     hhea::hhea {
         majorVersion: 1,
         minorVersion: 0,
