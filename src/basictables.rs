@@ -449,7 +449,7 @@ pub fn compile_name(input: &babelfont::Font) -> name {
     let psfn = preferred_subfamily_name(input);
     records.extend(vec![
         (NameRecordID::FontFamilyName, family_name.clone()),
-        (NameRecordID::FontSubfamilyName, style_name.clone()),
+        (NameRecordID::FontSubfamilyName, psfn.clone()),
         (NameRecordID::UniqueID, unique_id(input)),
         (NameRecordID::FullFontName, format!("{0} {1}", pfn, psfn)),
         (
@@ -476,8 +476,8 @@ pub fn compile_name(input: &babelfont::Font) -> name {
     if pfn != family_name {
         records.push((NameRecordID::PreferredFamilyName, pfn));
     }
-    if psfn != style_name {
-        records.push((NameRecordID::PreferredSubfamilyName, psfn));
+    if let Some(tsf) = input.names.typographic_subfamily.default() {
+        records.push((NameRecordID::PreferredSubfamilyName, tsf));
     }
 
     for (id, field) in &[
