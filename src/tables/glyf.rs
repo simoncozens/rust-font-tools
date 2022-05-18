@@ -1,3 +1,6 @@
+use self::glyph::CompositeMaxpValues;
+use core::cmp::max;
+
 use super::maxp::maxp;
 use otspec::{DeserializationError, Deserializer, ReaderContext};
 
@@ -179,38 +182,31 @@ impl glyf {
             .map(|x| x.contours.len())
             .max()
             .unwrap_or(0) as u16;
-        let max_composite_points = self
+        let max_component_info: CompositeMaxpValues = self
             .glyphs
             .iter()
-            .map(|x| {
-                self.flat_components(x)
-                    .iter()
-                    .map(|c| {
-                        self.glyphs
-                            .get(c.glyph_index as usize)
-                            .unwrap()
-                            .num_points()
-                    })
-                    .sum()
-            })
-            .max()
-            .unwrap_or(0) as u16;
-        let max_composite_contours = 0;
+            .filter(|x| x.has_components())
+            .map(|x| x.composite_maxp_values(&self.glyphs))
+            .flatten()
+            .fold(CompositeMaxpValues::default(), |l, r| CompositeMaxpValues {
+                num_points: max(l.num_points, r.num_points),
+                num_contours: max(l.num_contours, r.num_contours),
+                max_depth: max(l.max_depth, r.max_depth),
+            });
         let max_component_elements = self
             .glyphs
             .iter()
             .map(|x| x.components.len())
             .max()
             .unwrap_or(0) as u16;
-        let max_component_depth = 1; // XXX
         maxp::new10(
             num_glyphs,
             max_points,
             max_contours,
-            max_composite_points,
-            max_composite_contours,
+            max_component_info.num_points,
+            max_component_info.num_contours,
             max_component_elements,
-            max_component_depth,
+            max_component_info.max_depth,
         )
     }
 }

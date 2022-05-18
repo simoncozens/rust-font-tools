@@ -2,13 +2,14 @@ use super::component::{Component, ComponentFlags};
 use super::contourutils;
 use super::point::Point;
 use bitflags::bitflags;
-use itertools::izip;
+use itertools::{izip, Itertools};
 use otspec::types::*;
 use otspec::Serializer;
 use otspec::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
 };
 use otspec_macros::{tables, Deserialize, Serialize};
+use std::cmp::max;
 tables!(
     GlyphCore {
         int16	xMin
@@ -30,6 +31,13 @@ bitflags! {
         const OVERLAP_SIMPLE = 0x40;
         const RESERVED = 0x80;
     }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy, Default)]
+pub struct CompositeMaxpValues {
+    pub num_points: u16,
+    pub num_contours: u16,
+    pub max_depth: u16,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -403,8 +411,40 @@ impl Glyph {
     }
 
     /// Number of contours in this glyph (without counting components)
-    fn num_contours(&self) -> usize {
+    pub fn num_contours(&self) -> usize {
         self.contours.len()
+    }
+
+    /// Get information about composite depth and contour points
+    /// suitable for feeding to a maxp table
+    pub fn composite_maxp_values(&self, glyphs: &[Glyph]) -> Option<CompositeMaxpValues> {
+        self._composite_maxp_values(glyphs, 1)
+    }
+    fn _composite_maxp_values(&self, glyphs: &[Glyph], depth: u16) -> Option<CompositeMaxpValues> {
+        if !self.has_components() {
+            return None;
+        }
+        let mut info = CompositeMaxpValues {
+            num_points: 0,
+            num_contours: 0,
+            max_depth: depth,
+        };
+        for base_glyph in self
+            .components
+            .iter()
+            .map(|c| glyphs.get(c.glyph_index as usize))
+            .flatten()
+        {
+            if !base_glyph.has_components() {
+                info.num_points += base_glyph.num_points() as u16;
+                info.num_contours += base_glyph.num_contours() as u16;
+            } else if let Some(other_info) = base_glyph._composite_maxp_values(glyphs, depth + 1) {
+                info.num_points += other_info.num_points;
+                info.num_contours += other_info.num_contours;
+                info.max_depth = max(info.max_depth, other_info.max_depth);
+            }
+        }
+        Some(info)
     }
 }
 
