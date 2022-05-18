@@ -74,7 +74,8 @@ pub(crate) fn add_notdef(input: &mut Font) {
         y_min += stroke;
         x_max -= stroke;
         y_max -= stroke;
-        let p2 = make_box(x_min, y_min, x_max, y_max);
+        let mut p2 = make_box(x_min, y_min, x_max, y_max);
+        p2.reverse();
 
         let mut l = Layer {
             width: width as i32,
