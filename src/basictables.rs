@@ -93,7 +93,7 @@ pub fn compile_head(font: &babelfont::Font, glyf: &glyf::glyf) -> head {
         magicNumber: 0x5F0F3CF5,
         majorVersion: 1,
         minorVersion: 0,
-        modified: created_date,
+        modified: chrono::Local::now().naive_local(),
         unitsPerEm: font.upm,
         xMax: x_max,
         xMin: x_min,
