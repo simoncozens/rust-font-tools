@@ -67,7 +67,7 @@ pub struct Fixed(pub f32);
 
 pub type Tuple = Vec<f32>;
 
-fn ot_round(value: f32) -> i32 {
+pub fn ot_round(value: f32) -> i32 {
     (value + 0.5).floor() as i32
 }
 
