@@ -44,7 +44,7 @@ def get_expectation(source: pathlib.Path):
         else:
             raise ValueError("Unknown source file type")
         with tempfile.NamedTemporaryFile() as tf:
-            cmd = f"fontmake {build_arg} {source} --output-path {tf.name}"
+            cmd = f"fontmake {build_arg} {source} --keep-overlaps --output-path {tf.name}"
             subprocess.run(cmd, shell=True, check=True)
             ttjfont = TTJ(TTFont(tf))
         as_json = json.dumps(ttjfont, indent=4)
