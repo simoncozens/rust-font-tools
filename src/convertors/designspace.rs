@@ -1,3 +1,4 @@
+use crate::convertors::ufo::stat;
 use crate::glyph::GlyphList;
 use crate::Layer;
 use designspace::Source;
@@ -16,6 +17,7 @@ use crate::{Axis, BabelfontError, Font, Location, Master};
 use designspace::{Axis as DSAxis, Designspace, Instance as DSInstance};
 
 pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
+    let created_time = stat(&path);
     let ds_file = File::open(path.clone()).map_err(|source| BabelfontError::IO {
         path: path.clone(),
         source,
@@ -59,7 +61,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
         }
     }
     let info = default_ufo.font_info;
-    load_font_info(&mut font, &info);
+    load_font_info(&mut font, &info, created_time);
     font.features = Some(default_ufo.features);
     Ok(font)
 }

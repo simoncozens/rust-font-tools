@@ -1,24 +1,41 @@
-use norad::GlyphName;
+use chrono::DateTime;
+use chrono::Local;
+use chrono::NaiveDateTime;
+use chrono::TimeZone;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::fs;
 use std::path::PathBuf;
-
-use chrono::TimeZone;
+use std::time::SystemTime;
 
 use crate::glyph::GlyphCategory;
 use crate::{
     BabelfontError, Component, Font, Glyph, Layer, Location, Master, OTScalar, Path, Shape,
 };
 
+pub(crate) fn stat(path: &PathBuf) -> Option<DateTime<chrono::Local>> {
+    fs::metadata(&path)
+        .and_then(|x| x.created())
+        .ok()
+        .map(|x| {
+            NaiveDateTime::from_timestamp(
+                x.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+                0,
+            )
+        })
+        .map(|x| chrono::Local.from_utc_datetime(&x))
+}
+
 pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     let mut font = Font::new();
+    let created_time: Option<DateTime<Local>> = stat(&path);
     let ufo = norad::Font::load(&path).map_err(|e| BabelfontError::LoadingUFO {
         orig: e,
         path: path.into_os_string().into_string().unwrap(),
     })?;
     load_glyphs(&mut font, &ufo);
     let info = &ufo.font_info;
-    load_font_info(&mut font, info);
+    load_font_info(&mut font, info, created_time);
     let mut master = Master::new(
         info.family_name
             .as_ref()
@@ -104,7 +121,11 @@ pub(crate) fn load_master_info(master: &mut Master, info: &norad::FontInfo) {
     }
 }
 
-pub(crate) fn load_font_info(font: &mut Font, info: &norad::FontInfo) {
+pub(crate) fn load_font_info(
+    font: &mut Font,
+    info: &norad::FontInfo,
+    created: Option<DateTime<Local>>,
+) {
     if let Some(v) = &info.copyright {
         font.names.copyright = v.into();
     }
@@ -115,9 +136,9 @@ pub(crate) fn load_font_info(font: &mut Font, info: &norad::FontInfo) {
         font.note = Some(v.clone());
     }
     if let Some(v) = &info.open_type_head_created {
-        font.date = chrono::NaiveDateTime::parse_from_str(v, "%Y/%m/%d %H:%m:%s")
+        font.date = NaiveDateTime::parse_from_str(v, "%Y/%m/%d %H:%M:%S")
             .map(|x| chrono::Local.from_utc_datetime(&x))
-            .unwrap_or_else(|_| chrono::Local::now());
+            .unwrap_or_else(|_| created.unwrap_or(chrono::Local::now()));
     }
     if let Some(v) = &info.open_type_head_flags {
         font.set_ot_value("head", "flags", OTScalar::BitField(v.to_vec()))
