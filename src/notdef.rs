@@ -27,6 +27,11 @@ where
         },
         Node {
             x: x_min.into(),
+            y: y_max.into(),
+            nodetype: NodeType::Line,
+        },
+        Node {
+            x: x_min.into(),
             y: y_min.into(),
             nodetype: NodeType::Line,
         },
