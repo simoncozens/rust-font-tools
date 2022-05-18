@@ -4,6 +4,7 @@ mod buildbasic;
 mod fontinfo;
 mod glyph;
 mod kerning;
+mod notdef;
 mod utils;
 
 use buildbasic::build_font;

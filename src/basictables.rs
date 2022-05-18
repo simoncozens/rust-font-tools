@@ -10,8 +10,6 @@ use fonttools::tables::{cmap, glyf, hhea, hmtx};
 use fonttools::tag;
 use fonttools::types::Tag;
 use otspec::utils::filtered_bitset_to_num;
-use std::cmp::{max, min};
-
 use std::collections::BTreeMap;
 
 // This takes a babelfont font, and creates most of the output fonttools-rs font.
@@ -64,16 +62,17 @@ pub fn compile_head(font: &babelfont::Font, glyf: &glyf::glyf) -> head {
     let font_revision: f32 = (font.version.0 as f32 * 1000.0 + minor as f32).round() / 1000.0;
 
     // bounding box
-    let mut x_min: i16 = 0;
-    let mut x_max: i16 = 0;
-    let mut y_min: i16 = 0;
-    let mut y_max: i16 = 0;
-    for glyph in &glyf.glyphs {
-        x_min = min(x_min, glyph.xMin);
-        x_max = max(x_max, glyph.xMax);
-        y_min = min(y_min, glyph.yMin);
-        y_max = max(y_max, glyph.yMax);
-    }
+    let bounds: Vec<(i16, i16, i16, i16)> = glyf
+        .glyphs
+        .iter()
+        .filter(|g| !g.is_empty())
+        .map(|g| (g.xMin, g.xMax, g.yMin, g.yMax))
+        .collect();
+
+    let x_min = bounds.iter().map(|x| x.0).min().unwrap_or(0);
+    let x_max = bounds.iter().map(|x| x.1).max().unwrap_or(0);
+    let y_min = bounds.iter().map(|x| x.2).min().unwrap_or(0);
+    let y_max = bounds.iter().map(|x| x.3).max().unwrap_or(0);
 
     let created_date = font.date.naive_local();
 

@@ -1,6 +1,7 @@
 use crate::basictables::fill_tables;
 use crate::glyph::layers_to_glyph;
 use crate::kerning::build_kerning;
+use crate::notdef::add_notdef;
 use babelfont::{Component, Font, Layer, Node, Path};
 use fonttools::tables::gvar::GlyphVariationData;
 use fonttools::tables::{glyf, hmtx};
@@ -45,6 +46,7 @@ pub fn build_font(
     subset: &Option<HashSet<String>>,
     just_one_master: Option<usize>,
 ) -> font::Font {
+    add_notdef(input);
     decompose_mixed_glyphs(input);
 
     // First, find the glyphs we're dealing with
