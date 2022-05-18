@@ -340,7 +340,7 @@ pub fn compile_os2(
         as i16;
     let yStrikeoutPosition = input
         .ot_value("OS2", "yStrikeoutPosition", true)
-        .map_or((x_height as f32 * 0.22) as i16, i16::from);
+        .map_or((x_height as f32 * 0.6) as i16, i16::from);
     let achVendID = input
         .ot_value("OS2", "achVendID", true)
         .map_or(tag!("NONE"), |x| Tag::from_raw(String::from(x)).unwrap());
