@@ -26,8 +26,6 @@ def clean_font(ttjfont):
 
     if "gvar" in ttjfont:
         del ttjfont["gvar"] # FOR NOW
-    if "glyf" in ttjfont:
-        del ttjfont["glyf"] # FOR NOW
     return ttjfont
 
 def get_expectation(source: pathlib.Path):
