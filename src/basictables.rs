@@ -233,7 +233,7 @@ pub fn compile_hhea(
     let minRightSideBearing = filtered_metrics
         .clone()
         .map(|x| x.advanceWidth as i16)
-        .zip(glyf.glyphs.iter().map(|g| g.xMax))
+        .zip(glyf.glyphs.iter().filter(|g| !g.is_empty()).map(|g| g.xMax))
         .map(|t| t.0 - t.1)
         .min()
         .unwrap_or(0);
