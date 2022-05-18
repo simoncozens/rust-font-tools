@@ -5,11 +5,11 @@ use babelfont::Shape;
 use babelfont::{Font, Glyph, Node, NodeType, PathDirection};
 use otspec::types::ot_round;
 
-fn make_box<T>(x_min: T, y_min: T, x_max: T, y_max: T) -> Vec<Node>
+fn make_box<T>(x_min: T, y_min: T, x_max: T, y_max: T, reverse: bool) -> Vec<Node>
 where
     T: Into<f32> + Copy,
 {
-    vec![
+    let mut v = vec![
         Node {
             x: x_min.into(),
             y: y_min.into(),
@@ -35,7 +35,13 @@ where
             y: y_min.into(),
             nodetype: NodeType::Line,
         },
-    ]
+    ];
+    if reverse {
+        v.reverse();
+        v[0].nodetype = NodeType::Move;
+        v[4].nodetype = NodeType::Line;
+    }
+    v
 }
 
 pub(crate) fn add_notdef(input: &mut Font) {
@@ -65,17 +71,18 @@ pub(crate) fn add_notdef(input: &mut Font) {
             .get("descender")
             .copied()
             .unwrap_or(-(input.upm as f32 * 0.20) as i32);
-        let mut x_min: f32 = stroke as f32;
-        let mut x_max: f32 = (width - stroke) as f32;
-        let mut y_max: f32 = ascender as f32;
-        let mut y_min: f32 = descender as f32;
-        let p1 = make_box(x_min, y_min, x_max, y_max);
-        x_min += stroke;
-        y_min += stroke;
-        x_max -= stroke;
-        y_max -= stroke;
-        let mut p2 = make_box(x_min, y_min, x_max, y_max);
-        p2.reverse();
+        let x_min: f32 = stroke as f32;
+        let x_max: f32 = (width - stroke) as f32;
+        let y_max: f32 = ascender as f32;
+        let y_min: f32 = descender as f32;
+        let p1 = make_box(x_min, y_min, x_max, y_max, false);
+        let p2 = make_box(
+            x_min + stroke,
+            y_min + stroke,
+            x_max - stroke,
+            y_max - stroke,
+            true,
+        );
 
         let mut l = Layer {
             width: width as i32,
