@@ -9,6 +9,13 @@ pub fn ascender(input: &babelfont::Font) -> i16 {
         .default_metric("ascender")
         .map_or((upm * 0.80) as i16, |f| f as i16)
 }
+pub fn typo_linegap(input: &babelfont::Font) -> i16 {
+    let upm = input.upm as f32;
+    input
+        .ot_value("OS2", "sTypoLineGap", true)
+        .map(i32::from)
+        .unwrap_or((upm * 1.2) as i32 + (-ascender(input) + descender(input)) as i32) as i16
+}
 pub fn descender(input: &babelfont::Font) -> i16 {
     let upm = input.upm as f32;
     input
@@ -19,7 +26,7 @@ pub fn hhea_ascender(input: &babelfont::Font) -> i16 {
     input
         .ot_value("hhea", "ascent", true)
         .map_or_else(|| ascender(input), i16::from)
-    // XXX Plus typolinegap
+        + typo_linegap(input)
 }
 pub fn hhea_descender(input: &babelfont::Font) -> i16 {
     input

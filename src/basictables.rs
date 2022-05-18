@@ -292,11 +292,7 @@ pub fn compile_os2(
         .ot_value("OS2", "sTypoDescender", true)
         .map(i16::from)
         .unwrap_or_else(|| font_descender) as i16;
-    let sTypoLineGap = input
-        .ot_value("OS2", "sTypoLineGap", true)
-        .map(i32::from)
-        .unwrap_or((upm * 1.2) as i32 + (-font_ascender + font_descender) as i32)
-        as i16;
+    let sTypoLineGap = typo_linegap(input);
 
     let ySubscriptYOffset = input
         .ot_value("OS2", "ySubscriptYOffset", true)
