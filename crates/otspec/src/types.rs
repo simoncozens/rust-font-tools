@@ -71,7 +71,7 @@ pub fn ot_round<T>(value: T) -> i32
 where
     T: Into<f64>,
 {
-    (value.into() + 0.5).floor() as i32
+    (value.into() as f32 + 0.5_f32).floor() as i32
 }
 
 impl Fixed {
