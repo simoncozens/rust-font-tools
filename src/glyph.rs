@@ -2,6 +2,7 @@ use crate::utils::is_all_same;
 use fonttools::otvar::VariationModel;
 use fonttools::tables::glyf;
 use fonttools::tables::gvar::{DeltaSet, GlyphVariationData};
+use fonttools::types::ot_round;
 use kurbo::{cubics_to_quadratic_splines, BezPath, CubicBez, PathEl, PathSeg};
 use otspec::utils::is_all_the_same;
 use std::collections::BTreeMap;
@@ -172,7 +173,7 @@ impl<'a> GlyphReadyToGo<'a> {
 
             // Turn the ndarray back into a vec of tuples
             let deltas: Vec<(i16, i16)> = delta
-                .mapv(|x| x as i16)
+                .mapv(|x| ot_round(x) as i16)
                 .outer_iter()
                 .map(|x| (x[0], x[1]))
                 .collect();
@@ -352,8 +353,8 @@ fn babelfont_contours_to_glyf_contours(
                         // Skip the spline start, because we already have a point for that
                         for pt in spline_points.iter().skip(1) {
                             contour.push(glyf::Point {
-                                x: pt.x as i16,
-                                y: pt.y as i16,
+                                x: ot_round(pt.x) as i16,
+                                y: ot_round(pt.y) as i16,
                                 on_curve: false,
                             });
                         }
@@ -371,20 +372,20 @@ fn babelfont_contours_to_glyf_contours(
                     let this_path_el = kurbo_paths[c_ix].elements()[el_ix];
                     match this_path_el {
                         PathEl::MoveTo(pt) | PathEl::LineTo(pt) => contour.push(glyf::Point {
-                            x: pt.x as i16,
-                            y: pt.y as i16,
+                            x: ot_round(pt.x) as i16,
+                            y: ot_round(pt.y) as i16,
                             on_curve: true,
                         }),
                         PathEl::QuadTo(pt1, pt2) => {
                             // This can happen with components we already converted
                             contour.push(glyf::Point {
-                                x: pt1.x as i16,
-                                y: pt1.y as i16,
+                                x: ot_round(pt1.x) as i16,
+                                y: ot_round(pt1.y) as i16,
                                 on_curve: false,
                             });
                             contour.push(glyf::Point {
-                                x: pt2.x as i16,
-                                y: pt2.y as i16,
+                                x: ot_round(pt2.x) as i16,
+                                y: ot_round(pt2.y) as i16,
                                 on_curve: true,
                             });
                         }
