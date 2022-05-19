@@ -2,7 +2,7 @@ use super::component::{Component, ComponentFlags};
 use super::contourutils;
 use super::point::Point;
 use bitflags::bitflags;
-use itertools::{izip, Itertools};
+use itertools::izip;
 use otspec::types::*;
 use otspec::Serializer;
 use otspec::{
