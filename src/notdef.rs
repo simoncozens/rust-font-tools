@@ -1,8 +1,4 @@
-use babelfont::GlyphCategory;
-use babelfont::Layer;
-use babelfont::Path;
-use babelfont::Shape;
-use babelfont::{Font, Glyph, Node, NodeType, PathDirection};
+use babelfont::{Font, Glyph, GlyphCategory, Layer, Node, NodeType, Path, PathDirection, Shape};
 use otspec::types::ot_round;
 
 fn make_box<T>(x_min: T, y_min: T, x_max: T, y_max: T, reverse: bool) -> Vec<Node>
