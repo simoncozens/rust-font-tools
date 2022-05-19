@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
-use std::fmt::Formatter;
+use std::fmt::{Debug, Formatter};
 
 use fonttools::types::Tag;
 

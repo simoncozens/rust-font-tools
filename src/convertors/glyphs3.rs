@@ -3,10 +3,9 @@ use crate::glyph::GlyphCategory;
 use crate::i18ndictionary::I18NDictionary;
 use crate::OTScalar::Signed;
 use crate::Shape::{ComponentShape, PathShape};
-use crate::{Anchor, OTScalar};
 use crate::{
-    Axis, BabelfontError, Component, Font, Glyph, Guide, Instance, Layer, Location, Master, Node,
-    NodeType, Path, Position, Shape,
+    Anchor, Axis, BabelfontError, Component, Font, Glyph, Guide, Instance, Layer, Location, Master,
+    Node, NodeType, OTScalar, Path, Position, Shape,
 };
 use fonttools::types::Tag;
 use openstep_plist::Plist;

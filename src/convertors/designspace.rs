@@ -8,10 +8,9 @@ use std::path::PathBuf;
 
 use uuid::Uuid;
 
-use crate::convertors::ufo::load_font_info;
-use crate::convertors::ufo::load_glyphs;
-use crate::convertors::ufo::load_master_info;
-use crate::convertors::ufo::norad_glyph_to_babelfont_layer;
+use crate::convertors::ufo::{
+    load_font_info, load_glyphs, load_master_info, norad_glyph_to_babelfont_layer,
+};
 use crate::{Axis, BabelfontError, Font, Location, Master};
 
 use designspace::{Axis as DSAxis, Designspace, Instance as DSInstance};

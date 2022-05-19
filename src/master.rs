@@ -1,5 +1,4 @@
-use crate::common::Location;
-use crate::common::OTValue;
+use crate::common::{Location, OTValue};
 use crate::guide::Guide;
 use crate::i18ndictionary::I18NDictionary;
 use crate::OTScalar;

@@ -1,5 +1,4 @@
-use crate::common::Color;
-use crate::common::Position;
+use crate::common::{Color, Position};
 
 #[derive(Debug)]
 pub struct Guide {

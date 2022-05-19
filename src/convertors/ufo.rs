@@ -1,9 +1,5 @@
-use chrono::DateTime;
-use chrono::Local;
-use chrono::NaiveDateTime;
-use chrono::TimeZone;
-use std::collections::HashMap;
-use std::collections::HashSet;
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::time::SystemTime;

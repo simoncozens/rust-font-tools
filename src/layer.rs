@@ -1,10 +1,8 @@
 use crate::anchor::Anchor;
-use crate::common::Color;
-use crate::common::Location;
+use crate::common::{Color, Location};
 use crate::guide::Guide;
 use crate::shape::Shape;
-use crate::Component;
-use crate::Path;
+use crate::{Component, Path};
 
 #[derive(Debug)]
 pub struct Layer {

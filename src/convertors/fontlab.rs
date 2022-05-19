@@ -7,7 +7,7 @@ use std::fs;
 use std::path::PathBuf;
 
 fn to_point(s: String) -> Result<(i32, i32), BabelfontError> {
-    let mut i = s.split(" ");
+    let mut i = s.split(' ');
     let x_str = i.next().expect("Couldn't read X coordinate");
     let x = x_str.parse::<f32>().map_err(|_| BabelfontError::General {
         msg: format!("Couldn't parse X coordinate {:}", x_str),
@@ -42,6 +42,7 @@ impl TryInto<Option<Anchor>> for FontlabAnchor {
     type Error = BabelfontError;
 }
 
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug)]
 struct FontlabLayer {
     advanceWidth: i32,
@@ -52,13 +53,13 @@ struct FontlabLayer {
 }
 
 impl FontlabLayer {
-    fn try_into_babel(self, font: &Font) -> Result<Layer, BabelfontError> {
+    fn try_into_babel(self, _font: &Font) -> Result<Layer, BabelfontError> {
         let anchors: Result<Vec<Option<Anchor>>, BabelfontError> =
             self.anchors.into_iter().map(|x| x.try_into()).collect();
         Ok(Layer {
             width: self.advanceWidth,
             name: self.name.clone(),
-            id: self.name.clone(),
+            id: self.name,
             guides: vec![],
             shapes: vec![],
             anchors: anchors?.into_iter().flatten().collect(),
@@ -92,7 +93,7 @@ impl FontlabGlyph {
         let layers: Result<Vec<Layer>, BabelfontError> = self
             .layers
             .into_iter()
-            .map(|x| x.try_into_babel(&font))
+            .map(|x| x.try_into_babel(font))
             .collect();
 
         Ok(Glyph {
@@ -112,6 +113,7 @@ struct FontlabKerning {
     // XXX
 }
 
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug)]
 struct FontlabAxis {
     name: String,
@@ -153,6 +155,7 @@ struct FontlabInstance {
     location: HashMap<String, f32>,
 }
 
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug)]
 struct FontlabFontInfo {
     tfn: String,
@@ -172,6 +175,7 @@ struct FontlabFontInfo {
     version: Option<String>,
 }
 
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug)]
 struct FontlabMaster {
     name: String,
@@ -196,13 +200,7 @@ impl FontlabMaster {
         let location: Location = Location(
             self.location
                 .iter()
-                .map(|(short_name, val)| {
-                    if let Some(axis) = axes.get(short_name) {
-                        Some((axis.clone(), *val))
-                    } else {
-                        None
-                    }
-                })
+                .map(|(short_name, val)| axes.get(short_name).map(|axis| (axis.clone(), *val)))
                 .flatten()
                 .collect(),
         );
@@ -210,11 +208,13 @@ impl FontlabMaster {
     }
 }
 
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug)]
 struct FontlabMasterWrapper {
     fontMaster: FontlabMaster,
 }
 
+#[allow(non_snake_case)]
 #[derive(Serialize, Deserialize, Debug)]
 struct FontlabFont {
     glyphsCount: u16,
