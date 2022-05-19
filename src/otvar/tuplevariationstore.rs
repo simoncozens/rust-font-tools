@@ -2,12 +2,9 @@ use super::iup::iup_contour;
 use super::packeddeltas::from_bytes as packed_deltas_from_bytes;
 use super::{Delta, PackedDeltas, PackedPoints, TupleIndexFlags, TupleVariationHeader};
 use otspec::types::*;
-use otspec::DeserializationError;
-use otspec::Deserializer;
-use otspec::ReaderContext;
-use otspec::SerializationError;
-use otspec::Serialize;
-use otspec::Serializer;
+use otspec::{
+    DeserializationError, Deserializer, ReaderContext, SerializationError, Serialize, Serializer,
+};
 use std::collections::VecDeque;
 
 /// A record within a tuple variation store
@@ -233,9 +230,9 @@ impl Serialize for TupleVariationStore {
 #[cfg(test)]
 mod tests {
     use crate::otvar::Delta::Delta2D;
-    use crate::otvar::TupleVariation;
-    use crate::otvar::TupleVariationHeader;
-    use crate::otvar::{TupleIndexFlags, TupleVariationStore};
+    use crate::otvar::{
+        TupleIndexFlags, TupleVariation, TupleVariationHeader, TupleVariationStore,
+    };
     use otspec::ReaderContext;
 
     #[test]

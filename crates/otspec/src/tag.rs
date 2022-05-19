@@ -1,7 +1,9 @@
 //! OpenType tags.
 
 use crate::{DeserializationError, Deserialize, ReaderContext, SerializationError, Serialize};
-use std::{borrow::Borrow, ops::Deref, str::FromStr};
+use std::borrow::Borrow;
+use std::ops::Deref;
+use std::str::FromStr;
 
 pub use otspec_macros::tag;
 

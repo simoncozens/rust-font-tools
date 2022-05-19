@@ -144,7 +144,8 @@ impl Deserialize for maxp {
 
 #[cfg(test)]
 mod tests {
-    use otspec::{ser, types::U16F16};
+    use otspec::ser;
+    use otspec::types::U16F16;
 
     #[test]
     fn maxp_ser_v05() {

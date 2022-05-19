@@ -1,4 +1,5 @@
-use std::{fmt::Display, iter::FromIterator};
+use std::fmt::Display;
+use std::iter::FromIterator;
 
 use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree};
 

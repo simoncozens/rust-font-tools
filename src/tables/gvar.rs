@@ -1,7 +1,7 @@
 use super::glyf::{glyf, Glyph};
+use crate::otvar::iup::optimize_deltas;
 use crate::otvar::{
-    iup::optimize_deltas, Delta, TupleIndexFlags, TupleVariation, TupleVariationHeader,
-    TupleVariationStore,
+    Delta, TupleIndexFlags, TupleVariation, TupleVariationHeader, TupleVariationStore,
 };
 use counter::Counter;
 use otspec::types::*;

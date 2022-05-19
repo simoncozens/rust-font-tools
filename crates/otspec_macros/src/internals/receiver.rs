@@ -3,10 +3,9 @@ use proc_macro2::Span;
 use quote::ToTokens;
 use std::mem;
 use syn::punctuated::Punctuated;
-use syn::Token;
 use syn::{
     parse_quote, Data, DeriveInput, Expr, ExprPath, GenericArgument, GenericParam, Generics, Macro,
-    Path, PathArguments, QSelf, ReturnType, Type, TypeParamBound, TypePath, WherePredicate,
+    Path, PathArguments, QSelf, ReturnType, Token, Type, TypeParamBound, TypePath, WherePredicate,
 };
 
 pub fn replace_receiver(input: &mut DeriveInput) {

@@ -1,5 +1,7 @@
-use otspec::{types::*, Deserialize, Serialize, Serializer};
-use otspec::{DeserializationError, Deserializer, ReaderContext};
+use otspec::types::*;
+use otspec::{
+    DeserializationError, Deserialize, Deserializer, ReaderContext, Serialize, Serializer,
+};
 use otspec_macros::tables;
 
 tables!(

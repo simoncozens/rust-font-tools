@@ -1,12 +1,7 @@
-use crate::types;
-use crate::uint16;
-use crate::uint32;
-use crate::DeserializationError;
-use crate::Deserialize;
-use crate::Deserializer;
-use crate::ReaderContext;
-use crate::SerializationError;
-use crate::Serialize;
+use crate::{
+    types, uint16, uint32, DeserializationError, Deserialize, Deserializer, ReaderContext,
+    SerializationError, Serialize,
+};
 
 #[derive(Shrinkwrap, Debug, PartialEq)]
 pub struct Counted<T>(pub Vec<T>);

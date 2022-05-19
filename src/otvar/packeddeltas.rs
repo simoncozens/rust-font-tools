@@ -140,8 +140,7 @@ impl Serialize for PackedDeltas {
 
 #[cfg(test)]
 mod tests {
-    use crate::otvar::packeddeltas::from_bytes;
-    use crate::otvar::packeddeltas::PackedDeltas;
+    use crate::otvar::packeddeltas::{from_bytes, PackedDeltas};
     use otspec::ReaderContext;
 
     #[test]

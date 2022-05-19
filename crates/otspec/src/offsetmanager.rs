@@ -1,12 +1,9 @@
-use crate::offsets::Offset16;
-use crate::offsets::OffsetMarkerTrait;
-use crate::SerializationError;
-use crate::Serialize;
+use crate::offsets::{Offset16, OffsetMarkerTrait};
+use crate::{SerializationError, Serialize};
 
 use petgraph::dot::Dot;
 use petgraph::graph::{Graph, NodeIndex};
-use petgraph::visit::EdgeRef;
-use petgraph::visit::Topo;
+use petgraph::visit::{EdgeRef, Topo};
 
 pub struct OffsetManager<'a> {
     dag: Graph<&'a dyn OffsetMarkerTrait, Option<usize>>,

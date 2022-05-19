@@ -1,7 +1,6 @@
 //! A Serde ast, parsed from the Syn ast and ready to generate Rust code.
 
-use crate::internals::attr;
-use crate::internals::{Ctxt, Derive};
+use crate::internals::{attr, Ctxt, Derive};
 use syn::punctuated::Punctuated;
 use syn::Token;
 
