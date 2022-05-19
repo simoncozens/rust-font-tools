@@ -46,6 +46,7 @@ impl<'a> GlyphForConversion<'a> {
             masters: vec![],
             default_master_ix: self.default_master_ix,
             model: self.model,
+            glif_name: self.glif_name,
         };
         /* OK, we're doing the contours of a variable font. Some of the masters
         may be sparse, i.e. not containing a layer for this glyph. We will
@@ -139,6 +140,7 @@ struct GlyphReadyToGo<'a> {
     masters: Vec<Option<ConvertedMaster>>,
     default_master_ix: usize,
     model: Option<&'a VariationModel>,
+    glif_name: &'a str,
 }
 
 impl<'a> GlyphReadyToGo<'a> {
@@ -162,6 +164,13 @@ impl<'a> GlyphReadyToGo<'a> {
         // The model takes Vec<T> T:Sub, and ndarray::Array2 implements Sub,
         // so we can just send the whole vec of ndarrays to the model and get
         // back our deltas.
+        if !is_all_the_same(all_coords.iter().flatten().map(|x| x.shape())) {
+            log::error!(
+                "Incompatible gvar shapes for glyph {:} (fonticulus bug)",
+                self.glif_name
+            );
+            return None;
+        }
         let deltas_and_supports = model.get_deltas_and_supports(&all_coords);
 
         for (delta, support) in deltas_and_supports.iter() {
