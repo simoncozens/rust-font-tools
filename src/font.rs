@@ -1,27 +1,19 @@
 use crate::axis::Axis;
-use crate::common::OTScalar;
-use crate::common::OTValue;
+use crate::common::{OTScalar, OTValue};
 use crate::glyph::GlyphList;
 use crate::instance::Instance;
 use crate::master::Master;
 use crate::names::Names;
 use crate::utils::otcmp;
-use crate::Location;
-use crate::{BabelfontError, Layer};
+use crate::{BabelfontError, Layer, Location};
 use chrono::Local;
 use fonttools::font::Font as FTFont;
-use fonttools::otvar::Location as OTVarLocation;
-use fonttools::otvar::{NormalizedLocation, VariationModel};
-use fonttools::{
-    tables::{
-        avar::{avar, SegmentMap},
-        fvar::{fvar, InstanceRecord, VariationAxisRecord},
-        name::NameRecord,
-    },
-    types::Tag,
-};
-use std::collections::BTreeMap;
-use std::collections::HashMap;
+use fonttools::otvar::{Location as OTVarLocation, NormalizedLocation, VariationModel};
+use fonttools::tables::avar::{avar, SegmentMap};
+use fonttools::tables::fvar::{fvar, InstanceRecord, VariationAxisRecord};
+use fonttools::tables::name::NameRecord;
+use fonttools::types::Tag;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug)]
 pub struct Font {
@@ -97,6 +89,12 @@ impl Font {
             }
         }
         None
+    }
+
+    pub fn master(&self, master_name: &str) -> Option<&Master> {
+        self.masters
+            .iter()
+            .find(|m| m.name.default().as_ref().unwrap() == master_name)
     }
 
     pub fn master_layer_for(&self, glyphname: &str, master: &Master) -> Option<&Layer> {

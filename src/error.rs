@@ -1,9 +1,13 @@
 use openstep_plist::Error;
 use snafu::Snafu;
-use std::{io, path::PathBuf};
+use std::io;
+use std::path::PathBuf;
 
 #[derive(Debug, Snafu)]
 pub enum BabelfontError {
+    #[snafu(display("Unknown file type for file {}", path.display()))]
+    UnknownFileType { path: PathBuf },
+
     #[snafu(display("Wrong convertor for file {}", path.display()))]
     WrongConvertor { path: PathBuf },
 

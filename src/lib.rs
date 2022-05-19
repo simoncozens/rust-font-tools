@@ -30,6 +30,22 @@ pub use crate::instance::Instance;
 pub use crate::layer::Layer;
 pub use crate::master::Master;
 pub use crate::shape::{Component, Path, PathDirection, Shape};
+use std::path::PathBuf;
+
+pub fn load(filename: &str) -> Result<Font, BabelfontError> {
+    let pb = PathBuf::from(filename);
+    if filename.ends_with(".designspace") {
+        crate::convertors::designspace::load(pb)
+    } else if filename.ends_with(".vfj") {
+        crate::convertors::fontlab::load(pb)
+    } else if filename.ends_with(".ufo") {
+        crate::convertors::ufo::load(pb)
+    } else if filename.ends_with(".glyphs") {
+        crate::convertors::glyphs3::load(pb)
+    } else {
+        Err(BabelfontError::UnknownFileType { path: pb })
+    }
+}
 
 #[cfg(test)]
 mod tests {
