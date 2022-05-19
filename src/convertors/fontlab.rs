@@ -135,9 +135,10 @@ impl From<FontlabAxis> for Axis {
             let mut axismap = vec![];
             for (left, right) in map.iter() {
                 if let Ok(l_f32) = left.parse() {
-                    axismap.push((l_f32, *right));
+                    axismap.push((*right, l_f32));
                 }
             }
+            axismap.sort_by(|l, r| l.0.partial_cmp(&r.0).unwrap());
             ax.map = Some(axismap);
         }
         ax
@@ -267,6 +268,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
                 axis.default = Some(*val);
             }
         }
+        assert!(font.default_master_index().is_some())
     }
     for glyph in fontlab.glyphs {
         let new_glyph = glyph.try_into(&font)?;
