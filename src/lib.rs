@@ -20,8 +20,7 @@ mod shape;
 
 pub use crate::anchor::Anchor;
 pub use crate::axis::Axis;
-pub use crate::common::{Location, Position};
-pub use crate::common::{Node, NodeType, OTScalar};
+pub use crate::common::{Location, Node, NodeType, OTScalar, Position};
 pub use crate::error::BabelfontError;
 pub use crate::font::Font;
 pub use crate::glyph::{Glyph, GlyphCategory, GlyphList};

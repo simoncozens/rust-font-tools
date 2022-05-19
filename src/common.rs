@@ -1,3 +1,4 @@
+use crate::Axis;
 use std::collections::HashMap;
 
 #[derive(Debug, Copy, Clone)]
@@ -42,6 +43,25 @@ pub struct Location(pub HashMap<String, f32>);
 impl Location {
     pub fn new() -> Self {
         Location(HashMap::new())
+    }
+
+    pub fn userspace_to_designspace(&self, axes: &[Axis]) -> Location {
+        let mut new_loc = self.0.clone();
+        for axis in axes {
+            if let Some(val) = new_loc.get_mut(&axis.tag) {
+                *val = axis.userspace_to_designspace(*val)
+            }
+        }
+        Location(new_loc)
+    }
+    pub fn designspace_to_userspace(&self, axes: &[Axis]) -> Location {
+        let mut new_loc = self.0.clone();
+        for axis in axes {
+            if let Some(val) = new_loc.get_mut(&axis.tag) {
+                *val = axis.designspace_to_userspace(*val)
+            }
+        }
+        Location(new_loc)
     }
 }
 
