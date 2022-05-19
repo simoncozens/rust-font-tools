@@ -33,7 +33,6 @@ struct Args {
 // use rayon::prelude::*;
 use std::collections::HashSet;
 use std::io;
-use std::path::PathBuf;
 
 /*
     OK, here is the basic plan:
@@ -70,26 +69,13 @@ fn main() {
         .as_ref()
         .map(|x| x.split(',').map(|y| y.to_string()).collect());
 
-    let mut in_font = load_with_babelfont(&args.input);
+    let mut in_font = babelfont::load(&args.input).expect("Couldn't load font");
 
     // --masters means we produce a TTF for each master and don't do interpolation
     if args.masters {
         create_ttf_per_master(&mut in_font, subset);
     } else {
         create_variable_font(&mut in_font, subset, &args.output);
-    }
-}
-
-fn load_with_babelfont(filename: &str) -> babelfont::Font {
-    if filename.ends_with(".designspace") {
-        babelfont::convertors::designspace::load(PathBuf::from(filename))
-            .expect("Couldn't load source")
-    } else if filename.ends_with(".ufo") {
-        babelfont::convertors::ufo::load(PathBuf::from(filename)).expect("Couldn't load source")
-    } else if filename.ends_with(".glyphs") {
-        babelfont::convertors::glyphs3::load(PathBuf::from(filename)).expect("Couldn't load source")
-    } else {
-        panic!("Unknown file type {:?}", filename);
     }
 }
 
