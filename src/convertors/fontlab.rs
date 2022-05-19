@@ -1,5 +1,11 @@
 use crate::utils::ot_round;
-use crate::{Anchor, Axis, BabelfontError, Font, Glyph, GlyphCategory, Layer, Location, Master};
+use crate::{
+    Anchor, Axis, BabelfontError, Component, Font, Glyph, GlyphCategory, Layer, Location, Master,
+    Node, NodeType, Path, PathDirection, Shape,
+};
+use kurbo::Affine;
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -17,6 +23,127 @@ fn to_point(s: String) -> Result<(i32, i32), BabelfontError> {
         msg: format!("Couldn't parse Y coordinate {:}", y_str),
     })?;
     Ok((ot_round(x), ot_round(y)))
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+struct FontlabComponent {
+    glyphName: String,
+}
+
+impl Into<Shape> for FontlabComponent {
+    fn into(self) -> Shape {
+        Shape::ComponentShape(Component {
+            reference: self.glyphName,
+            transform: Affine::IDENTITY,
+        })
+    }
+}
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+struct FontlabContour {
+    nodes: Vec<String>,
+}
+
+fn nodestring_to_nodes(s: String) -> Vec<Node> {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(r"(-?[\d\.]+) (-?[\d\.]+)( s)?").unwrap();
+    }
+    let count = s.split("  ").count();
+    s.split("  ")
+        .enumerate()
+        .map(|(ix, n)| {
+            if let Some(mat) = RE.captures(n) {
+                let nodetype = if count == 1 {
+                    NodeType::Line
+                } else if (count == 3 && ix == 2) || (count == 2 && ix == 1) {
+                    NodeType::Curve
+                } else {
+                    NodeType::OffCurve
+                };
+                Some(Node {
+                    x: mat[1].parse().unwrap(),
+                    y: mat[2].parse().unwrap(),
+                    nodetype,
+                })
+            } else {
+                None
+            }
+        })
+        .flatten()
+        .collect()
+}
+impl From<FontlabContour> for Shape {
+    fn from(val: FontlabContour) -> Self {
+        Shape::PathShape(Path {
+            nodes: val
+                .nodes
+                .into_iter()
+                .map(nodestring_to_nodes)
+                .flatten()
+                .collect(),
+            closed: true,
+            direction: PathDirection::Clockwise,
+        })
+    }
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+struct FontlabPath {
+    contours: Vec<FontlabContour>,
+}
+
+impl From<FontlabPath> for Vec<Shape> {
+    fn from(val: FontlabPath) -> Self {
+        val.contours.into_iter().map(|x| x.into()).collect()
+    }
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+enum FontlabShape {
+    ComponentShape { component: FontlabComponent },
+    PathShape(FontlabPath),
+}
+impl From<FontlabShape> for Vec<Shape> {
+    fn from(val: FontlabShape) -> Self {
+        match val {
+            FontlabShape::ComponentShape { component } => vec![component.into()],
+            FontlabShape::PathShape(p) => p.into(),
+        }
+    }
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+enum FontlabTransform {
+    NamedTransform(String),
+    LiteralTransform(HashMap<String, f32>),
+}
+
+#[allow(non_snake_case)]
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+enum FontlabElement {
+    TaggedShape {
+        elementData: FontlabShape,
+        // transform: Option<FontlabTransform>,
+    },
+    UntaggedShape {
+        component: FontlabComponent,
+    },
+}
+
+impl Into<Vec<Shape>> for FontlabElement {
+    fn into(self) -> Vec<Shape> {
+        match self {
+            FontlabElement::TaggedShape { elementData } => elementData.into(),
+            FontlabElement::UntaggedShape { component } => vec![component.into()],
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -49,7 +176,8 @@ struct FontlabLayer {
     name: Option<String>,
     #[serde(default)]
     anchors: Vec<FontlabAnchor>,
-    // XXX
+    #[serde(default)]
+    elements: Vec<FontlabElement>,
 }
 
 impl FontlabLayer {
@@ -61,7 +189,15 @@ impl FontlabLayer {
             name: self.name.clone(),
             id: self.name,
             guides: vec![],
-            shapes: vec![],
+            shapes: self
+                .elements
+                .into_iter()
+                .map(|x| {
+                    let v: Vec<Shape> = x.into();
+                    v
+                })
+                .flatten()
+                .collect(),
             anchors: anchors?.into_iter().flatten().collect(),
             color: None,
             layer_index: None,
