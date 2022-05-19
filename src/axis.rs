@@ -1,8 +1,8 @@
 use crate::i18ndictionary::I18NDictionary;
-use crate::utils::normalize_value;
-use crate::utils::piecewise_linear_map;
+use crate::utils::{normalize_value, piecewise_linear_map};
 use crate::BabelfontError;
-use fonttools::{tables::fvar::VariationAxisRecord, types::Tag};
+use fonttools::tables::fvar::VariationAxisRecord;
+use fonttools::types::Tag;
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -120,6 +120,8 @@ impl Axis {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::utils::otcmp;
+    use std::cmp::Ordering;
     macro_rules! assert_ot_eq {
         ($left:expr, $right:expr) => {{
             match (&$left, &$right) {
