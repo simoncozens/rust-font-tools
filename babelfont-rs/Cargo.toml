@@ -1,7 +1,3 @@
-[workspace]
-
-members = [ ".", "crates/openstep-plist" ]
-
 [package]
 name = "babelfont"
 version = "0.1.1"
@@ -12,13 +8,13 @@ edition = "2018"
 [dependencies]
 chrono = { version = "0.4.3" }
 kurbo = "0.8"
-openstep-plist = { path = "./crates/openstep-plist" }
+openstep-plist = { path = "../openstep-plist" }
 snafu = "0.6.10"
 uuid = { version = "0.8", features = ["v4"] }
 shrinkwraprs = "0.3.0"
 fonttools = { path = "../fonttools-rs", features = ["rayon"], version = "0" }
 norad = { version = "0.6", features = ["rayon", "kurbo"]}
-designspace = { path = "../fonttools-rs/crates/designspace", features = ["norad"], version = "0" }
+designspace = { path = "../designspace", features = ["norad"], version = "0" }
 lazy_static = "1.4.0"
 log = "0.4.14"
 env_logger = "0.9.0"

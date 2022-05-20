@@ -8,7 +8,7 @@ repository = "https://github.com/simoncozens/fonttools-rs"
 license = "Apache-2.0"
 
 [dependencies]
-fonttools = { path = "../..", version="0.1.0", features = ["rayon"] }
+fonttools = { path = "../fonttools-rs", version="0.1.0", features = ["rayon"] }
 otspec = {path = "../otspec", version = "0.1"}
 clap = "2.33.3"
 itertools = "0.10.0"

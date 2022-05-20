@@ -19,7 +19,7 @@ bitflags = "1.2.1"
 
 [dev-dependencies]
 clap = "2.33.3"
-fonttools = { path="../.."}
+fonttools = { path="../fonttools-rs"}
 
 [[example]]
 name="ttf-dump-graph"

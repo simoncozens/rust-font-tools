@@ -10,7 +10,7 @@ repository = "https://github.com/simoncozens/fonttools-rs"
 [dependencies]
 serde-xml-rs = "0.4.1"
 serde = { version = "1.0", features = ["derive"] }
-fonttools = { path = "../..", version = "0" }
+fonttools = { path = "../fonttools-rs", version = "0" }
 otspec = { path = "../otspec", version = "0" }
 norad = { version = "0.6.0", features = ["rayon", "kurbo"], optional = true }
 log = "0.4.14"
