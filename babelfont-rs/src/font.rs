@@ -94,7 +94,7 @@ impl Font {
     pub fn master(&self, master_name: &str) -> Option<&Master> {
         self.masters
             .iter()
-            .find(|m| m.name.default().as_ref().unwrap() == master_name)
+            .find(|m| m.name.get_default().as_ref().unwrap() == master_name)
     }
 
     pub fn master_layer_for(&self, glyphname: &str, master: &Master) -> Option<&Layer> {
@@ -147,7 +147,7 @@ impl Font {
         let mut v: Vec<f32> = vec![];
         for axis in self.axes.iter() {
             let default = axis.default.ok_or_else(|| BabelfontError::IllDefinedAxis {
-                axis_name: axis.name.default(),
+                axis_name: axis.name.get_default(),
             })?;
             let val =
                 axis.normalize_designspace_value(*loc.0.get(&axis.tag).unwrap_or(&default))?;
@@ -191,7 +191,7 @@ impl Font {
             axes.push(axis.to_variation_axis_record(ix as u16)?);
             name.records.push(NameRecord::windows_unicode(
                 ix as u16,
-                axis.name.default().clone().expect("Bad axis name"),
+                axis.name.get_default().clone().expect("Bad axis name"),
             ));
             ix += 1;
             if axis.map.is_some() {
@@ -220,7 +220,10 @@ impl Font {
         for instance in &self.instances {
             name.records.push(NameRecord::windows_unicode(
                 ix,
-                instance.style_name.default().expect("Bad instance name"),
+                instance
+                    .style_name
+                    .get_default()
+                    .expect("Bad instance name"),
             ));
             let ir = InstanceRecord {
                 subfamilyNameID: ix,

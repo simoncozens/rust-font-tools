@@ -66,13 +66,13 @@ impl Axis {
 
     pub fn normalize_userspace_value(&self, l: f32) -> Result<f32, BabelfontError> {
         let min = self.min.ok_or_else(|| BabelfontError::IllDefinedAxis {
-            axis_name: self.name.default(),
+            axis_name: self.name.get_default(),
         })?;
         let max = self.max.ok_or_else(|| BabelfontError::IllDefinedAxis {
-            axis_name: self.name.default(),
+            axis_name: self.name.get_default(),
         })?;
         let default = self.default.ok_or_else(|| BabelfontError::IllDefinedAxis {
-            axis_name: self.name.default(),
+            axis_name: self.name.get_default(),
         })?;
         Ok(normalize_value(l, min, max, default))
     }
@@ -81,13 +81,13 @@ impl Axis {
             return self.normalize_userspace_value(l);
         }
         let min = self.min.ok_or_else(|| BabelfontError::IllDefinedAxis {
-            axis_name: self.name.default(),
+            axis_name: self.name.get_default(),
         })?;
         let max = self.max.ok_or_else(|| BabelfontError::IllDefinedAxis {
-            axis_name: self.name.default(),
+            axis_name: self.name.get_default(),
         })?;
         let default = self.default.ok_or_else(|| BabelfontError::IllDefinedAxis {
-            axis_name: self.name.default(),
+            axis_name: self.name.get_default(),
         })?;
         Ok(normalize_value(
             l,

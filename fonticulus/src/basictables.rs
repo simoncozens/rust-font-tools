@@ -439,7 +439,7 @@ pub fn compile_name(input: &babelfont::Font) -> name {
     */
 
     let mut records: Vec<(NameRecordID, String)> = vec![];
-    if let Some(copyright) = &input.names.copyright.default() {
+    if let Some(copyright) = &input.names.copyright.get_default() {
         records.push((NameRecordID::Copyright, copyright.to_string()));
     }
 
@@ -468,7 +468,7 @@ pub fn compile_name(input: &babelfont::Font) -> name {
         (NameRecordID::License, &input.names.license),
         (NameRecordID::LicenseURL, &input.names.license_url),
     ] {
-        if let Some(value) = field.default() {
+        if let Some(value) = field.get_default() {
             records.push((*id, value.to_string()));
         }
     }
@@ -476,7 +476,7 @@ pub fn compile_name(input: &babelfont::Font) -> name {
     if pfn != family_name {
         records.push((NameRecordID::PreferredFamilyName, pfn));
     }
-    if let Some(tsf) = input.names.typographic_subfamily.default() {
+    if let Some(tsf) = input.names.typographic_subfamily.get_default() {
         records.push((NameRecordID::PreferredSubfamilyName, tsf));
     }
 
@@ -493,7 +493,7 @@ pub fn compile_name(input: &babelfont::Font) -> name {
             &input.names.w_w_s_subfamily_name,
         ),
     ] {
-        if let Some(value) = field.default() {
+        if let Some(value) = field.get_default() {
             records.push((*id, value.to_string()));
         }
     }

@@ -5,14 +5,15 @@ use fonttools::types::Tag;
 
 const DFLT: Tag = fonttools::tag!("dflt");
 
+#[derive(Default)]
 pub struct I18NDictionary(pub HashMap<Tag, String>);
 
 impl I18NDictionary {
     pub fn new() -> Self {
-        I18NDictionary(HashMap::<Tag, String>::new())
+        I18NDictionary::default()
     }
 
-    pub fn default(&self) -> Option<String> {
+    pub fn get_default(&self) -> Option<String> {
         self.0.get(b"dflt").map(|x| x.to_string())
     }
 
@@ -24,7 +25,7 @@ impl I18NDictionary {
 impl Debug for I18NDictionary {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         fmt.write_str("<")?;
-        let def = self.default();
+        let def = self.get_default();
         if def.is_some() {
             fmt.write_str(&def.unwrap())?;
         } else {

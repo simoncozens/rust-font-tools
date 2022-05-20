@@ -671,7 +671,7 @@ fn load_instance(font: &mut Font, plist: &Plist) {
             if let Some(axis) = font
                 .axes
                 .iter_mut()
-                .find(|ax| ax.name.default() == axis_name)
+                .find(|ax| ax.name.get_default() == axis_name)
             {
                 if let Some(designspace_value) = location.0.get(&axis.tag) {
                     if axis.map.is_none() {

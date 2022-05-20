@@ -37,7 +37,7 @@ pub fn preferred_family_name(input: &babelfont::Font) -> String {
     input
         .names
         .family_name
-        .default()
+        .get_default()
         .unwrap_or_else(|| "New Font".to_string())
 }
 
@@ -45,20 +45,20 @@ pub fn preferred_subfamily_name(input: &babelfont::Font) -> String {
     input
         .names
         .typographic_subfamily
-        .default()
+        .get_default()
         .unwrap_or_else(|| "Regular".to_string())
 }
 
 pub fn style_map_family_name(input: &babelfont::Font) -> String {
-    if let Some(smfn) = &input.names.style_map_family_name.default() {
+    if let Some(smfn) = &input.names.style_map_family_name.get_default() {
         return smfn.to_string();
     }
 
-    let style_name = input.names.typographic_subfamily.default();
+    let style_name = input.names.typographic_subfamily.get_default();
     let family_name = input
         .names
         .family_name
-        .default()
+        .get_default()
         .unwrap_or_else(|| "New Font".to_string());
     if style_name.is_none() {
         return family_name;
@@ -110,13 +110,13 @@ pub fn postscript_font_name(input: &babelfont::Font) -> String {
     // XXX check postscript characters here
 }
 pub fn name_version(input: &babelfont::Font) -> String {
-    input.names.version.default().as_ref().map_or_else(
+    input.names.version.get_default().as_ref().map_or_else(
         || format!("{0}.{1:03}", input.version.0, input.version.1),
         |x| x.clone(),
     )
 }
 pub fn unique_id(input: &babelfont::Font) -> String {
-    input.names.unique_id.default().as_ref().map_or_else(
+    input.names.unique_id.get_default().as_ref().map_or_else(
         || {
             format!(
                 "{0};{1};{2}",

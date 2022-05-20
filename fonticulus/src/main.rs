@@ -83,7 +83,7 @@ fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: Option<HashSet<S
     let family_name = in_font
         .names
         .family_name
-        .default()
+        .get_default()
         .unwrap_or_else(|| "New Font".to_string());
     let master_names: Vec<String> = in_font
         .masters
@@ -92,7 +92,7 @@ fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: Option<HashSet<S
         .map(|(ix, master)| {
             let master_name = master
                 .name
-                .default()
+                .get_default()
                 .unwrap_or_else(|| format!("Master{}", ix));
             if master_name == "Unnamed master" {
                 format!("Master{}", ix)
