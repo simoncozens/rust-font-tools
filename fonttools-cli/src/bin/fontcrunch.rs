@@ -805,6 +805,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_outofbounds() {
         let path = vec![
             kurbo::QuadBez::new((699.0, -23.0), (684.0, -9.0), (684.0, 28.0)),
