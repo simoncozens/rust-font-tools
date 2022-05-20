@@ -350,14 +350,14 @@ impl Thetas {
             }
         }
         let mut result: Vec<QuadBez> = vec![];
-        let mut sl: &Statelet = &states[n].sts.as_ref().as_ref().unwrap();
+        let mut sl: &Statelet = states[n].sts.as_ref().as_ref().unwrap();
         // println!("All done, last state is {:?}", sl);
         loop {
             result.push(sl.quad);
             if sl.prev.is_none() {
                 break;
             }
-            sl = &sl.prev.as_ref().as_ref().unwrap();
+            sl = sl.prev.as_ref().as_ref().unwrap();
         }
         result.reverse();
         Some(result)

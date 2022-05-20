@@ -657,7 +657,9 @@ impl Deserialize for cmap {
                 }
 
                 _ => {
-                    return Err(DeserializationError(format!("Reading cmap format failed")));
+                    return Err(DeserializationError(
+                        "Reading cmap format failed".to_string(),
+                    ));
                 }
             }
         }

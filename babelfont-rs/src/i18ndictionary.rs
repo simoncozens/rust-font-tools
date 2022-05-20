@@ -35,26 +35,26 @@ impl Debug for I18NDictionary {
     }
 }
 
-impl Into<I18NDictionary> for String {
-    fn into(self) -> I18NDictionary {
+impl From<String> for I18NDictionary {
+    fn from(val: String) -> Self {
         let mut f = I18NDictionary::new();
-        f.0.insert(DFLT, self);
+        f.0.insert(DFLT, val);
         f
     }
 }
 
-impl Into<I18NDictionary> for &str {
-    fn into(self) -> I18NDictionary {
+impl From<&str> for I18NDictionary {
+    fn from(val: &str) -> Self {
         let mut f = I18NDictionary::new();
-        f.0.insert(DFLT, self.to_string());
+        f.0.insert(DFLT, val.to_string());
         f
     }
 }
 
-impl Into<I18NDictionary> for &String {
-    fn into(self) -> I18NDictionary {
+impl From<&String> for I18NDictionary {
+    fn from(val: &String) -> Self {
         let mut f = I18NDictionary::new();
-        f.0.insert(DFLT, self.to_string());
+        f.0.insert(DFLT, val.to_string());
         f
     }
 }

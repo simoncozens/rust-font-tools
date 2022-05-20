@@ -248,8 +248,8 @@ where
                 }
                 let mut best_axes: Support<T> = Support::new();
                 let mut best_ratio = -1_f32;
-                for (axis, &(_, val, _)) in prev_region.into_iter() {
-                    let &(lower, loc_v, upper) = region.get(&axis).unwrap();
+                for (axis, &(_, val, _)) in prev_region.iter() {
+                    let &(lower, loc_v, upper) = region.get(axis).unwrap();
                     let mut new_lower = lower;
                     let mut new_upper = upper;
                     let ratio: f32;

@@ -1,7 +1,7 @@
 use crate::Axis;
 use std::collections::HashMap;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -38,7 +38,7 @@ impl From<&norad::Color> for Color {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Default)]
 pub struct Location(pub HashMap<String, f32>);
 impl Location {
     pub fn new() -> Self {

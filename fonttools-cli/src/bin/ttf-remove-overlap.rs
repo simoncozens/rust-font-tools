@@ -1,5 +1,4 @@
 use fonttools::tables::glyf::{Glyph, Point};
-use fonttools::tag;
 use fonttools_cli::{open_font, read_args, save_font};
 
 use skia_safe::{simplify, Path};

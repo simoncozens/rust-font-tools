@@ -8,7 +8,7 @@ pub enum StyleMapStyle {
     Italic,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Names {
     pub family_name: I18NDictionary,
     pub designer: I18NDictionary,
@@ -30,31 +30,4 @@ pub struct Names {
     pub style_map_family_name: I18NDictionary,
     pub style_map_style_name: Option<StyleMapStyle>,
     pub trademark: I18NDictionary,
-}
-
-impl Names {
-    pub fn new() -> Self {
-        Names {
-            family_name: I18NDictionary::new(),
-            designer: I18NDictionary::new(),
-            designer_url: I18NDictionary::new(),
-            manufacturer: I18NDictionary::new(),
-            manufacturer_url: I18NDictionary::new(),
-            license: I18NDictionary::new(),
-            license_url: I18NDictionary::new(),
-            version: I18NDictionary::new(),
-            unique_id: I18NDictionary::new(),
-            description: I18NDictionary::new(),
-            typographic_family: I18NDictionary::new(),
-            typographic_subfamily: I18NDictionary::new(),
-            compatible_full_name: I18NDictionary::new(),
-            sample_text: I18NDictionary::new(),
-            w_w_s_family_name: I18NDictionary::new(),
-            w_w_s_subfamily_name: I18NDictionary::new(),
-            copyright: I18NDictionary::new(),
-            style_map_family_name: I18NDictionary::new(),
-            style_map_style_name: None,
-            trademark: I18NDictionary::new(),
-        }
-    }
 }

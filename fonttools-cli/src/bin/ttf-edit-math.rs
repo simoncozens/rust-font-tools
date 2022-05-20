@@ -1,6 +1,5 @@
 use clap::{App, Arg};
 use fonttools::tables::MATH::*;
-use fonttools::tag;
 use fonttools::types::*;
 use fonttools_cli::open_font;
 use serde::Serialize;
@@ -167,6 +166,7 @@ impl From<&MathKernInfoRecord> for SimpleMathKern {
     }
 }
 
+#[allow(dead_code)]
 impl SimpleMathKern {
     fn all_none(&self) -> bool {
         self.bottom_left.is_none()
@@ -177,7 +177,7 @@ impl SimpleMathKern {
 }
 
 fn get_mgc_map<S>(
-    mgc: &BTreeMap<String, MathGlyphConstruction>,
+    _mgc: &BTreeMap<String, MathGlyphConstruction>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
@@ -186,7 +186,11 @@ where
     serializer.serialize_i16(1)
 }
 
-fn get_mvr_map<S>(mgc: &BTreeMap<String, MathValueRecord>, serializer: S) -> Result<S::Ok, S::Error>
+#[allow(dead_code)]
+fn get_mvr_map<S>(
+    _mgc: &BTreeMap<String, MathValueRecord>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
@@ -282,7 +286,7 @@ fn main() {
                 .required(true),
         )
         .get_matches();
-    let mut infont = open_font(&matches);
+    let infont = open_font(&matches);
 
     let post = infont.tables.post().unwrap().unwrap();
     let glyph_names = post.glyphnames.clone().unwrap_or_else(std::vec::Vec::new);

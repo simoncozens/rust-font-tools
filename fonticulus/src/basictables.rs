@@ -444,7 +444,7 @@ pub fn compile_name(input: &babelfont::Font) -> name {
     }
 
     let family_name = style_map_family_name(input);
-    let style_name = style_map_style_name(input);
+    // let style_name = style_map_style_name(input);
     let pfn = preferred_family_name(input);
     let psfn = preferred_subfamily_name(input);
     records.extend(vec![

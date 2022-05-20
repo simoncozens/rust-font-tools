@@ -1,6 +1,6 @@
 use crate::common::{Color, Position};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Guide {
     pub pos: Position,
     pub name: Option<String>,
@@ -10,11 +10,7 @@ pub struct Guide {
 
 impl Guide {
     pub fn new() -> Self {
-        Guide {
-            pos: Position::zero(),
-            name: None,
-            color: None,
-        }
+        Guide::default()
     }
 }
 

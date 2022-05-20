@@ -1,5 +1,3 @@
-use fonttools::table_store::Table;
-use fonttools::tables::{glyf, gvar};
 use fonttools::tag;
 use fonttools_cli::{open_font, read_args, save_font};
 

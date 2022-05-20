@@ -51,12 +51,12 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
         .sources
         .source
         .par_iter()
-        .filter_map(|source| load_master(&font.glyphs, &ds, &source, relative).ok())
+        .filter_map(|source| load_master(&font.glyphs, &ds, source, relative).ok())
         .collect();
     for (master, mut layerset) in res {
         font.masters.push(master);
-        for (g, mut l) in font.glyphs.iter_mut().zip(layerset.iter_mut()) {
-            g.layers.append(&mut l);
+        for (g, l) in font.glyphs.iter_mut().zip(layerset.iter_mut()) {
+            g.layers.append(l);
         }
     }
     let info = default_ufo.font_info;

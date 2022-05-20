@@ -31,10 +31,10 @@ struct FontlabComponent {
     glyphName: String,
 }
 
-impl Into<Shape> for FontlabComponent {
-    fn into(self) -> Shape {
+impl From<FontlabComponent> for Shape {
+    fn from(val: FontlabComponent) -> Self {
         Shape::ComponentShape(Component {
-            reference: self.glyphName,
+            reference: val.glyphName,
             transform: Affine::IDENTITY,
         })
     }
@@ -137,9 +137,9 @@ enum FontlabElement {
     },
 }
 
-impl Into<Vec<Shape>> for FontlabElement {
-    fn into(self) -> Vec<Shape> {
-        match self {
+impl From<FontlabElement> for Vec<Shape> {
+    fn from(val: FontlabElement) -> Self {
+        match val {
             FontlabElement::TaggedShape { elementData } => elementData.into(),
             FontlabElement::UntaggedShape { component } => vec![component.into()],
         }

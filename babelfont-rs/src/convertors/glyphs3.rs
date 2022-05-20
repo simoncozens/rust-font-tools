@@ -7,12 +7,11 @@ use crate::{
     Anchor, Axis, BabelfontError, Component, Font, Glyph, Guide, Instance, Layer, Location, Master,
     Node, NodeType, OTScalar, Path, Position, Shape,
 };
+use chrono::TimeZone;
 use fonttools::types::Tag;
+use lazy_static::lazy_static;
 use openstep_plist::Plist;
 use std::collections::HashMap;
-
-use chrono::TimeZone;
-use lazy_static::lazy_static;
 use std::fs;
 use std::path::PathBuf;
 
@@ -164,11 +163,11 @@ fn load_masters(font: &mut Font, plist: &Plist) -> Result<(), BabelfontError> {
             let mut new_master = Master::new(name, id, location);
 
             if let Some(guides) = master.get("guides").and_then(|a| a.as_array()) {
-                new_master.guides = guides.iter().map(|g| load_guide(g)).collect();
+                new_master.guides = guides.iter().map(load_guide).collect();
             }
 
             load_metrics(&mut new_master, master, metrics);
-            if let Some(kerning) = plist.get("kerningLTR").and_then(|d| d.get(&id)) {
+            if let Some(kerning) = plist.get("kerningLTR").and_then(|d| d.get(id)) {
                 load_kerning(&mut new_master, kerning);
             }
             let custom_parameters = get_custom_parameters(master);
@@ -327,7 +326,7 @@ fn load_layer(l: &Plist, glyph_name: &str) -> Result<Layer, BabelfontError> {
         layer.id = Some(id.to_string());
     }
     if let Some(guides) = l.get("guides").and_then(|l| l.as_array()) {
-        layer.guides = guides.iter().map(|x| load_guide(x)).collect();
+        layer.guides = guides.iter().map(load_guide).collect();
     }
     if let Some(anchors) = l.get("anchors").and_then(|l| l.as_array()) {
         for anchor in anchors {
@@ -355,7 +354,7 @@ fn load_anchor(a: &Plist) -> Anchor {
         name: a
             .get("name")
             .and_then(|x| x.as_str())
-            .unwrap_or(&"Unknown")
+            .unwrap_or("Unknown")
             .to_string(),
     }
 }
@@ -474,7 +473,7 @@ fn load_metadata(font: &mut Font, plist: &Plist) {
         .and_then(|s| s.as_str())
         .unwrap_or(&"New font".to_string())
         .into();
-    load_properties(font, &plist);
+    load_properties(font, plist);
     font.date = plist
         .get("date")
         .and_then(|x| x.as_str())
@@ -652,8 +651,7 @@ fn load_instance(font: &mut Font, plist: &Plist) {
     let name = plist
         .get("name")
         .map(|f| f.to_string())
-        .unwrap_or("Unnamed Instance".to_string())
-        .to_string();
+        .unwrap_or_else(|| "Unnamed Instance".to_string());
     let location = if plist.get("axesValues").is_some() {
         _to_loc(font, plist.get("axesValues"))
     } else {
@@ -708,6 +706,6 @@ mod tests {
 
     #[test]
     fn do_something() {
-        let f = load("data/Nunito3.glyphs".into()).unwrap();
+        let _f = load("data/Nunito3.glyphs".into()).unwrap();
     }
 }

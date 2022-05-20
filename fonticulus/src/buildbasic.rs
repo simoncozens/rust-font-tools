@@ -87,6 +87,9 @@ pub fn build_font(
     #[cfg(not(debug_assertions))]
     let glyph_iter = input.glyphs.par_iter();
 
+    // This statement reads quite differently in release versus debug
+    #[allow(clippy::needless_collect)]
+    #[allow(clippy::filter_map_identity)]
     let result: Vec<(glyf::Glyph, hmtx::Metric, Option<GlyphVariationData>)> = glyph_iter
         .map(|glif| {
             // If we are subsetting, check if we are included in the subset

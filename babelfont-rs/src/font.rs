@@ -11,7 +11,6 @@ use fonttools::otvar::{Location as OTVarLocation, NormalizedLocation, VariationM
 use fonttools::tables::avar::{avar, SegmentMap};
 use fonttools::tables::fvar::{fvar, InstanceRecord, VariationAxisRecord};
 use fonttools::tables::name::NameRecord;
-use fonttools::types::Tag;
 use otmath::ot_cmp;
 use std::collections::{BTreeMap, HashMap};
 
@@ -50,7 +49,7 @@ impl Font {
             glyphs: GlyphList(vec![]),
             note: None,
             date: chrono::Local::now(),
-            names: Names::new(),
+            names: Names::default(),
             custom_ot_values: vec![],
             variation_sequences: BTreeMap::new(),
             kern_groups: HashMap::new(),

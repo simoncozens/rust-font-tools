@@ -322,6 +322,7 @@ impl Plist {
         Plist::String(s.into())
     }
 
+    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         let mut s = String::new();
         self.push_to_string(&mut s);

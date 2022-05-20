@@ -9,8 +9,8 @@ use crate::{
     BabelfontError, Component, Font, Glyph, Layer, Location, Master, OTScalar, Path, Shape,
 };
 
-pub(crate) fn stat(path: &PathBuf) -> Option<DateTime<chrono::Local>> {
-    fs::metadata(&path)
+pub(crate) fn stat(path: &std::path::Path) -> Option<DateTime<chrono::Local>> {
+    fs::metadata(path)
         .and_then(|x| x.created())
         .ok()
         .map(|x| {
@@ -134,7 +134,7 @@ pub(crate) fn load_font_info(
     if let Some(v) = &info.open_type_head_created {
         font.date = NaiveDateTime::parse_from_str(v, "%Y/%m/%d %H:%M:%S")
             .map(|x| chrono::Local.from_utc_datetime(&x))
-            .unwrap_or_else(|_| created.unwrap_or(chrono::Local::now()));
+            .unwrap_or_else(|_| created.unwrap_or_else(chrono::Local::now));
     }
     if let Some(v) = &info.open_type_head_flags {
         font.set_ot_value("head", "flags", OTScalar::BitField(v.to_vec()))
@@ -213,7 +213,7 @@ pub(crate) fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
         .get("public.skipExportGlyphs")
         .and_then(|x| x.as_array())
         .cloned()
-        .unwrap_or_else(|| vec![])
+        .unwrap_or_else(Vec::new)
         .iter()
         .flat_map(|x| x.as_string())
         .map(|x| x.to_string())
