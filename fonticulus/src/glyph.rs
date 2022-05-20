@@ -357,6 +357,14 @@ fn babelfont_contours_to_glyf_contours(
                     })
                     .collect();
                 if let Some(all_quadratics) = cubics_to_quadratic_splines(&all_curves, 1.0) {
+                    if all_quadratics.len() != quadratic_paths.len() {
+                        log::error!(
+                            "Didn't get as many curves as we expected for {:} (fonticulus bug)",
+                            glif_name
+                        );
+                        return GlyphContour::new();
+                    }
+
                     for (c_ix, contour) in quadratic_paths.iter_mut().enumerate() {
                         let spline_points = all_quadratics[c_ix].points();
                         // Skip the spline start, because we already have a point for that
@@ -398,7 +406,10 @@ fn babelfont_contours_to_glyf_contours(
                                 on_curve: true,
                             });
                         }
-                        PathEl::CurveTo(_, _, _) => panic!("Incompatible contour"),
+                        PathEl::CurveTo(_, _, _) => {
+                            log::error!("Why is there a cubic in {}? (fonticulus bug)", glif_name);
+                            return GlyphContour::new();
+                        }
                         PathEl::ClosePath => {
                             if let (Some(f), Some(l)) = (contour.first(), contour.last()) {
                                 if f == l {
