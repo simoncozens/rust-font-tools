@@ -1,2 +1,11 @@
+master_ufo
+NotoSans
+Nunito
 /target
 Cargo.lock
+*.ufo
+*.ttf
+*.otf
+*.ttx
+
+.DS_Store

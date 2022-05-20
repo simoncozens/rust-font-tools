@@ -1,0 +1,80 @@
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+
+name: build
+
+jobs:
+  rustfmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - run: rustup component add rustfmt
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
+
+  test-stable:
+    runs-on: ubuntu-latest
+    name: cargo test stable
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: clippy
+          profile: minimal
+          override: true
+
+      - name: cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-features
+          #args: --all-features -- -D warnings
+
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+
+  test-nightly:
+    runs-on: ubuntu-latest
+    name: cargo test nightly
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: install nightly toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: clippy
+          profile: minimal
+          override: true
+
+      - name: cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-features
+
+      - run: git submodule update --init --recursive
+
+      - name: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features

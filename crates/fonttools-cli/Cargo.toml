@@ -1,0 +1,24 @@
+[package]
+name = "fonttools_cli"
+version = "0.1.0"
+authors = ["Simon Cozens <simon@simon-cozens.org>"]
+edition = "2018"
+description = "Command line utilities for manipulating OpenType files"
+repository = "https://github.com/simoncozens/fonttools-rs"
+license = "Apache-2.0"
+
+[dependencies]
+fonttools = { path = "../..", version="0.1.0", features = ["rayon"] }
+otspec = {path = "../otspec", version = "0.1"}
+clap = "2.33.3"
+itertools = "0.10.0"
+skia-safe = "0"
+log = "0.4.14"
+env_logger = "0.8"
+rayon = "1.0.1"
+kurbo = { version = "0.8.1" }
+indicatif = {version = "0", features = ["rayon"]}
+simple_logger = "1.13.0"
+regex = "1.5.4"
+serde_json = "1.0"
+serde =  {version = "1.0.130", features=["derive"] }
