@@ -13,7 +13,7 @@ from recursive_diff import recursive_eq
 
 
 environment = os.environ.get("ENVIRONMENT", "debug")
-fonticulus = pathlib.Path(__file__).parent.parent / "target" / environment / "fonticulus"
+fonticulus = pathlib.Path(__file__).parent.parent.parent / "target" / environment / "fonticulus"
 home_dir = pathlib.Path(__file__).parent.resolve()
 test_files = [pytest.param(x, id=x.name) for x in (home_dir / 'sources').glob("*.*")]
 
