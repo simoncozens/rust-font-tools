@@ -524,107 +524,48 @@ impl os2 {
         let unicodes_contains = |char| unicodes.contains(&(char as u32));
 
         let has_ascii = (0x20..0x7E).all(|x| unicodes.contains(&x));
-        let has_lineart = unicodes_contains('┤');
 
-        if unicodes_contains('Þ') && has_ascii {
-            code_page_ranges.insert(0); // Latin 1
-        }
-        if unicodes_contains('Ľ') && has_ascii {
-            code_page_ranges.insert(1); // Latin 2
-        }
-        if unicodes_contains('Б') {
-            code_page_ranges.insert(2); // Cyrillic
-            if unicodes_contains('Ѕ') && has_lineart {
-                code_page_ranges.insert(57); // IBM Cyrillic
+        // Characters needed, needs ASCII?, code page
+        const CODE_PAGE_RANGES: [(&str, bool, u8); 32] = [
+            ("Þ", true, 0),
+            ("Ľ", true, 1),
+            ("Б", false, 2),        // Cyrillic
+            ("БЅ┤", false, 57),  // IBM Cyrillic
+            ("Б╜┤", false, 49), // MS Dos Russian
+            ("Ά", false, 3),        // Greek,
+            ("Ά½┤", false, 48),  // IBM Greek,
+            ("Ά√┤", false, 48), // Greek, former 437 G
+            ("İ", true, 4),         // Turkish
+            ("İ┤", true, 56),     // IBM Turkish
+            ("א", false, 5),        // Hebrew
+            ("א┤√", false, 53), // Hebrew
+            ("ر", false, 6),        // Arabic
+            ("ر√", false, 51),    // Arabic
+            ("ر┤√", false, 61), // Arabic; ASMO 708
+            ("ŗ", true, 7),         // Windows Baltic
+            ("ŗ┤", true, 59),     // MS DOS Baltic
+            ("₫", true, 8),        // Vietnamese
+            ("ๅ", false, 16),      // Thai
+            ("エ", false, 17),      // JIS/Japan
+            ("ㄅ", false, 18),      // Chinese: Simplified chars
+            ("ㄱ", false, 19),      // Korean wansung
+            ("央", false, 20),      // Chinese: Traditional chars
+            ("곴", false, 21),      // Korean Johab
+            ("♥", false, 30),      // OEM Character Set
+            // TODO: Check symbol character set here, while being aware setting
+            // the symbol bit has a particular meaning.
+            ("þ┤", true, 54),    // MS-DOS Icelandic
+            ("╚", true, 62),      // WE/Latin 1
+            ("╚", true, 63),      // US
+            ("┤√Å", true, 50), // MS-DOS Nordic
+            ("┤√é", true, 52), // MS-DOS Canadian French
+            ("┤√õ", true, 55), // MS-DOS Portuguese
+            ("‰∑", true, 29),   // Macintosh Character Set (US Roman)
+        ];
+        for (characters, needs_ascii, page) in CODE_PAGE_RANGES {
+            if (has_ascii || !needs_ascii) && characters.chars().all(unicodes_contains) {
+                code_page_ranges.insert(page);
             }
-            if unicodes_contains('╜') && has_lineart {
-                code_page_ranges.insert(49); // MS-DOS Russian
-            }
-        }
-        if unicodes_contains('Ά') {
-            code_page_ranges.insert(3); // Greek
-            if unicodes_contains('½') && has_lineart {
-                code_page_ranges.insert(48); // IBM Greek
-            }
-            if unicodes_contains('√') && has_lineart {
-                code_page_ranges.insert(60); // Greek, former 437 G
-            }
-        }
-        if unicodes_contains('İ') && has_ascii {
-            code_page_ranges.insert(4); //  Turkish
-            if has_lineart {
-                code_page_ranges.insert(56); //  IBM turkish
-            }
-        }
-        if unicodes_contains('א') {
-            code_page_ranges.insert(5); //  Hebrew
-            if has_lineart && unicodes_contains('√') {
-                code_page_ranges.insert(53); //  Hebrew
-            }
-        }
-        if unicodes_contains('ر') {
-            code_page_ranges.insert(6); //  Arabic
-            if unicodes_contains('√') {
-                code_page_ranges.insert(51); //  Arabic
-            }
-            if has_lineart {
-                code_page_ranges.insert(61); //  Arabic; ASMO 708
-            }
-        }
-        if unicodes_contains('ŗ') && has_ascii {
-            code_page_ranges.insert(7); //  Windows Baltic
-            if has_lineart {
-                code_page_ranges.insert(59); //  MS-DOS Baltic
-            }
-        }
-        if unicodes_contains('₫') && has_ascii {
-            code_page_ranges.insert(8); //  Vietnamese
-        }
-        if unicodes_contains('ๅ') {
-            code_page_ranges.insert(16); //  Thai
-        }
-        if unicodes_contains('エ') {
-            code_page_ranges.insert(17); //  JIS/Japan
-        }
-        if unicodes_contains('ㄅ') {
-            code_page_ranges.insert(18); //  Chinese: Simplified chars
-        }
-        if unicodes_contains('ㄱ') {
-            code_page_ranges.insert(19); //  Korean wansung
-        }
-        if unicodes_contains('央') {
-            code_page_ranges.insert(20); //  Chinese: Traditional chars
-        }
-        if unicodes_contains('곴') {
-            code_page_ranges.insert(21); //  Korean Johab
-        }
-        if unicodes_contains('♥') && has_ascii {
-            code_page_ranges.insert(30); //  OEM Character Set
-                                         //  TODO: Symbol bit has a special meaning (check the spec), we need
-                                         //  to confirm if this is wanted by default.
-                                         //  elif chr(0xF000) <= char <= chr(0xF0FF):
-                                         //     code_page_ranges.insert(31)          //  Symbol Character Set
-        }
-        if unicodes_contains('þ') && has_ascii && has_lineart {
-            code_page_ranges.insert(54); //  MS-DOS Icelandic
-        }
-        if unicodes_contains('╚') && has_ascii {
-            code_page_ranges.insert(62); //  WE/Latin 1
-            code_page_ranges.insert(63); //  US
-        }
-        if has_ascii && has_lineart && unicodes_contains('√') {
-            if unicodes_contains('Å') {
-                code_page_ranges.insert(50); //  MS-DOS Nordic
-            }
-            if unicodes_contains('é') {
-                code_page_ranges.insert(52); //  MS-DOS Canadian French
-            }
-            if unicodes_contains('õ') {
-                code_page_ranges.insert(55); //  MS-DOS Portuguese
-            }
-        }
-        if has_ascii && unicodes_contains('‰') && unicodes_contains('∑') {
-            code_page_ranges.insert(29); // Macintosh Character Set (US Roman)
         }
         // when no codepage ranges can be enabled, fall back to enabling bit 0
         // (Latin 1) so that the font works in MS Word:
