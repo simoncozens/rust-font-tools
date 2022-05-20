@@ -1,5 +1,5 @@
 use core::ops::{Mul, Sub};
-use otspec::types::{Tag, Tuple, F2DOT14};
+use otspec::types::{Tuple, F2DOT14};
 use permutation::Permutation;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashSet};
@@ -11,31 +11,31 @@ use std::collections::{BTreeMap, HashSet};
 pub struct NormalizedLocation(pub Tuple);
 
 /// A region of the designspace, consisting of a set of per-axis triangular tents
-pub type Support = BTreeMap<Tag, (f32, f32, f32)>;
+pub type Support<T> = BTreeMap<T, (f32, f32, f32)>;
 /// A location as a mapping of tags to user-space values
-pub type Location = BTreeMap<Tag, f32>;
-type AxisPoints = BTreeMap<Tag, HashSet<F2DOT14>>;
+pub type Location<T> = BTreeMap<T, f32>;
+type AxisPoints<T> = BTreeMap<T, HashSet<F2DOT14>>;
 
 /// An OpenType variation model helps to determine and interpolate the correct
 /// supports and deltasets when there are intermediate masters.
 #[derive(Debug)]
-pub struct VariationModel {
+pub struct VariationModel<T> {
     /// The rearranged list of master locations
-    pub locations: Vec<Location>,
+    pub locations: Vec<Location<T>>,
     sort_order: Permutation,
     /// The supports computed for each master
-    pub supports: Vec<Support>,
+    pub supports: Vec<Support<T>>,
     /// The axis order provided by the user
-    pub axis_order: Vec<Tag>,
+    pub axis_order: Vec<T>,
     /// The original, unordered list of locations
-    pub original_locations: Vec<Location>,
+    pub original_locations: Vec<Location<T>>,
     delta_weights: Vec<BTreeMap<usize, f32>>,
 }
 
 /// Returns the contribution value of a region at a given location
-pub fn support_scalar(loc: &Location, support: &Support) -> f32 {
+pub fn support_scalar<T: Ord + Clone>(loc: &Location<T>, support: &Support<T>) -> f32 {
     let mut scalar = 1.0;
-    for (&axis, &(lower, peak, upper)) in support.iter() {
+    for (axis, (lower, peak, upper)) in support.clone().into_iter() {
         if peak == 0.0 {
             continue;
         }
@@ -62,16 +62,19 @@ pub fn support_scalar(loc: &Location, support: &Support) -> f32 {
     scalar
 }
 
-fn locations_to_regions(locations: &[Location]) -> Vec<Support> {
-    let mut axis_minimum: BTreeMap<Tag, f32> = BTreeMap::new();
-    let mut axis_maximum: BTreeMap<Tag, f32> = BTreeMap::new();
+fn locations_to_regions<T>(locations: &[Location<T>]) -> Vec<Support<T>>
+where
+    T: Ord + Clone,
+{
+    let mut axis_minimum: BTreeMap<&T, f32> = BTreeMap::new();
+    let mut axis_maximum: BTreeMap<&T, f32> = BTreeMap::new();
     for (tag, value) in locations.iter().flatten() {
         axis_maximum
-            .entry(*tag)
+            .entry(tag)
             .and_modify(|v| *v = v.max(*value))
             .or_insert(*value);
         axis_minimum
-            .entry(*tag)
+            .entry(tag)
             .and_modify(|v| *v = v.min(*value))
             .or_insert(*value);
     }
@@ -81,7 +84,7 @@ fn locations_to_regions(locations: &[Location]) -> Vec<Support> {
             loc.iter()
                 .map(|(axis, loc_v)| {
                     (
-                        *axis,
+                        axis.clone(),
                         if *loc_v > 0.0 {
                             (0.0, *loc_v, *axis_maximum.get(axis).unwrap())
                         } else {
@@ -94,12 +97,15 @@ fn locations_to_regions(locations: &[Location]) -> Vec<Support> {
         .collect()
 }
 
-impl VariationModel {
+impl<T> VariationModel<T>
+where
+    T: Ord + Eq + Clone + std::hash::Hash,
+{
     /// Create a new OpenType variation model for the given list of master
     /// locations. Locations must be provided in normalized coordinates (-1..1)
-    pub fn new(locations: Vec<Location>, axis_order: Vec<Tag>) -> Self {
+    pub fn new(locations: Vec<Location<T>>, axis_order: Vec<T>) -> Self {
         let original_locations = locations.clone();
-        let locations: Vec<Location> = locations
+        let locations: Vec<Location<T>> = locations
             .iter()
             .map(|l| {
                 let mut l2 = l.clone();
@@ -112,17 +118,17 @@ impl VariationModel {
         for loc in locations.iter().filter(|l| l.len() == 1) {
             if let Some((axis, value)) = loc.iter().next() {
                 let entry = axis_points
-                    .entry(*axis)
+                    .entry(axis)
                     .or_insert_with(|| vec![F2DOT14::from(0.0)].into_iter().collect());
                 entry.insert(F2DOT14::from(*value));
             }
         }
-        let on_point_count = |loc: &Location| {
+        let on_point_count = |loc: &Location<T>| {
             loc.iter()
-                .filter(|(&axis, &value)| {
-                    axis_points.contains_key(&axis)
+                .filter(|(axis, &value)| {
+                    axis_points.contains_key(axis)
                         && axis_points
-                            .get(&axis)
+                            .get(axis)
                             .unwrap()
                             .contains(&F2DOT14::from(value))
                 })
@@ -141,8 +147,8 @@ impl VariationModel {
                 return b_on_point.cmp(&a_on_point);
             }
 
-            let mut a_ordered_axes: Vec<Tag> = a.keys().copied().collect();
-            let mut b_ordered_axes: Vec<Tag> = b.keys().copied().collect();
+            let mut a_ordered_axes: Vec<T> = a.keys().cloned().collect();
+            let mut b_ordered_axes: Vec<T> = b.keys().cloned().collect();
             a_ordered_axes.sort_by(|ka, kb| {
                 if axis_order.contains(ka) && !axis_order.contains(kb) {
                     return Ordering::Less;
@@ -216,10 +222,10 @@ impl VariationModel {
         let regions = locations_to_regions(&self.locations);
         self.supports.clear();
         for (i, region) in regions.iter().enumerate() {
-            let loc_axes: HashSet<Tag> = region.keys().copied().collect();
+            let loc_axes: HashSet<T> = region.keys().cloned().collect();
             let mut region_copy = region.clone();
             for prev_region in &regions[..i] {
-                let prev_loc_axes: HashSet<Tag> = prev_region.keys().copied().collect();
+                let prev_loc_axes: HashSet<T> = prev_region.keys().cloned().collect();
                 if !prev_loc_axes.is_subset(&loc_axes) {
                     continue;
                 }
@@ -240,9 +246,9 @@ impl VariationModel {
                 if !relevant {
                     continue;
                 }
-                let mut best_axes: Support = Support::new();
+                let mut best_axes: Support<T> = Support::new();
                 let mut best_ratio = -1_f32;
-                for (&axis, &(_, val, _)) in prev_region.iter() {
+                for (axis, &(_, val, _)) in prev_region.into_iter() {
                     let &(lower, loc_v, upper) = region.get(&axis).unwrap();
                     let mut new_lower = lower;
                     let mut new_upper = upper;
@@ -261,11 +267,11 @@ impl VariationModel {
                         best_axes.clear();
                     }
                     if (ratio - best_ratio).abs() < f32::EPSILON {
-                        best_axes.insert(axis, (new_lower, loc_v, new_upper));
+                        best_axes.insert(axis.clone(), (new_lower, loc_v, new_upper));
                     }
                 }
                 for (axis, triple) in best_axes.iter() {
-                    region_copy.insert(*axis, *triple);
+                    region_copy.insert(axis.clone(), *triple);
                 }
             }
             self.supports.push(region_copy);
@@ -289,11 +295,11 @@ impl VariationModel {
     /// Retrieve the deltas, together with their support regions, for a given
     /// set of master values. Values may be provided for a subset of the model's
     /// locations, although a value must be provided for the default location.
-    pub fn get_deltas_and_supports<T>(&self, master_values: &[Option<T>]) -> Vec<(T, Support)>
+    pub fn get_deltas_and_supports<U>(&self, master_values: &[Option<U>]) -> Vec<(U, Support<T>)>
     where
-        T: Sub<Output = T> + Mul<f32, Output = T> + Clone,
+        U: Sub<Output = U> + Mul<f32, Output = U> + Clone,
     {
-        let mut out: Vec<(T, Support)> = vec![];
+        let mut out: Vec<(U, Support<T>)> = vec![];
         let submodel = &VariationModel::new(
             self.original_locations
                 .iter()
@@ -302,7 +308,7 @@ impl VariationModel {
                 .collect(),
             self.axis_order.clone(),
         );
-        let master_values: Vec<&T> = master_values.iter().flatten().collect();
+        let master_values: Vec<&U> = master_values.iter().flatten().collect();
         assert_eq!(master_values.len(), submodel.delta_weights.len());
         for (ix, weights) in submodel.delta_weights.iter().enumerate() {
             let support = &submodel.supports[ix];
@@ -320,13 +326,17 @@ impl VariationModel {
 mod tests {
     use super::*;
     use crate::tag;
+    use crate::types::Tag;
     use assert_approx_eq::assert_approx_eq;
     use otspec::btreemap;
     use std::iter::FromIterator;
 
     #[test]
     fn test_support_scalar() {
-        assert_approx_eq!(support_scalar(&Location::new(), &Support::new()), 1.0);
+        assert_approx_eq!(
+            support_scalar(&Location::<Tag>::new(), &Support::new()),
+            1.0
+        );
         assert_approx_eq!(
             support_scalar(&btreemap!( tag!("wght") => 0.2), &Support::new()),
             1.0

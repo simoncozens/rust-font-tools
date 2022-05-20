@@ -20,7 +20,7 @@ type GlyphContour = Vec<Vec<glyf::Point>>;
 struct GlyphForConversion<'a> {
     masters: Vec<Option<UnconvertedMaster<'a>>>,
     default_master_ix: usize,
-    model: Option<&'a VariationModel>,
+    model: Option<&'a VariationModel<String>>,
     /// The glyph's name, for debugging purposes
     glif_name: &'a str,
 }
@@ -139,7 +139,7 @@ struct UnconvertedMaster<'a> {
 struct GlyphReadyToGo<'a> {
     masters: Vec<Option<ConvertedMaster>>,
     default_master_ix: usize,
-    model: Option<&'a VariationModel>,
+    model: Option<&'a VariationModel<String>>,
     glif_name: &'a str,
 }
 
@@ -275,7 +275,7 @@ pub fn layers_to_glyph(
     masters: &[Option<&babelfont::Layer>],
     // A variation model, which tells us where all the masters live in the
     // design space
-    model: Option<&VariationModel>,
+    model: Option<&VariationModel<String>>,
     // and the glyph's name, for debugging purposes
     glif_name: &str,
 ) -> (glyf::Glyph, Option<GlyphVariationData>) {

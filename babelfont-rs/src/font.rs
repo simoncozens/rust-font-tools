@@ -157,21 +157,21 @@ impl Font {
     }
 
     /// Constructs a fonttools variation model for this designspace
-    pub fn variation_model(&self) -> Result<VariationModel, BabelfontError> {
-        let mut locations: Vec<OTVarLocation> = vec![];
+    pub fn variation_model(&self) -> Result<VariationModel<String>, BabelfontError> {
+        let mut locations: Vec<OTVarLocation<String>> = vec![];
         for master in self.masters.iter() {
             let source_loc = self.normalize_location(&master.location)?;
             let mut loc = OTVarLocation::new();
             for (ax, iter_l) in self.axes.iter().zip(source_loc.0.iter()) {
-                loc.insert(ax.tag_as_tag(), *iter_l);
+                loc.insert(ax.tag.clone(), *iter_l);
             }
             locations.push(loc);
         }
         Ok(VariationModel::new(locations, self.axis_order()))
     }
 
-    fn axis_order(&self) -> Vec<Tag> {
-        self.axes.iter().map(|ax| ax.tag_as_tag()).collect()
+    fn axis_order(&self) -> Vec<String> {
+        self.axes.iter().map(|ax| ax.tag.clone()).collect()
     }
 
     /// Add information to a fonttools Font object (fvar and avar tables)
@@ -251,24 +251,10 @@ impl Font {
         Ok(())
     }
 
-    fn tag_to_name(&self) -> HashMap<Tag, String> {
-        let mut hm = HashMap::new();
-        for axis in &self.axes {
-            hm.insert(axis.tag_as_tag(), axis.name.default().unwrap());
-        }
-        hm
-    }
-
     pub fn location_to_tuple(&self, loc: &Location) -> Vec<f32> {
         let mut tuple = vec![];
-        let tag_to_name = self.tag_to_name();
-        for (tag, default) in self
-            .axis_order()
-            .iter()
-            .zip(self.default_location().0.iter())
-        {
-            let name = tag_to_name.get(tag).unwrap();
-            let dim = loc.0.iter().find(|d| d.0 == name);
+        for (axis, default) in self.axes.iter().zip(self.default_location().0.iter()) {
+            let dim = loc.0.iter().find(|d| d.0 == &axis.tag);
             if let Some(dim) = dim {
                 tuple.push(*dim.1);
             } else {

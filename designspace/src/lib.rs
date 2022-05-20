@@ -119,12 +119,6 @@ impl Designspace {
         hm
     }
 
-    /// Returns the axis order. Requires the tags to be validated; will panic
-    /// if they are not four-byte tags.
-    pub fn axis_order(&self) -> Vec<Tag> {
-        self.axes.axis.iter().map(|ax| ax.tag_as_tag()).collect()
-    }
-
     /// Returns the default master location in userspace coordinates
     pub fn default_location(&self) -> Vec<i32> {
         self.axes.axis.iter().map(|ax| ax.default).collect()
@@ -150,9 +144,8 @@ impl Designspace {
     /// Converts a location to a tuple
     pub fn location_to_tuple(&self, loc: &Location) -> Vec<f32> {
         let mut tuple = vec![];
-        let tag_to_name = self.tag_to_name();
-        for (tag, default) in self.axis_order().iter().zip(self.default_location().iter()) {
-            let name = tag_to_name.get(tag).unwrap();
+        for (axis, default) in self.axes.axis.iter().zip(self.default_location().iter()) {
+            let name = &axis.name;
             let dim = loc.dimension.iter().find(|d| d.name == *name);
             if let Some(dim) = dim {
                 tuple.push(dim.xvalue);
@@ -184,17 +177,20 @@ impl Designspace {
     }
 
     /// Constructs a fonttools variation model for this designspace
-    pub fn variation_model(&self) -> VariationModel {
-        let mut locations: Vec<OTVarLocation> = vec![];
+    pub fn variation_model(&self) -> VariationModel<String> {
+        let mut locations: Vec<OTVarLocation<String>> = vec![];
         for source in self.sources.source.iter() {
             let source_loc = self.normalize_location(self.source_location(source));
             let mut loc = OTVarLocation::new();
             for (ax, iter_l) in self.axes.axis.iter().zip(source_loc.0.iter()) {
-                loc.insert(ax.tag_as_tag(), *iter_l);
+                loc.insert(ax.tag.clone(), *iter_l);
             }
             locations.push(loc);
         }
-        VariationModel::new(locations, self.axis_order())
+        VariationModel::new(
+            locations,
+            self.axes.axis.iter().map(|x| x.tag.clone()).collect(),
+        )
     }
 }
 
