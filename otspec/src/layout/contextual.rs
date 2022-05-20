@@ -353,6 +353,5 @@ mod tests {
         ];
         let cscf1: ChainedSequenceContextFormat2 = otspec::de::from_bytes(&binary_lookup).unwrap();
         println!("{:#?}", cscf1);
-        panic!();
     }
 }
