@@ -73,13 +73,13 @@ fn main() {
 
     // --masters means we produce a TTF for each master and don't do interpolation
     if args.masters {
-        create_ttf_per_master(&mut in_font, subset);
+        create_ttf_per_master(&mut in_font, &subset);
     } else {
-        create_variable_font(&mut in_font, subset, &args.output);
+        create_variable_font(&mut in_font, &subset, &args.output);
     }
 }
 
-fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: Option<HashSet<String>>) {
+fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: &Option<HashSet<String>>) {
     let family_name = in_font
         .names
         .family_name
@@ -102,7 +102,7 @@ fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: Option<HashSet<S
         })
         .collect();
     for (ix, master_name) in master_names.iter().enumerate() {
-        let mut out_font = build_font(in_font, &subset, Some(ix));
+        let mut out_font = build_font(in_font, subset, Some(ix));
         log::info!("Building {}", master_name);
         out_font
             .save(format!("{}-{}.ttf", family_name, master_name))
@@ -112,18 +112,18 @@ fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: Option<HashSet<S
 
 fn create_variable_font(
     in_font: &mut babelfont::Font,
-    subset: Option<HashSet<String>>,
+    subset: &Option<HashSet<String>>,
     output: &Option<String>,
 ) {
     let mut out_font;
     if in_font.masters.len() > 1 {
-        out_font = build_font(in_font, &subset, None);
+        out_font = build_font(in_font, subset, None);
         // Ask babelfont to make fvar/avar
         in_font
             .add_variation_tables(&mut out_font)
-            .expect("Couldn't add variation tables")
+            .expect("Couldn't add variation tables");
     } else {
-        out_font = build_font(in_font, &subset, Some(0));
+        out_font = build_font(in_font, subset, Some(0));
     }
 
     match output {

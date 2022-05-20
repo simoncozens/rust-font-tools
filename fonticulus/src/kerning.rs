@@ -27,13 +27,7 @@ pub fn build_kerning(font: &Font, mapping: &BTreeMap<String, u16>) -> GPOS {
 
         for l in &l_array {
             for r in &r_array {
-                add_single_kern(
-                    &mut kerntable,
-                    l.to_string(),
-                    r.to_string(),
-                    *value,
-                    mapping,
-                );
+                add_single_kern(&mut kerntable, l, r, *value, mapping);
             }
         }
     }
@@ -62,13 +56,13 @@ pub fn build_kerning(font: &Font, mapping: &BTreeMap<String, u16>) -> GPOS {
 
 fn add_single_kern(
     kerntable: &mut PairPositioningMap,
-    l: String,
-    r: String,
+    l: &str,
+    r: &str,
     value: i16,
     mapping: &BTreeMap<String, u16>,
 ) {
-    let l_gid = mapping.get(&l);
-    let r_gid = mapping.get(&r);
+    let l_gid = mapping.get(l);
+    let r_gid = mapping.get(r);
     if l_gid.is_none() {
         // println!("Unknown glyph {:?} in kerning table", l);
         return;

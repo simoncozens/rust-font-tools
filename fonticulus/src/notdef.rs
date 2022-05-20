@@ -44,8 +44,9 @@ pub(crate) fn add_notdef(input: &mut Font) {
     if input.glyphs.get(".notdef").is_some() {
         return;
     }
-    let width = ot_round(input.upm as f32 * 0.5) as f32;
-    let stroke: f32 = ot_round(input.upm as f32 * 0.05) as f32;
+    let upm = f32::from(input.upm);
+    let width = ot_round(upm * 0.5) as f32;
+    let stroke: f32 = ot_round(upm * 0.05) as f32;
 
     let mut g = Glyph {
         name: ".notdef".to_string(),
