@@ -6,10 +6,11 @@ use babelfont::{Component, Font, Layer, Node, Path};
 use fonttools::tables::gvar::GlyphVariationData;
 use fonttools::tables::{glyf, hmtx};
 use fonttools::{font, tag};
-
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::{BTreeMap, HashSet};
 use unzip_n::unzip_n;
+
+#[cfg(not(debug_assertions))]
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 
 unzip_n!(3);
 
@@ -80,9 +81,13 @@ pub fn build_font(
     }
 
     // The guts of this thing is the big, parallel babelfont::Glyph to glyf::Glyph convertor.
-    let result: Vec<(glyf::Glyph, hmtx::Metric, Option<GlyphVariationData>)> = input
-        .glyphs
-        .par_iter()
+    #[cfg(debug_assertions)]
+    let glyph_iter = input.glyphs.iter();
+
+    #[cfg(not(debug_assertions))]
+    let glyph_iter = input.glyphs.par_iter();
+
+    let result: Vec<(glyf::Glyph, hmtx::Metric, Option<GlyphVariationData>)> = glyph_iter
         .map(|glif| {
             // If we are subsetting, check if we are included in the subset
             if subset.is_some() && !subset.as_ref().unwrap().contains(&glif.name.to_string()) {
