@@ -1,13 +1,11 @@
 #[macro_use]
 extern crate shrinkwraprs;
 
-pub mod convertors;
-mod error;
-mod utils;
-
 mod anchor;
 mod axis;
 mod common;
+pub mod convertors;
+mod error;
 mod font;
 mod glyph;
 mod guide;

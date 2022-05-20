@@ -4,7 +4,6 @@ use crate::glyph::GlyphList;
 use crate::instance::Instance;
 use crate::master::Master;
 use crate::names::Names;
-use crate::utils::otcmp;
 use crate::{BabelfontError, Layer, Location};
 use chrono::Local;
 use fonttools::font::Font as FTFont;
@@ -13,6 +12,7 @@ use fonttools::tables::avar::{avar, SegmentMap};
 use fonttools::tables::fvar::{fvar, InstanceRecord, VariationAxisRecord};
 use fonttools::tables::name::NameRecord;
 use fonttools::types::Tag;
+use otmath::ot_cmp;
 use std::collections::{BTreeMap, HashMap};
 
 #[derive(Debug)]
@@ -209,7 +209,7 @@ impl Font {
                         })
                         .collect::<Vec<(f32, f32)>>(),
                 );
-                sm.sort_by(|a, b| otcmp(a.0, b.0));
+                sm.sort_by(|a, b| ot_cmp(a.0, b.0));
                 sm.dedup();
                 maps.push(SegmentMap::new(sm));
             } else {

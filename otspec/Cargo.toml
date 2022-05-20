@@ -10,6 +10,7 @@ authors = ["Simon Cozens <simon@simon-cozens.org>"]
 [dependencies]
 shrinkwraprs = "0.3.0"
 otspec_macros = { path = "../otspec_macros", version = "0" }
+otmath = { path = "../otmath" }
 chrono = { version = "0.4.3" }
 fixed = "1"
 petgraph = "0.5.1"

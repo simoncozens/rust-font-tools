@@ -7,6 +7,7 @@ members = [
 "fonttools-cli",
 "fonttools-rs",
 "openstep-plist",
+"otmath",
 "otspec",
 "otspec_macros"
 ]

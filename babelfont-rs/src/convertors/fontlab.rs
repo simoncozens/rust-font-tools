@@ -1,10 +1,10 @@
-use crate::utils::ot_round;
 use crate::{
     Anchor, Axis, BabelfontError, Component, Font, Glyph, GlyphCategory, Layer, Location, Master,
     Node, NodeType, Path, PathDirection, Shape,
 };
 use kurbo::Affine;
 use lazy_static::lazy_static;
+use otmath::ot_round;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

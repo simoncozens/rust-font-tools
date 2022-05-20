@@ -9,6 +9,7 @@ edition = "2018"
 chrono = { version = "0.4.3" }
 kurbo = "0.8"
 openstep-plist = { path = "../openstep-plist" }
+otmath = { path = "../otmath" }
 snafu = "0.6.10"
 uuid = { version = "0.8", features = ["v4"] }
 shrinkwraprs = "0.3.0"

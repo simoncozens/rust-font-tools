@@ -1,21 +1,19 @@
 //! A library for parsing variable font designspace files
-
 #![warn(missing_docs, missing_crate_level_docs)]
 
+use fonttools::font::Font;
+use fonttools::otvar::{Location as OTVarLocation, NormalizedLocation, VariationModel};
+use fonttools::tables::avar::{avar, SegmentMap};
+use fonttools::tables::fvar::{fvar, InstanceRecord, VariationAxisRecord};
+use fonttools::tables::name::NameRecord;
+use fonttools::types::Tag;
+use otmath::{normalize_value, piecewise_linear_map};
+use serde::{Deserialize, Serialize};
+pub use serde_xml_rs::from_reader;
 use std::collections::HashMap;
 use std::fs::File;
 #[cfg(feature = "norad")]
 use std::path::Path;
-
-use fonttools::otvar::{Location as OTVarLocation, NormalizedLocation, VariationModel};
-use fonttools::types::Tag;
-use serde::{Deserialize, Serialize};
-pub use serde_xml_rs::from_reader;
-
-use fonttools::font::Font;
-use fonttools::tables::avar::{avar, SegmentMap};
-use fonttools::tables::fvar::{fvar, InstanceRecord, VariationAxisRecord};
-use fonttools::tables::name::NameRecord;
 
 /// Loads and parses a designspace file
 pub fn from_file(filename: &str) -> Result<Designspace, serde_xml_rs::Error> {
@@ -35,28 +33,6 @@ pub struct Designspace {
     /// An instance element (optional, contains individual instances)
     pub instances: Option<Instances>,
     // pub rules: Rules,
-}
-
-fn piecewise_linear_map(mapping: HashMap<i32, f32>, value: i32) -> f32 {
-    if mapping.contains_key(&value) {
-        return *mapping.get(&value).unwrap();
-    }
-    if mapping.keys().len() == 0 {
-        return value as f32;
-    }
-    let min = *mapping.keys().min().unwrap();
-    if value < min {
-        return value as f32 + *mapping.get(&min).unwrap() - (min as f32);
-    }
-    let max = *mapping.keys().max().unwrap();
-    if value > max {
-        return value as f32 + mapping.get(&max).unwrap() - (max as f32);
-    }
-    let a = mapping.keys().filter(|k| *k < &value).max().unwrap();
-    let b = mapping.keys().filter(|k| *k > &value).min().unwrap();
-    let va = mapping.get(a).unwrap();
-    let vb = mapping.get(b).unwrap();
-    va + (vb - va) * (value - a) as f32 / (*b - *a) as f32
 }
 
 impl Designspace {
@@ -271,51 +247,48 @@ impl Axis {
         })
     }
 
+    fn default_map(&self) -> Vec<(f32, f32)> {
+        // These things should be f32 anyway
+        vec![
+            (self.minimum as f32, self.minimum as f32),
+            (self.default as f32, self.default as f32),
+            (self.maximum as f32, self.maximum as f32),
+        ]
+    }
+
     /// Converts a position on this axis in userspace coordinates to designspace coordinates
     pub fn userspace_to_designspace(&self, l: i32) -> f32 {
-        let mut mapping: HashMap<i32, f32> = HashMap::new();
-        if self.map.is_some() {
-            for m in self.map.as_ref().unwrap().iter() {
-                mapping.insert(m.input as i32, m.output);
-            }
-        } else {
-            mapping.insert(self.minimum, self.minimum as f32);
-            mapping.insert(self.default, self.default as f32);
-            mapping.insert(self.maximum, self.maximum as f32);
-        }
-
-        piecewise_linear_map(mapping, l)
+        let mapping: Vec<(f32, f32)> = self.map.as_ref().map_or_else(
+            || self.default_map(),
+            |map| {
+                map.iter()
+                    .map(|mapping| (mapping.input, mapping.output))
+                    .collect()
+            },
+        );
+        piecewise_linear_map(&mapping, l as f32)
     }
 
     /// Converts a position on this axis from designspace coordinates to userspace coordinates
     pub fn designspace_to_userspace(&self, l: i32) -> f32 {
-        let mut mapping: HashMap<i32, f32> = HashMap::new();
-        if self.map.is_some() {
-            for m in self.map.as_ref().unwrap().iter() {
-                mapping.insert(m.output as i32, m.input);
-            }
-        } else {
-            mapping.insert(self.minimum, self.minimum as f32);
-            mapping.insert(self.default, self.default as f32);
-            mapping.insert(self.maximum, self.maximum as f32);
-        }
+        let mapping: Vec<(f32, f32)> = self.map.as_ref().map_or_else(
+            || self.default_map(),
+            |map| {
+                map.iter()
+                    .map(|mapping| (mapping.output, mapping.input))
+                    .collect()
+            },
+        );
 
-        piecewise_linear_map(mapping, l)
+        piecewise_linear_map(&mapping, l as f32)
     }
-    fn normalize_userspace_value(&self, mut l: f32) -> f32 {
-        if l < self.minimum as f32 {
-            l = self.minimum as f32;
-        }
-        if l > self.maximum as f32 {
-            l = self.maximum as f32;
-        }
-        if l < self.default as f32 {
-            -(self.default as f32 - l) / (self.default - self.minimum) as f32
-        } else if l > self.default as f32 {
-            (l - self.default as f32) / (self.maximum - self.default) as f32
-        } else {
-            0_f32
-        }
+    fn normalize_userspace_value(&self, l: f32) -> f32 {
+        normalize_value(
+            l,
+            self.minimum as f32,
+            self.default as f32,
+            self.maximum as f32,
+        )
     }
 
     fn tag_as_tag(&self) -> Tag {

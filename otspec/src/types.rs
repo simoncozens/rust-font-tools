@@ -2,7 +2,7 @@ pub use crate::offsets::OffsetMarkerTrait;
 use crate::{
     DeserializationError, Deserialize, Deserializer, ReaderContext, SerializationError, Serialize,
 };
-
+use otmath::ot_round;
 use std::convert::TryInto;
 
 #[allow(non_camel_case_types)]
@@ -66,13 +66,6 @@ pub use fixed::types::U16F16;
 pub struct Fixed(pub f32);
 
 pub type Tuple = Vec<f32>;
-
-pub fn ot_round<T>(value: T) -> i32
-where
-    T: Into<f64>,
-{
-    (value.into() as f32 + 0.5_f32).floor() as i32
-}
 
 impl Fixed {
     pub fn as_packed(&self) -> i32 {

@@ -1,8 +1,8 @@
 use crate::i18ndictionary::I18NDictionary;
-use crate::utils::{normalize_value, piecewise_linear_map};
 use crate::BabelfontError;
 use fonttools::tables::fvar::VariationAxisRecord;
 use fonttools::types::Tag;
+use otmath::{normalize_value, piecewise_linear_map};
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -120,13 +120,13 @@ impl Axis {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::utils::otcmp;
+    use otmath::ot_cmp;
     use std::cmp::Ordering;
     macro_rules! assert_ot_eq {
         ($left:expr, $right:expr) => {{
             match (&$left, &$right) {
                 (left_val, right_val) => {
-                    if otcmp(*left_val, *right_val) != Ordering::Equal {
+                    if ot_cmp(*left_val, *right_val) != Ordering::Equal {
                         panic!(
                             r#"assertion failed: `(left == right)`
   left: `{:?}`,
