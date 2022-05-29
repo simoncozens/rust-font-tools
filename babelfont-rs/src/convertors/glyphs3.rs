@@ -492,12 +492,12 @@ fn load_properties(font: &mut Font, plist: &Plist) {
         for prop in props {
             if let Some(key) = prop.get("key").map(|f| f.to_string()) {
                 let mut val = I18NDictionary::new();
-                if let Some(pval) = prop.get("value").map(|f| f.to_string()) {
+                if let Some(pval) = prop.get("value").and_then(|f| f.as_str()) {
                     val.set_default(pval.to_string());
                 } else if let Some(pvals) = prop.get("values").and_then(|f| f.as_array()) {
                     for entry in pvals {
-                        if let Some(l) = entry.get("language").map(|f| f.to_string()) {
-                            if let Some(v) = entry.get("value").map(|f| f.to_string()) {
+                        if let Some(l) = entry.get("language").and_then(|f| f.as_str()) {
+                            if let Some(v) = entry.get("value").and_then(|f| f.as_str()) {
                                 if l.len() != 4 {
                                     continue;
                                 };
