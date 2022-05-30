@@ -1,0 +1,173 @@
+{
+.appVersion = "3072";
+.formatVersion = 3;
+DisplayStrings = (
+a
+);
+date = "2022-05-20 23:07:13 +0000";
+familyName = slntAxisAltSubG3;
+fontMaster = (
+{
+id = m01;
+metricValues = (
+{
+over = 16;
+pos = 800;
+},
+{
+over = 16;
+pos = 700;
+},
+{
+over = 16;
+pos = 500;
+},
+{
+over = -16;
+},
+{
+over = -16;
+pos = -200;
+},
+{
+}
+);
+name = Regular;
+stemValues = (
+100,
+120
+);
+}
+);
+glyphs = (
+{
+glyphname = a;
+lastChange = "2022-05-30 14:32:48 +0000";
+layers = (
+{
+layerId = m01;
+shapes = (
+{
+closed = 1;
+nodes = (
+(504,-6,o),
+(553,17,o),
+(595,53,c),
+(563,140,l),
+(543,133,o),
+(526,128,o),
+(518,128,cs),
+(503,128,o),
+(493,140,o),
+(493,159,cs),
+(493,314,ls),
+(493,438,o),
+(406,517,o),
+(271,517,cs),
+(189,517,o),
+(107,485,o),
+(60,434,c),
+(90,347,l),
+(139,377,o),
+(208,397,o),
+(265,397,cs),
+(343,397,o),
+(393,365,o),
+(393,315,cs),
+(393,90,ls),
+(393,32,o),
+(423,-6,o),
+(470,-6,cs)
+);
+}
+);
+width = 615;
+}
+);
+metricLeft = "=60";
+metricRight = "=20";
+unicode = 97;
+},
+{
+glyphname = .notdef;
+lastChange = "2022-05-30 14:41:25 +0000";
+layers = (
+{
+layerId = m01;
+shapes = (
+{
+closed = 1;
+nodes = (
+(0,0,l),
+(500,0,l),
+(500,500,l),
+(0,500,l)
+);
+}
+);
+width = 600;
+}
+);
+}
+);
+metrics = (
+{
+type = ascender;
+},
+{
+type = "cap height";
+},
+{
+type = "x-height";
+},
+{
+type = baseline;
+},
+{
+type = descender;
+},
+{
+type = "italic angle";
+}
+);
+properties = (
+{
+key = designers;
+values = (
+{
+language = dflt;
+value = "Justin Penner";
+}
+);
+},
+{
+key = licenses;
+values = (
+{
+language = dflt;
+value = "SIL Open Font License (OFL)";
+}
+);
+},
+{
+key = licenseURL;
+value = "https://scripts.sil.org/OFL";
+},
+{
+key = designerURL;
+value = "https://justinpenner.ca";
+}
+);
+stems = (
+{
+name = Stem;
+},
+{
+horizontal = 1;
+name = Stroke;
+}
+);
+unitsPerEm = 1000;
+versionMajor = 1;
+versionMinor = 0;
+}
