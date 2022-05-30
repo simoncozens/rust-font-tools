@@ -25,11 +25,22 @@ fn get_glyph_names_and_mapping(
     subset: &Option<HashSet<String>>,
 ) -> Vec<String> {
     let mut names: Vec<String> = vec![];
-    for (glyph_id, glyf) in input.glyphs.iter().enumerate() {
+
+    // If we have an explicit notdef, that must be first in the glyph order.
+    if input.glyphs.get(".notdef").is_some() {
+        let name = ".notdef".to_string();
+        name_to_id.insert(name.clone(), 0);
+        names.push(name);
+    }
+    for glyf in input.glyphs.iter() {
         let name = glyf.name.to_string();
+        if name == ".notdef" {
+            continue;
+        }
         if subset.is_some() && !subset.as_ref().unwrap().contains(&name) {
             continue;
         }
+        let glyph_id = names.len();
         names.push(name.clone());
         log::debug!("Assigning GID {:} to {:}", glyph_id, name);
         name_to_id.insert(name, glyph_id as u16);
@@ -82,10 +93,10 @@ pub fn build_font(
 
     // The guts of this thing is the big, parallel babelfont::Glyph to glyf::Glyph convertor.
     #[cfg(debug_assertions)]
-    let glyph_iter = input.glyphs.iter();
+    let glyph_iter = names.iter().map(|n| input.glyphs.get(n).unwrap());
 
     #[cfg(not(debug_assertions))]
-    let glyph_iter = input.glyphs.par_iter();
+    let glyph_iter = names.par_iter().map(|n| input.glyphs.get(n).unwrap());
 
     // This statement reads quite differently in release versus debug
     #[allow(clippy::needless_collect)]
