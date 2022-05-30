@@ -135,9 +135,13 @@ pub(crate) fn load_font_info(
         font.note = Some(v.clone());
     }
     if let Some(v) = &info.open_type_head_created {
-        font.date = NaiveDateTime::parse_from_str(v, "%Y/%m/%d %H:%M:%S")
-            .map(|x| chrono::Local.from_utc_datetime(&x))
-            .unwrap_or_else(|_| created.unwrap_or_else(chrono::Local::now));
+        if let Ok(Some(date)) = NaiveDateTime::parse_from_str(v, "%Y/%m/%d %H:%M:%S")
+            .map(|x| chrono::Local.from_local_datetime(&x).single())
+        {
+            font.date = date;
+        } else {
+            font.date = created.unwrap_or_else(chrono::Local::now);
+        }
     }
     if let Some(v) = &info.open_type_head_flags {
         font.set_ot_value("head", "flags", OTScalar::BitField(v.to_vec()))
