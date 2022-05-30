@@ -1,6 +1,6 @@
 # Rust Font Tools
 
-This is a collection of crates for working on (and compiling) OpenType fonts in Rust. It also contains the Fonticulus font compiler. If you're just interested in compiling fonts quickly, see the section [Fonticulus Installation](#Fonticulus Installation) below.
+This is a collection of crates for working on (and compiling) OpenType fonts in Rust. It also contains the Fonticulus font compiler. If you're just interested in compiling fonts quickly, see the section [Fonticulus Installation](#Fonticulus-Installation) below.
 
 ## Components
 
