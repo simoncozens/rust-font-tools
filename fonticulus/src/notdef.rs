@@ -5,39 +5,53 @@ fn make_box<T>(x_min: T, y_min: T, x_max: T, y_max: T, reverse: bool) -> Vec<Nod
 where
     T: Into<f32> + Copy,
 {
-    let mut v = vec![
-        Node {
-            x: x_min.into(),
-            y: y_min.into(),
-            nodetype: NodeType::Move,
-        },
-        Node {
-            x: x_max.into(),
-            y: y_min.into(),
-            nodetype: NodeType::Line,
-        },
-        Node {
-            x: x_max.into(),
-            y: y_max.into(),
-            nodetype: NodeType::Line,
-        },
-        Node {
-            x: x_min.into(),
-            y: y_max.into(),
-            nodetype: NodeType::Line,
-        },
-        Node {
-            x: x_min.into(),
-            y: y_min.into(),
-            nodetype: NodeType::Line,
-        },
-    ];
-    if reverse {
-        v.reverse();
-        v[0].nodetype = NodeType::Move;
-        v[4].nodetype = NodeType::Line;
+    if !reverse {
+        vec![
+            Node {
+                x: x_max.into(),
+                y: y_min.into(),
+                nodetype: NodeType::Line,
+            },
+            Node {
+                x: x_max.into(),
+                y: y_max.into(),
+                nodetype: NodeType::Line,
+            },
+            Node {
+                x: x_min.into(),
+                y: y_max.into(),
+                nodetype: NodeType::Line,
+            },
+            Node {
+                x: x_min.into(),
+                y: y_min.into(),
+                nodetype: NodeType::Line,
+            },
+        ]
+    } else {
+        vec![
+            Node {
+                x: x_min.into(),
+                y: y_max.into(),
+                nodetype: NodeType::Line,
+            },
+            Node {
+                x: x_max.into(),
+                y: y_max.into(),
+                nodetype: NodeType::Line,
+            },
+            Node {
+                x: x_max.into(),
+                y: y_min.into(),
+                nodetype: NodeType::Line,
+            },
+            Node {
+                x: x_min.into(),
+                y: y_min.into(),
+                nodetype: NodeType::Line,
+            },
+        ]
     }
-    v
 }
 
 pub(crate) fn add_notdef(input: &mut Font) {

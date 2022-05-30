@@ -412,14 +412,13 @@ fn babelfont_contours_to_glyf_contours(
                         }
                         PathEl::ClosePath => {
                             if let (Some(f), Some(l)) = (contour.first(), contour.last()) {
-                                if f == l {
+                                if f.x == l.x && f.y == l.y {
                                     contour.pop();
                                 }
                             }
                             // TrueType curves go backwards
                             contour.reverse();
                             contour.rotate_right(1);
-                            // XXX And we have to put off-curves first
                         }
                     }
                 }

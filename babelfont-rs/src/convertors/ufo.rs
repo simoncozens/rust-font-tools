@@ -1,13 +1,13 @@
+use crate::glyph::GlyphCategory;
+use crate::{
+    BabelfontError, Component, Font, Glyph, Layer, Location, Master, Node, NodeType, OTScalar,
+    Path, Shape,
+};
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use std::time::SystemTime;
-
-use crate::glyph::GlyphCategory;
-use crate::{
-    BabelfontError, Component, Font, Glyph, Layer, Location, Master, OTScalar, Path, Shape,
-};
 
 pub(crate) fn stat(path: &std::path::Path) -> Option<DateTime<chrono::Local>> {
     fs::metadata(path)
@@ -83,8 +83,11 @@ pub(crate) fn load_component(c: &norad::Component) -> Component {
 }
 
 pub(crate) fn load_path(c: &norad::Contour) -> Path {
+    let mut nodes: Vec<Node> = c.points.iter().map(|p| p.into()).collect();
+    // See https://github.com/simoncozens/rust-font-tools/issues/3
+    nodes.rotate_left(1);
     Path {
-        nodes: c.points.iter().map(|p| p.into()).collect(),
+        nodes,
         closed: c
             .points
             .first()
