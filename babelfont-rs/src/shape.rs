@@ -30,23 +30,22 @@ impl Path {
     pub fn to_kurbo(&self) -> Result<kurbo::BezPath, BabelfontError> {
         let mut path = kurbo::BezPath::new();
         let mut offs = std::collections::VecDeque::new();
-        let mut nodes =
-            if self.closed && self.nodes.last().map(|x| x.nodetype) == Some(NodeType::OffCurve) {
-                // Add end-of-contour offcurves to queue
-                let rotate = self
-                    .nodes
-                    .iter()
-                    .rev()
-                    .position(|pt| pt.nodetype != NodeType::OffCurve)
-                    .map(|idx| self.nodes.len() - 1 - idx);
-                self.nodes
-                    .iter()
-                    .cycle()
-                    .skip(rotate.unwrap_or(0))
-                    .take(self.nodes.len() + 1)
-            } else {
-                self.nodes.iter().cycle().skip(0).take(self.nodes.len())
-            };
+        let mut nodes = if self.closed {
+            // Add end-of-contour offcurves to queue
+            let rotate = self
+                .nodes
+                .iter()
+                .rev()
+                .position(|pt| pt.nodetype != NodeType::OffCurve)
+                .map(|idx| self.nodes.len() - 1 - idx);
+            self.nodes
+                .iter()
+                .cycle()
+                .skip(rotate.unwrap_or(0))
+                .take(self.nodes.len() + 1)
+        } else {
+            self.nodes.iter().cycle().skip(0).take(self.nodes.len())
+        };
         // We do this because all kurbo paths (even closed ones)
         // must start with a move_to (otherwise get_segs doesn't work)
         if let Some(start) = nodes.next() {
