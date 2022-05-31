@@ -1,7 +1,7 @@
 [package]
 name = "otmath"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 license = "Apache-2.0"
 description = "Mathematical operations useful for OpenType fonts"
 repository = "https://github.com/simoncozens/rust-font-tools"

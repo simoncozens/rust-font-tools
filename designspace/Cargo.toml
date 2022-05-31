@@ -2,7 +2,7 @@
 name = "designspace"
 version = "0.1.0"
 authors = ["Simon Cozens <simon@simon-cozens.org>"]
-edition = "2018"
+edition = "2021"
 license = "Apache-2.0"
 description = "Utility library for reading/writing .designspace files"
 repository = "https://github.com/simoncozens/fonttools-rs"
