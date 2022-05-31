@@ -132,7 +132,7 @@ mod tests {
 
     macro_rules! btreemap {
             ($($k:expr => $v:expr),* $(,)?) => {
-                std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+                std::collections::BTreeMap::<_, _>::from_iter([$(($k, $v),)*])
             };
         }
 
