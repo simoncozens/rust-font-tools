@@ -219,7 +219,7 @@ pub(crate) fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
         .get("public.skipExportGlyphs")
         .and_then(|x| x.as_array())
         .cloned()
-        .unwrap_or_else(Vec::new)
+        .unwrap_or_default()
         .iter()
         .flat_map(|x| x.as_string())
         .map(|x| x.to_string())

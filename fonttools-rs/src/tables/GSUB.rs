@@ -180,8 +180,7 @@ impl FromLowlevel<GSUB10> for GSUB {
                     .subtables
                     .v
                     .iter()
-                    .map(|x| x.link.clone())
-                    .flatten()
+                    .flat_map(|x| x.link.clone())
                     .collect();
                 let theirs =
                     subtables_from_lowlevel(lookup_lowlevel.lookupType, subtables, max_glyph_id);

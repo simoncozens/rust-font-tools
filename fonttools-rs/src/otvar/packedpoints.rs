@@ -36,13 +36,12 @@ impl Deserialize for PackedPoints {
             // "The low 7 bits specify the number of elements in the run minus 1."
             // MINUS ONE.
             let run_count = (control_byte & 0x7f) + 1;
-            let deltas: Vec<u16>;
-            if points_are_words {
-                deltas = c.de_counted(run_count.into())?;
+            let deltas: Vec<u16> = if points_are_words {
+                c.de_counted(run_count.into())?
             } else {
                 let delta_bytes: Vec<u8> = c.de_counted(run_count.into())?;
-                deltas = delta_bytes.iter().map(|x| *x as u16).collect();
-            }
+                delta_bytes.iter().map(|x| *x as u16).collect()
+            };
             res.extend(deltas);
         }
         let cumsum: Vec<u16> = res
