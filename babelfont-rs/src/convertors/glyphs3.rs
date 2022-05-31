@@ -471,7 +471,7 @@ fn load_metadata(font: &mut Font, plist: &Plist) {
     font.names.family_name = plist
         .get("familyName")
         .and_then(|s| s.as_str())
-        .unwrap_or(&"New font".to_string())
+        .unwrap_or("New font")
         .into();
     load_properties(font, plist);
     font.date = plist

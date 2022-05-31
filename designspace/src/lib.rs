@@ -1,5 +1,5 @@
 //! A library for parsing variable font designspace files
-#![warn(missing_docs, missing_crate_level_docs)]
+#![warn(missing_docs, rustdoc::missing_crate_level_docs)]
 
 use fonttools::font::Font;
 use fonttools::otvar::{Location as OTVarLocation, NormalizedLocation, VariationModel};

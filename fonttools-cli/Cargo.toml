@@ -2,7 +2,7 @@
 name = "fonttools_cli"
 version = "0.1.0"
 authors = ["Simon Cozens <simon@simon-cozens.org>"]
-edition = "2018"
+edition = "2021"
 description = "Command line utilities for manipulating OpenType files"
 repository = "https://github.com/simoncozens/fonttools-rs"
 license = "Apache-2.0"

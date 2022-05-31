@@ -530,15 +530,9 @@ impl From<HashMap<String, Plist>> for Plist {
 #[cfg(test)]
 mod tests {
     use crate::{Plist, Token};
-    use std::fs;
 
+    use otspec::hashmap;
     use std::iter::FromIterator;
-
-    macro_rules! hashmap {
-            ($($k:expr => $v:expr),* $(,)?) => {
-                std::collections::HashMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
-            };
-        }
 
     #[test]
     fn test_capacity_guesser() {
@@ -606,7 +600,7 @@ mod tests {
         ];
 
         for (t, e) in t_e.iter() {
-            let res = Plist::parse(&t.to_string()).expect("Whatever");
+            let res = Plist::parse(t).expect("Whatever");
             assert_eq!(res, *e);
         }
     }

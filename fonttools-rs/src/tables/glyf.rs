@@ -186,8 +186,7 @@ impl glyf {
             .glyphs
             .iter()
             .filter(|x| x.has_components())
-            .map(|x| x.composite_maxp_values(&self.glyphs))
-            .flatten()
+            .flat_map(|x| x.composite_maxp_values(&self.glyphs))
             .fold(CompositeMaxpValues::default(), |l, r| CompositeMaxpValues {
                 num_points: max(l.num_points, r.num_points),
                 num_contours: max(l.num_contours, r.num_contours),

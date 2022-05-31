@@ -292,8 +292,7 @@ pub fn layers_to_glyph(
                 babelfont_contours: layer.paths().collect(),
                 components: layer
                     .components()
-                    .map(|component| babelfont_component_to_glyf_component(component, mapping))
-                    .flatten()
+                    .flat_map(|component| babelfont_component_to_glyf_component(component, mapping))
                     .collect(),
                 width: layer.width,
             }));

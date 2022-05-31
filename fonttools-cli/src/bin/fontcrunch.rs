@@ -454,7 +454,7 @@ impl State {
 
 #[allow(clippy::too_many_arguments)]
 fn try_quad(
-    states: &mut Vec<State>,
+    states: &mut [State],
     prev: usize,
     this: usize,
     curve: &Thetas,
@@ -485,7 +485,7 @@ fn try_quad(
 }
 
 fn try_line_quad(
-    states: &mut Vec<State>,
+    states: &mut [State],
     prev: usize,
     this: usize,
     curve: &Thetas,

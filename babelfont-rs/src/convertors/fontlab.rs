@@ -52,7 +52,7 @@ fn nodestring_to_nodes(s: String) -> Vec<Node> {
     let count = s.split("  ").count();
     s.split("  ")
         .enumerate()
-        .map(|(ix, n)| {
+        .flat_map(|(ix, n)| {
             if let Some(mat) = RE.captures(n) {
                 let nodetype = if count == 1 {
                     NodeType::Line
@@ -70,7 +70,6 @@ fn nodestring_to_nodes(s: String) -> Vec<Node> {
                 None
             }
         })
-        .flatten()
         .collect()
 }
 impl From<FontlabContour> for Shape {
@@ -79,8 +78,7 @@ impl From<FontlabContour> for Shape {
             nodes: val
                 .nodes
                 .into_iter()
-                .map(nodestring_to_nodes)
-                .flatten()
+                .flat_map(nodestring_to_nodes)
                 .collect(),
             closed: true,
             direction: PathDirection::Clockwise,
@@ -192,11 +190,10 @@ impl FontlabLayer {
             shapes: self
                 .elements
                 .into_iter()
-                .map(|x| {
+                .flat_map(|x| {
                     let v: Vec<Shape> = x.into();
                     v
                 })
-                .flatten()
                 .collect(),
             anchors: anchors?.into_iter().flatten().collect(),
             color: None,
@@ -220,8 +217,7 @@ impl FontlabGlyph {
         let codepoints = if let Some(unicode) = self.unicode {
             unicode
                 .split(',')
-                .map(|x| usize::from_str_radix(x, 16))
-                .flatten()
+                .flat_map(|x| usize::from_str_radix(x, 16))
                 .collect()
         } else {
             vec![]
@@ -336,8 +332,7 @@ impl FontlabMaster {
         let location: Location = Location(
             self.location
                 .iter()
-                .map(|(short_name, val)| axes.get(short_name).map(|axis| (axis.clone(), *val)))
-                .flatten()
+                .flat_map(|(short_name, val)| axes.get(short_name).map(|axis| (axis.clone(), *val)))
                 .collect(),
         );
         Master::new(self.name.clone(), self.name, location)

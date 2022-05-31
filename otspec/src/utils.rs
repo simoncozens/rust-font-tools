@@ -34,7 +34,7 @@ where
 #[macro_export]
 macro_rules! btreemap {
         ($($k:expr => $v:expr),* $(,)?) => {
-            std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+            std::collections::BTreeMap::<_, _>::from_iter([$(($k, $v),)*])
         };
     }
 
@@ -42,7 +42,7 @@ macro_rules! btreemap {
 #[macro_export]
 macro_rules! hashmap {
     ($($k:expr => $v:expr),* $(,)?) => {
-        std::collections::HashMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
+        std::collections::HashMap::<_, _>::from_iter([$(($k, $v),)*])
     };
 }
 
@@ -50,6 +50,6 @@ macro_rules! hashmap {
 #[macro_export]
 macro_rules! btreeset {
     ($($k:expr),* $(,)?) => {
-        std::collections::BTreeSet::<_, >::from_iter(std::array::IntoIter::new([$($k,)*]))
+        std::collections::BTreeSet::<_, >::from_iter([$($k,)*])
     };
 }

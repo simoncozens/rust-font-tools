@@ -5,7 +5,7 @@ description = "Procmacro library for reading/writing OpenType data structures"
 repository = "https://github.com/simoncozens/fonttools-rs"
 license = "Apache-2.0"
 authors = ["Simon Cozens <simon@simon-cozens.org>"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 name = "otspec_macros"

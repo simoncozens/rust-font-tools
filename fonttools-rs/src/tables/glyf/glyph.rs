@@ -432,8 +432,7 @@ impl Glyph {
         for base_glyph in self
             .components
             .iter()
-            .map(|c| glyphs.get(c.glyph_index as usize))
-            .flatten()
+            .flat_map(|c| glyphs.get(c.glyph_index as usize))
         {
             if !base_glyph.has_components() {
                 info.num_points += base_glyph.num_points() as u16;

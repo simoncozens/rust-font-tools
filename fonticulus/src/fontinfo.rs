@@ -106,7 +106,7 @@ pub fn postscript_font_name(input: &babelfont::Font) -> String {
         preferred_family_name(input),
         preferred_subfamily_name(input)
     )
-    .replace(" ", "")
+    .replace(' ', "")
     // XXX check postscript characters here
 }
 pub fn name_version(input: &babelfont::Font) -> String {

@@ -180,8 +180,7 @@ impl FromLowlevel<GSUB10> for GSUB {
                     .subtables
                     .v
                     .iter()
-                    .map(|x| x.link.clone())
-                    .flatten()
+                    .flat_map(|x| x.link.clone())
                     .collect();
                 let theirs =
                     subtables_from_lowlevel(lookup_lowlevel.lookupType, subtables, max_glyph_id);
@@ -222,23 +221,21 @@ impl ToLowlevel<GSUBLookupLowlevel> for Lookup<Substitution> {
                 .collect(),
             Substitution::Contextual(contextual) => contextual
                 .iter()
-                .map(|subtable| {
+                .flat_map(|subtable| {
                     subtable
                         .to_lowlevel_subtables_gsub(max_glyph_id)
                         .into_iter()
                         .map(Offset16::to)
                 })
-                .flatten()
                 .collect(),
             Substitution::ChainedContextual(chainedcontextual) => chainedcontextual
                 .iter()
-                .map(|subtable| {
+                .flat_map(|subtable| {
                     subtable
                         .to_lowlevel_subtables_gsub(max_glyph_id)
                         .into_iter()
                         .map(Offset16::to)
                 })
-                .flatten()
                 .collect(),
             Substitution::ReverseChainContextual(rs) => rs
                 .iter()

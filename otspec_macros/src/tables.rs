@@ -192,7 +192,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .unwrap()
                     .to_string();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&"#[otspec(with = \"Counted\")]\n".to_string());
+                out_s.push_str("#[otspec(with = \"Counted\")]\n");
                 out_s.push_str(&format!("pub {} : Vec<{}>,\n", name, subtype))
             } else if t == "Counted32" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
@@ -201,7 +201,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .unwrap()
                     .to_string();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&"#[otspec(with = \"Counted32\")]\n".to_string());
+                out_s.push_str("#[otspec(with = \"Counted32\")]\n");
                 out_s.push_str(&format!("pub {} : Vec<{}>,\n", name, subtype))
             } else if t == "Offset16" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
@@ -226,7 +226,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .unwrap()
                     .to_string();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&"#[otspec(with = \"Counted\")]\n".to_string());
+                out_s.push_str("#[otspec(with = \"Counted\")]\n");
                 out_s.push_str(&format!("pub {} : VecOffset16<{}>,\n", name, subtype))
             } else if t == "CountedOffset32" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
@@ -235,7 +235,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .unwrap()
                     .to_string();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&"#[otspec(with = \"Counted\")]\n".to_string());
+                out_s.push_str("#[otspec(with = \"Counted\")]\n");
                 out_s.push_str(&format!("pub {} : VecOffset32<{}>,\n", name, subtype))
             } else if let Some(nonspecial_type) = special_type(&t) {
                 out_s.push_str(&format!("#[otspec(with = \"{}\")]\n", t));

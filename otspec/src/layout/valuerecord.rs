@@ -217,7 +217,7 @@ macro_rules! valuerecord {
 mod tests {
     use super::*;
     // use crate::layout::gpos1::SinglePos;
-    use crate::valuerecord;
+    // use crate::valuerecord;
 
     #[test]
     fn test_valuerecord_serde() {

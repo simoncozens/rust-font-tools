@@ -128,13 +128,8 @@ impl Serialize for ClassDef {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use otspec::btreemap;
     use std::iter::FromIterator;
-
-    macro_rules! btreemap {
-            ($($k:expr => $v:expr),* $(,)?) => {
-                std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
-            };
-        }
 
     #[test]
     fn test_format2_deser() {
