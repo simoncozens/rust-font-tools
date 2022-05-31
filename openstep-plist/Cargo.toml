@@ -11,6 +11,7 @@ snafu = "0.6.10"
 
 [dev-dependencies]
 criterion = "0.3"
+otspec = { path = "../otspec" }
 
 [[bench]]
 name = "bigfile"

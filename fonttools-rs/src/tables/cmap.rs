@@ -724,16 +724,12 @@ impl cmap {
 
 #[cfg(test)]
 mod tests {
+    use otspec::btreemap;
     use otspec::Serialize;
     use pretty_assertions::assert_eq;
     use std::collections::BTreeMap;
     use std::iter::FromIterator;
 
-    macro_rules! btreemap {
-		    ($($k:expr => $v:expr),* $(,)?) => {
-		        std::collections::BTreeMap::<_, _>::from_iter(std::array::IntoIter::new([$(($k, $v),)*]))
-		    };
-		}
     #[test]
     fn cmap_de() {
         let fcmap = super::cmap {
