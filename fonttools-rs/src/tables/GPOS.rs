@@ -216,13 +216,12 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
                 .collect(),
             Positioning::Pair(pp) => pp
                 .iter()
-                .map(|subtable| {
+                .flat_map(|subtable| {
                     subtable
                         .to_lowlevel_subtables(max_glyph_id)
                         .into_iter()
                         .map(Offset16::to)
                 })
-                .flatten()
                 .collect(),
             Positioning::Cursive(curs) => curs
                 .iter()
@@ -242,23 +241,21 @@ impl ToLowlevel<GPOSLookupLowlevel> for Lookup<Positioning> {
                 .collect(),
             Positioning::Contextual(contextual) => contextual
                 .iter()
-                .map(|subtable| {
+                .flat_map(|subtable| {
                     subtable
                         .to_lowlevel_subtables_gpos(max_glyph_id)
                         .into_iter()
                         .map(Offset16::to)
                 })
-                .flatten()
                 .collect(),
             Positioning::ChainedContextual(chainedcontextual) => chainedcontextual
                 .iter()
-                .map(|subtable| {
+                .flat_map(|subtable| {
                     subtable
                         .to_lowlevel_subtables_gpos(max_glyph_id)
                         .into_iter()
                         .map(Offset16::to)
                 })
-                .flatten()
                 .collect(),
         };
         GPOSLookupLowlevel {

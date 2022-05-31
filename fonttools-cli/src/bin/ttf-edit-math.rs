@@ -289,7 +289,7 @@ fn main() {
     let infont = open_font(&matches);
 
     let post = infont.tables.post().unwrap().unwrap();
-    let glyph_names = post.glyphnames.clone().unwrap_or_else(std::vec::Vec::new);
+    let glyph_names = post.glyphnames.clone().unwrap_or_default();
 
     if matches.value_of("mode").unwrap() == "dump" {
         let math = infont

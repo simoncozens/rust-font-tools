@@ -111,11 +111,8 @@ impl PairPos {
         let coverage = Coverage {
             glyphs: split_mapping.keys().copied().collect(),
         };
-        let all_pair_vrs: Vec<&(ValueRecord, ValueRecord)> = split_mapping
-            .values()
-            .map(|x| x.values())
-            .flatten()
-            .collect();
+        let all_pair_vrs: Vec<&(ValueRecord, ValueRecord)> =
+            split_mapping.values().flat_map(|x| x.values()).collect();
         let value_format_1 = highest_format(all_pair_vrs.iter().map(|x| &x.0));
         let value_format_2 = highest_format(all_pair_vrs.iter().map(|x| &x.1));
 

@@ -1,7 +1,6 @@
 use crate::glyph::GlyphCategory;
 use crate::{
-    BabelfontError, Component, Font, Glyph, Layer, Location, Master, Node, NodeType, OTScalar,
-    Path, Shape,
+    BabelfontError, Component, Font, Glyph, Layer, Location, Master, Node, OTScalar, Path, Shape,
 };
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 use std::collections::{HashMap, HashSet};

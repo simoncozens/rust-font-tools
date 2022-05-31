@@ -222,23 +222,21 @@ impl ToLowlevel<GSUBLookupLowlevel> for Lookup<Substitution> {
                 .collect(),
             Substitution::Contextual(contextual) => contextual
                 .iter()
-                .map(|subtable| {
+                .flat_map(|subtable| {
                     subtable
                         .to_lowlevel_subtables_gsub(max_glyph_id)
                         .into_iter()
                         .map(Offset16::to)
                 })
-                .flatten()
                 .collect(),
             Substitution::ChainedContextual(chainedcontextual) => chainedcontextual
                 .iter()
-                .map(|subtable| {
+                .flat_map(|subtable| {
                     subtable
                         .to_lowlevel_subtables_gsub(max_glyph_id)
                         .into_iter()
                         .map(Offset16::to)
                 })
-                .flatten()
                 .collect(),
             Substitution::ReverseChainContextual(rs) => rs
                 .iter()

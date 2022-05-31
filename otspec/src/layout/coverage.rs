@@ -41,8 +41,7 @@ impl Deserialize for Coverage {
             let cf2: CoverageFormat2 = c.de()?;
             cf2.rangeRecords
                 .iter()
-                .map(|rr| rr.startGlyphID..rr.endGlyphID + 1)
-                .flatten()
+                .flat_map(|rr| rr.startGlyphID..rr.endGlyphID + 1)
                 .collect()
         };
         Ok(Coverage { glyphs })

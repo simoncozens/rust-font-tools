@@ -530,7 +530,6 @@ impl From<HashMap<String, Plist>> for Plist {
 #[cfg(test)]
 mod tests {
     use crate::{Plist, Token};
-    use std::fs;
 
     use std::iter::FromIterator;
 
@@ -606,7 +605,7 @@ mod tests {
         ];
 
         for (t, e) in t_e.iter() {
-            let res = Plist::parse(&t.to_string()).expect("Whatever");
+            let res = Plist::parse(t.as_ref()).expect("Whatever");
             assert_eq!(res, *e);
         }
     }
