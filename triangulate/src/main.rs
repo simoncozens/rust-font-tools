@@ -121,6 +121,8 @@ fn main() {
             .map(|u| u.default_layer().get_glyph(glyph_name))
             .collect();
         interpolate_contours(g, &others, &vm, &target_location);
+        // XXX anchors
+        // XXX advance widths
     }
     if let Some(p) = args.output {
         output_ufo.save(p).expect("Couldn't save UFO");
@@ -190,10 +192,15 @@ fn interpolate_contours(
     let deltas_and_supports = model.get_deltas_and_supports(&contours);
     let deltas: Vec<ndarray::Array1<f32>>;
     let support_scalars: Vec<f32>;
+    // XXX Something is not quite right with sparse masters here.
+    // if we have a full Regular and an empty Bold, we end up something with
+    // 0.75 * the Regular plus nothing (i.e. a scaled down glyph). So I think
+    // support scalar computation for sparse masters is the problem.
     (deltas, support_scalars) = deltas_and_supports
         .into_iter()
         .map(|(x, y)| (x, support_scalar(location, &y)))
         .unzip();
+
     let interpolated = model.interpolate_from_deltas_and_scalars(&deltas, &support_scalars);
     output.set_contour_numbers(interpolated.expect("Couldn't interpolate"));
 }
