@@ -278,12 +278,12 @@ impl Axis {
 
         piecewise_linear_map(&mapping, l as f32)
     }
-    fn normalize_userspace_value(&self, l: f32) -> f32 {
+    pub fn normalize_userspace_value(&self, l: f32) -> f32 {
         normalize_value(
             l,
             self.minimum as f32,
-            self.default as f32,
             self.maximum as f32,
+            self.default as f32,
         )
     }
 
@@ -291,7 +291,7 @@ impl Axis {
         Tag::from_raw(&self.tag).unwrap()
     }
 
-    fn normalize_designspace_value(&self, mut l: f32) -> f32 {
+    pub fn normalize_designspace_value(&self, mut l: f32) -> f32 {
         if self.map.is_none() || self.map.as_ref().unwrap().is_empty() {
             return self.normalize_userspace_value(l);
         }
