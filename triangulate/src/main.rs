@@ -2,7 +2,7 @@
 use clap::Parser;
 use designspace::Designspace;
 use norad::{Contour, Glyph};
-use otmath::{ot_round, Location, VariationModel};
+use otmath::{ot_round, support_scalar, Location, VariationModel};
 use regex::Regex;
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -112,7 +112,6 @@ fn main() {
 
     log::info!("Source locations: {:?}", source_locations);
     log::info!("Target location: {:?}", target_location);
-    let axis_order: Vec<&str> = source_locations.first().unwrap().keys().cloned().collect();
     let vm = ds.variation_model();
 
     for g in output_ufo.default_layer_mut().iter_mut() {
@@ -170,6 +169,7 @@ impl QuickGetSet for Glyph {
         for contour in self.contours.iter_mut() {
             for p in contour.points.iter_mut() {
                 p.x = (*v.get(i).expect("Not enough coordinates")) as f64;
+                i += 1;
                 p.y = (*v.get(i).expect("Not enough coordinates")) as f64;
                 i += 1;
             }
@@ -187,12 +187,13 @@ fn interpolate_contours(
         .iter()
         .map(|m| m.map(|g| g.get_contour_numbers()))
         .collect();
-    println!("Contours for {:}: {:?}", output.name, contours);
     let deltas_and_supports = model.get_deltas_and_supports(&contours);
-    let deltas: Vec<ndarray::Array1<f32>> =
-        deltas_and_supports.into_iter().map(|(x, _y)| x).collect();
-    println!("Deltas: {:?}", deltas);
-    let interpolated = model.interpolate_from_deltas(location, &deltas);
-    println!("Interpolated: {:?}", interpolated);
+    let deltas: Vec<ndarray::Array1<f32>>;
+    let support_scalars: Vec<f32>;
+    (deltas, support_scalars) = deltas_and_supports
+        .into_iter()
+        .map(|(x, y)| (x, support_scalar(location, &y)))
+        .unzip();
+    let interpolated = model.interpolate_from_deltas_and_scalars(&deltas, &support_scalars);
     output.set_contour_numbers(interpolated.expect("Couldn't interpolate"));
 }
