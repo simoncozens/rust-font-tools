@@ -409,8 +409,6 @@ where
             + std::fmt::Debug,
     {
         let mut v = None;
-        println!("Deltas: {:?}", deltas);
-        println!("Scalars: {:?}", scalars);
         assert_eq!(deltas.len(), scalars.len());
         for (delta, &scalar) in deltas.iter().zip(scalars.iter()) {
             let contribution = delta.clone() * scalar;
