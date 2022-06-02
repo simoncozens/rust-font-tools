@@ -9,6 +9,7 @@ members = [
 "openstep-plist",
 "otmath",
 "otspec",
-"otspec_macros"
+"otspec_macros",
+"triangulate"
 ]
 

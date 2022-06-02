@@ -13,6 +13,7 @@ This is a collection of crates for working on (and compiling) OpenType fonts in 
 * `otmath`: A library for various common OpenType-related mathematical operations, rounding, interpolation and so on.
 * `otspec`: A low-level library for parsing and creating OpenType and TrueType binary fonts.
 * `otspec-macros`: A set of proc_macros for serializing and deserializing OpenType binary data into Rust structures.
+* `triangulate`: A work-in-progress UFO interpolator.
 
 ## Fonticulus Installation
 
