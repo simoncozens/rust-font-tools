@@ -2,12 +2,12 @@
 #![warn(missing_docs, rustdoc::missing_crate_level_docs)]
 
 use fonttools::font::Font;
-use fonttools::otvar::{Location as OTVarLocation, NormalizedLocation, VariationModel};
+use fonttools::otvar::NormalizedLocation;
 use fonttools::tables::avar::{avar, SegmentMap};
 use fonttools::tables::fvar::{fvar, InstanceRecord, VariationAxisRecord};
 use fonttools::tables::name::NameRecord;
 use fonttools::types::Tag;
-use otmath::{normalize_value, piecewise_linear_map};
+use otmath::{normalize_value, piecewise_linear_map, Location as OTVarLocation, VariationModel};
 use serde::{Deserialize, Serialize};
 pub use serde_xml_rs::from_reader;
 use std::collections::HashMap;

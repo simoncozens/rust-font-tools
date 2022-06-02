@@ -1,13 +1,13 @@
 #![allow(missing_docs)]
 use std::collections::BTreeMap;
 
-use super::support_scalar;
 use crate::font::Font;
 use crate::tables::avar::{self, SegmentMap};
 use crate::tables::gvar::{self, Coords, DeltaSet, GlyphVariationData};
 use crate::tables::{fvar, glyf};
 use crate::tag;
 use crate::types::*;
+use otmath::support_scalar;
 
 type Location = BTreeMap<Tag, f32>;
 

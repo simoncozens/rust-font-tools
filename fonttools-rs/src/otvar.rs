@@ -18,7 +18,8 @@ mod tuplevariationstore;
 pub mod instancer;
 
 pub use itemvariationstore::{ItemVariationData, ItemVariationStore, RegionAxisCoordinates};
-pub use locations::{support_scalar, Location, NormalizedLocation, VariationModel};
+pub use locations::NormalizedLocation;
+pub use otmath::{support_scalar, Location, VariationModel};
 use otspec::types::int16;
 pub use packeddeltas::PackedDeltas;
 pub use packedpoints::PackedPoints;
