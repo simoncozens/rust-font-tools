@@ -119,8 +119,9 @@ fn main() {
             .map(|u| u.default_layer().get_glyph(glyph_name))
             .collect();
         interpolate_contours(g, &others, &vm, &target_location);
-        // XXX anchors
-        // XXX advance widths
+        interpolate_anchors(g, &others, &vm, &target_location);
+        interpolate_advance_widths(g, &others, &vm, &target_location);
+        // XXX components
     }
     if let Some(p) = args.output {
         output_ufo.save(p).expect("Couldn't save UFO");
@@ -147,7 +148,37 @@ fn parse_locargs(locargs: &[String]) -> BTreeMap<String, f32> {
 
 trait QuickGetSet {
     fn get_contour_numbers(&self) -> ndarray::Array1<f32>;
-    fn add_contour_numbers(&mut self, numbers: ndarray::Array1<f32>);
+    fn add_contour_numbers(
+        &mut self,
+        contours: &[Option<ndarray::Array1<f32>>],
+        model: &VariationModel<String>,
+        location: &Location<String>,
+    );
+    fn get_anchor_numbers(&self) -> ndarray::Array1<f32>;
+    fn add_anchor_numbers(
+        &mut self,
+        contours: &[Option<ndarray::Array1<f32>>],
+        model: &VariationModel<String>,
+        location: &Location<String>,
+    );
+}
+
+fn interpolate(
+    numbers: &[Option<ndarray::Array1<f32>>],
+    model: &VariationModel<String>,
+    location: &Location<String>,
+) -> Vec<f32> {
+    let deltas_and_supports = model.get_deltas_and_supports(numbers);
+    let (deltas, support_scalars): (Vec<ndarray::Array1<f32>>, Vec<f32>) = deltas_and_supports
+        .into_iter()
+        .map(|(x, y)| (x, support_scalar(location, &y)))
+        .unzip();
+
+    let interpolated_numbers = model
+        .interpolate_from_deltas_and_scalars(&deltas, &support_scalars)
+        .expect("Couldn't interpolate");
+
+    interpolated_numbers.to_vec()
 }
 
 impl QuickGetSet for Glyph {
@@ -163,16 +194,47 @@ impl QuickGetSet for Glyph {
         ndarray::Array1::from_shape_vec(len, v).unwrap()
     }
 
-    fn add_contour_numbers(&mut self, numbers: ndarray::Array1<f32>) {
-        let v: Vec<f32> = numbers.to_vec();
+    fn add_contour_numbers(
+        &mut self,
+        numbers: &[Option<ndarray::Array1<f32>>],
+        model: &VariationModel<String>,
+        location: &Location<String>,
+    ) {
+        let v = interpolate(numbers, model, location);
         let mut i = 0;
         for contour in self.contours.iter_mut() {
             for p in contour.points.iter_mut() {
-                p.x += (*v.get(i).expect("Not enough coordinates")) as f64;
+                p.x += (*v.get(i).unwrap()) as f64;
                 i += 1;
-                p.y += (*v.get(i).expect("Not enough coordinates")) as f64;
+                p.y += (*v.get(i).unwrap()) as f64;
                 i += 1;
             }
+        }
+    }
+
+    fn get_anchor_numbers(&self) -> ndarray::Array1<f32> {
+        let mut v = vec![];
+        for anchor in &self.anchors {
+            v.push(anchor.x as f32);
+            v.push(anchor.y as f32);
+        }
+        let len = v.len();
+        ndarray::Array1::from_shape_vec(len, v).unwrap()
+    }
+
+    fn add_anchor_numbers(
+        &mut self,
+        numbers: &[Option<ndarray::Array1<f32>>],
+        model: &VariationModel<String>,
+        location: &Location<String>,
+    ) {
+        let v = interpolate(numbers, model, location);
+        let mut i = 0;
+        for anchor in self.anchors.iter_mut() {
+            anchor.x += (*v.get(i).unwrap()) as f64;
+            i += 1;
+            anchor.y += (*v.get(i).unwrap()) as f64;
+            i += 1;
         }
     }
 }
@@ -198,12 +260,52 @@ fn interpolate_contours(
             })
         })
         .collect();
-    let deltas_and_supports = model.get_deltas_and_supports(&contours);
-    let (deltas, support_scalars): (Vec<ndarray::Array1<f32>>, Vec<f32>) = deltas_and_supports
+    output.add_contour_numbers(&contours, model, location);
+}
+
+fn interpolate_anchors(
+    output: &mut Glyph,
+    masters: &[Option<&Arc<Glyph>>],
+    model: &VariationModel<String>,
+    location: &Location<String>,
+) {
+    let default_numbers: ndarray::Array1<f32> = output.get_anchor_numbers();
+    let anchors: Vec<Option<ndarray::Array1<f32>>> = masters
+        .iter()
+        .map(|m| {
+            m.and_then(|g| {
+                let nums: ndarray::Array1<f32> = g.get_anchor_numbers();
+                if nums.shape() == default_numbers.shape() {
+                    Some(g.get_anchor_numbers() - default_numbers.clone())
+                } else {
+                    log::warn!("Incompatible masters in {}", g.name);
+                    None
+                }
+            })
+        })
+        .collect();
+    output.add_anchor_numbers(&anchors, model, location);
+}
+
+fn interpolate_advance_widths(
+    output: &mut Glyph,
+    masters: &[Option<&Arc<Glyph>>],
+    model: &VariationModel<String>,
+    location: &Location<String>,
+) {
+    let default_advance: f64 = output.width;
+    let advances: Vec<Option<f32>> = masters
+        .iter()
+        .map(|m| m.map(|g| (g.width - default_advance) as f32))
+        .collect();
+    let deltas_and_supports = model.get_deltas_and_supports(&advances);
+    let (deltas, support_scalars): (Vec<f32>, Vec<f32>) = deltas_and_supports
         .into_iter()
         .map(|(x, y)| (x, support_scalar(location, &y)))
         .unzip();
 
-    let interpolated = model.interpolate_from_deltas_and_scalars(&deltas, &support_scalars);
-    output.add_contour_numbers(interpolated.expect("Couldn't interpolate"));
+    let interpolated_width = model
+        .interpolate_from_deltas_and_scalars(&deltas, &support_scalars)
+        .expect("Couldn't interpolate");
+    output.width += interpolated_width as f64;
 }
