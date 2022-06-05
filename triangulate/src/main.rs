@@ -1,7 +1,7 @@
 //! Interpolate an instance UFO in a designspace
 use clap::Parser;
 use designspace::Designspace;
-use norad::{Contour, Glyph};
+use norad::Glyph;
 use otmath::{ot_round, support_scalar, Location, VariationModel};
 use rayon::prelude::*;
 use regex::Regex;
@@ -120,8 +120,8 @@ fn main() {
             .collect();
         interpolate_contours(g, &others, &vm, &target_location);
         interpolate_anchors(g, &others, &vm, &target_location);
+        interpolate_components(g, &others, &vm, &target_location);
         interpolate_advance_widths(g, &others, &vm, &target_location);
-        // XXX components
     }
     if let Some(p) = args.output {
         output_ufo.save(p).expect("Couldn't save UFO");
@@ -156,6 +156,13 @@ trait QuickGetSet {
     );
     fn get_anchor_numbers(&self) -> ndarray::Array1<f32>;
     fn add_anchor_numbers(
+        &mut self,
+        contours: &[Option<ndarray::Array1<f32>>],
+        model: &VariationModel<String>,
+        location: &Location<String>,
+    );
+    fn get_component_numbers(&self) -> ndarray::Array1<f32>;
+    fn add_component_numbers(
         &mut self,
         contours: &[Option<ndarray::Array1<f32>>],
         model: &VariationModel<String>,
@@ -237,6 +244,44 @@ impl QuickGetSet for Glyph {
             i += 1;
         }
     }
+
+    fn get_component_numbers(&self) -> ndarray::Array1<f32> {
+        let mut v = vec![];
+        for component in &self.components {
+            v.push(component.transform.x_scale as f32);
+            v.push(component.transform.xy_scale as f32);
+            v.push(component.transform.yx_scale as f32);
+            v.push(component.transform.y_scale as f32);
+            v.push(component.transform.x_offset as f32);
+            v.push(component.transform.y_offset as f32);
+        }
+        let len = v.len();
+        ndarray::Array1::from_shape_vec(len, v).unwrap()
+    }
+
+    fn add_component_numbers(
+        &mut self,
+        numbers: &[Option<ndarray::Array1<f32>>],
+        model: &VariationModel<String>,
+        location: &Location<String>,
+    ) {
+        let v = interpolate(numbers, model, location);
+        let mut i = 0;
+        for component in self.components.iter_mut() {
+            component.transform.x_scale += (*v.get(i).unwrap()) as f64;
+            i += 1;
+            component.transform.xy_scale += (*v.get(i).unwrap()) as f64;
+            i += 1;
+            component.transform.yx_scale += (*v.get(i).unwrap()) as f64;
+            i += 1;
+            component.transform.y_scale += (*v.get(i).unwrap()) as f64;
+            i += 1;
+            component.transform.x_offset += (*v.get(i).unwrap()) as f64;
+            i += 1;
+            component.transform.y_offset += (*v.get(i).unwrap()) as f64;
+            i += 1;
+        }
+    }
 }
 
 fn interpolate_contours(
@@ -285,6 +330,30 @@ fn interpolate_anchors(
         })
         .collect();
     output.add_anchor_numbers(&anchors, model, location);
+}
+
+fn interpolate_components(
+    output: &mut Glyph,
+    masters: &[Option<&Arc<Glyph>>],
+    model: &VariationModel<String>,
+    location: &Location<String>,
+) {
+    let default_numbers: ndarray::Array1<f32> = output.get_component_numbers();
+    let components: Vec<Option<ndarray::Array1<f32>>> = masters
+        .iter()
+        .map(|m| {
+            m.and_then(|g| {
+                let nums: ndarray::Array1<f32> = g.get_component_numbers();
+                if nums.shape() == default_numbers.shape() {
+                    Some(g.get_component_numbers() - default_numbers.clone())
+                } else {
+                    log::warn!("Incompatible masters in {}", g.name);
+                    None
+                }
+            })
+        })
+        .collect();
+    output.add_component_numbers(&components, model, location);
 }
 
 fn interpolate_advance_widths(
