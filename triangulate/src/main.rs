@@ -3,6 +3,7 @@ use clap::Parser;
 use designspace::Designspace;
 use norad::{Contour, Glyph};
 use otmath::{ot_round, support_scalar, Location, VariationModel};
+use rayon::prelude::*;
 use regex::Regex;
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -84,7 +85,6 @@ fn main() {
         .collect();
 
     let mut source_locations: Vec<BTreeMap<&str, f32>> = Vec::new();
-    let mut source_ufos = vec![];
     for source in &ds.sources.source {
         let this_loc: BTreeMap<&str, f32> = ds
             .axes
@@ -95,12 +95,13 @@ fn main() {
             .collect();
 
         source_locations.push(this_loc);
-        source_ufos.push(
-            source
-                .ufo(Path::new(&args.input))
-                .expect("Couldn't load UFO"),
-        );
     }
+    let source_ufos: Vec<norad::Font> = ds
+        .sources
+        .source
+        .par_iter()
+        .map(|s| s.ufo(Path::new(&args.input)).expect("Couldn't load UFO"))
+        .collect();
 
     let mut output_ufo = ds
         .default_master()
