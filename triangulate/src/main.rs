@@ -83,14 +83,6 @@ fn main() {
         })
         .collect();
 
-    let mut output_ufo = ds
-        .sources
-        .source
-        .first()
-        .expect("No sources in designspace")
-        .ufo(Path::new(&args.input))
-        .expect("Couldn't load UFO");
-
     let mut source_locations: Vec<BTreeMap<&str, f32>> = Vec::new();
     let mut source_ufos = vec![];
     for source in &ds.sources.source {
@@ -110,6 +102,11 @@ fn main() {
         );
     }
 
+    let mut output_ufo = ds
+        .default_master()
+        .expect("Can't find default master")
+        .ufo(Path::new(&args.input))
+        .expect("Couldn't load UFO");
     log::info!("Source locations: {:?}", source_locations);
     log::info!("Target location: {:?}", target_location);
     let vm = ds.variation_model();
@@ -149,7 +146,7 @@ fn parse_locargs(locargs: &[String]) -> BTreeMap<String, f32> {
 
 trait QuickGetSet {
     fn get_contour_numbers(&self) -> ndarray::Array1<f32>;
-    fn set_contour_numbers(&mut self, numbers: ndarray::Array1<f32>);
+    fn add_contour_numbers(&mut self, numbers: ndarray::Array1<f32>);
 }
 
 impl QuickGetSet for Glyph {
@@ -165,14 +162,14 @@ impl QuickGetSet for Glyph {
         ndarray::Array1::from_shape_vec(len, v).unwrap()
     }
 
-    fn set_contour_numbers(&mut self, numbers: ndarray::Array1<f32>) {
+    fn add_contour_numbers(&mut self, numbers: ndarray::Array1<f32>) {
         let v: Vec<f32> = numbers.to_vec();
         let mut i = 0;
         for contour in self.contours.iter_mut() {
             for p in contour.points.iter_mut() {
-                p.x = (*v.get(i).expect("Not enough coordinates")) as f64;
+                p.x += (*v.get(i).expect("Not enough coordinates")) as f64;
                 i += 1;
-                p.y = (*v.get(i).expect("Not enough coordinates")) as f64;
+                p.y += (*v.get(i).expect("Not enough coordinates")) as f64;
                 i += 1;
             }
         }
@@ -185,22 +182,27 @@ fn interpolate_contours(
     model: &VariationModel<String>,
     location: &Location<String>,
 ) {
+    let default_numbers: ndarray::Array1<f32> = output.get_contour_numbers();
     let contours: Vec<Option<ndarray::Array1<f32>>> = masters
         .iter()
-        .map(|m| m.map(|g| g.get_contour_numbers()))
+        .map(|m| {
+            m.and_then(|g| {
+                let nums: ndarray::Array1<f32> = g.get_contour_numbers();
+                if nums.shape() == default_numbers.shape() {
+                    Some(g.get_contour_numbers() - default_numbers.clone())
+                } else {
+                    log::warn!("Incompatible masters in {}", g.name);
+                    None
+                }
+            })
+        })
         .collect();
     let deltas_and_supports = model.get_deltas_and_supports(&contours);
-    let deltas: Vec<ndarray::Array1<f32>>;
-    let support_scalars: Vec<f32>;
-    // XXX Something is not quite right with sparse masters here.
-    // if we have a full Regular and an empty Bold, we end up something with
-    // 0.75 * the Regular plus nothing (i.e. a scaled down glyph). So I think
-    // support scalar computation for sparse masters is the problem.
-    (deltas, support_scalars) = deltas_and_supports
+    let (deltas, support_scalars): (Vec<ndarray::Array1<f32>>, Vec<f32>) = deltas_and_supports
         .into_iter()
         .map(|(x, y)| (x, support_scalar(location, &y)))
         .unzip();
 
     let interpolated = model.interpolate_from_deltas_and_scalars(&deltas, &support_scalars);
-    output.set_contour_numbers(interpolated.expect("Couldn't interpolate"));
+    output.add_contour_numbers(interpolated.expect("Couldn't interpolate"));
 }
