@@ -28,3 +28,23 @@ fonticulus --help
 ```
 
 This will install the latest cutting-edge version directly from the repo, which is probably what you want to be using at this point while Fonticulus is in alpha stage.
+
+## `dschecker`
+
+```
+cargo install --git https://github.com/simoncozens/rust-font-tools dschecker
+dschecker --help
+```
+
+`dschecker` quickly checks `.designspace` files for correctness and for interpolation incompatibilities. It has two output modes; by default, it prints a human-readable textual description of any problems it finds. When the `-j` flag is passed on the command line, it prints a report in JSON format, for use when called by other programs.
+
+## `triangulate`
+
+```
+% cargo install --git https://github.com/simoncozens/rust-font-tools dschecker
+% triangulate Nunito.designspace ital=0 wght=450
+Saved on Nunito-ital0-wght450.ufo
+```
+
+`triangulate` interpolates a font, creating a UFO file representing the font
+at a given point in the design space.
