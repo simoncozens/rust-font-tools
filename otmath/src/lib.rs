@@ -77,11 +77,11 @@ pub fn normalize_value(mut l: f32, min: f32, max: f32, default: f32) -> f32 {
         l = max;
     }
     if l < default {
-        -(default - l) / (default - min) as f32
+        -(default - l) / (default - min)
     } else if l > default {
-        (l - default) / (max - default) as f32
+        (l - default) / (max - default)
     } else {
-        0_f32
+        0.0
     }
 }
 
@@ -108,9 +108,9 @@ pub struct VariationModel<T> {
 }
 
 /// Returns the contribution value of a region at a given location
-pub fn support_scalar<T: Ord + Clone>(loc: &Location<T>, support: &Support<T>) -> f32 {
+pub fn support_scalar<T: Ord>(loc: &Location<T>, support: &Support<T>) -> f32 {
     let mut scalar = 1.0;
-    for (axis, (lower, peak, upper)) in support.clone().into_iter() {
+    for (axis, &(lower, peak, upper)) in support.iter() {
         if peak == 0.0 {
             continue;
         }
@@ -120,7 +120,7 @@ pub fn support_scalar<T: Ord + Clone>(loc: &Location<T>, support: &Support<T>) -
         if lower < 0.0 && upper > 0.0 {
             continue;
         }
-        let v: f32 = *loc.get(&axis).unwrap_or(&0.0);
+        let v = *loc.get(axis).unwrap_or(&0.0);
         if (v - peak).abs() < f32::EPSILON {
             continue;
         }
@@ -420,35 +420,6 @@ where
         }
         v
     }
-
-    pub fn interpolate_from_deltas<U>(&self, loc: &Location<T>, deltas: &[U]) -> Option<U>
-    where
-        U: Sub<Output = U>
-            + Mul<f32, Output = U>
-            + Clone
-            + std::ops::Add<Output = U>
-            + std::fmt::Debug,
-    {
-        self.interpolate_from_deltas_and_scalars(deltas, &self.get_scalars(loc))
-    }
-
-    pub fn interpolate_from_masters<U>(
-        &self,
-        loc: &Location<T>,
-        master_values: &[Option<U>],
-    ) -> Option<U>
-    where
-        U: Sub<Output = U>
-            + Mul<f32, Output = U>
-            + Clone
-            + std::ops::Add<Output = U>
-            + std::fmt::Debug,
-    {
-        let deltas_and_supports = self.get_deltas_and_supports(master_values);
-        let deltas: Vec<U> = deltas_and_supports.into_iter().map(|(x, _y)| x).collect();
-        // XXX This doesn't deal with sparse masters
-        self.interpolate_from_deltas(loc, &deltas)
-    }
 }
 
 #[cfg(test)]
@@ -476,14 +447,14 @@ mod tests {
         assert_approx_eq!(
             support_scalar(
                 &btreemap!( ("wght") => 0.2),
-                &btreemap!( ("wght") => (0_f32,2_f32,3_f32))
+                &btreemap!( ("wght") => (0.0,2.0,3.0))
             ),
             0.1
         );
         assert_approx_eq!(
             support_scalar(
                 &btreemap!( ("wght") => 2.5),
-                &btreemap!( ("wght") => (0_f32,2_f32,4_f32))
+                &btreemap!( ("wght") => (0.0,2.0,4.0))
             ),
             0.75
         );
