@@ -123,7 +123,7 @@ fn check_contour(
         problems.push(Problem {
             area: "contours".to_string(),
             glyph: glyph_name.clone(),
-            location: Some(format!("contour {}", contour_ix)),
+            location: Some(format!("contour {}", contour_ix + 1)),
             master: master_name.clone(),
             description: format!(
                 "point count should be {}, found {}",
@@ -138,7 +138,7 @@ fn check_contour(
             problems.push(Problem {
                 area: "contours".to_string(),
                 glyph: glyph_name.clone(),
-                location: Some(format!("contour {}, point {}", contour_ix, ix)),
+                location: Some(format!("contour {}, point {}", contour_ix + 1, ix + 1)),
                 master: master_name.clone(),
                 description: format!("point type should be {}, found {}", left.typ, right.typ),
             });
@@ -205,6 +205,24 @@ fn check_components(
             ),
         });
         return problems.into_iter();
+    }
+    for (ix, (ours, theirs)) in our_components
+        .iter()
+        .zip(their_components.iter())
+        .enumerate()
+    {
+        if ours.base != theirs.base {
+            problems.push(Problem {
+                area: "components".to_string(),
+                glyph: glyph_name.clone(),
+                location: Some(format!("component {}", ix + 1)),
+                master: master_name.clone(),
+                description: format!(
+                    "component base should be {}, found {}",
+                    ours.base, theirs.base
+                ),
+            });
+        }
     }
     problems.into_iter()
 }
