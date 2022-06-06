@@ -128,7 +128,7 @@ fn main() {
         interpolate_advance_widths(g, &others, &vm, &target_location);
     }
     if let Some(p) = args.output {
-        log::info!("Saved on {}", p);
+        println!("Saved on {}", p);
         output_ufo.save(p).expect("Couldn't save UFO");
     } else {
         let location_str: Vec<String> = unnormalized_target_location
@@ -139,7 +139,7 @@ fn main() {
         let output_name = args
             .input
             .replace(".designspace", &format!("-{}.ufo", &joined));
-        log::info!("Saved on {}", output_name);
+        println!("Saved on {}", output_name);
         output_ufo.save(output_name).expect("Couldn't save UFO");
     }
 }
