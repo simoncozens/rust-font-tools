@@ -52,19 +52,23 @@ fn main() {
         let tag: &str = &axis.tag;
         if let Some(&location) = unnormalized_target_location.get(tag) {
             if location < axis.minimum as f32 {
-                println!(
+                log::warn!(
                     "Location {} is less than minimum {} on axis {}",
-                    location, axis.minimum, axis.tag
+                    location,
+                    axis.minimum,
+                    axis.tag
                 );
             }
             if location > axis.maximum as f32 {
-                println!(
+                log::warn!(
                     "Location {} is more than maximum {} on axis {}",
-                    location, axis.maximum, axis.tag
+                    location,
+                    axis.maximum,
+                    axis.tag
                 );
             }
         } else {
-            println!("Tag {} needs a location", axis.tag);
+            log::error!("Tag {} needs a location", axis.tag);
             ok = false;
         }
     }
@@ -124,7 +128,19 @@ fn main() {
         interpolate_advance_widths(g, &others, &vm, &target_location);
     }
     if let Some(p) = args.output {
+        log::info!("Saved on {}", p);
         output_ufo.save(p).expect("Couldn't save UFO");
+    } else {
+        let location_str: Vec<String> = unnormalized_target_location
+            .iter()
+            .map(|(tag, val)| format!("{}{}", tag, val))
+            .collect();
+        let joined = location_str.join("-");
+        let output_name = args
+            .input
+            .replace(".designspace", &format!("-{}.ufo", &joined));
+        log::info!("Saved on {}", output_name);
+        output_ufo.save(output_name).expect("Couldn't save UFO");
     }
 }
 
