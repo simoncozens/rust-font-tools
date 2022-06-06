@@ -1,0 +1,18 @@
+[package]
+name = "dschecker"
+version = "0.1.0"
+authors = ["Simon Cozens <simon@simon-cozens.org>"]
+edition = "2021"
+license = "Apache-2.0"
+description = "Check a Designspace file for interpolatability and other issues"
+repository = "https://github.com/simoncozens/rust-font-tools"
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+designspace = { path = "../designspace", features = ["norad"], version="0" }
+rayon = "1.0.1"
+norad = { version = "0.6.0", features = ["rayon"] }
+clap = { version = "3.1.17", features=["derive"]}
+env_logger = "0.8"
+log = "0.4.14"

@@ -3,6 +3,7 @@
 members = [ 
 "babelfont-rs",
 "designspace",
+"dschecker",
 "fonticulus",
 "fonttools-cli",
 "fonttools-rs",

@@ -6,6 +6,7 @@ This is a collection of crates for working on (and compiling) OpenType fonts in 
 
 * `babelfont-rs`: A library for loading and representing *source* font files (Glyphs 3, UFO, Designspace, Fontlab VI VFJ) into a common set of objects.
 * `designspace`: A library for reading `.designspace` files.
+* `dschecker`: A tool for checking Designspace formatting and compatibility issues.
 * `fonticulus`: A fonticulusly fast font compiler.
 * `fonttools-cli`: Various command line utilities using the `fonttools-rs` library.
 * `fonttools-rs`: A high-level library for parsing and creating OpenType and TrueType *binary* fonts.
