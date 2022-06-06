@@ -1,4 +1,6 @@
-//! Check a Designspace file for interpolatability and other issues
+#![feature(is_sorted)]
+
+///! Check a Designspace file for interpolatability and other issues
 mod designspace;
 mod interpolatability;
 
