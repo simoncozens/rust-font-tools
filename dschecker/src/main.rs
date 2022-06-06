@@ -97,4 +97,6 @@ fn main() {
             println!("{}", p.as_string())
         }
     }
+
+    std::process::exit(if problems.is_empty() { 0 } else { 1 });
 }
