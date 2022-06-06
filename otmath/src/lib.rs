@@ -69,7 +69,7 @@ pub fn piecewise_linear_map(mapping: &[(f32, f32)], value: f32) -> f32 {
 }
 
 /// Normalize a value along a min/default/max triplet to the range -1.0/0.0/1.0.
-pub fn normalize_value(mut l: f32, min: f32, max: f32, default: f32) -> f32 {
+pub fn normalize_value<T: num::Float>(mut l: T, min: T, max: T, default: T) -> T {
     if l < min {
         l = min;
     }
@@ -81,7 +81,7 @@ pub fn normalize_value(mut l: f32, min: f32, max: f32, default: f32) -> f32 {
     } else if l > default {
         (l - default) / (max - default)
     } else {
-        0.0
+        T::zero()
     }
 }
 
