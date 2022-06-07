@@ -1,6 +1,6 @@
 use crate::{Args, Problem};
 use designspace::{Designspace, Source};
-use norad::{Anchor, Component, Glyph};
+use norad::{Anchor, Component, Glyph, PointType};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::HashSet;
 use std::path::Path;
@@ -143,6 +143,60 @@ fn check_contour(
                 description: format!("point type should be {}, found {}", left.typ, right.typ),
             });
         }
+    }
+
+    // Check for wrong contour starting point, adapted from
+    // https://github.com/fonttools/fonttools/pull/2571/files
+
+    // Build list of isomorphisms for the other guy, build real point list for me
+    let point_list: Vec<(f64, f64)> = contour.points.iter().map(|p| (p.x, p.y)).collect();
+    let mut other_point_list: Vec<(f64, f64)> = other.points.iter().map(|p| (p.x, p.y)).collect();
+    let my_types: Vec<PointType> = contour.points.iter().map(|p| p.typ.clone()).collect();
+    let mut other_types: Vec<PointType> = other.points.iter().map(|p| p.typ.clone()).collect();
+    let mut other_possible_configurations: Vec<Vec<(f64, f64)>> = vec![];
+    for _ in 0..other_point_list.len() {
+        if !my_types.iter().zip(other_types.iter()).all(|(a, b)| a == b) {
+            continue;
+        }
+        other_possible_configurations.push(other_point_list.clone());
+        other_point_list.rotate_left(1);
+        other_types.rotate_left(1);
+    }
+    other_point_list.reverse();
+    other_types.reverse();
+    for _ in 0..other_point_list.len() {
+        if !my_types.iter().zip(other_types.iter()).all(|(a, b)| a == b) {
+            continue;
+        }
+        other_possible_configurations.push(other_point_list.clone());
+        other_point_list.rotate_left(1);
+        other_types.rotate_left(1);
+    }
+
+    let costs: Vec<f64> = other_possible_configurations
+        .iter()
+        .map(|configuration| {
+            configuration
+                .iter()
+                .zip(point_list.iter())
+                .map(|(pt1, pt2)| {
+                    (pt1.0 - pt2.0) * (pt1.0 - pt2.0) + (pt1.1 - pt2.1) * (pt1.1 - pt2.1)
+                })
+                .sum()
+        })
+        .collect();
+    // println!("Alternative positions of {:?}:", glyph_name);
+    // println!("{:?}", other_possible_configurations);
+    // println!("Costs: {:?}", costs);
+    let mincost = costs.iter().copied().fold(f64::NAN, f64::min);
+    if mincost < costs.first().unwrap_or(&0.0) * 0.95 {
+        problems.push(Problem {
+            area: "contours".to_string(),
+            glyph: glyph_name.clone(),
+            location: Some(format!("contour {}", contour_ix + 1)),
+            master: master_name.clone(),
+            description: "wrong start point".to_string(),
+        });
     }
     problems.into_iter()
 }
