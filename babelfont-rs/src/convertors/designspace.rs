@@ -125,7 +125,7 @@ fn load_master(
         for (right, value) in right_dict.iter() {
             master
                 .kerning
-                .insert((left.clone(), right.clone()), *value as i16);
+                .insert((left.to_string(), right.to_string()), *value as i16);
         }
     }
     let mut bf_layer_list = vec![];

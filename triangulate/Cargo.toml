@@ -11,7 +11,7 @@ repository = "https://github.com/simoncozens/rust-font-tools"
 otmath = { path = "../otmath" }
 designspace = { path = "../designspace", features = ["norad"], version="0" }
 rayon = "1.0.1"
-norad = { version = "0.6.0", features = ["rayon", "kurbo"] }
+norad = { version = "0.7.0", features = ["rayon", "kurbo"] }
 clap = { version = "3.1.17", features=["derive"]}
 regex = "1.5.4"
 env_logger = "0.8"

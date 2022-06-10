@@ -365,7 +365,10 @@ pub struct Source {
 impl Source {
     #[cfg(feature = "norad")]
     /// Load the source from a UFO file
-    pub fn ufo(&self, designspace_filename: &Path) -> Result<norad::Font, norad::Error> {
+    pub fn ufo(
+        &self,
+        designspace_filename: &Path,
+    ) -> Result<norad::Font, norad::error::FontLoadError> {
         log::info!("Loading {:}", self.filename);
         norad::Font::load(designspace_filename.parent().unwrap().join(&self.filename))
     }

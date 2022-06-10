@@ -29,11 +29,12 @@ pub struct Color {
 
 impl From<&norad::Color> for Color {
     fn from(c: &norad::Color) -> Self {
+        let (red, green, blue, alpha) = c.channels();
         Color {
-            r: (c.red * 255.0) as i32,
-            g: (c.green * 255.0) as i32,
-            b: (c.blue * 255.0) as i32,
-            a: (c.alpha * 255.0) as i32,
+            r: (red * 255.0) as i32,
+            g: (green * 255.0) as i32,
+            b: (blue * 255.0) as i32,
+            a: (alpha * 255.0) as i32,
         }
     }
 }

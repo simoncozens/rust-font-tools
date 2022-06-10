@@ -17,7 +17,7 @@ impl Guide {
 impl From<&norad::Guideline> for Guide {
     fn from(g: &norad::Guideline) -> Self {
         let mut out = Guide::new();
-        out.name = g.name.clone();
+        out.name = g.name.as_ref().map(|x| x.to_string());
         out.color = g.color.as_ref().map(|x| x.into());
         match g.line {
             norad::Line::Angle { x, y, degrees } => {

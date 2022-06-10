@@ -13,5 +13,5 @@ serde = { version = "1.0", features = ["derive"] }
 fonttools = { path = "../fonttools-rs", version = "0" }
 otspec = { path = "../otspec", version = "0" }
 otmath = { path = "../otmath", version = "0" }
-norad = { version = "0.6.0", features = ["rayon", "kurbo"], optional = true }
+norad = { version = "0.7.0", features = ["rayon", "kurbo"], optional = true }
 log = "0.4.14"

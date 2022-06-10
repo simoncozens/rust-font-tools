@@ -4,7 +4,6 @@ use norad::{Anchor, Component, Glyph, PointType};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::HashSet;
 use std::path::Path;
-use std::sync::Arc;
 
 pub(crate) fn check_interpolatability(
     ds: &Designspace,
@@ -50,7 +49,7 @@ pub(crate) fn check_interpolatability(
 
     for g in default_ufo.default_layer().iter() {
         let glyph_name = &g.name;
-        let others: Vec<&Arc<Glyph>> = other_ufos
+        let others: Vec<&Glyph> = other_ufos
             .iter()
             .map(|u| u.default_layer().get_glyph(glyph_name))
             .flatten()
@@ -63,7 +62,7 @@ pub(crate) fn check_interpolatability(
 
 fn check_glyph(
     g: &norad::Glyph,
-    others: &[&Arc<Glyph>],
+    others: &[&Glyph],
     others_names: &[String],
 ) -> impl Iterator<Item = Problem> {
     let mut problems: Vec<Problem> = vec![];
@@ -208,14 +207,14 @@ fn check_anchors(
     their_anchors: &[Anchor],
 ) -> impl Iterator<Item = Problem> {
     let mut problems: Vec<Problem> = vec![];
-    let our_set: HashSet<&String> = our_anchors
+    let our_set: HashSet<String> = our_anchors
         .iter()
-        .map(|a| a.name.as_ref())
+        .map(|a| a.name.as_ref().map(|x| x.to_string()))
         .flatten()
         .collect();
-    let their_set: HashSet<&String> = their_anchors
+    let their_set: HashSet<String> = their_anchors
         .iter()
-        .map(|a| a.name.as_ref())
+        .map(|a| a.name.as_ref().map(|x| x.to_string()))
         .flatten()
         .collect();
     for missing in our_set.difference(&their_set) {

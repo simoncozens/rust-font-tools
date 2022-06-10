@@ -21,7 +21,10 @@ pub enum BabelfontError {
     PlistParse { orig: Error, path: PathBuf },
 
     #[snafu(display("Error loading UFO {}: {:?}", path, orig))]
-    LoadingUFO { orig: norad::Error, path: String },
+    LoadingUFO {
+        orig: norad::error::FontLoadError,
+        path: String,
+    },
 
     #[snafu(display("Could not parse XML file {}: {:?}", path.display(), orig))]
     XMLParse {

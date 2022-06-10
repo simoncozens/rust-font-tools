@@ -98,13 +98,13 @@ pub(crate) fn load_path(c: &norad::Contour) -> Path {
 pub(crate) fn load_master_info(master: &mut Master, info: &norad::FontInfo) {
     let metrics = &mut master.metrics;
     if let Some(v) = info.ascender {
-        metrics.insert("ascender".to_string(), v.get() as i32);
+        metrics.insert("ascender".to_string(), v as i32);
     }
     if let Some(v) = info.cap_height {
-        metrics.insert("capHeight".to_string(), v.get() as i32);
+        metrics.insert("capHeight".to_string(), v as i32);
     }
     if let Some(v) = info.descender {
-        metrics.insert("descender".to_string(), v.get() as i32);
+        metrics.insert("descender".to_string(), v as i32);
     }
     if let Some(v) = &info.guidelines {
         for g in v.iter() {
@@ -112,10 +112,10 @@ pub(crate) fn load_master_info(master: &mut Master, info: &norad::FontInfo) {
         }
     }
     if let Some(v) = info.italic_angle {
-        metrics.insert("italic angle".to_string(), v.get() as i32);
+        metrics.insert("italic angle".to_string(), v as i32);
     }
     if let Some(v) = info.x_height {
-        metrics.insert("xHeight".to_string(), v.get() as i32);
+        metrics.insert("xHeight".to_string(), v as i32);
     }
 }
 
@@ -152,11 +152,7 @@ pub(crate) fn load_font_info(
         font.set_ot_value("OS/2", "fsType", OTScalar::BitField(v.to_vec()))
     }
     if let Some(v) = &info.postscript_underline_position {
-        font.set_ot_value(
-            "post",
-            "underlinePosition",
-            OTScalar::Signed(v.get() as i32),
-        )
+        font.set_ot_value("post", "underlinePosition", OTScalar::Signed(*v as i32))
     }
     // XXX and much more
     if let Some(v) = &info.trademark {
@@ -164,7 +160,7 @@ pub(crate) fn load_font_info(
     }
 
     if let Some(v) = info.units_per_em {
-        font.upm = v.get() as u16;
+        font.upm = v.as_f64() as u16;
     }
     if let Some(v) = info.version_major {
         font.version.0 = v as u16;
@@ -180,12 +176,12 @@ pub(crate) fn load_kerning(master: &mut Master, kerning: &norad::Kerning) {
             let left_maybe_group = if left.starts_with("public.kern") {
                 format!("@{:}", left)
             } else {
-                left.clone()
+                left.to_string()
             };
             let right_maybe_group = if right.starts_with("public.kern") {
                 format!("@{:}", right)
             } else {
-                right.clone()
+                right.to_string()
             };
             master
                 .kerning

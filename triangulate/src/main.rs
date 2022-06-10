@@ -8,7 +8,6 @@ use regex::Regex;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::Path;
-use std::sync::Arc;
 
 /// Interpolate an instance UFO in a designspace
 #[derive(Parser, Debug)]
@@ -118,7 +117,7 @@ fn main() {
 
     for g in output_ufo.default_layer_mut().iter_mut() {
         let glyph_name = &g.name;
-        let others: Vec<Option<&Arc<Glyph>>> = source_ufos
+        let others: Vec<Option<&Glyph>> = source_ufos
             .iter()
             .map(|u| u.default_layer().get_glyph(glyph_name))
             .collect();
@@ -302,7 +301,7 @@ impl QuickGetSet for Glyph {
 
 fn interpolate_contours(
     output: &mut Glyph,
-    masters: &[Option<&Arc<Glyph>>],
+    masters: &[Option<&Glyph>],
     model: &VariationModel<String>,
     location: &Location<String>,
 ) {
@@ -326,7 +325,7 @@ fn interpolate_contours(
 
 fn interpolate_anchors(
     output: &mut Glyph,
-    masters: &[Option<&Arc<Glyph>>],
+    masters: &[Option<&Glyph>],
     model: &VariationModel<String>,
     location: &Location<String>,
 ) {
@@ -350,7 +349,7 @@ fn interpolate_anchors(
 
 fn interpolate_components(
     output: &mut Glyph,
-    masters: &[Option<&Arc<Glyph>>],
+    masters: &[Option<&Glyph>],
     model: &VariationModel<String>,
     location: &Location<String>,
 ) {
@@ -374,7 +373,7 @@ fn interpolate_components(
 
 fn interpolate_advance_widths(
     output: &mut Glyph,
-    masters: &[Option<&Arc<Glyph>>],
+    masters: &[Option<&Glyph>],
     model: &VariationModel<String>,
     location: &Location<String>,
 ) {
