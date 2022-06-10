@@ -182,7 +182,7 @@ fn main() {
     let mut fonts: Vec<Font> = args
         .input
         .iter()
-        .map(|x| Font::load(x).expect("Couldn't open UFO file"))
+        .map(|x| Font::load(x).unwrap_or_else(|_| panic!("Couldn't open UFO file {:}", x)))
         .collect();
 
     let glyph_names: Vec<String> = fonts
