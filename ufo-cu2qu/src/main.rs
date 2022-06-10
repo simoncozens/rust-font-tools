@@ -3,6 +3,7 @@ use kurbo::{cubics_to_quadratic_splines, BezPath, CubicBez, PathEl, PathSeg};
 ///! Decompose cubic to quadratic curves in one or more UFO files
 use norad::Glyph;
 use norad::{Contour, ContourPoint, Font, PointType};
+use rayon::prelude::*;
 
 /// Decompose cubic to quadratic curves in one or more UFO files
 #[derive(Parser, Debug)]
@@ -181,7 +182,7 @@ fn main() {
 
     let mut fonts: Vec<Font> = args
         .input
-        .iter()
+        .par_iter()
         .map(|x| Font::load(x).unwrap_or_else(|_| panic!("Couldn't open UFO file {:}", x)))
         .collect();
 
@@ -199,7 +200,7 @@ fn main() {
         .iter()
         .map(|x| x.name.to_string())
         .collect();
-
+    log::info!("Loaded, converting glyphs");
     for glyph in glyph_names {
         let mut glyphs: Vec<&mut Glyph> = fonts
             .iter_mut()
@@ -229,7 +230,11 @@ fn main() {
             cu2qu(&mut contours, &glyph);
         }
     }
-    for (file, font) in args.output.iter().zip(fonts.iter()) {
-        font.save(file).expect("Could not save");
-    }
+    fonts
+        .into_par_iter()
+        .zip(args.output)
+        .for_each(|(font, file)| {
+            log::info!("Saving {}", file);
+            font.save(file).expect("Could not save");
+        });
 }
