@@ -1,0 +1,15 @@
+[package]
+name = "ufo-cu2qu"
+version = "0.1.0"
+authors = ["Simon Cozens <simon@simon-cozens.org>"]
+edition = "2021"
+license = "Apache-2.0"
+description = "Decompose cubic to quadratic curves in one or more UFO files"
+repository = "https://github.com/simoncozens/rust-font-tools"
+
+[dependencies]
+norad = { version = "0.7.0", features = ["rayon", "kurbo"] }
+clap = { version = "3.1.17", features=["derive"]}
+env_logger = "0.8"
+log = "0.4.14"
+kurbo = "0.8.2"

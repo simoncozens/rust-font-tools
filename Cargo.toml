@@ -2,7 +2,6 @@
 
 members = [ 
 "babelfont-rs",
-"ufo-decompose",
 "designspace",
 "dschecker",
 "fonticulus",
@@ -12,6 +11,8 @@ members = [
 "otmath",
 "otspec",
 "otspec_macros",
-"triangulate"
+"triangulate",
+"ufo-cu2qu",
+"ufo-decompose"
 ]
 
