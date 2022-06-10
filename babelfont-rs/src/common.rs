@@ -171,6 +171,7 @@ pub enum NodeType {
     Line,
     OffCurve,
     Curve,
+    QCurve,
 }
 
 impl From<&norad::PointType> for NodeType {
@@ -179,6 +180,7 @@ impl From<&norad::PointType> for NodeType {
             norad::PointType::Move => NodeType::Move,
             norad::PointType::Line => NodeType::Line,
             norad::PointType::OffCurve => NodeType::OffCurve,
+            norad::PointType::QCurve => NodeType::QCurve,
             _ => NodeType::Curve,
         }
     }

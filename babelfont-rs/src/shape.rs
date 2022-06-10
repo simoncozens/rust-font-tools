@@ -66,6 +66,17 @@ impl Path {
                     };
                     offs.clear();
                 }
+                NodeType::QCurve => {
+                    while let Some(pt) = offs.pop_front() {
+                        if let Some(next) = offs.front() {
+                            let implied_point = pt.midpoint(*next);
+                            path.quad_to(pt, implied_point);
+                        } else {
+                            path.quad_to(pt, kurbo_point);
+                        }
+                    }
+                    offs.clear();
+                }
             }
         }
         if self.closed {
