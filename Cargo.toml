@@ -2,6 +2,7 @@
 
 members = [ 
 "babelfont-rs",
+"ufo-decompose",
 "designspace",
 "dschecker",
 "fonticulus",
