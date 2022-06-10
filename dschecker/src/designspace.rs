@@ -1,6 +1,23 @@
 use crate::Problem;
 use designspace::{Axis, Designspace, Mapping};
 
+// TODO: delete when `is_sorted` stablizes: https://github.com/rust-lang/rust/issues/53485
+// copied from stdlib
+fn is_sorted<T: PartialOrd>(slice: &[T]) -> bool {
+    let mut iter = slice.iter();
+    let mut prev = match iter.next() {
+        Some(x) => x,
+        None => return true,
+    };
+    for next in iter {
+        if next < prev {
+            return false;
+        }
+        prev = next;
+    }
+    true
+}
+
 pub(crate) fn check_designspace(ds: &Designspace) -> impl Iterator<Item = Problem> + '_ {
     let axis_problems = ds.axes.axis.iter().map(check_ds_axis).flatten();
     let mut other_problems: Vec<Problem> = vec![];
@@ -52,7 +69,7 @@ fn check_map(map: &[Mapping], axis: &Axis) -> impl Iterator<Item = Problem> {
     let mut problems: Vec<Problem> = vec![];
     // Input mapping should be sorted
     let inputs: Vec<f32> = map.iter().map(|x| x.input).collect();
-    if !inputs.is_sorted() {
+    if !is_sorted(&inputs) {
         problems.push(Problem {
             area: "designspace".to_string(),
             glyph: None,
