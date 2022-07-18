@@ -1,3 +1,5 @@
+use std::fmt::Write as _; // import without risk of name clashing
+
 use proc_macro::{Delimiter, TokenStream, TokenTree};
 
 #[cfg(nightly)]
@@ -150,14 +152,16 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
             break;
         }
 
-        out_s.push_str(&format!(
+        write!(
+            out_s,
             "/// Low-level structure used for serializing/deserializing table\n\
             #[allow(missing_docs, non_snake_case, non_camel_case_types)]\n\
             #[derive({} {} {} {} PartialEq, Clone)]\n\
             {}\n\
             pub struct {} {{",
-            do_serialize, do_deserialize, do_debug, do_default, embed_attr, table_name,
-        ));
+            do_serialize, do_deserialize, do_debug, do_default, embed_attr, table_name
+        )
+        .unwrap();
 
         let mut table_def = expect_group(iter.next(), Delimiter::Brace).into_iter();
 
@@ -184,7 +188,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .unwrap()
                     .to_string();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&format!("pub {} : Option<{}>,\n", name, subtype))
+                writeln!(out_s, "pub {} : Option<{}>,", name, subtype).unwrap();
             } else if t == "Counted" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
                     .into_iter()
@@ -193,7 +197,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .to_string();
                 let name = expect_ident(table_def.next());
                 out_s.push_str("#[otspec(with = \"Counted\")]\n");
-                out_s.push_str(&format!("pub {} : Vec<{}>,\n", name, subtype))
+                writeln!(out_s, "pub {} : Vec<{}>,", name, subtype).unwrap();
             } else if t == "Counted32" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
                     .into_iter()
@@ -202,7 +206,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .to_string();
                 let name = expect_ident(table_def.next());
                 out_s.push_str("#[otspec(with = \"Counted32\")]\n");
-                out_s.push_str(&format!("pub {} : Vec<{}>,\n", name, subtype))
+                writeln!(out_s, "pub {} : Vec<{}>,", name, subtype).unwrap();
             } else if t == "Offset16" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
                     .into_iter()
@@ -210,7 +214,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .unwrap()
                     .to_string();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&format!("pub {} : Offset16<{}>,\n", name, subtype))
+                writeln!(out_s, "pub {} : Offset16<{}>,", name, subtype).unwrap();
             } else if t == "Offset32" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
                     .into_iter()
@@ -218,7 +222,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .unwrap()
                     .to_string();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&format!("pub {} : Offset32<{}>,\n", name, subtype))
+                writeln!(out_s, "pub {} : Offset32<{}>,", name, subtype).unwrap();
             } else if t == "CountedOffset16" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
                     .into_iter()
@@ -227,7 +231,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .to_string();
                 let name = expect_ident(table_def.next());
                 out_s.push_str("#[otspec(with = \"Counted\")]\n");
-                out_s.push_str(&format!("pub {} : VecOffset16<{}>,\n", name, subtype))
+                writeln!(out_s, "pub {} : VecOffset16<{}>,", name, subtype).unwrap();
             } else if t == "CountedOffset32" {
                 let subtype = expect_group(table_def.next(), Delimiter::Parenthesis)
                     .into_iter()
@@ -236,14 +240,14 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
                     .to_string();
                 let name = expect_ident(table_def.next());
                 out_s.push_str("#[otspec(with = \"Counted\")]\n");
-                out_s.push_str(&format!("pub {} : VecOffset32<{}>,\n", name, subtype))
+                writeln!(out_s, "pub {} : VecOffset32<{}>,", name, subtype).unwrap();
             } else if let Some(nonspecial_type) = special_type(&t) {
-                out_s.push_str(&format!("#[otspec(with = \"{}\")]\n", t));
+                writeln!(out_s, "#[otspec(with = \"{}\")]", t).unwrap();
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&format!("pub {} : {},\n", name, nonspecial_type))
+                writeln!(out_s, "pub {} : {},", name, nonspecial_type).unwrap();
             } else {
                 let name = expect_ident(table_def.next());
-                out_s.push_str(&format!("pub {} : {},\n", name, t))
+                writeln!(out_s, "pub {} : {},", name, t).unwrap();
             }
         }
         out_s.push('}');

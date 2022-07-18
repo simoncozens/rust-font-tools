@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::fmt::Write as _; // import without risk of name clashing
 
 /// An enum representing a property list.
 #[derive(Clone, Debug, PartialEq)]
@@ -357,13 +358,13 @@ impl Plist {
             }
             Plist::String(st) => escape_string(s, st),
             Plist::Integer(i) => {
-                s.push_str(&format!("{}", i));
+                write!(s, "{}", i).unwrap();
             }
             Plist::Float(f) => {
-                s.push_str(&format!("{}", f));
+                write!(s, "{}", f).unwrap();
             }
             Plist::Node((x, y, t)) => {
-                s.push_str(&format!("({},{},{})", x, y, t));
+                write!(s, "({},{},{})", x, y, t).unwrap();
             }
         }
     }
