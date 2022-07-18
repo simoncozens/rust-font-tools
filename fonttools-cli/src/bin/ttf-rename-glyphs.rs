@@ -22,7 +22,13 @@ fn main() {
     env_logger::init();
     let matches = App::new("ttf-rename-glyphs")
         .about("Renames glyphs to production")
-        .arg(Arg::with_name("drop-names").short("d").required(false))
+        .arg(
+            Arg::with_name("drop-names")
+                .short("d")
+                .long("drop-names")
+                .required(false)
+                .help("Drop glyph names"),
+        )
         .arg(
             Arg::with_name("INPUT")
                 .help("Sets the input file to use")
@@ -58,8 +64,8 @@ fn main() {
                     build_production_name(&glyphnames[i as usize], reversed_map.get(&i));
                 glyphnames[i as usize] = prod_name;
             }
-            infont.tables.insert(post);
         }
+        infont.tables.insert(post);
     }
 
     save_font(infont, &matches);
