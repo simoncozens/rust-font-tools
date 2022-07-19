@@ -215,7 +215,7 @@ struct ConvertedMaster {
     width: i32,
 }
 
-impl<'a> ConvertedMaster {
+impl ConvertedMaster {
     fn gvar_coords(&self) -> ndarray::Array2<f32> {
         let width = self.width;
         // Flatten all points (i.e. combine all contours together) in the glyph

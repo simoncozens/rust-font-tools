@@ -14,7 +14,7 @@ impl From<&norad::Anchor> for Anchor {
                 .name
                 .as_ref()
                 .map(|x| x.to_string())
-                .unwrap_or("<Unnamed anchor>".to_string()),
+                .unwrap_or_else(|| "<Unnamed anchor>".to_string()),
         }
     }
 }

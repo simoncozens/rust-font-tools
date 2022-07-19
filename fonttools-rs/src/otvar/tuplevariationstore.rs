@@ -153,7 +153,7 @@ impl Serialize for TupleVariationStore {
         // Shared points go here
 
         #[allow(clippy::vec_init_then_push)]
-        let _ = serialized_data_block.push(0); // This is dummy code
+        serialized_data_block.push(0); // This is dummy code
 
         let mut last_delta_len = serialized_data_block.len();
         for var in &self.0 {
