@@ -1,0 +1,32 @@
+[workspace]
+[package]
+name = "glyphcompiler"
+version = "0.0.1"
+authors = ["Simon Cozens <simon@simon-cozens.org>"]
+edition = "2018"
+description = "Fast glyph compiler for Python"
+repository = "https://github.com/simoncozens/glyphcompiler"
+exclude = ["dist/*"]
+
+[dependencies]
+fonttools = { path = "../fonttools-rs", features = ["rayon"], version = "0" }
+babelfont = { path = "../babelfont-rs",  version = "0" }
+kurbo = "0.8.2"
+rayon = "1.0.1"
+otmath = { path = "../otmath" }
+unzip-n = "0.1.2"
+ndarray = "0.15.1"
+log = "0.4.14"
+
+[lib]
+crate-type = ["cdylib"]
+
+[package.metadata.maturin]
+classifier = [
+  "Programming Language :: Rust",
+  "Topic :: Multimedia :: Graphics :: Editors :: Vector-Based",
+]
+
+[dependencies.pyo3]
+version = "0.12.2"
+features = ["extension-module"]

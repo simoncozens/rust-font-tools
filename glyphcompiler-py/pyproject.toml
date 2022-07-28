@@ -1,0 +1,14 @@
+name = "glyphcompiler"
+version = "0.0.1"
+authors = ["Simon Cozens <simon@simon-cozens.org>"]
+description = "Fast glyph compiler for Python"
+readme = "README.md"
+
+[project]
+dependencies = ["fontTools"]
+dev-dependencies = ["ufoLib2~=0.11.0", "defcon==0.8.1"]
+name = "glyphcompiler"
+
+[build-system]
+requires = ["maturin>=0.10,<0.11"]
+build-backend = "maturin"
