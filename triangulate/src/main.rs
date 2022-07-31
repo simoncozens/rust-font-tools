@@ -1,13 +1,16 @@
 //! Interpolate an instance UFO in a designspace
 use clap::Parser;
 use designspace::Designspace;
-use norad::Glyph;
+use norad::{Font, Glyph, Name};
 use otmath::{ot_round, support_scalar, Location, VariationModel};
 use rayon::prelude::*;
 use regex::Regex;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::path::Path;
+
+mod kerning;
+use crate::kerning::interpolate_kerning;
 
 /// Interpolate an instance UFO in a designspace
 #[derive(Parser, Debug)]
@@ -105,10 +108,8 @@ fn main() {
         .par_iter()
         .map(|s| s.ufo(Path::new(&args.input)).expect("Couldn't load UFO"))
         .collect();
-
-    let mut output_ufo = ds
-        .default_master()
-        .expect("Can't find default master")
+    let default_master = ds.default_master().expect("Can't find default master");
+    let mut output_ufo = default_master
         .ufo(Path::new(&args.input))
         .expect("Couldn't load UFO");
     log::info!("Source locations: {:?}", source_locations);
@@ -126,6 +127,9 @@ fn main() {
         interpolate_components(g, &others, &vm, &target_location);
         interpolate_advance_widths(g, &others, &vm, &target_location);
     }
+
+    interpolate_kerning(&mut output_ufo, &source_ufos, &vm, &target_location);
+
     if let Some(p) = args.output {
         println!("Saved on {}", p);
         output_ufo.save(p).expect("Couldn't save UFO");
