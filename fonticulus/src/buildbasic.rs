@@ -60,6 +60,7 @@ pub fn build_font(
 ) -> font::Font {
     add_notdef(input);
     decompose_mixed_glyphs(input);
+    decompose_overflowing_components(input);
 
     // First, find the glyphs we're dealing with
     let mut codepoint_to_gid: BTreeMap<u32, u16> = BTreeMap::new();
@@ -191,10 +192,8 @@ fn decomposed_components(layer: &Layer, font: &Font) -> Vec<Path> {
     let mut contours = Vec::new();
 
     let mut stack: Vec<(&Component, kurbo::Affine)> = Vec::new();
-
     for component in layer.components() {
         stack.push((component, component.transform));
-
         while let Some((component, transform)) = stack.pop() {
             let referenced_glyph = match font.glyphs.get(&component.reference) {
                 Some(g) => g,
@@ -219,7 +218,8 @@ fn decomposed_components(layer: &Layer, font: &Font) -> Vec<Path> {
                 contours.push(decomposed_contour);
             }
 
-            // We need to do this backwards.
+            // Depth-first decomposition means we need to extend the stack reversed, so
+            // the first component is taken out next.
             for new_component in new_outline.components().rev() {
                 let new_transform: kurbo::Affine = new_component.transform;
                 stack.push((new_component, transform * new_transform));
@@ -253,5 +253,59 @@ fn decompose_mixed_glyphs(input: &mut babelfont::Font) {
                 }
             }
         }
+    }
+}
+
+/// Decomposes glyphs whose component transformations do not fit into F2DOT14 values.
+///
+/// This means any scaling value outside the range [-2, ~1.999939]. The upper bound is a
+/// special case due to the asymmetry of the data type. Values between the upper limit
+/// and 2 are clamped to the actual upper limit so we can avoid decomposing the glyph,
+/// to save some bytes for no perceptual loss.
+///
+/// Only to be used if the output target is a `glyf` table.
+fn decompose_overflowing_components(input: &mut babelfont::Font) {
+    const MAX_F2DOT14: f64 = 0x7FFF as f64 / (1 << 14) as f64;
+
+    // Round 1: Clamp all values MAX_F2DOT14 > value <= 2 to MAX_F2DOT14 and remember all other glyphs
+    // with components that go beyond the F2DOT14 range, to decompose in round 2.
+    let mut glyphs_to_be_decomposed = Vec::new();
+    'next_glyph: for (index, glyph) in input.glyphs.iter_mut().enumerate() {
+        for layer in &mut glyph.layers {
+            for component in layer.components_mut() {
+                let mut transform = component.transform.as_coeffs();
+                for coeff in transform[..4].iter_mut() {
+                    if *coeff > MAX_F2DOT14 && *coeff <= 2.0 {
+                        *coeff = MAX_F2DOT14
+                    } else if *coeff < -2.0 || *coeff > 2.0 {
+                        glyphs_to_be_decomposed.push(index);
+                        continue 'next_glyph;
+                    }
+                }
+                component.transform = kurbo::Affine::new(transform);
+            }
+        }
+    }
+
+    // Round 2: Decompose glyphs where even one scaling value falls outside the range.
+    for glyph_index in glyphs_to_be_decomposed {
+        // Note: decompose layers first and shove them into the glyph afterwards to
+        // dance around the borrow checker: decomposed_components needs &Font but we'd
+        // hold a &mut to a glyph within.
+        let mut decomposed_layers = Vec::new();
+        let glyph = &input.glyphs[glyph_index];
+        for layer in glyph.layers.iter() {
+            let decomposed_layer = decomposed_components(layer, input);
+            decomposed_layers.push(decomposed_layer);
+        }
+
+        let glyph = &mut input.glyphs[glyph_index];
+        for (layer, decomposed_paths) in glyph.layers.iter_mut().zip(decomposed_layers) {
+            for path in decomposed_paths {
+                layer.push_path(path);
+            }
+            layer.clear_components();
+        }
+        log::info!("Decomposed overflowing composite glyph {:?}", glyph.name);
     }
 }
