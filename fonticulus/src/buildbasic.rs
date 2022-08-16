@@ -58,9 +58,7 @@ pub fn build_font(
     subset: &Option<HashSet<String>>,
     just_one_master: Option<usize>,
 ) -> font::Font {
-    add_notdef(input);
-    decompose_mixed_glyphs(input);
-    decompose_overflowing_components(input);
+    preprocess_font(input);
 
     // First, find the glyphs we're dealing with
     let mut codepoint_to_gid: BTreeMap<u32, u16> = BTreeMap::new();
@@ -108,14 +106,6 @@ pub fn build_font(
             if subset.is_some() && !subset.as_ref().unwrap().contains(&glif.name.to_string()) {
                 return None;
             }
-
-            // We do need to do this at some point, but we have to get decomposition
-            // working properly first. That can come later, but for now it's
-            // just breaking things, so export everything.
-
-            // if !glif.exported {
-            //     return None;
-            // }
 
             let all_layers: Vec<Option<&Layer>> = if just_one_master.is_none() {
                 // Find all layers for this glyph across the designspace
@@ -188,6 +178,36 @@ pub fn build_font(
     font
 }
 
+/// Runs various filters on the source to prepare them for compilation into a TrueType
+/// font.
+fn preprocess_font(input: &mut Font) {
+    // First, prune all non-export glyphs. This requires that glyphs that use them are
+    // decomposed.
+    let glyphs_to_decompose = mark_skipped_glyphs_dependents(input);
+    decompose_glyph_indices(&glyphs_to_decompose, input, &|name| {
+        log::info!(
+            "Decomposed glyph {:?} because a component isn't exported",
+            name
+        )
+    });
+    input.glyphs.retain(|glyph| glyph.exported);
+
+    // We can now add a notdef glyph, in case it was marked as non-export in the source.
+    add_notdef(input);
+
+    // Mixed glyphs are not supported by the `glyf` table.
+    let glyphs_to_decompose = mark_mixed_glyphs(input);
+    decompose_glyph_indices(&glyphs_to_decompose, input, &|name| {
+        log::info!("Decomposed mixed glyph {:?}", name)
+    });
+
+    // The `glyf` table limits component transformation scale values to [-2, 2].
+    let glyphs_to_decompose = mark_overflowing_components(input);
+    decompose_glyph_indices(&glyphs_to_decompose, input, &|name| {
+        log::info!("Decomposed overflowing composite glyph {:?}", name)
+    });
+}
+
 fn decomposed_components(layer: &Layer, font: &Font) -> Vec<Path> {
     let mut contours = Vec::new();
 
@@ -230,33 +250,76 @@ fn decomposed_components(layer: &Layer, font: &Font) -> Vec<Path> {
     contours
 }
 
-fn decompose_mixed_glyphs(input: &mut babelfont::Font) {
-    for master in &input.masters {
-        let mut decomposed: BTreeMap<String, Vec<babelfont::Path>> = BTreeMap::new();
-        for glif in input.glyphs.iter() {
-            if let Some(layer) = glif.get_layer(&master.id) {
-                decomposed.insert(glif.name.to_string(), decomposed_components(layer, input));
-            }
+/// Decomposes glyphs in-place by their index and calls logger with the processed glyph
+/// name.
+fn decompose_glyph_indices(glyphs_to_decompose: &[usize], font: &mut Font, logger: &dyn Fn(&str)) {
+    for glyph_index in glyphs_to_decompose {
+        // Note: decompose layers first and shove them into the glyph afterwards to
+        // dance around the borrow checker: decomposed_components needs &Font but we'd
+        // hold a &mut to a glyph within.
+        let mut decomposed_layers = Vec::new();
+        let glyph = &font.glyphs[*glyph_index];
+        for layer in glyph.layers.iter() {
+            let decomposed_layer = decomposed_components(layer, font);
+            decomposed_layers.push(decomposed_layer);
         }
-        for glif in input.glyphs.iter_mut() {
-            let name = glif.name.to_string();
-            if let Some(layer) = glif.get_layer_mut(&master.id) {
-                if !layer.has_components() || !layer.has_paths() {
-                    continue;
-                }
-                if let Some(contours) = decomposed.get(&name) {
-                    for c in contours {
-                        layer.push_path(c.clone());
-                    }
-                    layer.clear_components();
-                    log::info!("Decomposed mixed glyph {:?}", glif.name);
-                }
+
+        let glyph = &mut font.glyphs[*glyph_index];
+        for (layer, decomposed_paths) in glyph.layers.iter_mut().zip(decomposed_layers) {
+            for path in decomposed_paths {
+                layer.push_path(path);
             }
+            layer.clear_components();
         }
+
+        logger(&glyph.name);
     }
 }
 
-/// Decomposes glyphs whose component transformations do not fit into F2DOT14 values.
+/// Returns the indices of glyphs that need to be decomposed, because components they
+/// are using are not being exported.
+fn mark_skipped_glyphs_dependents(input: &babelfont::Font) -> Vec<usize> {
+    let skipped_glyphs: HashSet<&str> = input
+        .glyphs
+        .iter()
+        .filter(|g| !g.exported)
+        .map(|g| g.name.as_ref())
+        .collect();
+
+    let mut glyphs_to_decompose = Vec::new();
+    'next_glyph: for (index, glyph) in input.glyphs.iter().enumerate() {
+        for layer in &glyph.layers {
+            if layer
+                .components()
+                .any(|c| skipped_glyphs.contains(&c.reference.as_ref()))
+            {
+                glyphs_to_decompose.push(index);
+                continue 'next_glyph;
+            }
+        }
+    }
+
+    glyphs_to_decompose
+}
+
+/// Returns the indices of glyphs that need to be decomposed because they have both
+/// paths and components.
+fn mark_mixed_glyphs(input: &babelfont::Font) -> Vec<usize> {
+    let mut glyphs_to_decompose = Vec::new();
+    'next_glyph: for (index, glyph) in input.glyphs.iter().enumerate() {
+        for layer in &glyph.layers {
+            if layer.has_paths() && layer.has_components() {
+                glyphs_to_decompose.push(index);
+                continue 'next_glyph;
+            }
+        }
+    }
+
+    glyphs_to_decompose
+}
+
+/// Returns the indices of glyphs that need to be decomposed because their component
+/// transformations do not fit into F2DOT14 values.
 ///
 /// This means any scaling value outside the range [-2.0, 2.0]. The upper bound is
 /// actually ~1.999939, but 2.0 will be clamped down to the upper bound later when
@@ -264,17 +327,15 @@ fn decompose_mixed_glyphs(input: &mut babelfont::Font) {
 /// perceptual loss.
 ///
 /// Only to be used if the output target is a `glyf` table.
-fn decompose_overflowing_components(input: &mut babelfont::Font) {
-    // Round 1: Remember all glyphs with components that go beyond the F2DOT14 range, to
-    // decompose in round 2.
-    let mut glyphs_to_be_decomposed = Vec::new();
+fn mark_overflowing_components(input: &babelfont::Font) -> Vec<usize> {
+    let mut glyphs_to_decompose = Vec::new();
     'next_glyph: for (index, glyph) in input.glyphs.iter().enumerate() {
         for layer in &glyph.layers {
             for component in layer.components() {
                 let transform = component.transform.as_coeffs();
                 for coeff in transform[..4].iter() {
                     if *coeff < -2.0 || *coeff > 2.0 {
-                        glyphs_to_be_decomposed.push(index);
+                        glyphs_to_decompose.push(index);
                         continue 'next_glyph;
                     }
                 }
@@ -282,25 +343,5 @@ fn decompose_overflowing_components(input: &mut babelfont::Font) {
         }
     }
 
-    // Round 2: Decompose glyphs where even one scaling value falls outside the range.
-    for glyph_index in glyphs_to_be_decomposed {
-        // Note: decompose layers first and shove them into the glyph afterwards to
-        // dance around the borrow checker: decomposed_components needs &Font but we'd
-        // hold a &mut to a glyph within.
-        let mut decomposed_layers = Vec::new();
-        let glyph = &input.glyphs[glyph_index];
-        for layer in glyph.layers.iter() {
-            let decomposed_layer = decomposed_components(layer, input);
-            decomposed_layers.push(decomposed_layer);
-        }
-
-        let glyph = &mut input.glyphs[glyph_index];
-        for (layer, decomposed_paths) in glyph.layers.iter_mut().zip(decomposed_layers) {
-            for path in decomposed_paths {
-                layer.push_path(path);
-            }
-            layer.clear_components();
-        }
-        log::info!("Decomposed overflowing composite glyph {:?}", glyph.name);
-    }
+    glyphs_to_decompose
 }
