@@ -110,9 +110,12 @@ impl From<Fixed> for f32 {
 pub struct F2DOT14(pub f32);
 
 impl F2DOT14 {
+    const MAX: f32 = 1.999939;
+
     pub fn as_packed(&self) -> Result<i16, std::num::TryFromIntError> {
         ot_round(self.0 * 16384.0).try_into()
     }
+
     pub fn from_packed(packed: i16) -> Self {
         F2DOT14(packed as f32 / 16384.0)
     }
@@ -168,8 +171,20 @@ impl Deserialize for F2DOT14 {
 }
 
 impl From<f32> for F2DOT14 {
+    /// Convert a f32 into an F2DOT14.
+    ///
+    /// The target type's upper bound is 1.999939 rather than 2, so as a special case,
+    /// values 1.999939 > v <= 2 are clamped to 1.999939. This allows us to keep some
+    /// composites as is when one of their scaling values happens to be exactly 2.0,
+    /// with no perceptual loss.
+    ///
+    /// The valid range is [-2.0, 2.0]. This should be enforced in the future.
     fn from(num: f32) -> Self {
-        Self(num)
+        if num > Self::MAX && num <= 2.0 {
+            Self(Self::MAX)
+        } else {
+            Self(num)
+        }
     }
 }
 impl From<F2DOT14> for f32 {
@@ -252,3 +267,20 @@ impl From<LONGDATETIME> for chrono::NaiveDateTime {
 
 pub use crate::offsets::{Offset16, Offset32, VecOffset, VecOffset16, VecOffset32};
 // OK, the offset type is going to be terrifying.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_f2dot14_range() {
+        assert_eq!(F2DOT14::from_packed(i16::MAX).0, F2DOT14::MAX);
+        assert_eq!(F2DOT14::from_packed(0x7000).0, 1.75);
+        assert_eq!(F2DOT14::from_packed(0x0000).0, 0.0);
+        assert_eq!(F2DOT14::from_packed(i16::MIN).0, -2.0);
+
+        assert_eq!(F2DOT14::from(2.0), F2DOT14(F2DOT14::MAX));
+        assert_eq!(F2DOT14::from(1.99999), F2DOT14(F2DOT14::MAX));
+        assert_eq!(F2DOT14::from(1.9), F2DOT14(1.9));
+    }
+}

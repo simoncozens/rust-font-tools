@@ -258,26 +258,22 @@ fn decompose_mixed_glyphs(input: &mut babelfont::Font) {
 
 /// Decomposes glyphs whose component transformations do not fit into F2DOT14 values.
 ///
-/// This means any scaling value outside the range [-2, ~1.999939]. The upper bound is a
-/// special case due to the asymmetry of the data type. Values between the upper limit
-/// and 2 are clamped to the actual upper limit so we can avoid decomposing the glyph,
-/// to save some bytes for no perceptual loss.
+/// This means any scaling value outside the range [-2.0, 2.0]. The upper bound is
+/// actually ~1.999939, but 2.0 will be clamped down to the upper bound later when
+/// serializing, so we can avoid decomposing the glyph to save some bytes for no
+/// perceptual loss.
 ///
 /// Only to be used if the output target is a `glyf` table.
 fn decompose_overflowing_components(input: &mut babelfont::Font) {
-    const MAX_F2DOT14: f64 = 0x7FFF as f64 / (1 << 14) as f64;
-
-    // Round 1: Clamp all values MAX_F2DOT14 > value <= 2 to MAX_F2DOT14 and remember all other glyphs
-    // with components that go beyond the F2DOT14 range, to decompose in round 2.
+    // Round 1: Remember all glyphs with components that go beyond the F2DOT14 range, to
+    // decompose in round 2.
     let mut glyphs_to_be_decomposed = Vec::new();
     'next_glyph: for (index, glyph) in input.glyphs.iter_mut().enumerate() {
         for layer in &mut glyph.layers {
             for component in layer.components_mut() {
                 let mut transform = component.transform.as_coeffs();
                 for coeff in transform[..4].iter_mut() {
-                    if *coeff > MAX_F2DOT14 && *coeff <= 2.0 {
-                        *coeff = MAX_F2DOT14
-                    } else if *coeff < -2.0 || *coeff > 2.0 {
+                    if *coeff < -2.0 || *coeff > 2.0 {
                         glyphs_to_be_decomposed.push(index);
                         continue 'next_glyph;
                     }
