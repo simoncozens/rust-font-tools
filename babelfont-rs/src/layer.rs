@@ -46,16 +46,6 @@ impl Layer {
         })
     }
 
-    pub fn components_mut(&mut self) -> impl DoubleEndedIterator<Item = &mut Component> {
-        self.shapes.iter_mut().filter_map(|x| {
-            if let Shape::ComponentShape(c) = x {
-                Some(c)
-            } else {
-                None
-            }
-        })
-    }
-
     pub fn paths(&self) -> impl DoubleEndedIterator<Item = &Path> {
         self.shapes.iter().filter_map(|x| {
             if let Shape::PathShape(p) = x {

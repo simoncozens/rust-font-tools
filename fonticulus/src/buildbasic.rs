@@ -268,17 +268,16 @@ fn decompose_overflowing_components(input: &mut babelfont::Font) {
     // Round 1: Remember all glyphs with components that go beyond the F2DOT14 range, to
     // decompose in round 2.
     let mut glyphs_to_be_decomposed = Vec::new();
-    'next_glyph: for (index, glyph) in input.glyphs.iter_mut().enumerate() {
-        for layer in &mut glyph.layers {
-            for component in layer.components_mut() {
-                let mut transform = component.transform.as_coeffs();
-                for coeff in transform[..4].iter_mut() {
+    'next_glyph: for (index, glyph) in input.glyphs.iter().enumerate() {
+        for layer in &glyph.layers {
+            for component in layer.components() {
+                let transform = component.transform.as_coeffs();
+                for coeff in transform[..4].iter() {
                     if *coeff < -2.0 || *coeff > 2.0 {
                         glyphs_to_be_decomposed.push(index);
                         continue 'next_glyph;
                     }
                 }
-                component.transform = kurbo::Affine::new(transform);
             }
         }
     }
