@@ -22,7 +22,7 @@ fn get_glyph_names_and_mapping(
     input: &babelfont::Font,
     codepoint_to_gid: &mut BTreeMap<u32, u16>,
     name_to_id: &mut BTreeMap<String, u16>,
-    subset: &Option<HashSet<String>>,
+    subset: Option<&HashSet<&str>>,
 ) -> Vec<String> {
     let mut names: Vec<String> = vec![];
 
@@ -37,7 +37,7 @@ fn get_glyph_names_and_mapping(
         if name == ".notdef" {
             continue;
         }
-        if subset.is_some() && !subset.as_ref().unwrap().contains(&name) {
+        if !glyph_is_included(name.as_str(), subset) {
             continue;
         }
         let glyph_id = names.len();
@@ -55,15 +55,16 @@ fn get_glyph_names_and_mapping(
 // This builds a complete variable font
 pub fn build_font(
     input: &mut babelfont::Font,
-    subset: &Option<HashSet<String>>,
+    subset: Option<&HashSet<&str>>,
     just_one_master: Option<usize>,
 ) -> font::Font {
-    preprocess_font(input);
+    preprocess_font(input, subset);
 
     // First, find the glyphs we're dealing with
     let mut codepoint_to_gid: BTreeMap<u32, u16> = BTreeMap::new();
     let mut name_to_id: BTreeMap<String, u16> = BTreeMap::new();
     let names = get_glyph_names_and_mapping(input, &mut codepoint_to_gid, &mut name_to_id, subset);
+    debug_assert!(names.iter().all(|n| glyph_is_included(n.as_str(), subset)));
 
     let true_model = input
         .variation_model()
@@ -103,7 +104,7 @@ pub fn build_font(
     let result: Vec<(glyf::Glyph, hmtx::Metric, Option<GlyphVariationData>)> = glyph_iter
         .map(|glif| {
             // If we are subsetting, check if we are included in the subset
-            if subset.is_some() && !subset.as_ref().unwrap().contains(&glif.name.to_string()) {
+            if !glyph_is_included(glif.name.as_str(), subset) {
                 return None;
             }
 
@@ -180,17 +181,19 @@ pub fn build_font(
 
 /// Runs various filters on the source to prepare them for compilation into a TrueType
 /// font.
-fn preprocess_font(input: &mut Font) {
+fn preprocess_font(input: &mut Font, subset: Option<&HashSet<&str>>) {
     // First, prune all non-export glyphs. This requires that glyphs that use them are
     // decomposed.
-    let glyphs_to_decompose = mark_skipped_glyphs_dependents(input);
+    let glyphs_to_decompose = mark_skipped_glyphs_dependents(input, subset);
     decompose_glyph_indices(&glyphs_to_decompose, input, &|name| {
         log::info!(
             "Decomposed glyph {:?} because a component isn't exported",
             name
         )
     });
-    input.glyphs.retain(|glyph| glyph.exported);
+    input
+        .glyphs
+        .retain(|glyph| glyph.exported && glyph_is_included(glyph.name.as_str(), subset));
 
     // We can now add a notdef glyph, in case it was marked as non-export in the source.
     add_notdef(input);
@@ -276,18 +279,36 @@ fn decompose_glyph_indices(glyphs_to_decompose: &[usize], font: &mut Font, logge
     }
 }
 
+/// Returns whether a glyph name is included in a subset.
+///
+/// Always considers a glyph included if the subset is `None`.
+fn glyph_is_included(glyph_name: &str, subset: Option<&HashSet<&str>>) -> bool {
+    subset.map(|s| s.contains(glyph_name)).unwrap_or(true)
+}
+
 /// Returns the indices of glyphs that need to be decomposed, because components they
 /// are using are not being exported.
-fn mark_skipped_glyphs_dependents(input: &babelfont::Font) -> Vec<usize> {
+fn mark_skipped_glyphs_dependents(
+    input: &babelfont::Font,
+    subset: Option<&HashSet<&str>>,
+) -> Vec<usize> {
+    // Collect all glyph names that are not exported according to the source.
     let skipped_glyphs: HashSet<&str> = input
         .glyphs
         .iter()
-        .filter(|g| !g.exported)
+        .filter(|glyph| !glyph.exported || !glyph_is_included(glyph.name.as_str(), subset))
         .map(|g| g.name.as_ref())
         .collect();
 
+    // Only consider glyphs for decomposition that are actually included in the subset,
+    // if any, otherwise we would decompose glyphs we'd throw away anyway.
     let mut glyphs_to_decompose = Vec::new();
-    'next_glyph: for (index, glyph) in input.glyphs.iter().enumerate() {
+    'next_glyph: for (index, glyph) in input
+        .glyphs
+        .iter()
+        .enumerate() // Enumerate before you filter or you get wrong indices.
+        .filter(|(_, glyph)| glyph_is_included(glyph.name.as_str(), subset))
+    {
         for layer in &glyph.layers {
             if layer
                 .components()
