@@ -14,7 +14,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    /// Only convert the given glyphs (for testing only)
+    /// Only convert the given glyphs (for testing only, always includes .notdef).
     #[clap(short, long)]
     subset: Option<String>,
 
@@ -62,24 +62,25 @@ fn main() {
         },
     ));
 
-    // If we are only handling a subset of the glyphs (usually for debugging
-    // purposes), split that into a set here.
-    let subset: Option<HashSet<String>> = args
-        .subset
-        .as_ref()
-        .map(|x| x.split(',').map(|y| y.to_string()).collect());
+    // If we are only handling a subset of the glyphs (usually for debugging purposes),
+    // split that into a set here. Always include the ".notdef" glyph, because we might
+    // dynamically add it.
+    let mut subset: Option<HashSet<&str>> = args.subset.as_ref().map(|x| x.split(',').collect());
+    if let Some(subset) = &mut subset {
+        subset.insert(".notdef");
+    }
 
     let mut in_font = babelfont::load(&args.input).expect("Couldn't load font");
 
     // --masters means we produce a TTF for each master and don't do interpolation
     if args.masters {
-        create_ttf_per_master(&mut in_font, &subset);
+        create_ttf_per_master(&mut in_font, subset.as_ref());
     } else {
-        create_variable_font(&mut in_font, &subset, &args.output);
+        create_variable_font(&mut in_font, subset.as_ref(), &args.output);
     }
 }
 
-fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: &Option<HashSet<String>>) {
+fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: Option<&HashSet<&str>>) {
     let family_name = in_font
         .names
         .family_name
@@ -112,7 +113,7 @@ fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: &Option<HashSet<
 
 fn create_variable_font(
     in_font: &mut babelfont::Font,
-    subset: &Option<HashSet<String>>,
+    subset: Option<&HashSet<&str>>,
     output: &Option<String>,
 ) {
     let mut out_font;
