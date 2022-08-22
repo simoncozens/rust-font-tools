@@ -7,6 +7,10 @@ mod kerning;
 mod notdef;
 mod utils;
 
+// use rayon::prelude::*;
+use std::collections::HashSet;
+use std::io;
+
 use buildbasic::build_font;
 use clap::Parser;
 
@@ -17,6 +21,10 @@ struct Args {
     /// Only convert the given glyphs (for testing only, always includes .notdef).
     #[clap(short, long)]
     subset: Option<String>,
+
+    /// Skip compiling OpenType Layout and e.g. the `kern` table.
+    #[clap(long)]
+    skip_layout: bool,
 
     /// Don't make a variable font, make a static font for each master
     #[clap(long)]
@@ -29,10 +37,6 @@ struct Args {
     input: String,
     output: Option<String>,
 }
-
-// use rayon::prelude::*;
-use std::collections::HashSet;
-use std::io;
 
 /*
     OK, here is the basic plan:
@@ -74,13 +78,22 @@ fn main() {
 
     // --masters means we produce a TTF for each master and don't do interpolation
     if args.masters {
-        create_ttf_per_master(&mut in_font, subset.as_ref());
+        create_ttf_per_master(&mut in_font, subset.as_ref(), args.skip_layout);
     } else {
-        create_variable_font(&mut in_font, subset.as_ref(), &args.output);
+        create_variable_font(
+            &mut in_font,
+            subset.as_ref(),
+            &args.output,
+            args.skip_layout,
+        );
     }
 }
 
-fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: Option<&HashSet<&str>>) {
+fn create_ttf_per_master(
+    in_font: &mut babelfont::Font,
+    subset: Option<&HashSet<&str>>,
+    skip_layout: bool,
+) {
     let family_name = in_font
         .names
         .family_name
@@ -103,7 +116,7 @@ fn create_ttf_per_master(in_font: &mut babelfont::Font, subset: Option<&HashSet<
         })
         .collect();
     for (ix, master_name) in master_names.iter().enumerate() {
-        let mut out_font = build_font(in_font, subset, Some(ix));
+        let mut out_font = build_font(in_font, subset, Some(ix), skip_layout);
         log::info!("Building {}", master_name);
         out_font
             .save(format!("{}-{}.ttf", family_name, master_name))
@@ -115,16 +128,17 @@ fn create_variable_font(
     in_font: &mut babelfont::Font,
     subset: Option<&HashSet<&str>>,
     output: &Option<String>,
+    skip_layout: bool,
 ) {
     let mut out_font;
     if in_font.masters.len() > 1 {
-        out_font = build_font(in_font, subset, None);
+        out_font = build_font(in_font, subset, None, skip_layout);
         // Ask babelfont to make fvar/avar
         in_font
             .add_variation_tables(&mut out_font)
             .expect("Couldn't add variation tables");
     } else {
-        out_font = build_font(in_font, subset, Some(0));
+        out_font = build_font(in_font, subset, Some(0), skip_layout);
     }
 
     match output {
