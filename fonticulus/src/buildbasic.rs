@@ -57,6 +57,7 @@ pub fn build_font(
     input: &mut babelfont::Font,
     subset: Option<&HashSet<&str>>,
     just_one_master: Option<usize>,
+    skip_layout: bool,
 ) -> font::Font {
     preprocess_font(input, subset);
 
@@ -165,8 +166,10 @@ pub fn build_font(
     let mut font = fill_tables(input, glyf_table, metrics, names, codepoint_to_gid);
 
     // Feature writers (temporary hack)
-    let gpos_table = build_kerning(input, &name_to_id);
-    font.tables.insert(gpos_table);
+    if !skip_layout {
+        let gpos_table = build_kerning(input, &name_to_id);
+        font.tables.insert(gpos_table);
+    }
 
     if just_one_master.is_none() && variations.iter().any(|x| x.is_some()) {
         // Put the gvar table in there
@@ -292,7 +295,8 @@ fn mark_skipped_glyphs_dependents(
     input: &babelfont::Font,
     subset: Option<&HashSet<&str>>,
 ) -> Vec<usize> {
-    // Collect all glyph names that are not exported according to the source.
+    // Collect all glyph names that are not exported according to the source or are not
+    // in the subset. Any leftover glyph that uses any of them must be decomposed.
     let skipped_glyphs: HashSet<&str> = input
         .glyphs
         .iter()
