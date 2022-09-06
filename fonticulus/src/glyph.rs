@@ -42,12 +42,6 @@ impl<'a> GlyphForConversion<'a> {
             self.glif_name
         );
 
-        let mut result = GlyphReadyToGo {
-            masters: vec![],
-            default_master_ix: self.default_master_ix,
-            model: self.model,
-            glif_name: self.glif_name,
-        };
         /* OK, we're doing the contours of a variable font. Some of the masters
         may be sparse, i.e. not containing a layer for this glyph. We will
         keep the indices around for when we have to filter them out. */
@@ -57,18 +51,20 @@ impl<'a> GlyphForConversion<'a> {
         // Check for path count compatibility
         let default_path_count = self.default_master().babelfont_contours.len();
 
+        let mut work_masters = vec![];
         for (ix, m) in self.masters.iter_mut().enumerate() {
-            if let Some(m) = m {
+            let master = if let Some(m) = m {
                 indexes_of_nonsparse_masters.push(ix);
                 nonsparse_masters.push(m);
-                result.masters.push(Some(ConvertedMaster {
+                Some(ConvertedMaster {
                     glyf_contours: vec![],
                     components: (*m.components).to_vec(),
                     width: m.width,
-                }))
+                })
             } else {
-                result.masters.push(None);
-            }
+                None
+            };
+            work_masters.push(master);
             if ix == self.default_master_ix {
                 index_of_default_master_in_nonsparse_list =
                     Some(indexes_of_nonsparse_masters.len() - 1);
@@ -104,15 +100,21 @@ impl<'a> GlyphForConversion<'a> {
                 .iter()
                 .zip(indexes_of_nonsparse_masters.iter())
             {
-                assert!(result.masters[master_id].is_some());
-                result.masters[master_id]
+                assert!(work_masters[master_id].is_some());
+                work_masters[master_id]
                     .as_mut()
                     .unwrap()
                     .glyf_contours
                     .push(finished_contour.clone());
             }
         }
-        result
+
+        GlyphReadyToGo {
+            masters: work_masters,
+            default_master_ix: self.default_master_ix,
+            model: self.model,
+            glif_name: self.glif_name,
+        }
     }
 
     /// Drop all variation masters
@@ -152,6 +154,7 @@ impl<'a> GlyphReadyToGo<'a> {
             mem::replace(&mut self.masters[self.default_master_ix], None);
         l.unwrap().into_glyph()
     }
+
     fn variation_data(&self) -> Option<GlyphVariationData> {
         self.model?;
         let model = self.model.as_ref().unwrap();
@@ -406,7 +409,11 @@ fn babelfont_contours_to_glyf_contours(
                             });
                         }
                         PathEl::CurveTo(_, _, _) => {
-                            log::error!("Why is there a cubic in {}? (fonticulus bug)", glif_name);
+                            log::error!(
+                                "Why is there a cubic in {}, path index {}? (fonticulus bug)",
+                                glif_name,
+                                path_index
+                            );
                             return GlyphContour::new();
                         }
                         PathEl::ClosePath => {
