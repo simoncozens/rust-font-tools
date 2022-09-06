@@ -53,18 +53,18 @@ impl<'a> GlyphForConversion<'a> {
 
         let mut work_masters = vec![];
         for (ix, m) in self.masters.iter_mut().enumerate() {
-            let master = if let Some(m) = m {
+            if let Some(m) = m {
                 indexes_of_nonsparse_masters.push(ix);
                 nonsparse_masters.push(m);
-                Some(ConvertedMaster {
+                let master = ConvertedMaster {
                     glyf_contours: vec![],
                     components: (*m.components).to_vec(),
                     width: m.width,
-                })
+                };
+                work_masters.push(Some(master));
             } else {
-                None
-            };
-            work_masters.push(master);
+                work_masters.push(None)
+            }
             if ix == self.default_master_ix {
                 index_of_default_master_in_nonsparse_list =
                     Some(indexes_of_nonsparse_masters.len() - 1);
@@ -282,28 +282,29 @@ pub fn layers_to_glyph(
     // and the glyph's name, for debugging purposes
     glif_name: &str,
 ) -> (glyf::Glyph, Option<GlyphVariationData>) {
-    let mut for_conversion = GlyphForConversion {
-        masters: vec![],
-        default_master_ix: default_master,
-        model,
-        glif_name,
-    };
-
+    let mut work_masters = vec![];
     for maybe_layer in masters {
         if let Some(layer) = maybe_layer {
-            for_conversion.masters.push(Some(UnconvertedMaster {
+            let master = UnconvertedMaster {
                 babelfont_contours: layer.paths().collect(),
                 components: layer
                     .components()
                     .flat_map(|component| babelfont_component_to_glyf_component(component, mapping))
                     .collect(),
                 width: layer.width,
-            }));
+            };
+            work_masters.push(Some(master));
         } else {
-            for_conversion.masters.push(None);
+            work_masters.push(None);
         }
     }
 
+    let for_conversion = GlyphForConversion {
+        masters: work_masters,
+        default_master_ix: default_master,
+        model,
+        glif_name,
+    };
     let result: GlyphReadyToGo = for_conversion.convert();
     let variation_data: Option<GlyphVariationData> = result.variation_data();
     (result.into_glyph(), variation_data)
