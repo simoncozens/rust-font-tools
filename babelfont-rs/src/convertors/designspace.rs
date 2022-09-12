@@ -65,6 +65,50 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     Ok(font)
 }
 
+/// Return mapping of source filenames to source UFOs.
+/// 
+/// Sources are loaded once per unique filename, not per unique canonical path.
+fn load_source_ufos<'a>(
+    designspace_path: &Path,
+    sources: &'a [Source],
+) -> Result<HashMap<&'a str, norad::Font>, BabelfontError> {
+    // Distill the unique filenames in use. Keep it as a Vec with stable indices for
+    // zipping later because error propagation in a (rayon) iterator context is
+    // annoying.
+    //
+    // To be truly diligent, filenames should be canonicalized, but then we can't easily
+    // use them as keys unless we canonicalize them in the Source struct.
+    let unique_filenames: Vec<&str> = sources
+        .iter()
+        .map(|source| source.filename.as_str())
+        .collect::<HashSet<&str>>()
+        .into_iter()
+        .collect();
+
+    let source_ufos: Vec<norad::Font> = unique_filenames
+        .par_iter()
+        .map(|filename| construct_source_path(designspace_path, filename))
+        .map(|path| {
+            norad::Font::load(&path).map_err(|orig| BabelfontError::LoadingUFO {
+                orig,
+                path: path.display().to_string(),
+            })
+        })
+        .collect::<Result<_, _>>()?;
+
+    let source_ufos = HashMap::from_iter(unique_filenames.into_iter().zip(source_ufos));
+
+    Ok(source_ufos)
+}
+
+/// Construct the path for a source relative to the Designspace file.
+fn construct_source_path(designspace_path: &Path, filename: &str) -> PathBuf {
+    match designspace_path.parent() {
+        Some(parent_dir) => parent_dir.join(&filename),
+        None => PathBuf::from(&filename),
+    }
+}
+
 fn load_axes(font: &mut Font, axes: &[DSAxis]) {
     for dsax in axes {
         let mut ax = Axis::new(dsax.name.clone(), dsax.tag.clone());
