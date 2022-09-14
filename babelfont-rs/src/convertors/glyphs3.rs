@@ -444,12 +444,12 @@ fn get_codepoints(g: &Plist) -> Vec<usize> {
     }
     let unicode = unicode.unwrap();
     if let Plist::Array(unicodes) = unicode {
-        return unicodes
+        unicodes
             .iter()
             .map(|x| x.as_i32().unwrap_or(0) as usize)
-            .collect();
+            .collect()
     } else {
-        return vec![unicode.as_i32().unwrap_or(0) as usize];
+        vec![unicode.as_i32().unwrap_or(0) as usize]
     }
 }
 
