@@ -26,6 +26,12 @@ pub enum BabelfontError {
         path: String,
     },
 
+    #[snafu(display("Unknown layer {} in source {}", layer_name, filename))]
+    UnknownSourceLayer {
+        layer_name: String,
+        filename: String,
+    },
+
     #[snafu(display("Could not parse XML file {}: {:?}", path.display(), orig))]
     XMLParse {
         orig: serde_xml_rs::Error,

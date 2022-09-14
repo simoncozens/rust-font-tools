@@ -1,23 +1,20 @@
-use crate::convertors::ufo::stat;
-use crate::glyph::GlyphList;
-use crate::Layer;
-use designspace::Source;
-use rayon::prelude::*;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use designspace::{Axis as DSAxis, Designspace, Instance as DSInstance, Source};
+use rayon::prelude::*;
 use uuid::Uuid;
 
 use crate::convertors::ufo::{
-    load_font_info, load_glyphs, load_master_info, norad_glyph_to_babelfont_layer,
+    load_font_info, load_glyphs, load_master_info, norad_glyph_to_babelfont_layer, stat,
 };
 use crate::{Axis, BabelfontError, Font, Location, Master};
 
-use designspace::{Axis as DSAxis, Designspace, Instance as DSInstance};
-
 pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
-    let created_time = stat(&path);
-    let ds_file = File::open(path.clone()).map_err(|source| BabelfontError::IO {
+    let mut font = Font::new();
+
+    let ds_file = File::open(&path).map_err(|source| BabelfontError::IO {
         path: path.clone(),
         source,
     })?;
@@ -26,47 +23,44 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
             path: path.clone(),
             orig,
         })?;
-    let relative = path.parent();
-    let mut font = Font::new();
+
+    let default_source = ds
+        .default_master()
+        .ok_or_else(|| BabelfontError::NoDefaultMaster { path: path.clone() })?;
+
+    let source_ufos = load_source_ufos(&path, &ds.sources.source)?;
+    let default_ufo = &source_ufos[default_source.filename.as_str()];
+    load_glyphs(&mut font, default_ufo);
+
+    let info = &default_ufo.font_info;
+    let created_time = stat(&path);
+    load_font_info(&mut font, info, created_time);
+    font.features = Some(default_ufo.features.clone());
     load_axes(&mut font, &ds.axes.axis);
     if let Some(instances) = &ds.instances {
         load_instances(&mut font, &instances.instance);
     }
-    let default_master = ds
-        .default_master()
-        .ok_or_else(|| BabelfontError::NoDefaultMaster { path: path.clone() })?;
-    let relative_path_to_default_master = if let Some(r) = relative {
-        r.join(default_master.filename.clone())
-    } else {
-        default_master.filename.clone().into()
-    };
-    let default_ufo = norad::Font::load(relative_path_to_default_master).map_err(|e| {
-        BabelfontError::LoadingUFO {
-            orig: e,
-            path: default_master.filename.clone(),
-        }
-    })?;
-    load_glyphs(&mut font, &default_ufo);
-    let res: Vec<(Master, Vec<Vec<Layer>>)> = ds
-        .sources
-        .source
-        .par_iter()
-        .filter_map(|source| load_master(&font.glyphs, &ds, source, relative).ok())
+
+    // Cache glyph indices for insertion, since getting a particular glyph from a
+    // `font.glyph` scans the glyph list linearily. Clone glpyh names so we can pass the
+    // actual font down mutably into load_master.
+    let glyph_index: HashMap<String, usize> = font
+        .glyphs
+        .iter()
+        .enumerate()
+        .map(|(index, glyph)| (glyph.name.clone(), index))
         .collect();
-    for (master, mut layerset) in res {
-        font.masters.push(master);
-        for (g, l) in font.glyphs.iter_mut().zip(layerset.iter_mut()) {
-            g.layers.append(l);
-        }
+
+    // todo: make [glyphname, mut glyph] mapping or else [glyphname, index] mapping for easy glyph lookup for insertion
+    for source in &ds.sources.source {
+        load_master(&mut font, &glyph_index, &ds, source, &source_ufos)?;
     }
-    let info = default_ufo.font_info;
-    load_font_info(&mut font, &info, created_time);
-    font.features = Some(default_ufo.features);
+
     Ok(font)
 }
 
 /// Return mapping of source filenames to source UFOs.
-/// 
+///
 /// Sources are loaded once per unique filename, not per unique canonical path.
 fn load_source_ufos<'a>(
     designspace_path: &Path,
@@ -127,11 +121,12 @@ pub(crate) fn load_instances(_font: &mut Font, _instances: &[DSInstance]) {
 }
 
 fn load_master(
-    glyphs: &GlyphList,
+    font: &mut Font,
+    glyph_index: &HashMap<String, usize>,
     ds: &Designspace,
     source: &Source,
-    relative: Option<&std::path::Path>,
-) -> Result<(Master, Vec<Vec<Layer>>), BabelfontError> {
+    source_ufos: &HashMap<&str, norad::Font>,
+) -> Result<(), BabelfontError> {
     let location = Location(
         ds.axes
             .axis
@@ -140,7 +135,6 @@ fn load_master(
             .zip(ds.location_to_tuple(&source.location))
             .collect(),
     );
-    let required_layer = &source.layer;
     let uuid = Uuid::new_v4().to_string();
 
     let mut master = Master::new(
@@ -151,17 +145,8 @@ fn load_master(
         source.name.as_ref().unwrap_or(&uuid),
         location,
     );
-    let relative_path_to_master = if let Some(r) = relative {
-        r.join(source.filename.clone())
-    } else {
-        source.filename.clone().into()
-    };
 
-    let source_font =
-        norad::Font::load(relative_path_to_master).map_err(|e| BabelfontError::LoadingUFO {
-            path: source.filename.clone(),
-            orig: e,
-        })?;
+    let source_font = &source_ufos[source.filename.as_str()];
     let info = &source_font.font_info;
     load_master_info(&mut master, info);
     let kerning = &source_font.kerning;
@@ -172,24 +157,44 @@ fn load_master(
                 .insert((left.to_string(), right.to_string()), *value as i16);
         }
     }
-    let mut bf_layer_list = vec![];
-    for g in glyphs.iter() {
-        let mut glyph_layer_list = vec![];
-        for layer in source_font.iter_layers() {
-            let layername = layer.name().to_string();
-            // We should probably keep all layers for interchange purposes,
-            // but this is correct for compilation purposes
-            if let Some(wanted) = &required_layer {
-                if &layername != wanted {
-                    continue;
-                }
-            }
 
-            if let Some(norad_glyph) = layer.get_glyph(g.name.as_str()) {
-                glyph_layer_list.push(norad_glyph_to_babelfont_layer(norad_glyph, &master.id))
-            }
+    let source_layer = get_source_layer(source, source_font)?;
+    for source_glyph in source_layer.iter() {
+        let glyph_name = source_glyph.name.as_str();
+        if !glyph_index.contains_key(glyph_name) {
+            log::warn!(
+                "Glyph '{}' in source '{}' is not listed in the default source, skipping.",
+                glyph_name,
+                &source.filename
+            );
+            continue;
         }
-        bf_layer_list.push(glyph_layer_list)
+
+        let converted_layer = norad_glyph_to_babelfont_layer(source_glyph, &master.id);
+        let glyph = &mut font.glyphs.0[glyph_index[glyph_name]];
+        glyph.layers.push(converted_layer);
     }
-    Ok((master, bf_layer_list))
+
+    font.masters.push(master);
+
+    Ok(())
+}
+
+/// Fetch the default or given layer from the source font.
+fn get_source_layer<'a>(
+    source: &Source,
+    source_font: &'a norad::Font,
+) -> Result<&'a norad::Layer, BabelfontError> {
+    match &source.layer {
+        Some(layer_name) => {
+            source_font
+                .layers
+                .get(layer_name)
+                .ok_or(BabelfontError::UnknownSourceLayer {
+                    layer_name: layer_name.clone(),
+                    filename: source.filename.clone(),
+                })
+        }
+        None => Ok(source_font.layers.default_layer()),
+    }
 }
