@@ -136,9 +136,6 @@ impl<'a> GlyphForConversion<'a> {
 }
 
 /// Returns a Vec per layer of a Vec of BezPath per path to be compiled.
-///
-/// A BezPath can contain multiple drawings (i.e. the inner and outer contour of "o"),
-/// so it's a complete glyph drawing.
 fn masters_to_kurbo(nonsparse_masters: &Vec<&UnconvertedMaster>) -> Vec<Vec<BezPath>> {
     nonsparse_masters
         .iter()
