@@ -84,15 +84,20 @@ impl<'a> GlyphForConversion<'a> {
             return self.into_nonvariable().convert();
         }
 
+        // Convert all outlines up front, ordered by nonsparse_masters. The law of
+        // variation says all BezPaths must be of the same length and contain the same
+        // element types in the same order.
+        //
+        // TODO: test equal length, equal types
+        let all_outlines = masters_to_kurbo(&nonsparse_masters);
+
         // Convert path by path
         for index in 0..default_path_count {
-            let all_contours: Vec<&babelfont::Path> = nonsparse_masters
-                .iter()
-                .map(|x| *x.babelfont_contours.get(index).unwrap())
-                .collect();
+            let current_paths: Vec<&BezPath> =
+                all_outlines.iter().map(|paths| &paths[index]).collect();
             let all_glyf_contours = babelfont_contours_to_glyf_contours(
                 index,
-                all_contours,
+                current_paths,
                 index_of_default_master_in_nonsparse_list.unwrap(),
                 self.glif_name,
             );
@@ -128,6 +133,23 @@ impl<'a> GlyphForConversion<'a> {
             glif_name: self.glif_name,
         }
     }
+}
+
+/// Returns a Vec per layer of a Vec of BezPath per path to be compiled.
+///
+/// A BezPath can contain multiple drawings (i.e. the inner and outer contour of "o"),
+/// so it's a complete glyph drawing.
+fn masters_to_kurbo(nonsparse_masters: &Vec<&UnconvertedMaster>) -> Vec<Vec<BezPath>> {
+    nonsparse_masters
+        .iter()
+        .map(|master| {
+            master
+                .babelfont_contours
+                .iter()
+                .map(|path| path.to_kurbo().expect("Bad contour construction"))
+                .collect()
+        })
+        .collect()
 }
 
 #[derive(Default, Debug)]
@@ -282,6 +304,10 @@ pub fn layers_to_glyph(
     // and the glyph's name, for debugging purposes
     glif_name: &str,
 ) -> (glyf::Glyph, Option<GlyphVariationData>) {
+    // Intermediate layers (e.g. layer-sources in a Designspace) get their own master
+    // entry and not all glyphs have layers for all masters. The font-wide variation
+    // model carries information for all masters, though, so we construct a work_masters
+    // Vec that contains None for masters the glyph has no layer for.
     let mut work_masters = vec![];
     for maybe_layer in masters {
         if let Some(layer) = maybe_layer {
@@ -315,7 +341,7 @@ fn babelfont_contours_to_glyf_contours(
     path_index: usize,
 
     // A (non-sparse) list of contours
-    paths: Vec<&babelfont::Path>,
+    paths: Vec<&BezPath>,
 
     // The index of the default master (used as the reference for curve construction)
     default_master: usize,
@@ -323,15 +349,8 @@ fn babelfont_contours_to_glyf_contours(
     // Which glyph this is (for error reporting)
     glif_name: &str,
 ) -> GlyphContour {
-    // Let's first get them all to kurbo elements.
-    let kurbo_paths: Vec<BezPath> = paths
-        .iter()
-        .map(|x| x.to_kurbo().expect("Bad contour construction"))
-        .collect();
-
     // Ensure they are all the same size
-    let lengths: Vec<usize> = kurbo_paths.iter().map(|x| x.elements().len()).collect();
-
+    let lengths: Vec<usize> = paths.iter().map(|x| x.elements().len()).collect();
     if !is_all_same(&lengths) {
         log::error!(
             "Incompatible contour {:} in glyph {:}: {:?}",
@@ -347,12 +366,12 @@ fn babelfont_contours_to_glyf_contours(
     // We're going to turn the list of cubic bezpaths into Vec<Point> expected by Glyf
     let mut quadratic_paths: Vec<Vec<glyf::Point>> = paths.iter().map(|_| vec![]).collect();
 
-    let default_elements: &[PathEl] = kurbo_paths[default_master].elements();
+    let default_elements: &[PathEl] = paths[default_master].elements();
     for (el_ix, el) in default_elements.iter().enumerate() {
         match el {
             PathEl::CurveTo(_, _, _) => {
                 // Convert all the cubics to quadratics in one go, across masters
-                let all_curves: Vec<CubicBez> = kurbo_paths
+                let all_curves: Vec<CubicBez> = paths
                     .iter()
                     .filter_map(|x| match x.get_seg(el_ix).unwrap() {
                         PathSeg::Cubic(c) => Some(c),
@@ -389,7 +408,7 @@ fn babelfont_contours_to_glyf_contours(
             }
             _ => {
                 for (c_ix, contour) in quadratic_paths.iter_mut().enumerate() {
-                    let this_path_el = kurbo_paths[c_ix].elements()[el_ix];
+                    let this_path_el = paths[c_ix].elements()[el_ix];
                     match this_path_el {
                         PathEl::MoveTo(pt) | PathEl::LineTo(pt) => contour.push(glyf::Point {
                             x: ot_round(pt.x) as i16,
