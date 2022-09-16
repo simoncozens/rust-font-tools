@@ -363,8 +363,11 @@ fn babelfont_contours_to_glyf_contours(
     // We're going to turn the list of cubic bezpaths into Vec<Point> expected by Glyf
     let mut quadratic_paths: Vec<Vec<glyf::Point>> = paths.iter().map(|_| vec![]).collect();
 
+    // For each element in the default master's path...
     let default_elements: &[PathEl] = paths[default_master].elements();
     for (el_ix, el) in default_elements.iter().enumerate() {
+        // ... check if we hit a cubic, which we need to convert to a quadratic and
+        // append to the vecs inside quadratic_paths...
         match el {
             PathEl::CurveTo(_, _, _) => {
                 // Convert all the cubics to quadratics in one go, across masters
@@ -403,6 +406,8 @@ fn babelfont_contours_to_glyf_contours(
                     log::warn!("Could not compatibly interpolate {:}", glif_name)
                 }
             }
+            // ... or something else, which we append to the vecs inside quadratic_paths
+            // as is.
             _ => {
                 for (c_ix, contour) in quadratic_paths.iter_mut().enumerate() {
                     let this_path_el = paths[c_ix].elements()[el_ix];
