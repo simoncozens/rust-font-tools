@@ -2,8 +2,8 @@ use crate::anchor::Anchor;
 use crate::common::{Color, Location};
 use crate::guide::Guide;
 use crate::shape::Shape;
-use crate::{Component, Font, Node, Path};
-use std::iter;
+use crate::{BabelfontError, Component, Font, Node, Path};
+use kurbo::Shape as KurboShape;
 
 #[derive(Debug)]
 pub struct Layer {
@@ -156,5 +156,28 @@ impl Layer {
         }
 
         contours
+    }
+
+    pub fn bounds(&self) -> Result<kurbo::Rect, BabelfontError> {
+        if self.has_components() {
+            return Err(BabelfontError::NeedsDecomposition);
+        }
+        let paths: Result<Vec<kurbo::BezPath>, BabelfontError> =
+            self.paths().map(|p| p.to_kurbo()).collect();
+        let bbox: kurbo::Rect = paths?
+            .iter()
+            .map(|p| p.bounding_box())
+            .reduce(|accum, item| accum.union(item))
+            .unwrap_or_default();
+        Ok(bbox)
+    }
+
+    pub fn lsb(&self) -> Result<f32, BabelfontError> {
+        let bounds = self.bounds()?;
+        Ok(bounds.min_x() as f32)
+    }
+    pub fn rsb(&self) -> Result<f32, BabelfontError> {
+        let bounds = self.bounds()?;
+        Ok(self.width as f32 - bounds.max_x() as f32)
     }
 }

@@ -40,4 +40,9 @@ pub enum BabelfontError {
 
     #[snafu(display("Ill-constructed path"))]
     BadPath,
+
+    #[snafu(display(
+        "Called a method which requires a decomposed layer on a layer which had components"
+    ))]
+    NeedsDecomposition,
 }
