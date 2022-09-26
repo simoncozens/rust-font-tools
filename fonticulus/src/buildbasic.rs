@@ -258,27 +258,34 @@ fn decomposed_components(layer: &Layer, font: &Font) -> Vec<Path> {
 
 /// Decomposes glyphs in-place by their index and calls logger with the processed glyph
 /// name.
+//
+// XXX There is a .decompose on the layers, but to use it we can't have the font
+// and the layer both borrowed as mut.
 fn decompose_glyph_indices(glyphs_to_decompose: &[usize], font: &mut Font, logger: &dyn Fn(&str)) {
-    for glyph_index in glyphs_to_decompose {
+    for &glyph_index in glyphs_to_decompose {
         // Note: decompose layers first and shove them into the glyph afterwards to
         // dance around the borrow checker: decomposed_components needs &Font but we'd
         // hold a &mut to a glyph within.
         let mut decomposed_layers = Vec::new();
-        let glyph = &font.glyphs[*glyph_index];
-        for layer in glyph.layers.iter() {
-            let decomposed_layer = decomposed_components(layer, font);
-            decomposed_layers.push(decomposed_layer);
-        }
-
-        let glyph = &mut font.glyphs[*glyph_index];
-        for (layer, decomposed_paths) in glyph.layers.iter_mut().zip(decomposed_layers) {
-            for path in decomposed_paths {
-                layer.push_path(path);
+        if let Some(glyph) = font.glyphs.get_by_index(glyph_index) {
+            for layer in glyph.layers.iter() {
+                let decomposed_layer = decomposed_components(layer, font);
+                decomposed_layers.push(decomposed_layer);
             }
-            layer.clear_components();
+        } else {
+            continue;
         }
 
-        logger(&glyph.name);
+        if let Some(glyph) = font.glyphs.get_by_index_mut(glyph_index) {
+            for (layer, decomposed_paths) in glyph.layers.iter_mut().zip(decomposed_layers) {
+                for path in decomposed_paths {
+                    layer.push_path(path);
+                }
+                layer.clear_components();
+            }
+
+            logger(&glyph.name);
+        }
     }
 }
 
