@@ -679,7 +679,6 @@ fn main() {
         pb.set_style(
             ProgressStyle::default_bar()
                 .template("[{bar:52}] {pos:>7}/{len:7} {eta_precise}")
-                .expect("invalid template")
                 .progress_chars("█░ "),
         );
 
