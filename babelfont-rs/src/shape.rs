@@ -86,7 +86,7 @@ impl Path {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Shape {
     ComponentShape(Component),
     PathShape(Path),

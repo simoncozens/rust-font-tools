@@ -1,6 +1,6 @@
 use crate::common::{Color, Position};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Guide {
     pub pos: Position,
     pub name: Option<String>,
