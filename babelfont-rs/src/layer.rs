@@ -116,7 +116,7 @@ impl Layer {
         }
     }
 
-    fn decomposed_components(&self, font: &Font) -> Vec<Path> {
+    pub fn decomposed_components(&self, font: &Font) -> Vec<Path> {
         let mut contours = Vec::new();
 
         let mut stack: Vec<(&Component, kurbo::Affine)> = Vec::new();
