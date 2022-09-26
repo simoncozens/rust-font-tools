@@ -81,6 +81,15 @@ impl Layer {
             .any(|sh| matches!(sh, Shape::PathShape(_)))
     }
 
+    pub fn decompose(&mut self, font: &Font) {
+        let decomposed_shapes = self
+            .decomposed_components(font)
+            .into_iter()
+            .map(Shape::PathShape);
+        self.shapes.retain(|sh| matches!(sh, Shape::PathShape(_)));
+        self.shapes.extend(decomposed_shapes);
+    }
+
     pub fn decomposed(&self, font: &Font) -> Layer {
         let decomposed_shapes = self
             .decomposed_components(font)
