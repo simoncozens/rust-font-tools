@@ -6,20 +6,17 @@ use crate::layer::Layer;
 pub struct GlyphList(pub Vec<Glyph>);
 impl GlyphList {
     pub fn get(&self, g: &str) -> Option<&Glyph> {
-        for glyph in self.0.iter() {
-            if glyph.name == g {
-                return Some(glyph);
-            }
-        }
-        None
+        self.0.iter().find(|&glyph| glyph.name == g)
     }
-    pub fn get_mut(&mut self, g: &str) -> Option<&Glyph> {
-        for glyph in self.0.iter_mut() {
-            if glyph.name == g {
-                return Some(glyph);
-            }
-        }
-        None
+    pub fn get_mut(&mut self, g: &str) -> Option<&mut Glyph> {
+        self.0.iter_mut().find(|glyph| glyph.name == g)
+    }
+
+    pub fn get_by_index(&self, id: usize) -> Option<&Glyph> {
+        self.0.get(id)
+    }
+    pub fn get_by_index_mut(&mut self, id: usize) -> Option<&mut Glyph> {
+        self.0.get_mut(id)
     }
 }
 
