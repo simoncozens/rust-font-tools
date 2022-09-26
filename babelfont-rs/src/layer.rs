@@ -2,7 +2,8 @@ use crate::anchor::Anchor;
 use crate::common::{Color, Location};
 use crate::guide::Guide;
 use crate::shape::Shape;
-use crate::{Component, Path};
+use crate::{Component, Font, Node, Path};
+use std::iter;
 
 #[derive(Debug)]
 pub struct Layer {
@@ -78,5 +79,73 @@ impl Layer {
         self.shapes
             .iter()
             .any(|sh| matches!(sh, Shape::PathShape(_)))
+    }
+
+    pub fn decomposed(&self, font: &Font) -> Layer {
+        let decomposed_shapes = self
+            .decomposed_components(font)
+            .into_iter()
+            .map(Shape::PathShape);
+        Layer {
+            width: self.width,
+            name: self.name.clone(),
+            id: self.id.clone(),
+            guides: self.guides.clone(),
+            anchors: self.anchors.clone(),
+            color: self.color,
+            layer_index: self.layer_index,
+            is_background: self.is_background,
+            background_layer_id: self.background_layer_id.clone(),
+            location: self.location.clone(),
+            shapes: self
+                .shapes
+                .iter()
+                .cloned()
+                .filter(|sh| matches!(sh, Shape::PathShape(_)))
+                .chain(decomposed_shapes)
+                .collect(),
+        }
+    }
+
+    fn decomposed_components(&self, font: &Font) -> Vec<Path> {
+        let mut contours = Vec::new();
+
+        let mut stack: Vec<(&Component, kurbo::Affine)> = Vec::new();
+        for component in self.components() {
+            stack.push((component, component.transform));
+            while let Some((component, transform)) = stack.pop() {
+                let referenced_glyph = match font.glyphs.get(&component.reference) {
+                    Some(g) => g,
+                    None => continue,
+                };
+                let new_outline = match referenced_glyph.get_layer(self.id.as_ref().unwrap()) {
+                    Some(g) => g,
+                    None => continue,
+                };
+
+                for contour in new_outline.paths() {
+                    let mut decomposed_contour = Path::default();
+                    for node in &contour.nodes {
+                        let new_point = transform * kurbo::Point::new(node.x as f64, node.y as f64);
+                        decomposed_contour.nodes.push(Node {
+                            x: new_point.x as f32,
+                            y: new_point.y as f32,
+                            nodetype: node.nodetype,
+                        })
+                    }
+                    decomposed_contour.closed = contour.closed;
+                    contours.push(decomposed_contour);
+                }
+
+                // Depth-first decomposition means we need to extend the stack reversed, so
+                // the first component is taken out next.
+                for new_component in new_outline.components().rev() {
+                    let new_transform: kurbo::Affine = new_component.transform;
+                    stack.push((new_component, transform * new_transform));
+                }
+            }
+        }
+
+        contours
     }
 }
