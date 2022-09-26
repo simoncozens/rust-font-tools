@@ -8,6 +8,7 @@ pub enum Plist {
     Dictionary(HashMap<String, Plist>),
     Array(Vec<Plist>),
     String(String),
+    Binary(Vec<u8>),
     Node((i64, i64, String)),
     Integer(i64),
     Float(f64),
@@ -29,6 +30,7 @@ enum Token<'a> {
     Eof,
     OpenBrace,
     OpenParen,
+    Binary(Vec<u8>),
     String(Cow<'a, str>),
     Atom(&'a str),
 }
@@ -261,6 +263,7 @@ impl Plist {
         match tok {
             Token::Atom(s) => Ok((Plist::parse_atom(s), ix)),
             Token::String(s) => Ok((Plist::String(s.into()), ix)),
+            Token::Binary(s) => Ok((Plist::Binary(s), ix)),
             Token::OpenBrace => {
                 let mut dict = HashMap::new();
                 loop {
@@ -366,6 +369,13 @@ impl Plist {
             Plist::Node((x, y, t)) => {
                 write!(s, "({},{},{})", x, y, t).unwrap();
             }
+            Plist::Binary(b) => {
+                s.push('<');
+                for byte in b {
+                    write!(s, "{:02x}", byte).unwrap();
+                }
+                s.push('>');
+            }
         }
     }
 }
@@ -380,6 +390,44 @@ impl<'a> Token<'a> {
         match b {
             b'{' => Ok((Token::OpenBrace, start + 1)),
             b'(' => Ok((Token::OpenParen, start + 1)),
+            b'<' => {
+                let mut ix = start + 1;
+                let mut buf: Vec<u8> = Vec::new();
+                while ix < s.len() {
+                    let b = s.as_bytes()[ix];
+                    if b == b'>' {
+                        // End of binary
+                        return Ok((Token::Binary(buf), ix + 1));
+                    } else if (b'0'..=b'9').contains(&b) || (b'a'..=b'f').contains(&b) {
+                        ix += 1;
+                        if ix == s.len() {
+                            return Err(Error::UnclosedString);
+                        }
+                        let high = b;
+                        let low = s.as_bytes()[ix];
+                        if (b'0'..=b'9').contains(&low) || (b'a'..=b'f').contains(&low) {
+                            ix += 1;
+                            let mut byte = 0;
+                            if (b'0'..=b'9').contains(&high) {
+                                byte += 16 * (high - b'0');
+                            } else {
+                                byte += 16 * (10 + high - b'a');
+                            }
+                            if (b'0'..=b'9').contains(&low) {
+                                byte += low - b'0';
+                            } else {
+                                byte += 10 + (low - b'a');
+                            }
+                            buf.push(byte);
+                        } else {
+                            return Err(Error::UnknownEscape);
+                        }
+                    } else {
+                        return Err(Error::UnknownEscape);
+                    }
+                }
+                return Err(Error::UnclosedString);
+            }
             b'"' => {
                 let mut ix = start + 1;
                 let mut cow_start = ix;
@@ -604,5 +652,17 @@ mod tests {
             let res = Plist::parse(t).expect("Whatever");
             assert_eq!(res, *e);
         }
+    }
+
+    #[test]
+    fn test_binary() {
+        let input = "{de.kutilek.scrawl.data = <89504e>;}".to_string();
+        let res = Plist::parse(&input).expect("Whatever");
+        assert_eq!(
+            res,
+            Plist::Dictionary(
+                hashmap!("de.kutilek.scrawl.data".to_string() => Plist::Binary(vec![0x89, 0x50, 0x4e]))
+            )
+        );
     }
 }
