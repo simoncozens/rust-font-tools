@@ -9,6 +9,8 @@ repository = "https://github.com/simoncozens/rust-font-tools"
 
 [dependencies]
 otmath = { path = "../otmath" }
+rbf-interp = "*"
+nalgebra = "^0.18"
 designspace = { path = "../designspace", features = ["norad"], version="0" }
 rayon = "1.0.1"
 norad = { version = "0.7.0", features = ["rayon", "kurbo"] }

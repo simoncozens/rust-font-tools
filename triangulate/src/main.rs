@@ -1,9 +1,11 @@
 //! Interpolate an instance UFO in a designspace
 use clap::Parser;
 use designspace::Designspace;
+use nalgebra::DVector;
 use norad::{Font, Glyph, Name};
 use otmath::{ot_round, support_scalar, Location, VariationModel};
 use rayon::prelude::*;
+use rbf_interp::Scatter;
 use regex::Regex;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
@@ -194,17 +196,58 @@ fn interpolate(
     model: &VariationModel<String>,
     location: &Location<String>,
 ) -> Vec<f32> {
-    let deltas_and_supports = model.get_deltas_and_supports(numbers);
-    let (deltas, support_scalars): (Vec<ndarray::Array1<f32>>, Vec<f32>) = deltas_and_supports
-        .into_iter()
-        .map(|(x, y)| (x, support_scalar(location, &y)))
-        .unzip();
+    // log::debug!("Interpolating {:?} at {:?}", numbers, location);
 
-    let interpolated_numbers = model
-        .interpolate_from_deltas_and_scalars(&deltas, &support_scalars)
-        .expect("Couldn't interpolate");
+    let locations = &model.original_locations;
+    let mut vals: Vec<DVector<f64>> = vec![];
+    let axis_count = location.len();
+    let mut centers: Vec<DVector<f64>> = vec![];
+    for (maybe_number, master_location) in numbers.iter().zip(locations.iter()) {
+        if let Some(number) = maybe_number {
+            let this_location: DVector<f64> = DVector::from_fn(axis_count, |i, _| {
+                let axis = model
+                    .axis_order
+                    .get(i)
+                    .expect("Location had wrong axis count?");
+                let val = master_location.get(axis).expect("Axis not found?!");
+                *val as f64
+            });
+            centers.push(this_location);
+            let this_val_vec = number.to_vec().iter().map(|x| *x as f64).collect();
+            let this_val = DVector::from_vec(this_val_vec);
+            vals.push(this_val);
+        }
+    }
+    let scatter = Scatter::create(centers, vals, rbf_interp::Basis::PolyHarmonic(1), 2);
 
-    interpolated_numbers.to_vec()
+    let coords = DVector::from_fn(axis_count, |i, _| {
+        let axis = model
+            .axis_order
+            .get(i)
+            .expect("Location had wrong axis count?");
+        let val = location.get(axis).expect("Axis not found?!");
+        *val as f64
+    });
+    let interpolated_numbers = scatter
+        .eval(coords)
+        .as_slice()
+        .iter()
+        .map(|x| *x as f32)
+        .collect();
+    // log::debug!("Interpolated value = {:?}", interpolated_numbers);
+
+    interpolated_numbers
+    // let deltas_and_supports = model.get_deltas_and_supports(numbers);
+    // let (deltas, support_scalars): (Vec<ndarray::Array1<f32>>, Vec<f32>) = deltas_and_supports
+    //     .into_iter()
+    //     .map(|(x, y)| (x, support_scalar(location, &y)))
+    //     .unzip();
+
+    // let interpolated_numbers = model
+    //     .interpolate_from_deltas_and_scalars(&deltas, &support_scalars)
+    //     .expect("Couldn't interpolate");
+
+    // interpolated_numbers.to_vec()
 }
 
 impl QuickGetSet for Glyph {
@@ -382,18 +425,10 @@ fn interpolate_advance_widths(
     location: &Location<String>,
 ) {
     let default_advance: f64 = output.width;
-    let advances: Vec<Option<f32>> = masters
+    let advances: Vec<Option<ndarray::Array1<f32>>> = masters
         .iter()
-        .map(|m| m.map(|g| (g.width - default_advance) as f32))
+        .map(|m| m.map(|g| ndarray::Array1::from_elem(1, (g.width - default_advance) as f32)))
         .collect();
-    let deltas_and_supports = model.get_deltas_and_supports(&advances);
-    let (deltas, support_scalars): (Vec<f32>, Vec<f32>) = deltas_and_supports
-        .into_iter()
-        .map(|(x, y)| (x, support_scalar(location, &y)))
-        .unzip();
-
-    let interpolated_width = model
-        .interpolate_from_deltas_and_scalars(&deltas, &support_scalars)
-        .expect("Couldn't interpolate");
-    output.width += interpolated_width as f64;
+    let interpolated_width = interpolate(&advances, model, location);
+    output.width += *interpolated_width.first().unwrap() as f64;
 }
