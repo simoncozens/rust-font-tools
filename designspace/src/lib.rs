@@ -294,31 +294,17 @@ impl Axis {
     }
 
     /// Normalize design space value to the range [-1.0, 1.0].
-    pub fn normalize_designspace_value(&self, mut l: f32) -> f32 {
+    pub fn normalize_designspace_value(&self, l: f32) -> f32 {
         if self.map.is_none() || self.map.as_ref().unwrap().is_empty() {
             return self.normalize_userspace_value(l);
         }
-        let designspace_minimum = self
-            .map
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|m| m.output)
-            .fold(1. / 0., f32::min);
-        let designspace_maximum = self
-            .map
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|m| m.output)
-            .fold(-1. / 0., f32::max);
-        if l < designspace_minimum {
-            l = designspace_minimum;
-        }
-        if l > designspace_maximum {
-            l = designspace_maximum;
-        }
-        (l - designspace_minimum) / (designspace_maximum - designspace_minimum)
+        let rv = normalize_value(
+            self.designspace_to_userspace(l as i32),
+            self.minimum as f32,
+            self.maximum as f32,
+            self.default as f32,
+        );
+        rv
     }
 }
 
@@ -488,5 +474,94 @@ mod tests {
         let dm = designspace.default_master();
         assert!(dm.is_some());
         assert_eq!(dm.unwrap().filename, "masters/default.ufo");
+    }
+
+    #[test]
+    fn test_oriya() {
+        let s = r##"
+<?xml version='1.0' encoding='UTF-8'?>
+<designspace format="5.0">
+  <axes>
+    <axis tag="wght" name="Weight" minimum="100" maximum="900" default="400">
+      <map input="100" output="26"/>
+      <map input="400" output="78"/>
+      <map input="700" output="140"/>
+      <map input="900" output="170"/>
+    </axis>
+    <axis tag="wdth" name="Width" minimum="63" maximum="100" default="100">
+      <map input="63" output="68"/>
+      <map input="75" output="82"/>
+      <map input="100" output="100"/>
+    </axis>
+  </axes>
+  <sources>
+    <source filename="NotoSansOriya-Thin.ufo" name="Noto Sans Oriya Thin" familyname="Noto Sans Oriya" stylename="Thin">
+      <location>
+        <dimension name="Weight" xvalue="26"/>
+        <dimension name="Width" xvalue="100"/>
+      </location>
+    </source>
+    <source filename="NotoSansOriya-Black.ufo" name="Noto Sans Oriya Black" familyname="Noto Sans Oriya" stylename="Black">
+      <location>
+        <dimension name="Weight" xvalue="170"/>
+        <dimension name="Width" xvalue="100"/>
+      </location>
+    </source>
+    <source filename="NotoSansOriya-CondensedExtraThin.ufo" name="Noto Sans Oriya Condensed Extra Thin" familyname="Noto Sans Oriya" stylename="Condensed Extra Thin">
+      <location>
+        <dimension name="Weight" xvalue="26"/>
+        <dimension name="Width" xvalue="68"/>
+      </location>
+    </source>
+    <source filename="NotoSansOriya-CondensedExtraBlack.ufo" name="Noto Sans Oriya Condensed Extra Black" familyname="Noto Sans Oriya" stylename="Condensed Extra Black">
+      <location>
+        <dimension name="Weight" xvalue="170"/>
+        <dimension name="Width" xvalue="68"/>
+      </location>
+    </source>
+    <source filename="NotoSansOriya-Regular.ufo" name="Noto Sans Oriya Regular" familyname="Noto Sans Oriya" stylename="Regular">
+      <lib copy="1"/>
+      <groups copy="1"/>
+      <features copy="1"/>
+      <info copy="1"/>
+      <location>
+        <dimension name="Weight" xvalue="78"/>
+        <dimension name="Width" xvalue="100"/>
+      </location>
+    </source>
+  </sources>
+</designspace>
+        "##;
+        let designspace: Designspace = from_reader(s.as_bytes()).unwrap();
+        println!("{:#?}", designspace);
+        let dm = designspace.default_master();
+        assert!(dm.is_some());
+        assert_eq!(designspace.default_designspace_location(), vec![78, 100]);
+        assert_eq!(designspace.default_location(), vec![400, 100]);
+        let model = designspace.variation_model();
+
+        let wght = designspace.axes.axis.get(0).unwrap();
+        let wdth = designspace.axes.axis.get(1).unwrap();
+        assert_eq!(wght.normalize_designspace_value(78.0), 0.0);
+        assert_eq!(wdth.normalize_designspace_value(100.0), 0.0);
+
+        assert_eq!(wght.normalize_userspace_value(400.0), 0.0);
+        assert_eq!(wdth.normalize_userspace_value(100.0), 0.0);
+
+        let thin = model.original_locations.get(0).unwrap();
+        assert_eq!(thin.get("wght"), Some(&-1.0));
+        assert_eq!(thin.get("wdth"), Some(&0.0));
+        let black = model.original_locations.get(1).unwrap();
+        assert_eq!(black.get("wght"), Some(&1.0));
+        assert_eq!(black.get("wdth"), Some(&0.0));
+        let thin_cond = model.original_locations.get(2).unwrap();
+        assert_eq!(thin_cond.get("wght"), Some(&-1.0));
+        assert_eq!(thin_cond.get("wdth"), Some(&-1.0));
+        let black_cond = model.original_locations.get(3).unwrap();
+        assert_eq!(black_cond.get("wght"), Some(&1.0));
+        assert_eq!(black_cond.get("wdth"), Some(&-1.0));
+        let regular = model.original_locations.get(4).unwrap();
+        assert_eq!(regular.get("wght"), Some(&0.0));
+        assert_eq!(regular.get("wdth"), Some(&0.0));
     }
 }
