@@ -234,11 +234,7 @@ impl Axis {
             defaultValue: self.default as f32,
             maxValue: self.maximum as f32,
             minValue: self.minimum as f32,
-            flags: if self.hidden.unwrap_or(false) {
-                0x0001
-            } else {
-                0x0000
-            },
+            flags: u16::from(self.hidden.unwrap_or(false)),
             axisNameID: name_id,
         })
     }
