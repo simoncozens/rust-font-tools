@@ -662,24 +662,43 @@ fn load_instance(font: &mut Font, plist: &Plist) {
         return;
     };
     let cp = get_custom_parameters(plist);
+    let mut userspace_location: HashMap<String, f32> = HashMap::new();
     if let Some(axis_locs) = cp.get("Axis Location").and_then(|f| f.as_array()) {
         for loc in axis_locs {
-            let axis_name = loc.get("Axis").map(|f| f.to_string());
-            let loc = loc.get("Location").and_then(|x| x.as_f32()).unwrap_or(0.0);
-            if let Some(axis) = font
-                .axes
-                .iter_mut()
-                .find(|ax| ax.name.get_default() == axis_name)
-            {
-                if let Some(designspace_value) = location.0.get(&axis.tag) {
-                    if axis.map.is_none() {
-                        axis.map = Some(vec![]);
-                    }
-                    axis.map.as_mut().unwrap().push((loc, *designspace_value));
-                }
+            if let Some(axis_name) = loc.get("Axis").map(|f| f.to_string()) {
+                // XXX map to tag here?
+                let loc = loc.get("Location").and_then(|x| x.as_f32()).unwrap_or(0.0);
+                userspace_location.insert(axis_name, loc);
             }
         }
     }
+
+    // Weight and width are implicit, add them
+    if !userspace_location.contains_key("wght") {
+        let weightclass = plist
+            .get("weightClass")
+            .map(|f| f.to_string())
+            .unwrap_or_else(|| "Regular".to_string());
+        userspace_location.insert("wght".to_string(), weightclass_to_css(&weightclass));
+    }
+    if !userspace_location.contains_key("wdth") {
+        let weightclass = plist
+            .get("widthClass")
+            .map(|f| f.to_string())
+            .unwrap_or_else(|| "Regular".to_string());
+        userspace_location.insert("wdth".to_string(), widthclass_to_css(&weightclass));
+    }
+    for (axis_name, loc) in userspace_location.iter() {
+        if let Some(axis) = font.axes.iter_mut().find(|ax| ax.tag == *axis_name) {
+            if let Some(designspace_value) = location.0.get(&axis.tag) {
+                if axis.map.is_none() {
+                    axis.map = Some(vec![]);
+                }
+                axis.map.as_mut().unwrap().push((*loc, *designspace_value));
+            }
+        }
+    }
+    println!("Axes are now: {:#?}", font.axes);
     font.instances.push(Instance {
         name: (&name).into(),
         location,
@@ -700,6 +719,44 @@ fn fixup_axis_mappings(font: &mut Font) {
     }
 }
 
+fn weightclass_to_css(s: &str) -> f32 {
+    match s {
+        "Thin" => 100.0,
+        "ExtraLight" => 200.0,
+        "UltraLight" => 200.0,
+        "Light" => 300.0,
+        "Regular" => 400.0,
+        "Normal" => 400.0,
+        "Medium" => 500.0,
+        "DemiBold" => 600.0,
+        "SemiBold" => 600.0,
+        "Bold" => 700.0,
+        "UltraBold" => 800.0,
+        "ExtraBold" => 800.0,
+        "Black" => 900.0,
+        "Heavy" => 900.0,
+        _ => 400.0,
+    }
+}
+fn widthclass_to_css(s: &str) -> f32 {
+    match s {
+        "Ultra Condensed" => 1,
+        "Extra Condensed" => 2,
+        "ExtraLight" => 200.0,
+        "UltraLight" => 200.0,
+        "Light" => 300.0,
+        "Medium" => 5,
+        "Medium (normal)" => 5,
+        "DemiBold" => 600.0,
+        "SemiBold" => 600.0,
+        "Bold" => 700.0,
+        "UltraBold" => 800.0,
+        "ExtraBold" => 800.0,
+        "Black" => 900.0,
+        "Heavy" => 900.0,
+        _ => 400.0,
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
