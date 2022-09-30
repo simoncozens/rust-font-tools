@@ -698,7 +698,6 @@ fn load_instance(font: &mut Font, plist: &Plist) {
             }
         }
     }
-    println!("Axes are now: {:#?}", font.axes);
     font.instances.push(Instance {
         name: (&name).into(),
         location,
