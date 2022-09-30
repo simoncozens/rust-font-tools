@@ -740,21 +740,17 @@ fn weightclass_to_css(s: &str) -> f32 {
 }
 fn widthclass_to_css(s: &str) -> f32 {
     match s {
-        "Ultra Condensed" => 1,
-        "Extra Condensed" => 2,
-        "ExtraLight" => 200.0,
-        "UltraLight" => 200.0,
-        "Light" => 300.0,
-        "Medium" => 5,
-        "Medium (normal)" => 5,
-        "DemiBold" => 600.0,
-        "SemiBold" => 600.0,
-        "Bold" => 700.0,
-        "UltraBold" => 800.0,
-        "ExtraBold" => 800.0,
-        "Black" => 900.0,
-        "Heavy" => 900.0,
-        _ => 400.0,
+        "Ultra Condensed" => 1.0,
+        "Extra Condensed" => 2.0,
+        "Condensed" => 3.0,
+        "SemiCondensed" => 4.0,
+        "Medium" => 5.0,
+        "Medium (normal)" => 5.0,
+        "Semi Expanded" => 6.0,
+        "Expanded" => 7.0,
+        "Extra Expanded" => 8.0,
+        "Ultra Expanded" => 9.0,
+        _ => 5.0,
     }
 }
 #[cfg(test)]
