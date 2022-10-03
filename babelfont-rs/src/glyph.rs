@@ -1,7 +1,7 @@
 use crate::common::Direction;
 use crate::layer::Layer;
 
-#[derive(Debug, Shrinkwrap)]
+#[derive(Debug, Shrinkwrap, Clone)]
 #[shrinkwrap(mutable)]
 pub struct GlyphList(pub Vec<Glyph>);
 impl GlyphList {
@@ -20,7 +20,7 @@ impl GlyphList {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GlyphCategory {
     Base,
     Mark,
@@ -28,7 +28,7 @@ pub enum GlyphCategory {
     Ligature,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Glyph {
     pub name: String,
     pub production_name: Option<String>,

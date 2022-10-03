@@ -151,14 +151,14 @@ impl From<OTScalar> for String {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OTValue {
     pub table: String,
     pub field: String,
     pub value: OTScalar,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Direction {
     LeftToRight,
     RightToLeft,

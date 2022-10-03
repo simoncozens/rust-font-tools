@@ -14,7 +14,7 @@ use fonttools::tables::name::NameRecord;
 use otmath::ot_cmp;
 use std::collections::{BTreeMap, HashMap};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Font {
     pub upm: u16,
     pub version: (u16, u16),

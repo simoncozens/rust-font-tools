@@ -5,7 +5,7 @@ use fonttools::types::Tag;
 
 const DFLT: Tag = fonttools::tag!("dflt");
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct I18NDictionary(pub HashMap<Tag, String>);
 
 impl I18NDictionary {

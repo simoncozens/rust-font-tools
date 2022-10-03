@@ -1,6 +1,6 @@
 use crate::i18ndictionary::I18NDictionary;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StyleMapStyle {
     BoldItalic,
     Bold,
@@ -8,7 +8,7 @@ pub enum StyleMapStyle {
     Italic,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Names {
     pub family_name: I18NDictionary,
     pub designer: I18NDictionary,

@@ -5,7 +5,7 @@ use crate::shape::Shape;
 use crate::{BabelfontError, Component, Font, Node, Path};
 use kurbo::Shape as KurboShape;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Layer {
     pub width: i32,
     pub name: Option<String>,

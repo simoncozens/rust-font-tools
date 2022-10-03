@@ -5,7 +5,7 @@ use fonttools::types::Tag;
 use otmath::{normalize_value, piecewise_linear_map};
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Axis {
     pub name: I18NDictionary,
     pub tag: String,

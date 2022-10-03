@@ -4,7 +4,7 @@ use crate::i18ndictionary::I18NDictionary;
 use crate::OTScalar;
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Master {
     pub name: I18NDictionary,
     pub id: String,

@@ -1,7 +1,7 @@
 use crate::common::Location;
 use crate::i18ndictionary::I18NDictionary;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Instance {
     pub name: I18NDictionary,
     pub location: Location,
