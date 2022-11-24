@@ -359,6 +359,21 @@ fn load_anchor(a: &Plist) -> Anchor {
     }
 }
 
+fn extract_node_from_array(node: &Plist) -> Option<(i64, i64, String)> {
+    if let Some(a) = node.as_array() {
+        if a.len() >= 3 {
+            if let Some(x) = a[0].as_i64() {
+                if let Some(y) = a[1].as_i64() {
+                    if let Some(s) = a[2].as_str() {
+                        return Some((x, y, s.to_string()));
+                    }
+                }
+            }
+        }
+    };
+
+    return None;
+}
 fn load_shape(a: &Plist, glyph_name: &str) -> Result<Shape, BabelfontError> {
     if a.get("nodes").is_some() {
         // It's a path
@@ -375,12 +390,16 @@ fn load_shape(a: &Plist, glyph_name: &str) -> Result<Shape, BabelfontError> {
                 msg: format!("Couldn't read nodes array in glyph {:}", glyph_name),
             })?
         {
-            let (x, y, typ) = node.as_node().ok_or(BabelfontError::General {
-                msg: format!(
-                    "Couldn't convert {:?} to nodes in glyph {:}",
-                    node, glyph_name
-                ),
-            })?;
+            let (x, y, typ) = node
+                .as_node()
+                .map(|(x_, y_, typ_)| (*x_, *y_, typ_.to_string()))
+                .or_else(|| extract_node_from_array(node))
+                .ok_or(BabelfontError::General {
+                    msg: format!(
+                        "Couldn't convert {:?} to nodes in glyph {:}",
+                        node, glyph_name
+                    ),
+                })?;
             let typ = typ.chars().next().unwrap_or('l');
             let nodetype = match typ {
                 'l' => NodeType::Line,
@@ -389,8 +408,8 @@ fn load_shape(a: &Plist, glyph_name: &str) -> Result<Shape, BabelfontError> {
                 _ => NodeType::Line,
             };
             path.nodes.push(Node {
-                x: *x as f32,
-                y: *y as f32,
+                x: x as f32,
+                y: y as f32,
                 nodetype,
             })
         }
