@@ -40,7 +40,7 @@ pub struct CompositeMaxpValues {
     pub max_depth: u16,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 #[allow(non_snake_case)]
 /// A higher-level representation of a TrueType outline glyph.
 pub struct Glyph {

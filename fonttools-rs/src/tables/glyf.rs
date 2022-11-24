@@ -22,7 +22,7 @@ pub const TAG: otspec::types::Tag = crate::tag!("glyf");
 
 /// The glyf table
 #[allow(non_camel_case_types)]
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct glyf {
     /// A list of glyph objects in the font
     pub glyphs: Vec<Glyph>,
