@@ -1,5 +1,5 @@
 use norad::{Font, Name};
-use otmath::{ot_round, support_scalar, Location, VariationModel};
+use otmath::{support_scalar, Location, VariationModel};
 use std::collections::{BTreeMap, BTreeSet};
 
 fn get_kerning(f: &Font, l: &Name, r: &Name) -> f64 {
@@ -13,7 +13,7 @@ fn get_kerning(f: &Font, l: &Name, r: &Name) -> f64 {
 fn set_kerning(f: &mut Font, l: &Name, r: &Name, value: f64) {
     f.kerning
         .entry(l.clone())
-        .or_insert_with(|| BTreeMap::new())
+        .or_insert_with(BTreeMap::new)
         .insert(r.clone(), value);
 }
 

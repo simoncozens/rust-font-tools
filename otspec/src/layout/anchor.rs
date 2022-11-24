@@ -6,7 +6,7 @@ use crate::{
 
 // These things have to be serialized/deserialized by hand because of annoying
 // format switching things.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct Anchor {
     pub xCoordinate: int16,

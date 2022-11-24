@@ -98,5 +98,5 @@ fn main() {
         }
     }
 
-    std::process::exit(if problems.is_empty() { 0 } else { 1 });
+    std::process::exit(i32::from(!problems.is_empty()));
 }

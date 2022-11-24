@@ -42,7 +42,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     };
     let default_ufo = norad::Font::load(relative_path_to_default_master).map_err(|e| {
         BabelfontError::LoadingUFO {
-            orig: e,
+            orig: Box::new(e),
             path: default_master.filename.clone(),
         }
     })?;
@@ -116,7 +116,7 @@ fn load_master(
     let source_font =
         norad::Font::load(relative_path_to_master).map_err(|e| BabelfontError::LoadingUFO {
             path: source.filename.clone(),
-            orig: e,
+            orig: Box::new(e),
         })?;
     let info = &source_font.font_info;
     load_master_info(&mut master, info);

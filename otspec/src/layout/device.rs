@@ -6,7 +6,7 @@ use crate::{
 
 // These have to be serialized/deserialized by hand because of annoying
 // bit-packing things.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[allow(missing_docs, non_snake_case, non_camel_case_types)]
 pub struct Device {
     pub startSize: uint16,
@@ -56,10 +56,10 @@ impl Deserialize for Device {
 impl Device {
     fn suggest_format(&self) -> uint16 {
         for &val in &self.deltaValues {
-            if val < -9 || val > 8 {
+            if !(-9..=8).contains(&val) {
                 return 3;
             }
-            if val < -3 || val > 2 {
+            if !(-3..=2).contains(&val) {
                 return 2;
             }
         }

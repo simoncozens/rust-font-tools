@@ -204,7 +204,7 @@ fn main() {
     for glyph in glyph_names {
         let mut glyphs: Vec<&mut Glyph> = fonts
             .iter_mut()
-            .map(|font| {
+            .flat_map(|font| {
                 if let Some(layername) = &args.layer {
                     font.layers
                         .get_mut(layername)
@@ -214,7 +214,6 @@ fn main() {
                     font.layers.default_layer_mut().get_glyph_mut(&glyph)
                 }
             })
-            .flatten()
             .collect();
         if !is_all_the_same(glyphs.iter().map(|x| x.contours.len())) {
             log::warn!("Incompatible glyph {:}", glyph);

@@ -3,7 +3,7 @@ use crate::{
     SerializationError, Serialize,
 };
 
-#[derive(Shrinkwrap, Debug, PartialEq)]
+#[derive(Shrinkwrap, Debug, PartialEq, Eq)]
 pub struct Counted<T>(pub Vec<T>);
 
 impl<T> Serialize for Counted<T>
@@ -62,7 +62,7 @@ where
     }
 }
 
-#[derive(Shrinkwrap, Debug, PartialEq)]
+#[derive(Shrinkwrap, Debug, PartialEq, Eq)]
 pub struct Counted32<T>(pub Vec<T>);
 
 impl<T> Serialize for Counted32<T>

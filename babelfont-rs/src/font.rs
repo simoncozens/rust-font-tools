@@ -72,12 +72,9 @@ impl Font {
     }
     pub fn default_master(&self) -> Option<&Master> {
         let default_location: Location = self.default_location();
-        for m in &self.masters {
-            if m.location == default_location {
-                return Some(m);
-            }
-        }
-        None
+        self.masters
+            .iter()
+            .find(|&m| m.location == default_location)
     }
 
     pub fn default_master_index(&self) -> Option<usize> {
@@ -142,7 +139,10 @@ impl Font {
     }
 
     /// Normalizes a location between -1.0 and 1.0
-    pub fn normalize_location(&self, loc: &Location) -> Result<NormalizedLocation, BabelfontError> {
+    pub fn normalize_location(
+        &self,
+        loc: &Location,
+    ) -> Result<NormalizedLocation, Box<BabelfontError>> {
         let mut v: Vec<f32> = vec![];
         for axis in self.axes.iter() {
             let default = axis.default.ok_or_else(|| BabelfontError::IllDefinedAxis {
@@ -156,7 +156,7 @@ impl Font {
     }
 
     /// Constructs a fonttools variation model for this designspace
-    pub fn variation_model(&self) -> Result<VariationModel<String>, BabelfontError> {
+    pub fn variation_model(&self) -> Result<VariationModel<String>, Box<BabelfontError>> {
         let mut locations: Vec<OTVarLocation<String>> = vec![];
         for master in self.masters.iter() {
             let source_loc = self.normalize_location(&master.location)?;
@@ -175,7 +175,7 @@ impl Font {
 
     /// Add information to a fonttools Font object (fvar and avar tables)
     /// expressed by this design space.
-    pub fn add_variation_tables(&self, font: &mut FTFont) -> Result<(), BabelfontError> {
+    pub fn add_variation_tables(&self, font: &mut FTFont) -> Result<(), Box<BabelfontError>> {
         let mut axes: Vec<VariationAxisRecord> = vec![];
         let mut maps: Vec<SegmentMap> = vec![];
 

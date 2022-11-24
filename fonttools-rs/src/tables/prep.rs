@@ -7,7 +7,7 @@ use otspec::{
 pub const TAG: Tag = crate::tag!("prep");
 
 /// Represents a font's prep (Font Program) table
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub struct prep(Vec<uint8>);
 

@@ -426,7 +426,7 @@ impl<'a> Token<'a> {
                         return Err(Error::UnknownEscape);
                     }
                 }
-                return Err(Error::UnclosedString);
+                Err(Error::UnclosedString)
             }
             b'"' => {
                 let mut ix = start + 1;
@@ -467,7 +467,9 @@ impl<'a> Token<'a> {
                                         // octal escape
                                         let b1 = s.as_bytes()[ix + 1];
                                         let b2 = s.as_bytes()[ix + 2];
-                                        if (b'0'..=b'7').contains(&b1) && b2 >= b'0' && b2 <= b'7' {
+                                        if (b'0'..=b'7').contains(&b1)
+                                            && (b'0'..=b'7').contains(&b2)
+                                        {
                                             let oct =
                                                 (b - b'0') * 64 + (b1 - b'0') * 8 + (b2 - b'0');
                                             buf.push(oct as char);

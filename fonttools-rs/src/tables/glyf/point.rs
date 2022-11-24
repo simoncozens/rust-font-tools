@@ -2,7 +2,7 @@ use kurbo::Affine;
 use otspec::types::*;
 
 /// Represents a point inside a glyf::Contour
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Eq)]
 pub struct Point {
     /// x-coordinate
     pub x: int16,

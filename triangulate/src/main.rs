@@ -2,12 +2,12 @@
 use clap::Parser;
 use designspace::Designspace;
 use nalgebra::DVector;
-use norad::{Font, Glyph, Name};
-use otmath::{ot_round, support_scalar, Location, VariationModel};
+use norad::Glyph;
+use otmath::{ot_round, Location, VariationModel};
 use rayon::prelude::*;
 use rbf_interp::Scatter;
 use regex::Regex;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::Path;
 

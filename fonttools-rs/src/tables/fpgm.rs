@@ -7,7 +7,7 @@ use otspec::{
 pub const TAG: Tag = crate::tag!("fpgm");
 
 /// Represents a font's fpgm (Font Program) table
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub struct fpgm(Vec<uint8>);
 

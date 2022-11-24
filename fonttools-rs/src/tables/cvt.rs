@@ -8,7 +8,7 @@ use otspec::{
 pub const TAG: Tag = crate::tag!("cvt ");
 
 /// Represents a font's cvt (Control Value) table
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub struct cvt(Vec<FWORD>);
 

@@ -12,8 +12,8 @@ pub(crate) fn stat(path: &std::path::Path) -> Option<DateTime<chrono::Local>> {
     fs::metadata(path)
         .and_then(|x| x.created())
         .ok()
-        .map(|x| {
-            NaiveDateTime::from_timestamp(
+        .and_then(|x| {
+            NaiveDateTime::from_timestamp_opt(
                 x.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
                 0,
             )
@@ -25,7 +25,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     let mut font = Font::new();
     let created_time: Option<DateTime<Local>> = stat(&path);
     let ufo = norad::Font::load(&path).map_err(|e| BabelfontError::LoadingUFO {
-        orig: e,
+        orig: Box::new(e),
         path: path.into_os_string().into_string().unwrap(),
     })?;
     load_glyphs(&mut font, &ufo);

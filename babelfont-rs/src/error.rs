@@ -22,7 +22,7 @@ pub enum BabelfontError {
 
     #[snafu(display("Error loading UFO {}: {:?}", path, orig))]
     LoadingUFO {
-        orig: norad::error::FontLoadError,
+        orig: Box<norad::error::FontLoadError>,
         path: String,
     },
 

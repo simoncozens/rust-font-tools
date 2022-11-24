@@ -155,7 +155,7 @@ pub fn expand_tables(item: TokenStream) -> TokenStream {
         write!(
             out_s,
             "/// Low-level structure used for serializing/deserializing table\n\
-            #[allow(missing_docs, non_snake_case, non_camel_case_types)]\n\
+            #[allow(missing_docs, non_snake_case, non_camel_case_types, clippy::derive_partial_eq_without_eq)]\n\
             #[derive({} {} {} {} PartialEq, Clone)]\n\
             {}\n\
             pub struct {} {{",

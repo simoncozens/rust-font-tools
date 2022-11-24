@@ -406,28 +406,28 @@ impl Serialize for os2 {
         }
         .to_bytes(data)?;
         if self.version > 0 {
-            (&os2v1 {
+            os2v1 {
                 ulCodePageRange1: self.ulCodePageRange1.unwrap_or(0),
                 ulCodePageRange2: self.ulCodePageRange2.unwrap_or(0),
-            })
-                .to_bytes(data)?;
+            }
+            .to_bytes(data)?;
         }
         if self.version > 1 {
-            (&os2v2 {
+            os2v2 {
                 sxHeight: self.sxHeight.unwrap_or(0),
                 sCapHeight: self.sCapHeight.unwrap_or(0),
                 usDefaultChar: self.usDefaultChar.unwrap_or(0),
                 usBreakChar: self.usBreakChar.unwrap_or(0),
                 usMaxContext: self.usMaxContext.unwrap_or(0),
-            })
-                .to_bytes(data)?;
+            }
+            .to_bytes(data)?;
         }
         if self.version > 4 {
-            (&os2v5 {
+            os2v5 {
                 usLowerOpticalPointSize: self.usLowerOpticalPointSize.unwrap_or(0),
                 usUpperOpticalPointSize: self.usUpperOpticalPointSize.unwrap_or(0),
-            })
-                .to_bytes(data)?;
+            }
+            .to_bytes(data)?;
         }
         Ok(())
     }

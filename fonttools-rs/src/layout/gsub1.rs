@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 /* This struct is the user-facing representation of single-subst. A mapping of
 GID -> GID is a friendly way to represent what's going on. */
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// A single substitution subtable.
 pub struct SingleSubst {
     /// The mapping of input glyph IDs to replacement glyph IDs.

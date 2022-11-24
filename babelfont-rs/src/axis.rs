@@ -111,7 +111,7 @@ impl Axis {
             defaultValue: self.default.expect("Bad axis") as f32,
             maxValue: self.max.expect("Bad axis") as f32,
             minValue: self.min.expect("Bad axis") as f32,
-            flags: if self.hidden { 0x0001 } else { 0x0000 },
+            flags: u16::from(self.hidden),
             axisNameID: name_id,
         })
     }

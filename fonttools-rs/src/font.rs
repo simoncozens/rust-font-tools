@@ -14,7 +14,7 @@ use std::num::Wrapping;
 use std::path::Path;
 
 /// Magic number used to identify the font type
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum SfntVersion {
     /// TrueType (generally containing glyf outlines)
     TrueType = 0x00010000,
@@ -193,11 +193,11 @@ impl Serialize for Font {
         let mut output_tables: Vec<u8> = vec![];
         let mut temp = Vec::new();
 
-        output.extend(&(self.sfntVersion as u32).to_be_bytes());
-        output.extend(&lenu16.to_be_bytes());
-        output.extend(&search_range.to_be_bytes());
-        output.extend(&max_pow2.to_be_bytes());
-        output.extend(&range_shift.to_be_bytes());
+        output.extend((self.sfntVersion as u32).to_be_bytes());
+        output.extend(lenu16.to_be_bytes());
+        output.extend(search_range.to_be_bytes());
+        output.extend(max_pow2.to_be_bytes());
+        output.extend(range_shift.to_be_bytes());
         let mut pos = 16 * self.tables.len() + 12;
         let mut head_pos: Option<usize> = None;
         for tag in self.tables.keys() {
@@ -213,9 +213,9 @@ impl Serialize for Font {
                 temp.push(0);
             }
             output.extend(tag.as_bytes());
-            output.extend(&(orig_checksum as u32).to_be_bytes());
-            output.extend(&(pos as u32).to_be_bytes());
-            output.extend(&(orig_len as u32).to_be_bytes());
+            output.extend((orig_checksum as u32).to_be_bytes());
+            output.extend((pos as u32).to_be_bytes());
+            output.extend((orig_len as u32).to_be_bytes());
             pos += temp.len();
             output_tables.extend_from_slice(&temp);
         }

@@ -8,7 +8,7 @@ use otspec_macros::{Deserialize, Serialize};
 pub const TAG: Tag = crate::tag!("hmtx");
 
 /// A single horizontal metric
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 pub struct Metric {
     /// The full horizontal advance width of the glyph
@@ -18,7 +18,7 @@ pub struct Metric {
 }
 
 /// The horizontal metrics table
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub struct hmtx {
     /// The list of metrics, corresponding to the glyph order

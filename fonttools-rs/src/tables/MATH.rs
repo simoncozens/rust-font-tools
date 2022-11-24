@@ -189,11 +189,11 @@ impl Serialize for MathVariants {
         v
     }
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        data.put(&self.minConnectorOverlap)?;
+        data.put(self.minConnectorOverlap)?;
         data.put(&self.vertGlyphCoverage)?;
         data.put(&self.horizGlyphCoverage)?;
-        data.put(&self.vertGlyphCount)?;
-        data.put(&self.horizGlyphCount)?;
+        data.put(self.vertGlyphCount)?;
+        data.put(self.horizGlyphCount)?;
         data.put(&self.vertGlyphConstruction)?;
         data.put(&self.horizGlyphConstruction)?;
         Ok(())

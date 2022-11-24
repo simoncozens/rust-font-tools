@@ -678,8 +678,9 @@ fn main() {
         let pb = ProgressBar::new(todo.len() as u64);
         pb.set_style(
             ProgressStyle::default_bar()
+                .progress_chars("█░ ")
                 .template("[{bar:52}] {pos:>7}/{len:7} {eta_precise}")
-                .progress_chars("█░ "),
+                .expect("Couldn't set up progress style"),
         );
 
         let crunched: Vec<(usize, Glyph)> = todo

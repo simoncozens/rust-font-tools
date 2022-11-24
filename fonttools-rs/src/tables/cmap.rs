@@ -70,7 +70,7 @@ impl Deserialize for cmap0 {
 }
 
 #[allow(non_camel_case_types, non_snake_case)]
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 /// A format 4 cmap subtable, used for mapping Unicode characters in the
 /// basic mutilingual plane.
 pub struct cmap4 {
@@ -559,7 +559,7 @@ impl Serialize for CmapSubtable {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 /// cmap table. The cmap table is a collection of subtables, as described above.
 pub struct cmap {
@@ -724,8 +724,7 @@ impl cmap {
 
 #[cfg(test)]
 mod tests {
-    use otspec::btreemap;
-    use otspec::Serialize;
+    use otspec::{btreemap, Serialize};
     use pretty_assertions::assert_eq;
     use std::collections::BTreeMap;
     use std::iter::FromIterator;

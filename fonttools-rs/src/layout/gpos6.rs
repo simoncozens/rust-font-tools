@@ -8,7 +8,7 @@ use otspec::types::*;
 
 use std::collections::BTreeMap;
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// A mark-to-base subtable.
 pub struct MarkMarkPos {
     /// Base marks to be attached in this subtable

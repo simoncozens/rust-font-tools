@@ -372,7 +372,7 @@ fn extract_node_from_array(node: &Plist) -> Option<(i64, i64, String)> {
         }
     };
 
-    return None;
+    None
 }
 fn load_shape(a: &Plist, glyph_name: &str) -> Result<Shape, BabelfontError> {
     if a.get("nodes").is_some() {
@@ -468,7 +468,7 @@ fn get_codepoints(g: &Plist) -> Vec<usize> {
             .map(|x| x.as_i32().unwrap_or(0) as usize)
             .collect();
     } else {
-        return vec![unicode.as_i32().unwrap_or(0) as usize];
+        vec![unicode.as_i32().unwrap_or(0) as usize]
     }
 }
 

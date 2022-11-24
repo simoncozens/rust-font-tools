@@ -23,7 +23,7 @@ tables!(
 // length MINUS ONE.
 /// Internal representation of a ligature substitution for serialization/deserialization
 #[allow(non_camel_case_types, non_snake_case)]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Ligature {
     pub ligatureGlyph: uint16,
     pub componentGlyphIDs: Vec<uint16>,

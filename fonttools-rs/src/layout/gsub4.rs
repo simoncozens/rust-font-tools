@@ -5,7 +5,7 @@ use otspec::tables::GSUB::GSUBSubtable;
 use otspec::types::*;
 use std::collections::BTreeMap;
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// A ligature substitution (many-to-one) subtable.
 pub struct LigatureSubst {
     /// The mapping of sequences of input glyphs IDs to replacement glyph IDs.

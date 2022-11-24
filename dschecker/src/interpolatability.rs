@@ -51,8 +51,7 @@ pub(crate) fn check_interpolatability(
         let glyph_name = &g.name;
         let others: Vec<&Glyph> = other_ufos
             .iter()
-            .map(|u| u.default_layer().get_glyph(glyph_name))
-            .flatten()
+            .filter_map(|u| u.default_layer().get_glyph(glyph_name))
             .collect();
         problems.extend(check_glyph(g, &others, &other_source_names));
     }
@@ -66,7 +65,7 @@ fn check_glyph(
     others_names: &[String],
 ) -> impl Iterator<Item = Problem> {
     let mut problems: Vec<Problem> = vec![];
-    let glyph_name = Some((&g.name).to_string());
+    let glyph_name = Some(g.name.to_string());
     // Contours
     let path_count = g.contours.len();
     for (other_glyph, master) in others.iter().zip(others_names.iter()) {
@@ -209,13 +208,11 @@ fn check_anchors(
     let mut problems: Vec<Problem> = vec![];
     let our_set: HashSet<String> = our_anchors
         .iter()
-        .map(|a| a.name.as_ref().map(|x| x.to_string()))
-        .flatten()
+        .filter_map(|a| a.name.as_ref().map(|x| x.to_string()))
         .collect();
     let their_set: HashSet<String> = their_anchors
         .iter()
-        .map(|a| a.name.as_ref().map(|x| x.to_string()))
-        .flatten()
+        .filter_map(|a| a.name.as_ref().map(|x| x.to_string()))
         .collect();
     for missing in our_set.difference(&their_set) {
         problems.push(Problem {

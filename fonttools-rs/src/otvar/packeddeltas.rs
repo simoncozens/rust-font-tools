@@ -7,7 +7,7 @@ use otspec::{
 /// An array of packed deltas
 ///
 /// This is the underlying storage for delta values in the cvt and gvar tables
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct PackedDeltas(pub Vec<int16>);
 
 /// In a run control byte, signifies that the deltas are two-byte values

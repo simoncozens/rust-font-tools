@@ -19,7 +19,7 @@ fn is_sorted<T: PartialOrd>(slice: &[T]) -> bool {
 }
 
 pub(crate) fn check_designspace(ds: &Designspace) -> impl Iterator<Item = Problem> + '_ {
-    let axis_problems = ds.axes.axis.iter().map(check_ds_axis).flatten();
+    let axis_problems = ds.axes.axis.iter().flat_map(check_ds_axis);
     let mut other_problems: Vec<Problem> = vec![];
     if ds.default_master().is_none() {
         other_problems.push(Problem {

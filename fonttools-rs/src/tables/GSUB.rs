@@ -18,7 +18,7 @@ pub const TAG: Tag = crate::tag!("GSUB");
 /// A container which represents a generic substitution rule
 ///
 /// Each rule is expressed as a vector of subtables.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Substitution {
     /// Contains a single substitution rule.
     Single(Vec<SingleSubst>),

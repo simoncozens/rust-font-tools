@@ -165,7 +165,7 @@ pub enum Direction {
     TopToBottom,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NodeType {
     Move,
     Line,

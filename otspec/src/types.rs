@@ -20,7 +20,7 @@ pub type UFWORD = u16;
 #[allow(non_camel_case_types)]
 pub type GlyphID = u16;
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[allow(non_camel_case_types)]
 pub struct uint24(u32);
 
@@ -193,7 +193,7 @@ impl From<F2DOT14> for f32 {
     }
 }
 
-#[derive(Shrinkwrap, Debug, PartialEq)]
+#[derive(Shrinkwrap, Debug, PartialEq, Eq)]
 pub struct Version16Dot16(pub U16F16);
 
 impl Serialize for Version16Dot16 {
@@ -229,7 +229,7 @@ impl From<Version16Dot16> for U16F16 {
         num.0
     }
 }
-#[derive(Shrinkwrap, Debug, PartialEq)]
+#[derive(Shrinkwrap, Debug, PartialEq, Eq)]
 #[allow(clippy::upper_case_acronyms)]
 pub struct LONGDATETIME(pub chrono::NaiveDateTime);
 
@@ -238,7 +238,11 @@ use chrono::{Duration, NaiveDate};
 impl Serialize for LONGDATETIME {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), SerializationError> {
         let now = self.timestamp();
-        let epoch = NaiveDate::from_ymd(1904, 1, 1).and_hms(0, 0, 0).timestamp();
+        let epoch = NaiveDate::from_ymd_opt(1904, 1, 1)
+            .expect("The world is broken")
+            .and_hms_opt(0, 0, 0)
+            .expect("The world is broken")
+            .timestamp();
         (now - epoch).to_bytes(data)
     }
     fn ot_binary_size(&self) -> usize {
@@ -248,7 +252,10 @@ impl Serialize for LONGDATETIME {
 impl Deserialize for LONGDATETIME {
     fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
         let diff: i64 = c.de()?;
-        let epoch = NaiveDate::from_ymd(1904, 1, 1).and_hms(0, 0, 0);
+        let epoch = NaiveDate::from_ymd_opt(1904, 1, 1)
+            .expect("The world is broken")
+            .and_hms_opt(0, 0, 0)
+            .expect("The world is broken");
         let res = epoch + Duration::seconds(diff);
         Ok(LONGDATETIME(res))
     }

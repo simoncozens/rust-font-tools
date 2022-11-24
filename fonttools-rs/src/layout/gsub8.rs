@@ -6,7 +6,7 @@ use otspec::tables::GSUB::GSUBSubtable;
 use otspec::types::*;
 use std::collections::BTreeMap;
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// A reverse chaining substitution subtable.
 pub struct ReverseChainSubst {
     /// The mapping of input glyph IDs to substitute.

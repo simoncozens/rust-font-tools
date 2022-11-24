@@ -17,7 +17,7 @@ pub type Slot = BTreeSet<GlyphID>;
 pub type SequenceContextRule = Vec<(Slot, Vec<LookupID>)>;
 
 /* This struct is the user-facing representation of sequence context. */
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// A contextual substitution/positioning table (GSUB5/GPOS7).
 pub struct SequenceContext {
     /// A set of sequence context rules
@@ -190,7 +190,7 @@ impl SequenceContext {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// A chained contextual rule, with backtrack and lookahead
 pub struct ChainedSequenceContextRule {
     /// Glyphs which must appear before the input sequence
@@ -205,7 +205,7 @@ pub struct ChainedSequenceContextRule {
 }
 
 /* This struct is the user-facing representation of chained sequence context. */
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// A chained contextual substitution/positioning table (GSUB6/GPOS8).
 pub struct ChainedSequenceContext {
     /// A set of sequence context rules

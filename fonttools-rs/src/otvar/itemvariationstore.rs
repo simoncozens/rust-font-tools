@@ -23,7 +23,7 @@ tables!(
 
 );
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 /// Represents variation data inside an item variation store
 pub struct ItemVariationData {
     /// Indices into the IVS's region array.
@@ -111,8 +111,8 @@ impl Deserialize for VariationRegionList {
 
 impl Serialize for VariationRegionList {
     fn to_bytes(&self, data: &mut Vec<u8>) -> Result<(), otspec::SerializationError> {
-        data.put(&self.axisCount)?;
-        data.put(&self.regionCount)?;
+        data.put(self.axisCount)?;
+        data.put(self.regionCount)?;
         data.put(&self.variationRegions)
     }
 }

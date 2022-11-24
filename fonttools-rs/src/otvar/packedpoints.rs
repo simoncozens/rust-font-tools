@@ -11,7 +11,7 @@ use otspec::{
 /// (Including phantom points.) This must be decoded with reference to the
 /// glyph's contour and component information. If the option is Some, a vector
 /// of the point numbers for which delta information is provided.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct PackedPoints {
     /// the array of points
     pub points: Option<Vec<uint16>>,

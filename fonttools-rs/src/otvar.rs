@@ -27,7 +27,7 @@ pub use tuplevariationheader::{TupleIndexFlags, TupleVariationHeader};
 pub use tuplevariationstore::{TupleVariation, TupleVariationStore};
 
 /// Represents either a two-dimensional (`gvar`) or one-dimensional (`cvt`) delta value
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Delta {
     /// A one-dimensional delta (used in the `cvt` table)
     Delta1D(int16),

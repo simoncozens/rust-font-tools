@@ -155,7 +155,7 @@ impl Deserialize for CaretValue {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 /// A glyph class definition in the GDEF table
 pub enum GlyphClass {
     /// Base glyph (single character, spacing glyph)

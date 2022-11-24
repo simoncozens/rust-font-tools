@@ -33,14 +33,14 @@ bitflags! {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Default)]
 pub struct CompositeMaxpValues {
     pub num_points: u16,
     pub num_contours: u16,
     pub max_depth: u16,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 #[allow(non_snake_case)]
 /// A higher-level representation of a TrueType outline glyph.
 pub struct Glyph {
@@ -282,7 +282,7 @@ impl Glyph {
             };
             if x == 0 {
                 flag |= SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR
-            } else if -255 <= x && x <= 255 {
+            } else if (-255..=255).contains(&x) {
                 flag |= SimpleGlyphFlags::X_SHORT_VECTOR;
                 if x > 0 {
                     flag |= SimpleGlyphFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR
@@ -291,11 +291,11 @@ impl Glyph {
                 }
                 compressed_xs.push(x as u8);
             } else {
-                compressed_xs.extend(&i16::to_be_bytes(x as i16));
+                compressed_xs.extend(i16::to_be_bytes(x as i16));
             }
             if y == 0 {
                 flag |= SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR
-            } else if -255 <= y && y <= 255 {
+            } else if (-255..=255).contains(&y) {
                 flag |= SimpleGlyphFlags::Y_SHORT_VECTOR;
                 if y > 0 {
                     flag |= SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR
@@ -304,7 +304,7 @@ impl Glyph {
                 }
                 compressed_ys.push(y as u8);
             } else {
-                compressed_ys.extend(&i16::to_be_bytes(y as i16));
+                compressed_ys.extend(i16::to_be_bytes(y as i16));
             }
             /* Not gonna do repeating flags today */
             compressed_flags.push(flag.bits());

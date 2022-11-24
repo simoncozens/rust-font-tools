@@ -7,7 +7,7 @@ use otspec::types::*;
 
 use std::collections::BTreeMap;
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// A cursive positioning subtable.
 pub struct CursivePos {
     /// The mapping of glyph IDs to entry and exit anchor records.

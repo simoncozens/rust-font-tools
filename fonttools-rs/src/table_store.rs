@@ -470,7 +470,7 @@ impl TableSet {
         maxp.set_num_glyphs(glyf_count.try_into().unwrap());
 
         let mut head = self.head().unwrap().unwrap();
-        head.indexToLocFormat = if loca_is32bit { 1 } else { 0 };
+        head.indexToLocFormat = i16::from(loca_is32bit);
         self.insert(head);
 
         if let Some(hmetric_count) = self.hmtx().unwrap().map(|t| t.number_of_hmetrics()) {

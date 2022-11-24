@@ -79,7 +79,7 @@ fn parse_locargs(locargs: Vec<&str>) -> UserAxisLimits {
         let captures = matcher
             .captures(limit_string)
             .expect("Couldn't parse location format");
-        let btag = Tag::from_raw(&captures.get(1).unwrap().as_str()).unwrap();
+        let btag = Tag::from_raw(captures.get(1).unwrap().as_str()).unwrap();
         let lower: Option<f32> = if captures.get(2).is_some() {
             None
         } else {

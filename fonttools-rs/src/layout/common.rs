@@ -32,14 +32,14 @@ pub(crate) fn coverage_or_nah(off: Offset16<Coverage>) -> Vec<GlyphID> {
 }
 
 /// A script list
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct ScriptList {
     /// A mapping between script tags and `Script` tables.
     pub scripts: BTreeMap<Tag, Script>,
 }
 
 /// A Script table, containing information about language systems for a certain script.
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct Script {
     /// Optionally, a default language system to be used when no specific
     /// language is selected.
@@ -50,7 +50,7 @@ pub struct Script {
 
 /// A LanguageSystem table, selecting which features should be applied in the
 /// current script/language combination.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct LanguageSystem {
     /// Each language system can define a required feature which must be processed
     /// for this script/language combination.
@@ -156,7 +156,7 @@ impl From<ScriptListLowLevel> for ScriptList {
 }
 
 /// A general lookup rule, of whatever type
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Lookup<T> {
     /// Lookup flags
     pub flags: LookupFlags,

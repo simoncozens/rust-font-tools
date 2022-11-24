@@ -326,7 +326,7 @@ impl post {
             italicAngle,
             underlinePosition,
             underlineThickness,
-            isFixedPitch: if isFixedPitch { 1 } else { 0 },
+            isFixedPitch: u32::from(isFixedPitch),
             glyphnames,
             maxMemType1: 0,
             minMemType1: 0,

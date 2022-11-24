@@ -25,7 +25,7 @@ impl<'a> OffsetManager<'a> {
     fn add_object_graph(&mut self, obj: &'a dyn OffsetMarkerTrait) -> NodeIndex<u32> {
         let mut children = vec![];
         for f in obj.children() {
-            children.push(self.add_object_graph(&*f));
+            children.push(self.add_object_graph(f));
         }
         let node = self.dag.add_node(obj);
         for child in children {

@@ -25,7 +25,7 @@ tables!(
 
 // XXX This is also still too clever
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// A class definition table.
 ///
 /// Class definitions, used to define glyph contexts in the GSUB and GPOS tables,

@@ -5,7 +5,7 @@ use otspec::tables::GSUB::GSUBSubtable;
 use otspec::types::*;
 use std::collections::BTreeMap;
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// A multiple substitution (one-to-many) subtable.
 pub struct MultipleSubst {
     /// The mapping of input glyph IDs to sequence of replacement glyph IDs.

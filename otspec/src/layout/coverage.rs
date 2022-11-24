@@ -21,7 +21,7 @@ tables!(
 
 // XXX This is still clever
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// A coverage table.
 ///
 /// OpenType lookups store information about which glyphs are affected by the

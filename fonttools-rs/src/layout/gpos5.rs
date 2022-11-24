@@ -8,7 +8,7 @@ use otspec::types::*;
 
 use std::collections::BTreeMap;
 
-#[derive(Debug, PartialEq, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Clone, Default)]
 /// A mark-to-ligature subtable.
 pub struct MarkLigPos {
     /// Ligature glyphs to be attached in this subtable

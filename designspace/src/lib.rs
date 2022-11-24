@@ -294,13 +294,13 @@ impl Axis {
         if self.map.is_none() || self.map.as_ref().unwrap().is_empty() {
             return self.normalize_userspace_value(l);
         }
-        let rv = normalize_value(
+
+        normalize_value(
             self.designspace_to_userspace(l as i32),
             self.minimum as f32,
             self.maximum as f32,
             self.default as f32,
-        );
-        rv
+        )
     }
 }
 
@@ -349,6 +349,7 @@ pub struct Source {
 
 impl Source {
     #[cfg(feature = "norad")]
+    #[allow(clippy::result_large_err)]
     /// Load the source from a UFO file
     pub fn ufo(
         &self,
