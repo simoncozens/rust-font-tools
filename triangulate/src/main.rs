@@ -1,15 +1,152 @@
 //! Interpolate an instance UFO in a designspace
 use clap::Parser;
-use designspace::Designspace;
 use nalgebra::DVector;
+use norad::designspace::{Axis, DesignSpaceDocument, Dimension, Source};
 use norad::Glyph;
-use otmath::{ot_round, Location, VariationModel};
+use otmath::{normalize_value, ot_round, piecewise_linear_map, Location, VariationModel};
 use rayon::prelude::*;
 use rbf_interp::Scatter;
 use regex::Regex;
 use std::collections::BTreeMap;
-use std::fs::File;
 use std::path::Path;
+
+type Tuple = Vec<f32>;
+struct NormalizedLocation(Tuple);
+
+trait BetterAxis {
+    fn normalize_userspace_value(&self, l: f32) -> f32;
+    fn normalize_designspace_value(&self, l: f32) -> f32;
+    fn userspace_to_designspace(&self, l: f32) -> f32;
+    fn designspace_to_userspace(&self, l: f32) -> f32;
+    fn default_map(&self) -> Vec<(f32, f32)>;
+}
+
+impl BetterAxis for Axis {
+    fn normalize_userspace_value(&self, l: f32) -> f32 {
+        normalize_value(
+            l,
+            self.minimum.unwrap_or(0.0),
+            self.maximum.unwrap_or(0.0),
+            self.default,
+        )
+    }
+    fn normalize_designspace_value(&self, l: f32) -> f32 {
+        if self.map.is_none() || self.map.as_ref().unwrap().is_empty() {
+            return self.normalize_userspace_value(l);
+        }
+
+        normalize_value(
+            self.designspace_to_userspace(l),
+            self.minimum.unwrap_or(0.0),
+            self.maximum.unwrap_or(0.0),
+            self.default as f32,
+        )
+    }
+    fn default_map(&self) -> Vec<(f32, f32)> {
+        vec![
+            (self.minimum.unwrap(), self.minimum.unwrap()),
+            (self.default as f32, self.default as f32),
+            (self.maximum.unwrap(), self.maximum.unwrap()),
+        ]
+    }
+
+    fn userspace_to_designspace(&self, l: f32) -> f32 {
+        let mapping: Vec<(f32, f32)> = self.map.as_ref().map_or_else(
+            || self.default_map(),
+            |map| {
+                map.iter()
+                    .map(|mapping| (mapping.input, mapping.output))
+                    .collect()
+            },
+        );
+        piecewise_linear_map(&mapping, l as f32)
+    }
+    fn designspace_to_userspace(&self, l: f32) -> f32 {
+        let mapping: Vec<(f32, f32)> = self.map.as_ref().map_or_else(
+            || self.default_map(),
+            |map| {
+                map.iter()
+                    .map(|mapping| (mapping.output, mapping.input))
+                    .collect()
+            },
+        );
+
+        piecewise_linear_map(&mapping, l)
+    }
+}
+
+trait BetterDesignspace {
+    fn location_to_tuple(&self, loc: &[Dimension]) -> Vec<f32>;
+    fn default_master(&self) -> Option<&Source>;
+    fn variation_model(&self) -> VariationModel<String>;
+    fn normalize_location(&self, loc: &[Dimension]) -> NormalizedLocation;
+}
+impl BetterDesignspace for DesignSpaceDocument {
+    /// Converts a location to a tuple
+    fn location_to_tuple(&self, loc: &[Dimension]) -> Vec<f32> {
+        let mut tuple = vec![];
+        let defaults = self.axes.iter().map(|ax| ax.default);
+        for (axis, default) in self.axes.iter().zip(defaults) {
+            let name = &axis.name;
+            let dim = loc.iter().find(|d| d.name == *name);
+            if let Some(dim) = dim {
+                tuple.push(dim.xvalue.unwrap_or(0.0));
+            } else {
+                tuple.push(default);
+            }
+        }
+        tuple
+    }
+    fn default_master(&self) -> Option<&Source> {
+        let defaults: BTreeMap<String, f32> = self
+            .axes
+            .iter()
+            .map(|ax| (ax.name.clone(), ax.userspace_to_designspace(ax.default)))
+            .collect();
+        for source in self.sources.iter() {
+            let mut maybe = true;
+            for loc in source.location.iter() {
+                if defaults.get(&loc.name) != loc.xvalue.as_ref() {
+                    maybe = false;
+                    break;
+                }
+            }
+            if maybe {
+                return Some(source);
+            }
+        }
+        return None;
+    }
+    fn variation_model(&self) -> VariationModel<String> {
+        let mut locations: Vec<Location<String>> = vec![];
+        for source in self.sources.iter() {
+            let source_loc = self.normalize_location(&source.location);
+            let mut loc = Location::new();
+            for (ax, iter_l) in self.axes.iter().zip(source_loc.0.iter()) {
+                loc.insert(ax.tag.clone(), *iter_l);
+            }
+            locations.push(loc);
+        }
+        VariationModel::new(locations, self.axes.iter().map(|x| x.tag.clone()).collect())
+    }
+    fn normalize_location(&self, loc: &[Dimension]) -> NormalizedLocation {
+        let mut v: Vec<f32> = vec![];
+        for (ax, l) in self.axes.iter().zip(loc.iter()) {
+            v.push(ax.normalize_designspace_value(l.xvalue.unwrap_or(0.0)));
+        }
+        NormalizedLocation(v)
+    }
+}
+
+trait BetterSource {
+    fn ufo(&self, designspace_filename: &Path) -> Result<norad::Font, norad::error::FontLoadError>;
+}
+
+impl BetterSource for Source {
+    fn ufo(&self, designspace_filename: &Path) -> Result<norad::Font, norad::error::FontLoadError> {
+        norad::Font::load(designspace_filename.parent().unwrap().join(&self.filename))
+    }
+}
 
 mod kerning;
 use crate::kerning::interpolate_kerning;
@@ -47,27 +184,26 @@ fn main() {
     ));
 
     let unnormalized_target_location = parse_locargs(&args.loc_args);
-    let ds_file = File::open(&args.input).expect("Couldn't open designspace file");
-    let ds: Designspace =
-        designspace::from_reader(ds_file).expect("Couldn't read designspace file");
+    let ds: DesignSpaceDocument =
+        DesignSpaceDocument::load(&args.input).expect("Couldn't read designspace file");
     // Ensure locations are sensible
     let mut ok = true;
-    for axis in &ds.axes.axis {
+    for axis in &ds.axes {
         let tag: &str = &axis.tag;
         if let Some(&location) = unnormalized_target_location.get(tag) {
-            if location < axis.minimum as f32 {
+            if axis.minimum.is_some() && Some(location) < axis.minimum {
                 log::warn!(
                     "Location {} is less than minimum {} on axis {}",
                     location,
-                    axis.minimum,
+                    axis.minimum.unwrap(),
                     axis.tag
                 );
             }
-            if location > axis.maximum as f32 {
+            if axis.maximum.is_some() && Some(location) > axis.maximum {
                 log::warn!(
                     "Location {} is more than maximum {} on axis {}",
                     location,
-                    axis.maximum,
+                    axis.maximum.unwrap(),
                     axis.tag
                 );
             }
@@ -81,7 +217,6 @@ fn main() {
     }
     let target_location = ds
         .axes
-        .axis
         .iter()
         .map(|ax| {
             let this_axis_loc = unnormalized_target_location.get(&ax.tag).unwrap();
@@ -93,10 +228,9 @@ fn main() {
         .collect();
 
     let mut source_locations: Vec<BTreeMap<&str, f32>> = Vec::new();
-    for source in &ds.sources.source {
+    for source in &ds.sources {
         let this_loc: BTreeMap<&str, f32> = ds
             .axes
-            .axis
             .iter()
             .map(|x| x.tag.as_str())
             .zip(ds.location_to_tuple(&source.location))
@@ -106,7 +240,6 @@ fn main() {
     }
     let source_ufos: Vec<norad::Font> = ds
         .sources
-        .source
         .par_iter()
         .map(|s| s.ufo(Path::new(&args.input)).expect("Couldn't load UFO"))
         .collect();
@@ -119,7 +252,7 @@ fn main() {
     let vm = ds.variation_model();
 
     for g in output_ufo.default_layer_mut().iter_mut() {
-        let glyph_name = &g.name;
+        let glyph_name = &g.name();
         let others: Vec<Option<&Glyph>> = source_ufos
             .iter()
             .map(|u| u.default_layer().get_glyph(glyph_name))
@@ -361,7 +494,7 @@ fn interpolate_contours(
                 if nums.shape() == default_numbers.shape() {
                     Some(g.get_contour_numbers() - default_numbers.clone())
                 } else {
-                    log::warn!("Incompatible masters in {}", g.name);
+                    log::warn!("Incompatible masters in {}", g.name());
                     None
                 }
             })
@@ -385,7 +518,7 @@ fn interpolate_anchors(
                 if nums.shape() == default_numbers.shape() {
                     Some(g.get_anchor_numbers() - default_numbers.clone())
                 } else {
-                    log::warn!("Incompatible masters in {}", g.name);
+                    log::warn!("Incompatible masters in {}", g.name());
                     None
                 }
             })
@@ -409,7 +542,7 @@ fn interpolate_components(
                 if nums.shape() == default_numbers.shape() {
                     Some(g.get_component_numbers() - default_numbers.clone())
                 } else {
-                    log::warn!("Incompatible masters in {}", g.name);
+                    log::warn!("Incompatible masters in {}", g.name());
                     None
                 }
             })
