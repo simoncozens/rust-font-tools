@@ -327,6 +327,60 @@ impl Deserialize for cmap4 {
     }
 }
 
+#[allow(non_camel_case_types, non_snake_case)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+/// A format 6 cmap subtable, used for mapping 16-bit characters
+/// to glyph indexes when the character codes for a font fall into a single contiguous range.
+pub struct cmap6 {
+    format: uint16,
+    length: uint16,
+    language: uint16,
+    firstCode: uint16,
+    entryCount: uint16,
+    glyphIdArray: Vec<uint16>,
+}
+
+impl cmap6 {
+    /// Creates a new cmap6 subtable for a given language ID, from a list of glyph IDs,
+    /// taken to correspond to a contiguous range of 16-bit characters, starting with `first_code`.
+    pub fn from_list(language_id: uint16, first_code: uint16, glyph_ids: Vec<uint16>) -> Self {
+        Self {
+            format: 6,
+            length: (glyph_ids.len() * 2 + 10) as uint16,
+            language: language_id,
+            firstCode: first_code,
+            entryCount: glyph_ids.len() as uint16,
+            glyphIdArray: glyph_ids,
+        }
+    }
+
+    fn to_mapping(&self) -> BTreeMap<uint32, uint16> {
+        (self.firstCode as uint32..)
+            .zip(self.glyphIdArray.iter().copied())
+            .collect()
+    }
+}
+
+impl Deserialize for cmap6 {
+    fn from_bytes(c: &mut ReaderContext) -> Result<Self, DeserializationError> {
+        let format: uint16 = c.de()?;
+        let length: uint16 = c.de()?;
+        let language: uint16 = c.de()?;
+        let first_code: uint16 = c.de()?;
+        let entry_count: uint16 = c.de()?;
+        let remainder = length as usize - 10;
+        let glyph_id_array: Vec<u16> = c.de_counted(remainder).unwrap_or_default();
+        Ok(cmap6 {
+            format,
+            length,
+            language,
+            firstCode: first_code,
+            entryCount: entry_count,
+            glyphIdArray: glyph_id_array,
+        })
+    }
+}
+
 tables!(
 cmap12 {
     uint16 format
@@ -620,6 +674,17 @@ impl Deserialize for cmap {
                     let subtable: cmap4 = c.de()?;
                     subtables.push(CmapSubtable {
                         format: 4,
+                        platformID: er.platformID,
+                        encodingID: er.encodingID,
+                        languageID: subtable.language,
+                        mapping: subtable.to_mapping(),
+                        uvs_mapping: None,
+                    });
+                }
+                [0x0, 0x06] => {
+                    let subtable: cmap6 = c.de()?;
+                    subtables.push(CmapSubtable {
+                        format: 6,
                         platformID: er.platformID,
                         encodingID: er.encodingID,
                         languageID: subtable.language,
