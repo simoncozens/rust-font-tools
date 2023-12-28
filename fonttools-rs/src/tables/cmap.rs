@@ -606,6 +606,27 @@ impl Serialize for CmapSubtable {
         match self.format {
             0 => cmap0::from_mapping(self.languageID, &self.mapping).to_bytes(data),
             4 => cmap4::from_mapping(self.languageID, &self.mapping).to_bytes(data),
+            6 => {
+                let first_code = *self.mapping.keys().next().ok_or_else(|| {
+                    SerializationError("empty format 6 cmap subtable".to_string())
+                })?;
+                if !self
+                    .mapping
+                    .keys()
+                    .zip(first_code..)
+                    .all(|(k, cont)| *k <= u16::MAX as u32 && *k == cont)
+                {
+                    return Err(SerializationError(
+                        "invalid format 6 cmap subtable (not contiguous or not 16-bit)".to_string(),
+                    ));
+                }
+                cmap6::from_list(
+                    self.languageID,
+                    first_code as u16,
+                    self.mapping.values().copied().collect(),
+                )
+                .to_bytes(data)
+            }
             12 => cmap12::from_mapping(self.languageID, &self.mapping).to_bytes(data),
             14 => cmap14::from_uvs_mapping(&self.uvs_mapping).to_bytes(data),
             _ => unimplemented!(),
