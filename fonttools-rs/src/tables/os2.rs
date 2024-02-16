@@ -529,38 +529,38 @@ impl os2 {
         const CODE_PAGE_RANGES: [(&str, bool, u8); 32] = [
             ("Þ", true, 0),
             ("Ľ", true, 1),
-            ("Б", false, 2),        // Cyrillic
-            ("БЅ┤", false, 57),  // IBM Cyrillic
+            ("Б", false, 2),    // Cyrillic
+            ("БЅ┤", false, 57), // IBM Cyrillic
             ("Б╜┤", false, 49), // MS Dos Russian
-            ("Ά", false, 3),        // Greek,
-            ("Ά½┤", false, 48),  // IBM Greek,
+            ("Ά", false, 3),    // Greek,
+            ("Ά½┤", false, 48), // IBM Greek,
             ("Ά√┤", false, 48), // Greek, former 437 G
-            ("İ", true, 4),         // Turkish
-            ("İ┤", true, 56),     // IBM Turkish
-            ("א", false, 5),        // Hebrew
+            ("İ", true, 4),     // Turkish
+            ("İ┤", true, 56),   // IBM Turkish
+            ("א", false, 5),    // Hebrew
             ("א┤√", false, 53), // Hebrew
-            ("ر", false, 6),        // Arabic
-            ("ر√", false, 51),    // Arabic
+            ("ر", false, 6),    // Arabic
+            ("ر√", false, 51),  // Arabic
             ("ر┤√", false, 61), // Arabic; ASMO 708
-            ("ŗ", true, 7),         // Windows Baltic
-            ("ŗ┤", true, 59),     // MS DOS Baltic
-            ("₫", true, 8),        // Vietnamese
-            ("ๅ", false, 16),      // Thai
-            ("エ", false, 17),      // JIS/Japan
-            ("ㄅ", false, 18),      // Chinese: Simplified chars
-            ("ㄱ", false, 19),      // Korean wansung
-            ("央", false, 20),      // Chinese: Traditional chars
-            ("곴", false, 21),      // Korean Johab
-            ("♥", false, 30),      // OEM Character Set
+            ("ŗ", true, 7),     // Windows Baltic
+            ("ŗ┤", true, 59),   // MS DOS Baltic
+            ("₫", true, 8),     // Vietnamese
+            ("ๅ", false, 16),   // Thai
+            ("エ", false, 17),  // JIS/Japan
+            ("ㄅ", false, 18),  // Chinese: Simplified chars
+            ("ㄱ", false, 19),  // Korean wansung
+            ("央", false, 20),  // Chinese: Traditional chars
+            ("곴", false, 21),  // Korean Johab
+            ("♥", false, 30),   // OEM Character Set
             // TODO: Check symbol character set here, while being aware setting
             // the symbol bit has a particular meaning.
-            ("þ┤", true, 54),    // MS-DOS Icelandic
-            ("╚", true, 62),      // WE/Latin 1
-            ("╚", true, 63),      // US
+            ("þ┤", true, 54),  // MS-DOS Icelandic
+            ("╚", true, 62),   // WE/Latin 1
+            ("╚", true, 63),   // US
             ("┤√Å", true, 50), // MS-DOS Nordic
             ("┤√é", true, 52), // MS-DOS Canadian French
             ("┤√õ", true, 55), // MS-DOS Portuguese
-            ("‰∑", true, 29),   // Macintosh Character Set (US Roman)
+            ("‰∑", true, 29),  // Macintosh Character Set (US Roman)
         ];
         for (characters, needs_ascii, page) in CODE_PAGE_RANGES {
             if (has_ascii || !needs_ascii) && characters.chars().all(unicodes_contains) {
