@@ -109,8 +109,8 @@ impl Layer {
             shapes: self
                 .shapes
                 .iter()
-                .cloned()
                 .filter(|sh| matches!(sh, Shape::PathShape(_)))
+                .cloned()
                 .chain(decomposed_shapes)
                 .collect(),
         }

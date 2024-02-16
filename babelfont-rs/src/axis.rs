@@ -47,7 +47,7 @@ impl Axis {
             let inverted_map: Vec<(f32, f32)> = map.iter().map(|(a, b)| (*b, *a)).collect();
             piecewise_linear_map(&inverted_map, l)
         } else {
-            l as f32
+            l
         }
     }
 
@@ -56,7 +56,7 @@ impl Axis {
         if let Some(map) = &self.map {
             piecewise_linear_map(map, l)
         } else {
-            l as f32
+            l
         }
     }
 
@@ -108,9 +108,9 @@ impl Axis {
         }
         Ok(VariationAxisRecord {
             axisTag: Tag::from_raw(self.tag.as_bytes()).unwrap(),
-            defaultValue: self.default.expect("Bad axis") as f32,
-            maxValue: self.max.expect("Bad axis") as f32,
-            minValue: self.min.expect("Bad axis") as f32,
+            defaultValue: self.default.expect("Bad axis"),
+            maxValue: self.max.expect("Bad axis"),
+            minValue: self.min.expect("Bad axis"),
             flags: u16::from(self.hidden),
             axisNameID: name_id,
         })

@@ -210,7 +210,7 @@ impl Thetas {
                 let thisxy = q.point_at_t(t);
                 let thisd = derivs.deriv(t);
                 while ix <= y[0] {
-                    let u = (ix as f64 - lasts) / (y[0] - lasts);
+                    let u = (ix - lasts) / (y[0] - lasts);
                     xys.push(lastxy.lerp(thisxy, u));
                     dirs.push(lastd.lerp(thisd, u).unitize());
                     ix += 1.0;
@@ -227,7 +227,7 @@ impl Thetas {
         let thisxy = q.p2;
         let thisd = ArclenFunctor::new(q).deriv(1.0);
         while ix <= arclen + 2.0 {
-            let u = (ix as f64 - lasts) / (arclen - lasts);
+            let u = (ix - lasts) / (arclen - lasts);
             xys.push(lastxy.lerp(thisxy, u));
             dirs.push(lastd.lerp(thisd, u).unitize());
             ix += 1.0;

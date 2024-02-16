@@ -240,7 +240,7 @@ fn iup_contour_optimize(
             let mut i = start as i16;
             while i > (start as i16) - (n as i16) {
                 solution.insert(i.rem_euclid(n as i16) as usize);
-                let next = chain.get(&(i as i16));
+                let next = chain.get(&i);
                 if let Some(n) = next {
                     i = *n;
                 } else {
@@ -404,7 +404,7 @@ fn _iup_contour_optimize_dp(
             if cost < best_cost && can_iup_between(deltas, coords, j, i_i16, tolerance) {
                 best_cost = cost;
                 costs.insert(i_i16, best_cost);
-                chain.insert(i_i16, j as i16);
+                chain.insert(i_i16, j);
             }
             if forced.contains(&j) {
                 break;

@@ -1,8 +1,8 @@
+//! Decompose cubic to quadratic curves in one or more UFO files
+
 use clap::Parser;
 use kurbo::{cubics_to_quadratic_splines, BezPath, CubicBez, PathEl, PathSeg};
-///! Decompose cubic to quadratic curves in one or more UFO files
-use norad::Glyph;
-use norad::{Contour, ContourPoint, Font, PointType};
+use norad::{Contour, ContourPoint, Font, Glyph, PointType};
 use rayon::prelude::*;
 
 /// Decompose cubic to quadratic curves in one or more UFO files

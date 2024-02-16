@@ -95,11 +95,11 @@ fn load_kern_groups(plist: &Plist) -> HashMap<String, Vec<String>> {
                     .unwrap_or_else(|| glyphname.to_string());
                 groups
                     .entry("MMK_L_".to_owned() + &l_class)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(glyphname.to_string());
                 groups
                     .entry("MMK_R_".to_owned() + &r_class)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(glyphname.to_string());
             }
         }
@@ -257,7 +257,7 @@ fn load_guide(g: &Plist) -> Guide {
 
 fn fixup_axes(f: &mut Font, default_master_id: Option<&String>) {
     for master in &f.masters {
-        for mut axis in f.axes.iter_mut() {
+        for axis in f.axes.iter_mut() {
             let this_loc = *(master.location.0.get(&axis.tag).unwrap_or(&0.0));
             if axis.min.is_none() || this_loc < axis.min.unwrap() {
                 axis.min = Some(this_loc);

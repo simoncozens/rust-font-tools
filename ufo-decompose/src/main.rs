@@ -1,7 +1,7 @@
+//! Decompose mixed glyphs in a UFO file
+
 use clap::Parser;
-///! Decompose mixed glyphs in a UFO file
-use norad::Glyph;
-use norad::{Contour, Font, Layer};
+use norad::{Contour, Font, Glyph, Layer};
 use std::collections::BTreeMap;
 
 /// Decompose mixed glyphs in a UFO file
@@ -44,7 +44,7 @@ fn decomposed_components(glyph: &Glyph, layer: &Layer) -> Vec<Contour> {
             for contour in &referenced_glyph.contours {
                 let mut decomposed_contour = Contour::default();
                 for node in &contour.points {
-                    let new_point = transform * kurbo::Point::new(node.x as f64, node.y as f64);
+                    let new_point = transform * kurbo::Point::new(node.x, node.y);
                     decomposed_contour.points.push(norad::ContourPoint::new(
                         new_point.x,
                         new_point.y,

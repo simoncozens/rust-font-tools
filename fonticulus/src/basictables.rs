@@ -287,11 +287,11 @@ pub fn compile_os2(
     let sTypoAscender = input
         .ot_value("OS2", "sTypoAscender", true)
         .map(i16::from)
-        .unwrap_or(font_ascender) as i16;
+        .unwrap_or(font_ascender);
     let sTypoDescender = input
         .ot_value("OS2", "sTypoDescender", true)
         .map(i16::from)
-        .unwrap_or_else(|| font_descender) as i16;
+        .unwrap_or_else(|| font_descender);
     let sTypoLineGap = typo_linegap(input);
 
     let ySubscriptYOffset = input
@@ -413,8 +413,8 @@ pub fn compile_os2(
         fsSelection: get_selection(input),
     };
     if let Some(OTScalar::BitField(page_ranges)) = input.ot_value("OS2", "codePageRanges", true) {
-        table.ulCodePageRange1 = Some(filtered_bitset_to_num(page_ranges.iter(), 0, 31) as u32);
-        table.ulCodePageRange2 = Some(filtered_bitset_to_num(page_ranges.iter(), 32, 63) as u32);
+        table.ulCodePageRange1 = Some(filtered_bitset_to_num(page_ranges.iter(), 0, 31));
+        table.ulCodePageRange2 = Some(filtered_bitset_to_num(page_ranges.iter(), 32, 63));
     } else {
         table.calc_code_page_ranges(mapping);
     }

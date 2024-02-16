@@ -37,7 +37,7 @@ fn main() {
     if diffs.is_empty() {
         println!("No differences found");
     } else {
-        println!("");
+        println!();
         for (key, value) in diffs {
             println!("\t{:30}{}", key, value);
         }
@@ -48,17 +48,17 @@ fn main() {
     if diffs.is_empty() {
         println!("No differences found");
     } else {
-        println!("");
+        println!();
         for (key, value) in diffs {
             println!("\t{:30}{}", key, value);
         }
     }
 
-    let diffs = ufo1.layers.default_layer().diff(&ufo2.default_layer());
+    let diffs = ufo1.layers.default_layer().diff(ufo2.default_layer());
     if diffs.is_empty() {
         println!("No differences found");
     } else {
-        println!("");
+        println!();
         for (key, value) in diffs {
             println!("\t{:30}{}", key, value);
         }

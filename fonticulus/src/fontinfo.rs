@@ -175,7 +175,7 @@ pub fn get_selection(input: &babelfont::Font) -> u16 {
 }
 
 pub fn caret_slope_rise(input: &babelfont::Font) -> i16 {
-    let italic_angle = input.default_metric("italic angle").unwrap_or(0) as i32;
+    let italic_angle = input.default_metric("italic angle").unwrap_or(0);
     if italic_angle == 0 {
         return 1;
     }
@@ -191,7 +191,7 @@ pub fn caret_slope_rise(input: &babelfont::Font) -> i16 {
 }
 
 pub fn caret_slope_run(input: &babelfont::Font) -> i16 {
-    let italic_angle = input.default_metric("italic angle").unwrap_or(0) as i32;
+    let italic_angle = input.default_metric("italic angle").unwrap_or(0);
     if italic_angle != 0 {
         let slope_rise = caret_slope_rise(input);
         (slope_rise as f64 * f64::to_radians(-italic_angle as f64).tan()) as i16

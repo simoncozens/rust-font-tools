@@ -122,7 +122,7 @@ impl From<OTScalar> for i32 {
     fn from(p: OTScalar) -> i32 {
         match p {
             OTScalar::Unsigned(u) => u as i32,
-            OTScalar::Signed(u) => u as i32,
+            OTScalar::Signed(u) => u,
             OTScalar::Float(f) => f as i32,
             _ => 0,
         }

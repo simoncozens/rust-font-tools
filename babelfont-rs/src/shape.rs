@@ -1,15 +1,11 @@
 use crate::common::{Node, NodeType};
 use crate::BabelfontError;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum PathDirection {
+    #[default]
     Clockwise = 1,
     Anticlockwise = 0,
-}
-impl Default for PathDirection {
-    fn default() -> Self {
-        PathDirection::Clockwise
-    }
 }
 #[derive(Debug, Clone)]
 pub struct Component {
@@ -30,22 +26,22 @@ impl Path {
     pub fn to_kurbo(&self) -> Result<kurbo::BezPath, BabelfontError> {
         let mut path = kurbo::BezPath::new();
         let mut offs = std::collections::VecDeque::new();
-        let mut nodes = if self.closed {
-            // Add end-of-contour offcurves to queue
-            let rotate = self
-                .nodes
+        let rotate = if self.closed {
+            self.nodes
                 .iter()
                 .rev()
                 .position(|pt| pt.nodetype != NodeType::OffCurve)
-                .map(|idx| self.nodes.len() - 1 - idx);
-            self.nodes
-                .iter()
-                .cycle()
-                .skip(rotate.unwrap_or(0))
-                .take(self.nodes.len() + 1)
+                .map(|idx| self.nodes.len() - 1 - idx)
+                .unwrap_or(0)
         } else {
-            self.nodes.iter().cycle().skip(0).take(self.nodes.len())
+            0
         };
+        let mut nodes = self
+            .nodes
+            .iter()
+            .cycle()
+            .skip(rotate)
+            .take(self.nodes.len());
         // We do this because all kurbo paths (even closed ones)
         // must start with a move_to (otherwise get_segs doesn't work)
         if let Some(start) = nodes.next() {

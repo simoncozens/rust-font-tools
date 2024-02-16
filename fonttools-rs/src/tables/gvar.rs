@@ -198,8 +198,7 @@ pub fn from_bytes(
         let offset: usize = (data_offsets[i] + (core.glyphVariationDataArrayOffset))
             .try_into()
             .unwrap();
-        let next_offset: usize = (data_offsets[(i + 1) as usize]
-            + (core.glyphVariationDataArrayOffset))
+        let next_offset: usize = (data_offsets[i + 1] + (core.glyphVariationDataArrayOffset))
             .try_into()
             .unwrap();
         let length = next_offset - offset;

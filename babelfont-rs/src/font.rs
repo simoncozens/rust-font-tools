@@ -187,9 +187,9 @@ impl Font {
             .expect("Couldn't open name table");
 
         for axis in self.axes.iter() {
-            axes.push(axis.to_variation_axis_record(ix as u16)?);
+            axes.push(axis.to_variation_axis_record(ix)?);
             name.records.push(NameRecord::windows_unicode(
-                ix as u16,
+                ix,
                 axis.name.get_default().clone().expect("Bad axis name"),
             ));
             ix += 1;

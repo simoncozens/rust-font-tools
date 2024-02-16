@@ -508,10 +508,10 @@ impl os2 {
         for uni in mapping.keys() {
             unicode_ranges.insert(glyph_unicode_range(uni) as u8);
         }
-        self.ulUnicodeRange1 = filtered_bitset_to_num(unicode_ranges.iter(), 0, 31) as u32;
-        self.ulUnicodeRange2 = filtered_bitset_to_num(unicode_ranges.iter(), 32, 63) as u32;
-        self.ulUnicodeRange3 = filtered_bitset_to_num(unicode_ranges.iter(), 64, 95) as u32;
-        self.ulUnicodeRange4 = filtered_bitset_to_num(unicode_ranges.iter(), 96, 127) as u32;
+        self.ulUnicodeRange1 = filtered_bitset_to_num(unicode_ranges.iter(), 0, 31);
+        self.ulUnicodeRange2 = filtered_bitset_to_num(unicode_ranges.iter(), 32, 63);
+        self.ulUnicodeRange3 = filtered_bitset_to_num(unicode_ranges.iter(), 64, 95);
+        self.ulUnicodeRange4 = filtered_bitset_to_num(unicode_ranges.iter(), 96, 127);
     }
 
     /// Calculate and set the code page ranges from a mapping of codepoints to glyph IDs
@@ -573,8 +573,7 @@ impl os2 {
         if code_page_ranges.is_empty() {
             code_page_ranges.insert(0);
         }
-        self.ulCodePageRange1 = Some(filtered_bitset_to_num(code_page_ranges.iter(), 0, 31) as u32);
-        self.ulCodePageRange2 =
-            Some(filtered_bitset_to_num(code_page_ranges.iter(), 32, 63) as u32);
+        self.ulCodePageRange1 = Some(filtered_bitset_to_num(code_page_ranges.iter(), 0, 31));
+        self.ulCodePageRange2 = Some(filtered_bitset_to_num(code_page_ranges.iter(), 32, 63));
     }
 }

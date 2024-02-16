@@ -36,11 +36,11 @@ enum Token<'a> {
 }
 
 fn is_numeric(b: u8) -> bool {
-    (b'0'..=b'9').contains(&b) || b == b'.' || b == b'-'
+    b.is_ascii_digit() || b == b'.' || b == b'-'
 }
 
 fn is_alnum(b: u8) -> bool {
-    is_numeric(b) || (b'A'..=b'Z').contains(&b) || (b'a'..=b'z').contains(&b) || b == b'_'
+    is_numeric(b) || b.is_ascii_uppercase() || b.is_ascii_lowercase() || b == b'_'
 }
 
 // Used for serialization; make sure UUID's get quoted
@@ -48,16 +48,8 @@ fn is_alnum_strict(b: u8) -> bool {
     is_alnum(b) && b != b'-'
 }
 
-fn is_ascii_digit(b: u8) -> bool {
-    (b'0'..=b'9').contains(&b)
-}
-
 fn is_hex_upper(b: u8) -> bool {
-    (b'0'..=b'9').contains(&b) || (b'A'..=b'F').contains(&b)
-}
-
-fn is_ascii_whitespace(b: u8) -> bool {
-    b == b' ' || b == b'\t' || b == b'\r' || b == b'\n'
+    b.is_ascii_digit() || (b'A'..=b'F').contains(&b)
 }
 
 fn numeric_ok(s: &str) -> bool {
@@ -65,17 +57,17 @@ fn numeric_ok(s: &str) -> bool {
     if s.is_empty() {
         return false;
     }
-    if s.iter().all(|&b| is_hex_upper(b)) && !s.iter().all(|&b| is_ascii_digit(b)) {
+    if s.iter().all(|&b| is_hex_upper(b)) && !s.iter().all(|&b| b.is_ascii_digit()) {
         return false;
     }
     if s.len() > 1 && s[0] == b'0' {
-        return !s.iter().all(|&b| is_ascii_digit(b));
+        return !s.iter().all(|&b| b.is_ascii_digit());
     }
     true
 }
 
 fn skip_ws(s: &str, mut ix: usize) -> usize {
-    while ix < s.len() && is_ascii_whitespace(s.as_bytes()[ix]) {
+    while ix < s.len() && s.as_bytes()[ix].is_ascii_whitespace() {
         ix += 1;
     }
     ix
@@ -398,22 +390,22 @@ impl<'a> Token<'a> {
                     if b == b'>' {
                         // End of binary
                         return Ok((Token::Binary(buf), ix + 1));
-                    } else if (b'0'..=b'9').contains(&b) || (b'a'..=b'f').contains(&b) {
+                    } else if b.is_ascii_digit() || (b'a'..=b'f').contains(&b) {
                         ix += 1;
                         if ix == s.len() {
                             return Err(Error::UnclosedString);
                         }
                         let high = b;
                         let low = s.as_bytes()[ix];
-                        if (b'0'..=b'9').contains(&low) || (b'a'..=b'f').contains(&low) {
+                        if low.is_ascii_digit() || (b'a'..=b'f').contains(&low) {
                             ix += 1;
                             let mut byte = 0;
-                            if (b'0'..=b'9').contains(&high) {
+                            if high.is_ascii_digit() {
                                 byte += 16 * (high - b'0');
                             } else {
                                 byte += 16 * (10 + high - b'a');
                             }
-                            if (b'0'..=b'9').contains(&low) {
+                            if low.is_ascii_digit() {
                                 byte += low - b'0';
                             } else {
                                 byte += 10 + (low - b'a');

@@ -6,7 +6,6 @@ use kurbo::{cubics_to_quadratic_splines, BezPath, CubicBez, PathEl, PathSeg};
 use otmath::ot_round;
 use otspec::utils::is_all_the_same;
 use std::collections::BTreeMap;
-use std::mem;
 use unzip_n::unzip_n;
 
 unzip_n!(3);
@@ -117,8 +116,7 @@ impl<'a> GlyphForConversion<'a> {
 
     /// Drop all variation masters
     fn into_nonvariable(mut self) -> Self {
-        let default_master: Option<UnconvertedMaster> =
-            mem::replace(&mut self.masters[self.default_master_ix], None);
+        let default_master: Option<UnconvertedMaster> = self.masters[self.default_master_ix].take();
         GlyphForConversion {
             masters: vec![default_master],
             default_master_ix: 0,
@@ -148,8 +146,7 @@ impl<'a> GlyphReadyToGo<'a> {
         // We just build a glyph from the default master
         // There are invariants around the fact that when we built this thing we
         // have a default layer.
-        let l: Option<ConvertedMaster> =
-            mem::replace(&mut self.masters[self.default_master_ix], None);
+        let l: Option<ConvertedMaster> = self.masters[self.default_master_ix].take();
         l.unwrap().into_glyph()
     }
     fn variation_data(&self) -> Option<GlyphVariationData> {

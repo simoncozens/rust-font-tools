@@ -30,7 +30,7 @@ pub(crate) fn check_designspace(ds: &Designspace) -> impl Iterator<Item = Proble
             description: "couldn't find default master".to_string(),
         })
     }
-    axis_problems.chain(other_problems.into_iter())
+    axis_problems.chain(other_problems)
 }
 
 fn check_ds_axis(axis: &Axis) -> impl Iterator<Item = Problem> {

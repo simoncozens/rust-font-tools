@@ -5,8 +5,6 @@ use std::borrow::Borrow;
 use std::ops::Deref;
 use std::str::FromStr;
 
-pub use otspec_macros::tag;
-
 /// An OpenType tag.
 ///
 /// A tag is a 4-byte array where each byte is in the printable ascii range

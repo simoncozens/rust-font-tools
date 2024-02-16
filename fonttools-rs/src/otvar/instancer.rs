@@ -500,7 +500,7 @@ fn instantiate_STAT(font: &mut Font, axis_limits: &UserAxisLimits) {
 }
 
 fn set_mac_overlap_flags(glyf: &mut glyf::glyf) {
-    for mut g in glyf.glyphs.iter_mut() {
+    for g in glyf.glyphs.iter_mut() {
         g.overlap = true;
     }
 }
@@ -552,6 +552,7 @@ fn normalize_axis_limits(
 
     let avar = font.tables.avar().unwrap();
     let avar_segs: BTreeMap<Tag, &SegmentMap> = if use_avar && avar.is_some() {
+        #[allow(clippy::unnecessary_unwrap)]
         all_axes
             .iter()
             .zip(avar.as_ref().unwrap().maps.iter())

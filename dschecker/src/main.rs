@@ -1,4 +1,4 @@
-///! Check a Designspace file for interpolatability and other issues
+/// Check a Designspace file for interpolatability and other issues
 mod designspace;
 mod interpolatability;
 

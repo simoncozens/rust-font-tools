@@ -265,8 +265,8 @@ impl cmap4 {
             let end = self.endCode[i];
             let delta = self.idDelta[i];
             let range_offset = self.idRangeOffsets[i];
-            let partial = ((range_offset / 2) as i32 - (start as i32) + (i as i32)
-                - (self.idRangeOffsets.len() as i32)) as i32;
+            let partial = (range_offset / 2) as i32 - (start as i32) + (i as i32)
+                - (self.idRangeOffsets.len() as i32);
             if end == 0xffff {
                 break;
             }
@@ -513,7 +513,7 @@ impl cmap14 {
         for ((codepoint, selector), gid) in map.iter() {
             split_map
                 .entry(*selector)
-                .or_insert_with(std::vec::Vec::new)
+                .or_default()
                 .push((*codepoint, *gid));
         }
 

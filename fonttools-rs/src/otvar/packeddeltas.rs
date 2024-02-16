@@ -62,7 +62,7 @@ impl Serialize for PackedDeltas {
                     run_length -= 64;
                 }
                 if run_length > 0 {
-                    data.put((DELTAS_ARE_ZERO | (run_length - 1)) as u8)?;
+                    data.put(DELTAS_ARE_ZERO | (run_length - 1))?;
                 }
             } else if (-128..=127).contains(&value) {
                 // Runs of byte values

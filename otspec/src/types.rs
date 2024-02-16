@@ -132,9 +132,7 @@ impl PartialEq for F2DOT14 {
 impl Eq for F2DOT14 {}
 impl PartialOrd for F2DOT14 {
     fn partial_cmp(&self, other: &Self) -> std::option::Option<std::cmp::Ordering> {
-        self.as_packed()
-            .unwrap()
-            .partial_cmp(&other.as_packed().unwrap())
+        Some(self.cmp(other))
     }
 }
 impl Ord for F2DOT14 {

@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 
 use serde_json_diff::{Difference, EntryDifference};
 

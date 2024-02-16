@@ -114,8 +114,7 @@ impl Deserialize for Glyph {
             // println!("Instructions: {:?}", instructions);
             let num_points = *(end_pts_of_contour
                 .last()
-                .ok_or_else(|| DeserializationError("No points?".to_string()))?)
-                as usize;
+                .ok_or_else(|| DeserializationError("No points?".to_string()))?);
             let mut i = 0;
             // println!("Number of points: {:?}", num_points);
             let mut flags: Vec<SimpleGlyphFlags> = Vec::with_capacity(num_points);
@@ -291,7 +290,7 @@ impl Glyph {
                 }
                 compressed_xs.push(x as u8);
             } else {
-                compressed_xs.extend(i16::to_be_bytes(x as i16));
+                compressed_xs.extend(i16::to_be_bytes(x));
             }
             if y == 0 {
                 flag |= SimpleGlyphFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR
@@ -304,7 +303,7 @@ impl Glyph {
                 }
                 compressed_ys.push(y as u8);
             } else {
-                compressed_ys.extend(i16::to_be_bytes(y as i16));
+                compressed_ys.extend(i16::to_be_bytes(y));
             }
             /* Not gonna do repeating flags today */
             compressed_flags.push(flag.bits());

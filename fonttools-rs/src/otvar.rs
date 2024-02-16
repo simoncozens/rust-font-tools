@@ -1,4 +1,4 @@
-///! OpenType Variations common tables
+/// OpenType Variations common tables
 
 /// Item Variation Store (used in `MVAR`, etc.)
 mod itemvariationstore;

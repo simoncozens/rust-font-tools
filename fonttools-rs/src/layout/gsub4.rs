@@ -19,10 +19,7 @@ impl ToLowlevel<GSUBSubtable> for LigatureSubst {
         mapping_keys.sort_by_key(|a| -(a.len() as isize));
         for left in mapping_keys {
             let covered = left.first().unwrap();
-            split_map
-                .entry(*covered)
-                .or_insert_with(std::vec::Vec::new)
-                .push(left.clone());
+            split_map.entry(*covered).or_default().push(left.clone());
         }
         // println!("Split map {:?}", split_map);
 

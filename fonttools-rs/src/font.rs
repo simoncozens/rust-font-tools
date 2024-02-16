@@ -213,7 +213,7 @@ impl Serialize for Font {
                 temp.push(0);
             }
             output.extend(tag.as_bytes());
-            output.extend((orig_checksum as u32).to_be_bytes());
+            output.extend(orig_checksum.to_be_bytes());
             output.extend((pos as u32).to_be_bytes());
             output.extend((orig_len as u32).to_be_bytes());
             pos += temp.len();

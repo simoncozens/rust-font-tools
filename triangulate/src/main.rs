@@ -3,9 +3,7 @@ use clap::Parser;
 use nalgebra::DVector;
 use norad::designspace::{Axis, DesignSpaceDocument, Dimension, Source};
 use norad::Glyph;
-use otmath::{
-    normalize_value, ot_round, piecewise_linear_map, support_scalar, Location, VariationModel,
-};
+use otmath::{normalize_value, ot_round, piecewise_linear_map, Location, VariationModel};
 use rayon::prelude::*;
 use rbf_interp::Scatter;
 use regex::Regex;
@@ -19,6 +17,7 @@ trait BetterAxis {
     fn normalize_userspace_value(&self, l: f32) -> f32;
     fn normalize_designspace_value(&self, l: f32) -> f32;
     fn userspace_to_designspace(&self, l: f32) -> f32;
+    #[allow(dead_code)]
     fn designspace_to_userspace(&self, l: f32) -> f32;
     fn default_map(&self) -> Vec<(f32, f32)>;
 }
@@ -30,7 +29,7 @@ impl BetterAxis for Axis {
             l,
             self.userspace_to_designspace(l)
         );
-        return self.normalize_designspace_value(self.userspace_to_designspace(l));
+        self.normalize_designspace_value(self.userspace_to_designspace(l))
     }
     fn normalize_designspace_value(&self, l: f32) -> f32 {
         log::info!("Minimum value is {}", self.minimum.unwrap_or(0.0));
@@ -47,13 +46,13 @@ impl BetterAxis for Axis {
             l,
             self.userspace_to_designspace(self.minimum.unwrap_or(0.0)),
             self.userspace_to_designspace(self.maximum.unwrap_or(0.0)),
-            self.userspace_to_designspace(self.default as f32),
+            self.userspace_to_designspace(self.default),
         )
     }
     fn default_map(&self) -> Vec<(f32, f32)> {
         vec![
             (self.minimum.unwrap(), self.minimum.unwrap()),
-            (self.default as f32, self.default as f32),
+            (self.default, self.default),
             (self.maximum.unwrap(), self.maximum.unwrap()),
         ]
     }
@@ -67,7 +66,7 @@ impl BetterAxis for Axis {
                     .collect()
             },
         );
-        piecewise_linear_map(&mapping, l as f32)
+        piecewise_linear_map(&mapping, l)
     }
     fn designspace_to_userspace(&self, l: f32) -> f32 {
         let mapping: Vec<(f32, f32)> = self.map.as_ref().map_or_else(
@@ -123,7 +122,7 @@ impl BetterDesignspace for DesignSpaceDocument {
                 return Some(source);
             }
         }
-        return None;
+        None
     }
     fn variation_model(&self) -> VariationModel<String> {
         let mut locations: Vec<Location<String>> = vec![];

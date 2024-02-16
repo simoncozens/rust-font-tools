@@ -71,7 +71,7 @@ impl Serialize for ItemVariationData {
         for deltaset in &self.delta_values {
             for (ix, &delta) in deltaset.iter().enumerate() {
                 if ix < short_delta_count {
-                    data.put(delta as i16)?;
+                    data.put(delta)?;
                 } else {
                     data.put(delta as i8)?;
                 }
