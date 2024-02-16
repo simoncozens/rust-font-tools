@@ -3,7 +3,9 @@ use clap::Parser;
 use nalgebra::DVector;
 use norad::designspace::{Axis, DesignSpaceDocument, Dimension, Source};
 use norad::Glyph;
-use otmath::{normalize_value, ot_round, piecewise_linear_map, Location, VariationModel};
+use otmath::{
+    normalize_value, ot_round, piecewise_linear_map, support_scalar, Location, VariationModel,
+};
 use rayon::prelude::*;
 use rbf_interp::Scatter;
 use regex::Regex;
@@ -23,23 +25,29 @@ trait BetterAxis {
 
 impl BetterAxis for Axis {
     fn normalize_userspace_value(&self, l: f32) -> f32 {
-        normalize_value(
+        log::info!(
+            "{} in userspace is {} in designspace",
             l,
-            self.minimum.unwrap_or(0.0),
-            self.maximum.unwrap_or(0.0),
-            self.default,
-        )
+            self.userspace_to_designspace(l)
+        );
+        return self.normalize_designspace_value(self.userspace_to_designspace(l));
     }
     fn normalize_designspace_value(&self, l: f32) -> f32 {
-        if self.map.is_none() || self.map.as_ref().unwrap().is_empty() {
-            return self.normalize_userspace_value(l);
-        }
-
+        log::info!("Minimum value is {}", self.minimum.unwrap_or(0.0));
+        log::info!("Maximum value is {}", self.maximum.unwrap_or(0.0));
+        log::info!(
+            "Minimum value in designspace is {}",
+            self.userspace_to_designspace(self.minimum.unwrap_or(0.0))
+        );
+        log::info!(
+            "Maximum value in designspace is {}",
+            self.userspace_to_designspace(self.maximum.unwrap_or(0.0))
+        );
         normalize_value(
-            self.designspace_to_userspace(l),
-            self.minimum.unwrap_or(0.0),
-            self.maximum.unwrap_or(0.0),
-            self.default as f32,
+            l,
+            self.userspace_to_designspace(self.minimum.unwrap_or(0.0)),
+            self.userspace_to_designspace(self.maximum.unwrap_or(0.0)),
+            self.userspace_to_designspace(self.default as f32),
         )
     }
     fn default_map(&self) -> Vec<(f32, f32)> {
