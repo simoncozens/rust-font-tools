@@ -13,6 +13,7 @@ members = [
 "otspec_macros",
 "triangulate",
 "ufo-cu2qu",
-"ufo-decompose"
+"ufo-decompose",
+"ufodiff"
 ]
 
