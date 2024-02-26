@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use serde_json_diff::{Difference, EntryDifference};
 
@@ -21,14 +21,14 @@ impl<T: Diff> Diff for Vec<T> {
         T: Diff,
     {
         let mut result: HashMap<String, String> = HashMap::new();
-        if (self.len() != other.len()) {
+        if self.len() != other.len() {
             result.insert(
                 "length".to_string(),
                 format!("{} v {}", self.len(), other.len()),
             );
         } else {
             for (i, (a, b)) in self.iter().zip(other.iter()).enumerate() {
-                extend_with(&mut result, format!("item {}", i), a.diff(b));
+                extend_with(&mut result, format!("{}", i), a.diff(b));
             }
         }
         result
@@ -272,7 +272,7 @@ where
             Difference::Object { different_entries } => {
                 for (key, value) in different_entries.0 {
                     match value {
-                        EntryDifference::Missing { value } => {
+                        EntryDifference::Missing { .. } => {
                             result.insert(key, "Not present in LHS".to_string());
                         }
                         EntryDifference::Extra => {
@@ -293,7 +293,7 @@ where
                             Difference::Type {
                                 source_type,
                                 target_type,
-                                target_value,
+                                ..
                             } => {
                                 result.insert(
                                     key,
@@ -315,7 +315,7 @@ where
                                     ),
                                 );
                             }
-                            Difference::Object { different_entries } => {
+                            Difference::Object { .. } => {
                                 result.insert(key, "Different object values".to_string());
                             }
                         },
