@@ -166,6 +166,10 @@ struct Args {
     #[clap(short, long, parse(from_occurrences))]
     verbose: usize,
 
+    /// Maintain zero kerns so that this UFO can be used in a merge
+    #[clap(long)]
+    will_merge: bool,
+
     /// Output UFO
     #[clap(short, long)]
     output: Option<String>,
@@ -270,7 +274,13 @@ fn main() {
         interpolate_advance_widths(g, &others, &vm, &target_location);
     }
 
-    interpolate_kerning(&mut output_ufo, &source_ufos, &vm, &target_location);
+    interpolate_kerning(
+        &mut output_ufo,
+        &source_ufos,
+        &vm,
+        &target_location,
+        args.will_merge,
+    );
 
     if let Some(p) = args.output {
         println!("Saved on {}", p);

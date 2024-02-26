@@ -39,6 +39,7 @@ pub fn interpolate_kerning(
     masters: &[Font],
     model: &VariationModel<String>,
     location: &Location<String>,
+    will_merge: bool,
 ) {
     // Gather all kern pairs
     let mut pairs: BTreeSet<(Name, Name)> = BTreeSet::new();
@@ -67,23 +68,9 @@ pub fn interpolate_kerning(
             .interpolate_from_deltas_and_scalars(&deltas, &support_scalars)
             .expect("Couldn't interpolate");
         let new_kern = default_kerning + interpolated_kern as f64;
-        if l == &"V" {
-            println!("Kerning for {}/{}", l, r);
-            println!(" default: {}", default_kerning);
-            println!(
-                " others: {:?}",
-                masters
-                    .iter()
-                    .map(|x| get_kerning(x, l, r))
-                    .collect::<Vec<f64>>()
-            );
-            println!(" Deltas: {:?}", all_kerning);
-            println!(" Interpolated kern: {:?}", interpolated_kern);
-            println!(" New kern: {:?}", new_kern);
-        }
         if new_kern != 0.0 {
             set_kerning(output, l, r, new_kern)
-        } else if default_kerning != 0.0 {
+        } else if !will_merge || default_kerning != 0.0 {
             delete_kerning(output, l, r)
         }
     }
