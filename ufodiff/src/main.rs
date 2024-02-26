@@ -12,7 +12,7 @@ fn report_diffs(title: &str, diffs: HashMap<String, String>) {
     } else {
         println!("{}: ", title);
         for (key, value) in diffs {
-            println!("\t{:30}{}", key, value);
+            println!("\t{:30} {}", key, value);
         }
     }
     println!();
