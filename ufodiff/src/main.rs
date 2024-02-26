@@ -1,8 +1,22 @@
+use std::collections::HashMap;
+
 use clap::{App, Arg};
 use norad::Font;
 
 mod diff;
 use crate::diff::Diff;
+
+fn report_diffs(title: &str, diffs: HashMap<String, String>) {
+    if diffs.is_empty() {
+        println!("{}: No differences found", title);
+    } else {
+        println!("{}: ", title);
+        for (key, value) in diffs {
+            println!("\t{:30}{}", key, value);
+        }
+    }
+    println!();
+}
 
 fn main() {
     let matches = App::new("ufodiff")
@@ -31,37 +45,18 @@ fn main() {
     let ufo2 = Font::load(ufo2_path).expect("Failed to open UFO font file 2");
 
     // Compare the UFO font files
-    let diffs = ufo1.font_info.diff(&ufo2.font_info);
-    // Print the comparison result
-    print!("fontinfo.plist: ");
-    if diffs.is_empty() {
-        println!("No differences found");
-    } else {
-        println!();
-        for (key, value) in diffs {
-            println!("\t{:30}{}", key, value);
-        }
+    report_diffs("fontinfo.plist", ufo1.font_info.diff(&ufo2.font_info));
+    report_diffs("lib.plist", ufo1.lib.diff(&ufo2.lib));
+    report_diffs("groups.plist", ufo1.groups.diff(&ufo2.groups));
+    report_diffs("kerning.plist", ufo1.kerning.diff(&ufo2.kerning));
+
+    // Compare the features
+    if ufo1.features != ufo2.features {
+        println!("Features differ");
     }
 
-    let diffs = ufo1.lib.diff(&ufo2.lib);
-    print!("\nlib.plist: ");
-    if diffs.is_empty() {
-        println!("No differences found");
-    } else {
-        println!();
-        for (key, value) in diffs {
-            println!("\t{:30}{}", key, value);
-        }
-    }
-
-    let diffs = ufo1.layers.default_layer().diff(ufo2.default_layer());
-    if diffs.is_empty() {
-        println!("No differences found");
-    } else {
-        println!();
-        for (key, value) in diffs {
-            println!("\t{:30}{}", key, value);
-        }
-    }
-    // TODO: Print the comparison result
+    report_diffs(
+        "Default layer",
+        ufo1.layers.default_layer().diff(ufo2.default_layer()),
+    );
 }
