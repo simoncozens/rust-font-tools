@@ -1,12 +1,12 @@
 //! Interpolate an instance UFO in a designspace
 use clap::Parser;
-use norad::designspace::{Axis, DesignSpaceDocument, Dimension, Source};
+use norad::designspace::{Axis, DesignSpaceDocument, Dimension, Instance, Source};
 use norad::Glyph;
 use otmath::{normalize_value, ot_round, piecewise_linear_map, Location, VariationModel};
 use rayon::prelude::*;
 use regex::Regex;
 use std::collections::BTreeMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 mod fontinfo;
 mod glyph;
@@ -31,7 +31,7 @@ trait BetterAxis {
 
 impl BetterAxis for Axis {
     fn normalize_userspace_value(&self, l: f32) -> f32 {
-        log::info!(
+        log::debug!(
             "{} in userspace is {} in designspace",
             l,
             self.userspace_to_designspace(l)
@@ -174,6 +174,13 @@ struct Args {
     #[clap(long)]
     will_merge: bool,
 
+    #[clap(short, long, conflicts_with = "output")]
+    instance: Option<String>,
+
+    /// Output directory for instance UFOs
+    #[clap(long, default_value = "instance_ufo", conflicts_with = "output")]
+    output_directory: String,
+
     /// Output UFO
     #[clap(short, long)]
     output: Option<String>,
@@ -182,7 +189,8 @@ struct Args {
     input: String,
 
     /// List of space separated locations. A location consists of the tag of a variation axis, followed by '=' and a number
-    loc_args: Vec<String>,
+    #[clap(conflicts_with = "instance")]
+    location: Vec<String>,
 }
 
 fn main() {
@@ -198,9 +206,139 @@ fn main() {
         },
     ));
 
-    let unnormalized_target_location = parse_locargs(&args.loc_args);
     let ds: DesignSpaceDocument =
         DesignSpaceDocument::load(&args.input).expect("Couldn't read designspace file");
+    let mut source_locations: Vec<BTreeMap<&str, f32>> = Vec::new();
+    for source in &ds.sources {
+        let this_loc: BTreeMap<&str, f32> = ds
+            .axes
+            .iter()
+            .map(|x| x.tag.as_str())
+            .zip(ds.location_to_tuple(&source.location))
+            .collect();
+
+        source_locations.push(this_loc);
+    }
+    let source_ufos: Vec<norad::Font> = ds
+        .sources
+        .par_iter()
+        .map(|s| s.ufo(Path::new(&args.input)).expect("Couldn't load UFO"))
+        .collect();
+    let default_master = ds.default_master().expect("Can't find default master");
+    let mut output_ufo = default_master
+        .ufo(Path::new(&args.input))
+        .expect("Couldn't load UFO");
+    log::debug!("Source locations: {:?}", source_locations);
+
+    let unnormalized_target_location = if let Some(instancename) = args.instance.as_deref() {
+        let instance = find_instance_by_name(&ds, &instancename).expect("Couldn't find instance");
+        instance_to_location(&ds, instance)
+    } else {
+        parse_locargs(&args.location)
+    };
+    log::info!("Target location: {:?}", unnormalized_target_location);
+
+    ensure_locations_are_sensible(&ds, &unnormalized_target_location);
+    let target_location = ds
+        .axes
+        .iter()
+        .map(|ax| {
+            let this_axis_loc = unnormalized_target_location.get(&ax.tag).unwrap();
+            (
+                ax.tag.to_string(),
+                ax.normalize_userspace_value(*this_axis_loc),
+            )
+        })
+        .collect();
+
+    log::debug!("Normalized target location: {:?}", target_location);
+    let vm = ds.variation_model();
+
+    interpolate_ufo(&mut output_ufo, source_ufos, vm, target_location, &args);
+
+    let mut output_name = PathBuf::new();
+    if args.instance.is_some() {
+        output_name.push(args.output_directory.clone());
+        if !output_name.exists() {
+            std::fs::create_dir(&output_name).expect("Couldn't create output directory");
+        }
+    }
+
+    if let Some(p) = args.output {
+        output_name.push(&p);
+    } else {
+        output_name.push(make_a_name(unnormalized_target_location, &ds, &args));
+    };
+    log::info!(
+        "Saving to {}",
+        output_name
+            .as_os_str()
+            .to_str()
+            .unwrap_or("Unrepresentable")
+    );
+    output_ufo.save(output_name).expect("Couldn't save UFO");
+}
+
+fn instance_to_location(ds: &DesignSpaceDocument, instance: &Instance) -> BTreeMap<String, f32> {
+    let axis_name_to_axis = ds
+        .axes
+        .iter()
+        .map(|ax| (ax.name.clone(), ax))
+        .collect::<BTreeMap<String, &Axis>>();
+
+    instance
+        .location
+        .iter()
+        .map(|d| {
+            let axis = axis_name_to_axis.get(&d.name).expect("Unknown axis");
+            (
+                axis.tag.clone(),
+                axis.designspace_to_userspace(d.xvalue.unwrap_or(0.0)),
+            )
+        })
+        .collect()
+}
+
+fn find_instance_by_name<'a>(ds: &'a DesignSpaceDocument, instance: &str) -> Option<&'a Instance> {
+    for dsinstance in &ds.instances {
+        if Some(instance) == dsinstance.name.as_deref() {
+            return Some(dsinstance);
+        }
+    }
+    None
+}
+
+fn find_instance_by_location<'a>(
+    ds: &'a DesignSpaceDocument,
+    location: &BTreeMap<String, f32>,
+) -> Option<&'a Instance> {
+    for dsinstance in &ds.instances {
+        if location == &instance_to_location(ds, dsinstance) {
+            return Some(dsinstance);
+        }
+    }
+    None
+}
+
+fn filename_for(instance: &Instance) -> Option<String> {
+    let name = if instance.familyname.is_some() && instance.stylename.is_some() {
+        let mut name = instance.familyname.clone().unwrap();
+        name.push_str("-");
+        name.push_str(&instance.stylename.clone().unwrap());
+        Some(name)
+    } else {
+        instance.name.clone()
+    };
+    name.map(|mut x| {
+        x.push_str(".ufo");
+        x.replace(" ", "")
+    })
+}
+
+fn ensure_locations_are_sensible(
+    ds: &DesignSpaceDocument,
+    unnormalized_target_location: &BTreeMap<String, f32>,
+) {
     // Ensure locations are sensible
     let mut ok = true;
     for axis in &ds.axes {
@@ -230,42 +368,36 @@ fn main() {
     if !ok {
         std::process::exit(1);
     }
-    let target_location = ds
-        .axes
-        .iter()
-        .map(|ax| {
-            let this_axis_loc = unnormalized_target_location.get(&ax.tag).unwrap();
-            (
-                ax.tag.to_string(),
-                ax.normalize_userspace_value(*this_axis_loc),
-            )
-        })
-        .collect();
+}
 
-    let mut source_locations: Vec<BTreeMap<&str, f32>> = Vec::new();
-    for source in &ds.sources {
-        let this_loc: BTreeMap<&str, f32> = ds
-            .axes
-            .iter()
-            .map(|x| x.tag.as_str())
-            .zip(ds.location_to_tuple(&source.location))
-            .collect();
-
-        source_locations.push(this_loc);
+fn make_a_name(
+    unnormalized_target_location: BTreeMap<String, f32>,
+    ds: &DesignSpaceDocument,
+    args: &Args,
+) -> String {
+    if let Some(instance) = find_instance_by_location(ds, &unnormalized_target_location) {
+        if let Some(name) = filename_for(&instance) {
+            return name;
+        }
     }
-    let source_ufos: Vec<norad::Font> = ds
-        .sources
-        .par_iter()
-        .map(|s| s.ufo(Path::new(&args.input)).expect("Couldn't load UFO"))
+    let location_str: Vec<String> = unnormalized_target_location
+        .iter()
+        .map(|(tag, val)| format!("{}{}", tag, val))
         .collect();
-    let default_master = ds.default_master().expect("Can't find default master");
-    let mut output_ufo = default_master
-        .ufo(Path::new(&args.input))
-        .expect("Couldn't load UFO");
-    log::info!("Source locations: {:?}", source_locations);
-    log::info!("Target location: {:?}", target_location);
-    let vm = ds.variation_model();
+    let joined = location_str.join("-");
+    let output_name = args
+        .input
+        .replace(".designspace", &format!("-{}.ufo", &joined));
+    output_name
+}
 
+fn interpolate_ufo(
+    output_ufo: &mut norad::Font,
+    source_ufos: Vec<norad::Font>,
+    vm: VariationModel<String>,
+    target_location: BTreeMap<String, f32>,
+    args: &Args,
+) {
     for g in output_ufo.default_layer_mut().iter_mut() {
         let glyph_name = &g.name();
         let others: Vec<Option<&Glyph>> = source_ufos
@@ -276,7 +408,7 @@ fn main() {
     }
 
     interpolate_kerning(
-        &mut output_ufo,
+        output_ufo,
         &source_ufos,
         &vm,
         &target_location,
@@ -286,22 +418,6 @@ fn main() {
         source_ufos.iter().map(|x| Some(&x.font_info)).collect();
 
     interpolate_fontinfo(&mut output_ufo.font_info, &fontinfos, &vm, &target_location);
-
-    if let Some(p) = args.output {
-        println!("Saved on {}", p);
-        output_ufo.save(p).expect("Couldn't save UFO");
-    } else {
-        let location_str: Vec<String> = unnormalized_target_location
-            .iter()
-            .map(|(tag, val)| format!("{}{}", tag, val))
-            .collect();
-        let joined = location_str.join("-");
-        let output_name = args
-            .input
-            .replace(".designspace", &format!("-{}.ufo", &joined));
-        println!("Saved on {}", output_name);
-        output_ufo.save(output_name).expect("Couldn't save UFO");
-    }
 }
 
 fn str_to_fixed_to_float(s: &str) -> f32 {
