@@ -11,9 +11,9 @@ pub(crate) fn interpolate_fontinfo(
     if fontinfo.postscript_blue_values.is_some() {
         interpolate_field(
             fontinfo,
-            &others,
-            &vm,
-            &target_location,
+            others,
+            vm,
+            target_location,
             get_postscript_blues,
             set_postscript_blues,
         );
@@ -21,9 +21,9 @@ pub(crate) fn interpolate_fontinfo(
     if fontinfo.postscript_other_blues.is_some() {
         interpolate_field(
             fontinfo,
-            &others,
-            &vm,
-            &target_location,
+            others,
+            vm,
+            target_location,
             get_postscript_other_blues,
             set_postscript_other_blues,
         );
@@ -31,9 +31,9 @@ pub(crate) fn interpolate_fontinfo(
     if fontinfo.postscript_family_blues.is_some() {
         interpolate_field(
             fontinfo,
-            &others,
-            &vm,
-            &target_location,
+            others,
+            vm,
+            target_location,
             get_postscript_family_blues,
             set_postscript_family_blues,
         );
@@ -41,9 +41,9 @@ pub(crate) fn interpolate_fontinfo(
     if fontinfo.postscript_family_other_blues.is_some() {
         interpolate_field(
             fontinfo,
-            &others,
-            &vm,
-            &target_location,
+            others,
+            vm,
+            target_location,
             get_postscript_family_other_blues,
             set_postscript_family_other_blues,
         );
@@ -52,9 +52,9 @@ pub(crate) fn interpolate_fontinfo(
     if fontinfo.postscript_stem_snap_h.is_some() {
         interpolate_field(
             fontinfo,
-            &others,
-            &vm,
-            &target_location,
+            others,
+            vm,
+            target_location,
             get_postscript_stem_snap_h,
             set_postscript_stem_snap_h,
         );
@@ -62,9 +62,9 @@ pub(crate) fn interpolate_fontinfo(
     if fontinfo.postscript_stem_snap_v.is_some() {
         interpolate_field(
             fontinfo,
-            &others,
-            &vm,
-            &target_location,
+            others,
+            vm,
+            target_location,
             get_postscript_stem_snap_v,
             set_postscript_stem_snap_v,
         );

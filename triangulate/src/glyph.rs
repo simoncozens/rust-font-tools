@@ -10,29 +10,29 @@ pub(crate) fn interpolate_glyph(
 ) {
     interpolate_field(
         g,
-        &others,
-        &vm,
-        &target_location,
+        others,
+        vm,
+        target_location,
         get_contour_numbers,
         set_contour_numbers,
     );
     interpolate_field(
         g,
-        &others,
-        &vm,
-        &target_location,
+        others,
+        vm,
+        target_location,
         get_anchor_numbers,
         set_anchor_numbers,
     );
     interpolate_field(
         g,
-        &others,
-        &vm,
-        &target_location,
+        others,
+        vm,
+        target_location,
         get_component_numbers,
         set_component_numbers,
     );
-    interpolate_field(g, &others, &vm, &target_location, get_width, set_width);
+    interpolate_field(g, others, vm, target_location, get_width, set_width);
 }
 
 fn get_contour_numbers(g: &Glyph) -> ndarray::Array1<f64> {

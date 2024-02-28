@@ -231,7 +231,7 @@ fn main() {
     log::debug!("Source locations: {:?}", source_locations);
 
     let unnormalized_target_location = if let Some(instancename) = args.instance.as_deref() {
-        let instance = find_instance_by_name(&ds, &instancename).expect("Couldn't find instance");
+        let instance = find_instance_by_name(&ds, instancename).expect("Couldn't find instance");
         instance_to_location(&ds, instance)
     } else {
         parse_locargs(&args.location)
@@ -300,30 +300,24 @@ fn instance_to_location(ds: &DesignSpaceDocument, instance: &Instance) -> BTreeM
 }
 
 fn find_instance_by_name<'a>(ds: &'a DesignSpaceDocument, instance: &str) -> Option<&'a Instance> {
-    for dsinstance in &ds.instances {
-        if Some(instance) == dsinstance.name.as_deref() {
-            return Some(dsinstance);
-        }
-    }
-    None
+    ds.instances
+        .iter()
+        .find(|&dsinstance| Some(instance) == dsinstance.name.as_deref())
 }
 
 fn find_instance_by_location<'a>(
     ds: &'a DesignSpaceDocument,
     location: &BTreeMap<String, f32>,
 ) -> Option<&'a Instance> {
-    for dsinstance in &ds.instances {
-        if location == &instance_to_location(ds, dsinstance) {
-            return Some(dsinstance);
-        }
-    }
-    None
+    ds.instances
+        .iter()
+        .find(|&dsinstance| location == &instance_to_location(ds, dsinstance))
 }
 
 fn filename_for(instance: &Instance) -> Option<String> {
     let name = if instance.familyname.is_some() && instance.stylename.is_some() {
         let mut name = instance.familyname.clone().unwrap();
-        name.push_str("-");
+        name.push('-');
         name.push_str(&instance.stylename.clone().unwrap());
         Some(name)
     } else {
@@ -331,7 +325,7 @@ fn filename_for(instance: &Instance) -> Option<String> {
     };
     name.map(|mut x| {
         x.push_str(".ufo");
-        x.replace(" ", "")
+        x.replace(' ', "")
     })
 }
 
@@ -376,7 +370,7 @@ fn make_a_name(
     args: &Args,
 ) -> String {
     if let Some(instance) = find_instance_by_location(ds, &unnormalized_target_location) {
-        if let Some(name) = filename_for(&instance) {
+        if let Some(name) = filename_for(instance) {
             return name;
         }
     }
@@ -385,10 +379,8 @@ fn make_a_name(
         .map(|(tag, val)| format!("{}{}", tag, val))
         .collect();
     let joined = location_str.join("-");
-    let output_name = args
-        .input
-        .replace(".designspace", &format!("-{}.ufo", &joined));
-    output_name
+    args.input
+        .replace(".designspace", &format!("-{}.ufo", &joined))
 }
 
 fn interpolate_ufo(
