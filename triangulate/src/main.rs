@@ -1,14 +1,21 @@
 //! Interpolate an instance UFO in a designspace
 use clap::Parser;
-use nalgebra::DVector;
 use norad::designspace::{Axis, DesignSpaceDocument, Dimension, Source};
 use norad::Glyph;
 use otmath::{normalize_value, ot_round, piecewise_linear_map, Location, VariationModel};
 use rayon::prelude::*;
-use rbf_interp::Scatter;
 use regex::Regex;
 use std::collections::BTreeMap;
 use std::path::Path;
+
+mod fontinfo;
+mod glyph;
+mod interpolate;
+mod kerning;
+
+use crate::fontinfo::interpolate_fontinfo;
+use crate::glyph::interpolate_glyph;
+use crate::kerning::interpolate_kerning;
 
 type Tuple = Vec<f32>;
 struct NormalizedLocation(Tuple);
@@ -32,13 +39,13 @@ impl BetterAxis for Axis {
         self.normalize_designspace_value(self.userspace_to_designspace(l))
     }
     fn normalize_designspace_value(&self, l: f32) -> f32 {
-        log::info!("Minimum value is {}", self.minimum.unwrap_or(0.0));
-        log::info!("Maximum value is {}", self.maximum.unwrap_or(0.0));
-        log::info!(
+        log::debug!("Minimum value is {}", self.minimum.unwrap_or(0.0));
+        log::debug!("Maximum value is {}", self.maximum.unwrap_or(0.0));
+        log::debug!(
             "Minimum value in designspace is {}",
             self.userspace_to_designspace(self.minimum.unwrap_or(0.0))
         );
-        log::info!(
+        log::debug!(
             "Maximum value in designspace is {}",
             self.userspace_to_designspace(self.maximum.unwrap_or(0.0))
         );
@@ -155,9 +162,6 @@ impl BetterSource for Source {
     }
 }
 
-mod kerning;
-use crate::kerning::interpolate_kerning;
-
 /// Interpolate an instance UFO in a designspace
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
@@ -268,10 +272,7 @@ fn main() {
             .iter()
             .map(|u| u.default_layer().get_glyph(glyph_name))
             .collect();
-        interpolate_contours(g, &others, &vm, &target_location);
-        interpolate_anchors(g, &others, &vm, &target_location);
-        interpolate_components(g, &others, &vm, &target_location);
-        interpolate_advance_widths(g, &others, &vm, &target_location);
+        interpolate_glyph(g, &others, &vm, &target_location);
     }
 
     interpolate_kerning(
@@ -281,6 +282,10 @@ fn main() {
         &target_location,
         args.will_merge,
     );
+    let fontinfos: Vec<Option<&norad::FontInfo>> =
+        source_ufos.iter().map(|x| Some(&x.font_info)).collect();
+
+    interpolate_fontinfo(&mut output_ufo.font_info, &fontinfos, &vm, &target_location);
 
     if let Some(p) = args.output {
         println!("Saved on {}", p);
@@ -315,270 +320,4 @@ fn parse_locargs(locargs: &[String]) -> BTreeMap<String, f32> {
         res.insert(tag.to_string(), location);
     }
     res
-}
-
-trait QuickGetSet {
-    fn get_contour_numbers(&self) -> ndarray::Array1<f32>;
-    fn add_contour_numbers(
-        &mut self,
-        contours: &[Option<ndarray::Array1<f32>>],
-        model: &VariationModel<String>,
-        location: &Location<String>,
-    );
-    fn get_anchor_numbers(&self) -> ndarray::Array1<f32>;
-    fn add_anchor_numbers(
-        &mut self,
-        contours: &[Option<ndarray::Array1<f32>>],
-        model: &VariationModel<String>,
-        location: &Location<String>,
-    );
-    fn get_component_numbers(&self) -> ndarray::Array1<f32>;
-    fn add_component_numbers(
-        &mut self,
-        contours: &[Option<ndarray::Array1<f32>>],
-        model: &VariationModel<String>,
-        location: &Location<String>,
-    );
-}
-
-fn interpolate(
-    numbers: &[Option<ndarray::Array1<f32>>],
-    model: &VariationModel<String>,
-    location: &Location<String>,
-) -> Vec<f32> {
-    // log::debug!("Interpolating {:?} at {:?}", numbers, location);
-
-    let locations = &model.original_locations;
-    let mut vals: Vec<DVector<f64>> = vec![];
-    let axis_count = location.len();
-    let mut centers: Vec<DVector<f64>> = vec![];
-    for (maybe_number, master_location) in numbers.iter().zip(locations.iter()) {
-        if let Some(number) = maybe_number {
-            let this_location: DVector<f64> = DVector::from_fn(axis_count, |i, _| {
-                let axis = model
-                    .axis_order
-                    .get(i)
-                    .expect("Location had wrong axis count?");
-                let val = master_location.get(axis).expect("Axis not found?!");
-                *val as f64
-            });
-            centers.push(this_location);
-            let this_val_vec = number.to_vec().iter().map(|x| *x as f64).collect();
-            let this_val = DVector::from_vec(this_val_vec);
-            vals.push(this_val);
-        }
-    }
-    let scatter = Scatter::create(centers, vals, rbf_interp::Basis::PolyHarmonic(1), 2);
-
-    let coords = DVector::from_fn(axis_count, |i, _| {
-        let axis = model
-            .axis_order
-            .get(i)
-            .expect("Location had wrong axis count?");
-        let val = location.get(axis).expect("Axis not found?!");
-        *val as f64
-    });
-    let interpolated_numbers = scatter
-        .eval(coords)
-        .as_slice()
-        .iter()
-        .map(|x| *x as f32)
-        .collect();
-    // log::debug!("Interpolated value = {:?}", interpolated_numbers);
-
-    interpolated_numbers
-    // let deltas_and_supports = model.get_deltas_and_supports(numbers);
-    // let (deltas, support_scalars): (Vec<ndarray::Array1<f32>>, Vec<f32>) = deltas_and_supports
-    //     .into_iter()
-    //     .map(|(x, y)| (x, support_scalar(location, &y)))
-    //     .unzip();
-
-    // let interpolated_numbers = model
-    //     .interpolate_from_deltas_and_scalars(&deltas, &support_scalars)
-    //     .expect("Couldn't interpolate");
-
-    // interpolated_numbers.to_vec()
-}
-
-impl QuickGetSet for Glyph {
-    fn get_contour_numbers(&self) -> ndarray::Array1<f32> {
-        let mut v = vec![];
-        for contour in &self.contours {
-            for p in &contour.points {
-                v.push(p.x as f32);
-                v.push(p.y as f32);
-            }
-        }
-        let len = v.len();
-        ndarray::Array1::from_shape_vec(len, v).unwrap()
-    }
-
-    fn add_contour_numbers(
-        &mut self,
-        numbers: &[Option<ndarray::Array1<f32>>],
-        model: &VariationModel<String>,
-        location: &Location<String>,
-    ) {
-        let v = interpolate(numbers, model, location);
-        let mut i = 0;
-        for contour in self.contours.iter_mut() {
-            for p in contour.points.iter_mut() {
-                p.x += (*v.get(i).unwrap()) as f64;
-                i += 1;
-                p.y += (*v.get(i).unwrap()) as f64;
-                i += 1;
-            }
-        }
-    }
-
-    fn get_anchor_numbers(&self) -> ndarray::Array1<f32> {
-        let mut v = vec![];
-        for anchor in &self.anchors {
-            v.push(anchor.x as f32);
-            v.push(anchor.y as f32);
-        }
-        let len = v.len();
-        ndarray::Array1::from_shape_vec(len, v).unwrap()
-    }
-
-    fn add_anchor_numbers(
-        &mut self,
-        numbers: &[Option<ndarray::Array1<f32>>],
-        model: &VariationModel<String>,
-        location: &Location<String>,
-    ) {
-        let v = interpolate(numbers, model, location);
-        let mut i = 0;
-        for anchor in self.anchors.iter_mut() {
-            anchor.x += (*v.get(i).unwrap()) as f64;
-            i += 1;
-            anchor.y += (*v.get(i).unwrap()) as f64;
-            i += 1;
-        }
-    }
-
-    fn get_component_numbers(&self) -> ndarray::Array1<f32> {
-        let mut v = vec![];
-        for component in &self.components {
-            v.push(component.transform.x_scale as f32);
-            v.push(component.transform.xy_scale as f32);
-            v.push(component.transform.yx_scale as f32);
-            v.push(component.transform.y_scale as f32);
-            v.push(component.transform.x_offset as f32);
-            v.push(component.transform.y_offset as f32);
-        }
-        let len = v.len();
-        ndarray::Array1::from_shape_vec(len, v).unwrap()
-    }
-
-    fn add_component_numbers(
-        &mut self,
-        numbers: &[Option<ndarray::Array1<f32>>],
-        model: &VariationModel<String>,
-        location: &Location<String>,
-    ) {
-        let v = interpolate(numbers, model, location);
-        let mut i = 0;
-        for component in self.components.iter_mut() {
-            component.transform.x_scale += (*v.get(i).unwrap()) as f64;
-            i += 1;
-            component.transform.xy_scale += (*v.get(i).unwrap()) as f64;
-            i += 1;
-            component.transform.yx_scale += (*v.get(i).unwrap()) as f64;
-            i += 1;
-            component.transform.y_scale += (*v.get(i).unwrap()) as f64;
-            i += 1;
-            component.transform.x_offset += (*v.get(i).unwrap()) as f64;
-            i += 1;
-            component.transform.y_offset += (*v.get(i).unwrap()) as f64;
-            i += 1;
-        }
-    }
-}
-
-fn interpolate_contours(
-    output: &mut Glyph,
-    masters: &[Option<&Glyph>],
-    model: &VariationModel<String>,
-    location: &Location<String>,
-) {
-    let default_numbers: ndarray::Array1<f32> = output.get_contour_numbers();
-    let contours: Vec<Option<ndarray::Array1<f32>>> = masters
-        .iter()
-        .map(|m| {
-            m.and_then(|g| {
-                let nums: ndarray::Array1<f32> = g.get_contour_numbers();
-                if nums.shape() == default_numbers.shape() {
-                    Some(g.get_contour_numbers() - default_numbers.clone())
-                } else {
-                    log::warn!("Incompatible masters in {}", g.name());
-                    None
-                }
-            })
-        })
-        .collect();
-    output.add_contour_numbers(&contours, model, location);
-}
-
-fn interpolate_anchors(
-    output: &mut Glyph,
-    masters: &[Option<&Glyph>],
-    model: &VariationModel<String>,
-    location: &Location<String>,
-) {
-    let default_numbers: ndarray::Array1<f32> = output.get_anchor_numbers();
-    let anchors: Vec<Option<ndarray::Array1<f32>>> = masters
-        .iter()
-        .map(|m| {
-            m.and_then(|g| {
-                let nums: ndarray::Array1<f32> = g.get_anchor_numbers();
-                if nums.shape() == default_numbers.shape() {
-                    Some(g.get_anchor_numbers() - default_numbers.clone())
-                } else {
-                    log::warn!("Incompatible masters in {}", g.name());
-                    None
-                }
-            })
-        })
-        .collect();
-    output.add_anchor_numbers(&anchors, model, location);
-}
-
-fn interpolate_components(
-    output: &mut Glyph,
-    masters: &[Option<&Glyph>],
-    model: &VariationModel<String>,
-    location: &Location<String>,
-) {
-    let default_numbers: ndarray::Array1<f32> = output.get_component_numbers();
-    let components: Vec<Option<ndarray::Array1<f32>>> = masters
-        .iter()
-        .map(|m| {
-            m.and_then(|g| {
-                let nums: ndarray::Array1<f32> = g.get_component_numbers();
-                if nums.shape() == default_numbers.shape() {
-                    Some(g.get_component_numbers() - default_numbers.clone())
-                } else {
-                    log::warn!("Incompatible masters in {}", g.name());
-                    None
-                }
-            })
-        })
-        .collect();
-    output.add_component_numbers(&components, model, location);
-}
-
-fn interpolate_advance_widths(
-    output: &mut Glyph,
-    masters: &[Option<&Glyph>],
-    model: &VariationModel<String>,
-    location: &Location<String>,
-) {
-    let default_advance: f64 = output.width;
-    let advances: Vec<Option<ndarray::Array1<f32>>> = masters
-        .iter()
-        .map(|m| m.map(|g| ndarray::Array1::from_elem(1, (g.width - default_advance) as f32)))
-        .collect();
-    let interpolated_width = interpolate(&advances, model, location);
-    output.width += *interpolated_width.first().unwrap() as f64;
 }
