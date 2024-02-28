@@ -1,7 +1,7 @@
 //! Interpolate an instance UFO in a designspace
 use clap::Parser;
 use norad::designspace::DesignSpaceDocument;
-use norad::Glyph;
+use norad::{Font, Glyph};
 use otmath::{ot_round, VariationModel};
 use rayon::prelude::*;
 use regex::Regex;
@@ -80,26 +80,51 @@ fn main() {
 
         source_locations.push(this_loc);
     }
-    let source_ufos: Vec<norad::Font> = ds
+    let source_ufos: Vec<Font> = ds
         .sources
         .par_iter()
         .map(|s| s.ufo(Path::new(&args.input)).expect("Couldn't load UFO"))
         .collect();
     let default_master = ds.default_master().expect("Can't find default master");
-    let mut output_ufo = default_master
+    let output_ufo = default_master
         .ufo(Path::new(&args.input))
         .expect("Couldn't load UFO");
     log::debug!("Source locations: {:?}", source_locations);
 
+    if args.instance.as_deref() == Some("*") {
+        for instance in ds.instances.iter() {
+            let location = instance_to_location(&ds, instance);
+
+            normalize_interpolate_and_save(location, &ds, output_ufo.clone(), &source_ufos, &args);
+        }
+        return;
+    }
     let unnormalized_target_location = if let Some(instancename) = args.instance.as_deref() {
         let instance = find_instance_by_name(&ds, instancename).expect("Couldn't find instance");
         instance_to_location(&ds, instance)
     } else {
         parse_locargs(&args.location)
     };
+
+    normalize_interpolate_and_save(
+        unnormalized_target_location,
+        &ds,
+        output_ufo,
+        &source_ufos,
+        &args,
+    );
+}
+
+fn normalize_interpolate_and_save(
+    unnormalized_target_location: BTreeMap<String, f32>,
+    ds: &DesignSpaceDocument,
+    mut output_ufo: norad::Font,
+    source_ufos: &[norad::Font],
+    args: &Args,
+) {
     log::info!("Target location: {:?}", unnormalized_target_location);
 
-    ensure_locations_are_sensible(&ds, &unnormalized_target_location);
+    ensure_locations_are_sensible(ds, &unnormalized_target_location);
     let target_location = ds
         .axes
         .iter()
@@ -115,7 +140,7 @@ fn main() {
     log::debug!("Normalized target location: {:?}", target_location);
     let vm = ds.variation_model();
 
-    interpolate_ufo(&mut output_ufo, source_ufos, vm, target_location, &args);
+    interpolate_ufo(&mut output_ufo, source_ufos, vm, target_location, args);
 
     let mut output_name = PathBuf::new();
     if args.instance.is_some() {
@@ -125,10 +150,10 @@ fn main() {
         }
     }
 
-    if let Some(p) = args.output {
-        output_name.push(&p);
+    if let Some(p) = args.output.as_deref() {
+        output_name.push(p);
     } else {
-        output_name.push(make_a_name(unnormalized_target_location, &ds, &args));
+        output_name.push(make_a_name(unnormalized_target_location, ds, args));
     };
     log::info!(
         "Saving to {}",
@@ -195,8 +220,8 @@ fn make_a_name(
 }
 
 fn interpolate_ufo(
-    output_ufo: &mut norad::Font,
-    source_ufos: Vec<norad::Font>,
+    output_ufo: &mut Font,
+    source_ufos: &[Font],
     vm: VariationModel<String>,
     target_location: BTreeMap<String, f32>,
     args: &Args,
@@ -212,7 +237,7 @@ fn interpolate_ufo(
 
     interpolate_kerning(
         output_ufo,
-        &source_ufos,
+        source_ufos,
         &vm,
         &target_location,
         args.will_merge,
