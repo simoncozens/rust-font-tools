@@ -1,7 +1,6 @@
-import argparse
 import pytest
 import tempfile
-import pathlib
+from pathlib import Path
 import subprocess
 import sys
 import io
@@ -13,8 +12,8 @@ from recursive_diff import recursive_eq
 
 
 environment = os.environ.get("ENVIRONMENT", "debug")
-fonticulus = pathlib.Path(__file__).parent.parent.parent / "target" / environment / "fonticulus"
-home_dir = pathlib.Path(__file__).parent.resolve()
+fonticulus = Path(__file__).parent.parent.parent / "target" / environment / "fonticulus"
+home_dir = Path(__file__).parent.resolve()
 test_files = [pytest.param(x, id=x.name) for x in (home_dir / 'sources').glob("*.*")]
 
 def clean_font(ttjfont):
@@ -28,8 +27,8 @@ def clean_font(ttjfont):
         del ttjfont["gvar"] # FOR NOW
     return ttjfont
 
-def get_expectation(source: pathlib.Path):
-    expectation_file = home_dir / "expectation" / (pathlib.Path(source).name + ".expected")
+def get_expectation(source: Path):
+    expectation_file = home_dir / "expectation" / (Path(source).name + ".expected")
     expectation_file.parent.mkdir(exist_ok=True)
     if not expectation_file.exists():
         # Compile with fontmake
@@ -41,10 +40,11 @@ def get_expectation(source: pathlib.Path):
             build_arg = "-o variable -m"
         else:
             raise ValueError("Unknown source file type")
-        with tempfile.NamedTemporaryFile() as tf:
-            cmd = f"fontmake {build_arg} {source} --keep-overlaps --output-path {tf.name}"
+        with tempfile.TemporaryDirectory() as td:
+            filename = Path(td) / "out.ttf"
+            cmd = f"fontmake --verbose WARNING {build_arg} {source} --keep-overlaps --output-path {filename}"
             subprocess.run(cmd, shell=True, check=True)
-            ttjfont = TTJ(TTFont(tf))
+            ttjfont = TTJ(TTFont(filename))
         as_json = json.dumps(ttjfont, indent=4)
         with expectation_file.open("w") as f:
             f.write(as_json)
