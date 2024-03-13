@@ -1,11 +1,12 @@
-use std::collections::{BTreeSet, HashMap, HashSet};
+use indexmap::{IndexMap, IndexSet};
+use std::collections::BTreeSet;
 
 use serde_json_diff::{Difference, EntryDifference};
 
-type DiffResult = HashMap<String, String>;
+pub type DiffResult = IndexMap<String, String>;
 
 pub trait Diff {
-    fn diff(&self, other: &Self) -> HashMap<String, String>;
+    fn diff(&self, other: &Self) -> DiffResult;
 }
 
 fn extend_with<S: Into<String>>(original: &mut DiffResult, title: S, more_diffs: DiffResult) {
@@ -16,11 +17,11 @@ fn extend_with<S: Into<String>>(original: &mut DiffResult, title: S, more_diffs:
 }
 
 impl<T: Diff> Diff for Vec<T> {
-    fn diff(&self, other: &Self) -> HashMap<String, String>
+    fn diff(&self, other: &Self) -> DiffResult
     where
         T: Diff,
     {
-        let mut result: HashMap<String, String> = HashMap::new();
+        let mut result: DiffResult = IndexMap::new();
         if self.len() != other.len() {
             result.insert(
                 "length".to_string(),
@@ -49,9 +50,9 @@ fn clean_nulls(o: &mut serde_json::Value) {
 }
 
 impl Diff for norad::Layer {
-    fn diff(&self, other: &Self) -> HashMap<String, String> {
-        let mut result: HashMap<String, String> = HashMap::new();
-        let all_glyphs: HashSet<&norad::Name> =
+    fn diff(&self, other: &Self) -> DiffResult {
+        let mut result: DiffResult = IndexMap::new();
+        let all_glyphs: IndexSet<&norad::Name> =
             self.iter().chain(other.iter()).map(|g| g.name()).collect();
         for glyph in all_glyphs {
             let g1 = self.get_glyph(glyph);
@@ -80,14 +81,14 @@ impl Diff for norad::Layer {
 }
 
 impl Diff for norad::Plist {
-    fn diff(&self, other: &Self) -> HashMap<String, String> {
+    fn diff(&self, other: &Self) -> DiffResult {
         flat_dict_diff(self, other)
     }
 }
 
 impl Diff for norad::Anchor {
-    fn diff(&self, other: &Self) -> HashMap<String, String> {
-        let mut result = HashMap::new();
+    fn diff(&self, other: &Self) -> DiffResult {
+        let mut result = IndexMap::new();
         if self.name != other.name {
             result.insert(
                 "name".to_string(),
@@ -105,8 +106,8 @@ impl Diff for norad::Anchor {
 }
 
 impl Diff for norad::Component {
-    fn diff(&self, other: &Self) -> HashMap<String, String> {
-        let mut result = HashMap::new();
+    fn diff(&self, other: &Self) -> DiffResult {
+        let mut result = IndexMap::new();
         if self.base != other.base {
             result.insert(
                 "base".to_string(),
@@ -122,8 +123,8 @@ impl Diff for norad::Component {
     }
 }
 impl Diff for norad::AffineTransform {
-    fn diff(&self, other: &Self) -> HashMap<String, String> {
-        let mut result = HashMap::new();
+    fn diff(&self, other: &Self) -> DiffResult {
+        let mut result = IndexMap::new();
         if (self.x_scale - other.x_scale).abs() > 0.001 {
             result.insert(
                 "x_scale".to_string(),
@@ -165,8 +166,8 @@ impl Diff for norad::AffineTransform {
 }
 
 impl Diff for norad::Contour {
-    fn diff(&self, other: &Self) -> HashMap<String, String> {
-        let mut result = HashMap::new();
+    fn diff(&self, other: &Self) -> DiffResult {
+        let mut result = IndexMap::new();
         extend_with(
             &mut result,
             "Points".to_string(),
@@ -177,8 +178,8 @@ impl Diff for norad::Contour {
 }
 
 impl Diff for norad::ContourPoint {
-    fn diff(&self, other: &Self) -> HashMap<String, String> {
-        let mut result = HashMap::new();
+    fn diff(&self, other: &Self) -> DiffResult {
+        let mut result = IndexMap::new();
         if (self.x - other.x).abs() > 0.001 {
             result.insert("x".to_string(), format!("{} v {}", self.x, other.x));
         }
@@ -196,20 +197,20 @@ impl Diff for norad::ContourPoint {
 }
 
 impl Diff for norad::FontInfo {
-    fn diff(&self, other: &Self) -> HashMap<String, String> {
+    fn diff(&self, other: &Self) -> DiffResult {
         flat_dict_diff(self, other)
     }
 }
 
 impl Diff for norad::Groups {
-    fn diff(&self, other: &Self) -> HashMap<String, String> {
+    fn diff(&self, other: &Self) -> DiffResult {
         flat_dict_diff(self, other)
     }
 }
 
 impl Diff for norad::Glyph {
-    fn diff(&self, other: &Self) -> HashMap<String, String> {
-        let mut result = HashMap::new();
+    fn diff(&self, other: &Self) -> DiffResult {
+        let mut result = IndexMap::new();
         if (self.height - other.height).abs() > 0.001 {
             result.insert(
                 "height".to_string(),
@@ -247,7 +248,7 @@ impl Diff for norad::Glyph {
     }
 }
 
-pub fn flat_dict_diff<T>(this: &T, other: &T) -> HashMap<String, String>
+pub fn flat_dict_diff<T>(this: &T, other: &T) -> DiffResult
 where
     T: serde::Serialize,
 {
@@ -263,7 +264,7 @@ where
             err
         )
     });
-    let mut result: HashMap<String, String> = HashMap::new();
+    let mut result: DiffResult = IndexMap::new();
     clean_nulls(&mut lhs);
     clean_nulls(&mut rhs);
 
@@ -329,8 +330,8 @@ where
 }
 
 impl Diff for norad::Kerning {
-    fn diff(&self, other: &Self) -> HashMap<String, String> {
-        let mut result: HashMap<String, String> = HashMap::new();
+    fn diff(&self, other: &Self) -> DiffResult {
+        let mut result: DiffResult = IndexMap::new();
         let mut all_pairs = BTreeSet::new();
         for (left, our_left) in self.iter() {
             for right in our_left.keys() {

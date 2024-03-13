@@ -1,12 +1,10 @@
-use std::collections::HashMap;
-
 use clap::{App, Arg};
 use norad::Font;
 
 mod diff;
 use crate::diff::Diff;
 
-fn report_diffs(title: &str, diffs: HashMap<String, String>) {
+fn report_diffs(title: &str, diffs: diff::DiffResult) {
     if diffs.is_empty() {
         println!("{}: No differences found", title);
     } else {
