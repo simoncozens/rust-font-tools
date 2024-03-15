@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use clap::{App, Arg};
 use norad::Font;
 
@@ -53,8 +55,21 @@ fn main() {
         println!("Features differ");
     }
 
-    report_diffs(
-        "Default layer",
-        ufo1.layers.default_layer().diff(ufo2.default_layer()),
-    );
+    // Compare layers
+    let all_layers: HashSet<&norad::Name> =
+        ufo1.layers.names().chain(ufo2.layers.names()).collect();
+    for layername in all_layers {
+        let layer1 = ufo1.layers.get(layername);
+        let layer2 = ufo2.layers.get(layername);
+        if layer1.is_none() {
+            println!("Layer {} is in UFO 2 but not in UFO 1", layername);
+        } else if layer2.is_none() {
+            println!("Layer {} is in UFO 1 but not in UFO 2", layername);
+        } else {
+            report_diffs(
+                &format!("Layer {}", layername),
+                layer1.unwrap().diff(layer2.unwrap()),
+            );
+        }
+    }
 }
