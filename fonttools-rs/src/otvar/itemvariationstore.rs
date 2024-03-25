@@ -16,6 +16,7 @@ tables!(
         Counted(uint16) regionIndexes
     }
     ItemVariationStoreInternal {
+        [offset_base]
         uint16 format
         Offset32(VariationRegionList) variationRegionList
         CountedOffset32(ItemVariationData) itemVariationData
