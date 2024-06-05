@@ -1,4 +1,5 @@
 use norad::designspace::{Axis, DesignSpaceDocument, Dimension, Source};
+use norad::fontinfo::StyleMapStyle;
 use otmath::{normalize_value, piecewise_linear_map, Location, VariationModel};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -145,5 +146,21 @@ pub trait BetterSource {
 impl BetterSource for Source {
     fn ufo(&self, designspace_filename: &Path) -> Result<norad::Font, norad::error::FontLoadError> {
         norad::Font::load(designspace_filename.parent().unwrap().join(&self.filename))
+    }
+}
+
+pub(crate) trait FromString {
+    fn from_string(s: &str) -> Self;
+}
+
+impl FromString for StyleMapStyle {
+    fn from_string(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "regular" => StyleMapStyle::Regular,
+            "italic" => StyleMapStyle::Italic,
+            "bold" => StyleMapStyle::Bold,
+            "bold italic" => StyleMapStyle::BoldItalic,
+            _ => StyleMapStyle::Regular,
+        }
     }
 }

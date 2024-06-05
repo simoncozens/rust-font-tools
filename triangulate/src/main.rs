@@ -1,6 +1,6 @@
 //! Interpolate an instance UFO in a designspace
 use clap::Parser;
-use norad::designspace::DesignSpaceDocument;
+use norad::designspace::{DesignSpaceDocument, Instance};
 use norad::{Font, Glyph};
 use otmath::{ot_round, VariationModel};
 use rayon::prelude::*;
@@ -95,18 +95,29 @@ fn main() {
         for instance in ds.instances.iter() {
             let location = instance_to_location(&ds, instance);
 
-            normalize_interpolate_and_save(location, &ds, output_ufo.clone(), &source_ufos, &args);
+            normalize_interpolate_and_save(
+                Some(instance),
+                location,
+                &ds,
+                output_ufo.clone(),
+                &source_ufos,
+                &args,
+            );
         }
         return;
     }
-    let unnormalized_target_location = if let Some(instancename) = args.instance.as_deref() {
+    let (maybe_instance, unnormalized_target_location) = if let Some(instancename) =
+        args.instance.as_deref()
+    {
         let instance = find_instance_by_name(&ds, instancename).expect("Couldn't find instance");
-        instance_to_location(&ds, instance)
+        (Some(instance), instance_to_location(&ds, instance))
     } else {
-        parse_locargs(&args.location)
+        let location = parse_locargs(&args.location);
+        (find_instance_by_location(&ds, &location), location)
     };
 
     normalize_interpolate_and_save(
+        maybe_instance,
         unnormalized_target_location,
         &ds,
         output_ufo,
@@ -116,6 +127,7 @@ fn main() {
 }
 
 fn normalize_interpolate_and_save(
+    instance: Option<&Instance>,
     unnormalized_target_location: BTreeMap<String, f32>,
     ds: &DesignSpaceDocument,
     mut output_ufo: norad::Font,
@@ -140,7 +152,14 @@ fn normalize_interpolate_and_save(
     log::debug!("Normalized target location: {:?}", target_location);
     let vm = ds.variation_model();
 
-    interpolate_ufo(&mut output_ufo, source_ufos, vm, target_location, args);
+    interpolate_ufo(
+        &mut output_ufo,
+        source_ufos,
+        vm,
+        &target_location,
+        instance,
+        args,
+    );
 
     let mut output_name = PathBuf::new();
     if args.instance.is_some() {
@@ -223,7 +242,8 @@ fn interpolate_ufo(
     output_ufo: &mut Font,
     source_ufos: &[Font],
     vm: VariationModel<String>,
-    target_location: BTreeMap<String, f32>,
+    target_location: &BTreeMap<String, f32>,
+    instance: Option<&Instance>,
     args: &Args,
 ) {
     for g in output_ufo.default_layer_mut().iter_mut() {
@@ -232,20 +252,26 @@ fn interpolate_ufo(
             .iter()
             .map(|u| u.default_layer().get_glyph(glyph_name))
             .collect();
-        interpolate_glyph(g, &others, &vm, &target_location);
+        interpolate_glyph(g, &others, &vm, target_location);
     }
 
     interpolate_kerning(
         output_ufo,
         source_ufos,
         &vm,
-        &target_location,
+        target_location,
         args.will_merge,
     );
     let fontinfos: Vec<Option<&norad::FontInfo>> =
         source_ufos.iter().map(|x| Some(&x.font_info)).collect();
 
-    interpolate_fontinfo(&mut output_ufo.font_info, &fontinfos, &vm, &target_location);
+    interpolate_fontinfo(
+        &mut output_ufo.font_info,
+        &fontinfos,
+        &vm,
+        target_location,
+        instance,
+    );
 }
 
 fn str_to_fixed_to_float(s: &str) -> f32 {
