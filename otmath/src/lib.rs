@@ -420,6 +420,56 @@ where
         }
         v
     }
+
+    pub fn interpolate_from_deltas<U>(&self, loc: &Location<T>, deltas: &[U]) -> Option<U>
+    where
+        U: Sub<Output = U>
+            + Mul<f32, Output = U>
+            + Clone
+            + std::ops::Add<Output = U>
+            + std::fmt::Debug,
+    {
+        let scalars = self.get_scalars(loc);
+        self.interpolate_from_deltas_and_scalars(deltas, &scalars)
+    }
+
+    pub fn get_master_scalars(&self, loc: &Location<T>) -> Vec<f32> {
+        let mut out = self.get_scalars(loc);
+        for (i, weights) in self.delta_weights.iter().enumerate().rev() {
+            for (&j, &weight) in weights.iter() {
+                out[j] -= out[i] * weight;
+            }
+        }
+        out
+    }
+
+    pub fn interpolate_from_masters<U>(&self, loc: &Location<T>, masters: &[U]) -> Option<U>
+    where
+        U: Sub<Output = U>
+            + Mul<f32, Output = U>
+            + Clone
+            + std::ops::Add<Output = U>
+            + std::fmt::Debug,
+    {
+        let scalars = self.get_master_scalars(loc);
+        self.interpolate_from_deltas_and_scalars(masters, &scalars)
+    }
+
+    // pub fn interpolate_from_masters_and_scalars<U>(
+    //     &self,
+    //     masters: &[U],
+    //     scalars: &[f32],
+    // ) -> Option<U>
+    // where
+    //     U: Sub<Output = U>
+    //         + Mul<f32, Output = U>
+    //         + Clone
+    //         + std::ops::Add<Output = U>
+    //         + std::fmt::Debug,
+    // {
+    //     let deltas = self.get_deltas(masters);
+    //     self.interpolate_from_deltas_and_scalars(deltas, scalars)
+    // }
 }
 
 #[cfg(test)]
@@ -512,5 +562,54 @@ mod tests {
         assert_approx_eq!(vm.delta_weights[7].get(&4).unwrap(), 0.244_444_49);
         assert_approx_eq!(vm.delta_weights[7].get(&5).unwrap(), 1.0);
         assert_approx_eq!(vm.delta_weights[7].get(&6).unwrap(), 0.66);
+    }
+
+    #[test]
+    fn test_interpolation() {
+        let locations = vec![
+            btreemap!(),
+            btreemap!("axis_A" => 1.0),
+            btreemap!("axis_B" => 1.0),
+            btreemap!("axis_A" => 1.0, "axis_B" => 1.0),
+            btreemap!("axis_A" => 0.5, "axis_B" => 1.0),
+            btreemap!("axis_A" => 1.0, "axis_B" => 0.5),
+        ];
+        let loc_len = locations.len();
+        let axis_order = vec!["axis_A", "axis_B"];
+        let master_values = vec![0.0, 10.0, 20.0, 70.0, 50.0, 60.0];
+        let master_scalars = vec![0.25, 0.0, 0.0, -0.25, 0.5, 0.5];
+        let instance_location = btreemap!("axis_A" => 0.5, "axis_B" => 0.5);
+        let model = VariationModel::new(locations, axis_order);
+        assert_eq!(
+            model.supports,
+            vec![
+                btreemap!(),
+                btreemap!("axis_A" => (0.0, 1.0, 1.0)),
+                btreemap!("axis_B" => (0.0, 1.0, 1.0)),
+                btreemap!("axis_A" => (0.0, 1.0, 1.0), "axis_B" => (0.0, 1.0, 1.0)),
+                btreemap!("axis_A" => (0.0, 0.5, 1.0), "axis_B" => (0.0, 1.0, 1.0)),
+                btreemap!("axis_A" => (0.0, 1.0, 1.0), "axis_B" => (0.0, 0.5, 1.0))
+            ]
+        );
+        assert_eq!(model.delta_weights.len(), loc_len);
+        assert_eq!(
+            model.delta_weights,
+            vec![
+                btreemap!(),
+                btreemap!(0 => 1.0),
+                btreemap!(0 => 1.0),
+                btreemap!(0 => 1.0, 1 => 1.0, 2 => 1.0),
+                btreemap!(0 => 1.0, 1 => 0.5, 2 => 1.0, 3 => 0.5),
+                btreemap!(0 => 1.0, 1 => 1.0, 2 => 0.5, 3 => 0.5),
+            ]
+        );
+        assert_eq!(
+            model.get_scalars(&instance_location),
+            vec![1.0, 0.5, 0.5, 0.25, 0.5, 0.5]
+        );
+
+        assert_eq!(model.get_master_scalars(&instance_location), master_scalars);
+        let interpolated_value = model.interpolate_from_masters(&instance_location, &master_values);
+        assert_eq!(interpolated_value, Some(37.5));
     }
 }
