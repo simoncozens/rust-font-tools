@@ -1,6 +1,5 @@
 use nalgebra::DVector;
 use otmath::{Location, VariationModel};
-use rbf_interp::Scatter;
 
 fn interpolate<T: Into<f64> + Copy>(
     numbers: &[Option<ndarray::Array1<T>>],
