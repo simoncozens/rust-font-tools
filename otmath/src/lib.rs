@@ -440,7 +440,7 @@ where
                 out[j] -= out[i] * weight;
             }
         }
-        out
+        self.sort_order.apply_slice(out)
     }
 
     pub fn interpolate_from_masters<U>(&self, loc: &Location<T>, masters: &[U]) -> Option<U>
