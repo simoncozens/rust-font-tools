@@ -36,7 +36,7 @@ pub(crate) fn interpolate_glyph(
 }
 
 fn get_contour_numbers(g: &Glyph) -> ndarray::Array1<f64> {
-    let mut v = vec![];
+    let mut v = Vec::with_capacity(2 * g.contours.iter().map(|c| c.points.len()).sum::<usize>());
     for contour in g.contours.iter() {
         for p in &contour.points {
             v.push(p.x);
@@ -80,7 +80,7 @@ fn set_anchor_numbers(g: &mut Glyph, values: &[f64]) {
 }
 
 fn get_component_numbers(g: &Glyph) -> ndarray::Array1<f64> {
-    let mut v = vec![];
+    let mut v = Vec::with_capacity(6 * g.components.len());
     for component in g.components.iter() {
         v.push(component.transform.x_scale);
         v.push(component.transform.xy_scale);
