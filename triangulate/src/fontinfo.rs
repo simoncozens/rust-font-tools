@@ -103,6 +103,7 @@ pub(crate) fn interpolate_fontinfo(
     // openTypeOS2WidthClass
     // styleMapFamilyName
     // styleName
+    fontinfo.guidelines = None;
 }
 
 fn get_postscript_blues(fi: &FontInfo) -> ndarray::Array1<f64> {
