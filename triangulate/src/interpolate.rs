@@ -20,16 +20,18 @@ fn interpolate<T: Into<f64> + Copy>(
             master_locations.push(master_location.clone());
         }
     }
-    if master_locations.len() != locations.len() {
+
+    let result = if master_locations.len() != locations.len() {
         VariationModel::new(master_locations, model.axis_order.clone())
-            .interpolate_from_deltas(location, &vals)
+            .interpolate_from_masters(location, &vals)
     } else {
-        model.interpolate_from_deltas(location, &vals)
+        model.interpolate_from_masters(location, &vals)
     }
     .unwrap()
     .as_slice()
     .to_owned()
-    .into()
+    .into();
+    result
 
     // let scatter = Scatter::create(centers, vals, rbf_interp::Basis::PolyHarmonic(1), 2);
 
