@@ -73,3 +73,47 @@ pub(crate) fn interpolate_field<T: core::fmt::Debug>(
     // default_numbers + values
     setter(object, new_values.as_slice().expect("Couldn't get slice"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{interpolate, VariationModel};
+
+    use std::iter::FromIterator;
+
+    macro_rules! btreemap {
+        ($($k:expr => $v:expr),* $(,)?) => {
+            std::collections::BTreeMap::<_, _>::from_iter([$(($k, $v),)*])
+        };
+    }
+    #[test]
+    fn test_interpolate() {
+        let model = VariationModel::new(
+            vec![
+                btreemap!("wdth".to_string() => 0.0, "wght".to_string() => -1.0),
+                btreemap!("wdth".to_string() => 0.0, "wght".to_string() => 0.0),
+                btreemap!("wdth".to_string() => 0.0, "wght".to_string() => 0.61),
+                btreemap!("wdth".to_string() => 0.0, "wght".to_string() => 1.0),
+                btreemap!("wdth".to_string() => -1.0, "wght".to_string() => -1.0),
+                btreemap!("wdth".to_string() => -1.0, "wght".to_string() => 0.0),
+                btreemap!("wdth".to_string() => -1.0, "wght".to_string() => 0.61),
+                btreemap!("wdth".to_string() => -1.0, "wght".to_string() => 1.0),
+            ],
+            vec!["wght".to_string(), "wdth".to_string()],
+        );
+        let location = btreemap!("wdth".to_string() => 0.0, "wght".to_string() => 0.0);
+        let default_numbers = ndarray::array![83.0];
+        let deltas = vec![
+            Some(ndarray::array![-59.0]),
+            Some(ndarray::array![0.0]),
+            Some(ndarray::array![57.0]),
+            Some(ndarray::array![94.0]),
+            Some(ndarray::array![-59.0]),
+            Some(ndarray::array![-8.0]),
+            Some(ndarray::array![51.0]),
+            Some(ndarray::array![88.0]),
+        ];
+        let result: ndarray::Array1<f64> =
+            interpolate(&deltas, &model, &location).map(|&x| f64::from(x));
+        assert_eq!(result, ndarray::array![0.0]);
+    }
+}
