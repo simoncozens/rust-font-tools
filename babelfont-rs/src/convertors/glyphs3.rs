@@ -21,8 +21,12 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
         path: path.clone(),
         source,
     })?;
+    load_str(&s, path.clone())
+}
+
+pub fn load_str(s: &str, path: PathBuf) -> Result<Font, BabelfontError> {
     log::debug!("Parsing PLIST");
-    let plist = Plist::parse(&s).map_err(|orig| BabelfontError::PlistParse {
+    let plist = Plist::parse(s).map_err(|orig| BabelfontError::PlistParse {
         path: path.clone(),
         orig,
     })?;
@@ -38,7 +42,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     font.kern_groups = load_kern_groups(&plist);
     load_masters(&mut font, &plist)?;
     let default_master_id = custom_parameters
-        .get(&"Variable Font Origin".to_string())
+        .get("Variable Font Origin")
         .and_then(|x| x.as_str())
         .map(|x| x.to_string())
         .or_else(|| font.masters.first().map(|m| m.id.clone()));
@@ -638,7 +642,7 @@ lazy_static! {
 
 fn load_custom_parameters(ot_values: &mut Vec<OTValue>, params: HashMap<String, &Plist>) {
     for (key, table, field) in UNSIGNED_CP.iter() {
-        if let Some(v) = params.get(&key.to_string()) {
+        if let Some(v) = params.get(*key) {
             ot_values.push(OTValue {
                 table: table.to_string(),
                 field: field.to_string(),
@@ -647,7 +651,7 @@ fn load_custom_parameters(ot_values: &mut Vec<OTValue>, params: HashMap<String, 
         }
     }
     for (key, table, field) in SIGNED_CP.iter() {
-        if let Some(v) = params.get(&key.to_string()) {
+        if let Some(v) = params.get(*key) {
             ot_values.push(OTValue {
                 table: table.to_string(),
                 field: field.to_string(),
@@ -656,7 +660,7 @@ fn load_custom_parameters(ot_values: &mut Vec<OTValue>, params: HashMap<String, 
         }
     }
     for (key, table, field) in BOOL_CP.iter() {
-        if let Some(v) = params.get(&key.to_string()) {
+        if let Some(v) = params.get(*key) {
             ot_values.push(OTValue {
                 table: table.to_string(),
                 field: field.to_string(),
