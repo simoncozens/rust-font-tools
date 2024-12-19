@@ -301,8 +301,9 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
         T: ?Sized + Serialize,
     {
         if !self.output.ends_with('{') {
-            self.output += "; ";
+            self.output += ";";
         }
+        self.output += "\n";
         key.serialize(&mut **self)
     }
 
@@ -315,7 +316,7 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
     }
 
     fn end(self) -> Result<()> {
-        self.output += ";}";
+        self.output += ";\n}";
         Ok(())
     }
 }
@@ -331,13 +332,14 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
         if !self.output.ends_with('{') {
             self.output += "; ";
         }
+        self.output += "\n";
         key.serialize(&mut **self)?;
         self.output += " = ";
         value.serialize(&mut **self)
     }
 
     fn end(self) -> Result<()> {
-        self.output += "}";
+        self.output += "\n}";
         Ok(())
     }
 }
