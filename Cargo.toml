@@ -6,7 +6,7 @@ members = [
 "dschecker",
 "fonticulus",
 "fonttools-cli",
-"fonttools-rs",
+"fonttools-rs", "glyphslib",
 "openstep-plist",
 "otmath",
 "otspec",
