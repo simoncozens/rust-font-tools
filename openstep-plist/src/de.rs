@@ -1,4 +1,4 @@
-use serde::de::{self, DeserializeSeed, SeqAccess, Visitor};
+use serde::de::{self, DeserializeSeed, MapAccess, SeqAccess, Visitor};
 use serde::forward_to_deserialize_any;
 use smol_str::SmolStr;
 
@@ -154,8 +154,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
         V: Visitor<'de>,
     {
         match self.element() {
-            // Treat the dictionary as a sequence of keys, it's easier
-            Plist::Dictionary(_) => visitor.visit_seq(DictDeserializer::new(self)),
+            Plist::Dictionary(_) => visitor.visit_map(DictDeserializer::new(self)),
             _ => Err(Error::UnexpectedDataType {
                 expected: "dictionary",
                 found: self.element().name(),
@@ -208,20 +207,27 @@ impl<'a, 'de> DictDeserializer<'a, 'de> {
     }
 }
 
-impl<'de, 'a> SeqAccess<'de> for DictDeserializer<'a, 'de> {
+impl<'de, 'a> MapAccess<'de> for DictDeserializer<'a, 'de> {
     type Error = Error;
 
-    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
+    fn next_key_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
     where
         T: DeserializeSeed<'de>,
     {
         if self.index == self.keys.len() {
             return Ok(None);
         }
-        self.de
-            .path
-            .push(PathElement::Key(self.keys[self.index].clone()));
-        let result = seed.deserialize(&mut *self.de).map(Some);
+        let key = self.keys[self.index].clone();
+        self.de.path.push(PathElement::Key(key.clone()));
+        let key_deserializer = serde::de::value::StringDeserializer::new(key.to_string());
+        seed.deserialize(key_deserializer).map(Some)
+    }
+
+    fn next_value_seed<T>(&mut self, seed: T) -> Result<T::Value>
+    where
+        T: DeserializeSeed<'de>,
+    {
+        let result = seed.deserialize(&mut *self.de);
         self.de.path.pop();
         self.index += 1;
         result
@@ -274,7 +280,7 @@ mod tests {
         );
         let mut deserializer = Deserializer::from_plist(&plist);
         let value: Foo = Foo::deserialize(&mut deserializer).unwrap();
-        assert_eq!(value, Foo { a: 1, b: 2 });
+        assert_eq!(value, Foo { a: 2, b: 1 });
     }
 
     #[test]
