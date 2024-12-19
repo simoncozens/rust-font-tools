@@ -5,6 +5,7 @@ use openstep_plist::{Dictionary, Plist};
 use serde::de::Visitor;
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, OneOrMany};
 
 fn is_false(b: &bool) -> bool {
     !b
@@ -313,6 +314,7 @@ pub struct MetricValue {
     pub pos: f32,
 }
 
+#[serde_as]
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Glyph {
     /// The 'case' of the glyph when manually set.
@@ -352,6 +354,8 @@ pub struct Glyph {
     #[serde(rename = "lastChange")]
     pub last_change: Option<String>,
     pub layers: Vec<Layer>,
+    #[serde_as(as = "OneOrMany<_>")]
+    pub unicode: Vec<u32>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

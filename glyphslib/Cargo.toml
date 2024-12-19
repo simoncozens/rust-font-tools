@@ -7,3 +7,4 @@ edition = "2021"
 openstep-plist = { path = "../openstep-plist" }
 serde = "1.0"
 serde_path_to_error = "0.1"
+serde_with = "3.11"
