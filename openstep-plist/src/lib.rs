@@ -3,12 +3,13 @@ use std::collections::BTreeMap;
 use std::fmt::Debug;
 
 use ordered_float::OrderedFloat;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
 
-mod de;
-mod error;
-mod ser;
+pub mod de;
+pub mod error;
+pub mod ser;
+
 
 use crate::error::Error;
 
@@ -19,7 +20,7 @@ pub type Dictionary = BTreeMap<SmolStr, Plist>;
 pub type Array = Vec<Plist>;
 
 /// An enum representing a property list.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Plist {
     Dictionary(Dictionary),
