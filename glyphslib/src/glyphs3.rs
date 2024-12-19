@@ -181,9 +181,9 @@ pub struct Axis {
     #[serde(default)]
     pub hidden: bool,
     /// The name of the axis (e.g. `Weight``)
-    name: String,
+    pub name: String,
     /// The axis tag (e.g. `wght`)
-    tag: String,
+    pub tag: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -270,7 +270,7 @@ pub struct Master {
     #[serde(rename = "iconName", default)]
     pub icon_name: String,
     /// A unique id that connects the layers (associated ID) with the master
-    id: String,
+    pub id: String,
     /// The metrics values
     ///
     /// Metrics settings are stored in the font object.
@@ -281,7 +281,7 @@ pub struct Master {
     )]
     pub metric_values: Vec<MetricValue>,
     /// The name of the master
-    name: String,
+    pub name: String,
     /// A list of floats, number settings are stored in the font object.
     #[serde(
         rename = "numberValues",
@@ -334,7 +334,8 @@ pub struct Glyph {
     #[serde(default = "bool_true")]
     pub export: bool,
     /// The glyph name
-    glyphname: String,
+    #[serde(rename = "glyphname")]
+    pub name: String,
     ///  Bottom kerning group
     #[serde(rename = "kernBottom")]
     pub kern_bottom: Option<String>,
@@ -436,7 +437,7 @@ pub struct Layer {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Anchor {
-    name: String,
+    pub name: String,
     #[serde(default)]
     pub pos: (f32, f32),
 }
@@ -466,7 +467,7 @@ pub struct Guide {
     pub angle: f32,
     #[serde(default)]
     pub locked: bool,
-    pos: (f32, f32),
+    pub pos: (f32, f32),
     #[serde(default = "scale_unit")]
     pub scale: (f32, f32),
 }
