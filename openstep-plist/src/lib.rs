@@ -1,36 +1,41 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
-use std::fmt::Write as _; // import without risk of name clashing
+use std::collections::BTreeMap;
+use std::fmt::Debug;
+
+use ordered_float::OrderedFloat;
+use serde::Serialize;
+use smol_str::SmolStr;
+
+mod de;
+mod error;
+mod ser;
+
+use crate::error::Error;
+
+/// A plist dictionary
+pub type Dictionary = BTreeMap<SmolStr, Plist>;
+
+/// An array of plist values
+pub type Array = Vec<Plist>;
 
 /// An enum representing a property list.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize)]
+#[serde(untagged)]
 pub enum Plist {
-    Dictionary(HashMap<String, Plist>),
-    Array(Vec<Plist>),
+    Dictionary(Dictionary),
+    Array(Array),
     String(String),
-    Binary(Vec<u8>),
-    Node((i64, i64, String)),
     Integer(i64),
-    Float(f64),
+    Float(OrderedFloat<f64>),
+    Data(Vec<u8>),
 }
 
 #[derive(Debug)]
-pub enum Error {
-    UnexpectedChar(char),
-    UnclosedString,
-    UnknownEscape,
-    NotAString,
-    ExpectedEquals,
-    ExpectedComma,
-    ExpectedSemicolon,
-    SomethingWentWrong,
-}
-
-enum Token<'a> {
+pub(crate) enum Token<'a> {
     Eof,
     OpenBrace,
     OpenParen,
-    Binary(Vec<u8>),
+    Data(Vec<u8>),
     String(Cow<'a, str>),
     Atom(&'a str),
 }
@@ -40,7 +45,16 @@ fn is_numeric(b: u8) -> bool {
 }
 
 fn is_alnum(b: u8) -> bool {
-    is_numeric(b) || b.is_ascii_uppercase() || b.is_ascii_lowercase() || b == b'_'
+    // https://github.com/opensource-apple/CF/blob/3cc41a76b1491f50813e28a4ec09954ffa359e6f/CFOldStylePList.c#L79
+    is_numeric(b)
+        || b.is_ascii_uppercase()
+        || b.is_ascii_lowercase()
+        || b == b'_'
+        || b == b'$'
+        || b == b'/'
+        || b == b':'
+        || b == b'.'
+        || b == b'-'
 }
 
 // Used for serialization; make sure UUID's get quoted
@@ -52,50 +66,43 @@ fn is_hex_upper(b: u8) -> bool {
     b.is_ascii_digit() || (b'A'..=b'F').contains(&b)
 }
 
+fn is_ascii_whitespace(b: u8) -> bool {
+    b == b' ' || b == b'\t' || b == b'\r' || b == b'\n'
+}
+
 fn numeric_ok(s: &str) -> bool {
     let s = s.as_bytes();
     if s.is_empty() {
         return false;
     }
+    let s = if s.len() > 1 && (*s.first().unwrap(), *s.last().unwrap()) == (b'"', b'"') {
+        &s[1..s.len()]
+    } else {
+        s
+    };
     if s.iter().all(|&b| is_hex_upper(b)) && !s.iter().all(|&b| b.is_ascii_digit()) {
         return false;
     }
     if s.len() > 1 && s[0] == b'0' {
         return !s.iter().all(|&b| b.is_ascii_digit());
     }
+    // Prevent parsing of "infinity", "inf", "nan" as numbers, we
+    // want to keep them as strings (e.g. glyphname)
+    // https://doc.rust-lang.org/std/primitive.f64.html#grammar
+    if s.eq_ignore_ascii_case(b"infinity")
+        || s.eq_ignore_ascii_case(b"inf")
+        || s.eq_ignore_ascii_case(b"nan")
+    {
+        return false;
+    }
     true
 }
 
 fn skip_ws(s: &str, mut ix: usize) -> usize {
-    while ix < s.len() && s.as_bytes()[ix].is_ascii_whitespace() {
+    while ix < s.len() && is_ascii_whitespace(s.as_bytes()[ix]) {
         ix += 1;
     }
     ix
-}
-
-fn escape_string(buf: &mut String, s: &str) {
-    buf.reserve(s.len());
-    if !s.is_empty() && s.as_bytes().iter().all(|&b| is_alnum_strict(b)) {
-        buf.push_str(s);
-    } else {
-        buf.push('"');
-        let mut start = 0;
-        let mut ix = start;
-        while ix < s.len() {
-            let b = s.as_bytes()[ix];
-            match b {
-                b'"' | b'\\' => {
-                    buf.push_str(&s[start..ix]);
-                    buf.push('\\');
-                    start = ix;
-                }
-                _ => (),
-            }
-            ix += 1;
-        }
-        buf.push_str(&s[start..]);
-        buf.push('"');
-    }
 }
 
 impl Plist {
@@ -105,15 +112,17 @@ impl Plist {
         Ok(plist)
     }
 
-    #[allow(unused)]
-    pub fn as_dict(&self) -> Option<&HashMap<String, Plist>> {
+    fn name(&self) -> &'static str {
         match self {
-            Plist::Dictionary(d) => Some(d),
-            _ => None,
+            Plist::Array(..) => "array",
+            Plist::Dictionary(..) => "dictionary",
+            Plist::Float(..) => "float",
+            Plist::Integer(..) => "integer",
+            Plist::String(..) => "string",
+            Plist::Data(..) => "data",
         }
     }
 
-    #[allow(unused)]
     pub fn get(&self, key: &str) -> Option<&Plist> {
         match self {
             Plist::Dictionary(d) => d.get(key),
@@ -121,7 +130,13 @@ impl Plist {
         }
     }
 
-    #[allow(unused)]
+    pub fn as_dict(&self) -> Option<&BTreeMap<SmolStr, Plist>> {
+        match self {
+            Plist::Dictionary(d) => Some(d),
+            _ => None,
+        }
+    }
+
     pub fn as_array(&self) -> Option<&[Plist]> {
         match self {
             Plist::Array(a) => Some(a),
@@ -129,15 +144,6 @@ impl Plist {
         }
     }
 
-    #[allow(unused)]
-    pub fn as_node(&self) -> Option<&(i64, i64, String)> {
-        match self {
-            Plist::Node(a) => Some(a),
-            _ => None,
-        }
-    }
-
-    #[allow(unused)]
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Plist::String(s) => Some(s),
@@ -151,103 +157,86 @@ impl Plist {
             _ => None,
         }
     }
-    pub fn as_i32(&self) -> Option<i32> {
-        match self {
-            Plist::Integer(i) => Some(*i as i32),
-            _ => None,
-        }
-    }
-
-    pub fn as_f32(&self) -> Option<f32> {
-        match self {
-            Plist::Integer(i) => Some(*i as f32),
-            Plist::Float(f) => Some(*f as f32),
-            _ => None,
-        }
-    }
 
     pub fn as_f64(&self) -> Option<f64> {
         match self {
             Plist::Integer(i) => Some(*i as f64),
-            Plist::Float(f) => Some(*f),
+            Plist::Float(f) => Some((*f).into_inner()),
             _ => None,
         }
     }
 
-    pub fn into_string(self) -> String {
+    pub fn flatten_to_integer(&self) -> Plist {
         match self {
-            Plist::String(s) => s,
-            _ => panic!("expected string"),
+            Plist::Float(f) => {
+                if f.fract() == 0.0 {
+                    Plist::Integer(f.into_inner() as i64)
+                } else {
+                    Plist::Float(*f)
+                }
+            }
+            Plist::String(s) => {
+                if let Ok(num) = s.parse() {
+                    Plist::Integer(num)
+                } else {
+                    self.clone()
+                }
+            }
+            _ => self.clone(),
+        }
+    }
+    pub fn flatten_to_string(&self) -> Plist {
+        match self {
+            Plist::Integer(i) => Plist::String(i.to_string()),
+            Plist::Float(f) => {
+                if f.fract() == 0.0 {
+                    Plist::String((f.into_inner() as i64).to_string())
+                } else {
+                    Plist::String(f.to_string())
+                }
+            }
+            _ => self.clone(),
         }
     }
 
-    pub fn into_vec(self) -> Vec<Plist> {
+    pub fn expect_dict(self) -> Result<Dictionary, Error> {
         match self {
-            Plist::Array(a) => a,
-            _ => panic!("expected array"),
+            Plist::Dictionary(dict) => Ok(dict),
+            _other => Err(Error::UnexpectedDataType {
+                expected: "dictionary",
+                found: _other.name(),
+            }),
         }
     }
 
-    pub fn into_hashmap(self) -> HashMap<String, Plist> {
+    pub fn expect_array(self) -> Result<Array, Error> {
         match self {
-            Plist::Dictionary(d) => d,
-            _ => panic!("expected dictionary"),
+            Plist::Array(array) => Ok(array),
+            _other => Err(Error::UnexpectedDataType {
+                expected: "array",
+                found: _other.name(),
+            }),
         }
     }
 
-    fn try_parse_node(s: &str, mut ix: usize) -> Option<(Plist, usize)> {
-        let x;
-        let y;
-        let t;
-        if let Ok((Token::Atom(s), next_ix)) = Token::lex(s, ix) {
-            if let Plist::Integer(t1) = Plist::parse_atom(s) {
-                x = t1;
-            } else if let Plist::Float(t1) = Plist::parse_atom(s) {
-                x = t1 as i64;
-            } else {
-                return None;
-            }
-            ix = next_ix;
-        } else {
-            return None;
+    pub fn expect_string(self) -> Result<String, Error> {
+        match self {
+            Plist::String(string) => Ok(string),
+            _other => Err(Error::UnexpectedDataType {
+                expected: "string",
+                found: _other.name(),
+            }),
         }
-        if let Some(next_ix) = Token::expect(s, ix, b',') {
-            ix = next_ix;
-        } else {
-            return None;
-        }
+    }
 
-        if let Ok((Token::Atom(s), next_ix)) = Token::lex(s, ix) {
-            if let Plist::Integer(t2) = Plist::parse_atom(s) {
-                y = t2;
-            } else if let Plist::Float(t2) = Plist::parse_atom(s) {
-                y = t2 as i64;
-            } else {
-                return None;
-            }
-            ix = next_ix;
-        } else {
-            return None;
+    pub fn expect_data(self) -> Result<Vec<u8>, Error> {
+        match self {
+            Plist::Data(bytes) => Ok(bytes),
+            _other => Err(Error::UnexpectedDataType {
+                expected: "data",
+                found: _other.name(),
+            }),
         }
-        if let Some(next_ix) = Token::expect(s, ix, b',') {
-            ix = next_ix;
-        } else {
-            return None;
-        }
-        if let Ok((Token::Atom(s), next_ix)) = Token::lex(s, ix) {
-            if let Plist::String(t2) = Plist::parse_atom(s) {
-                t = t2;
-            } else {
-                return None;
-            }
-            ix = next_ix;
-        } else {
-            return None;
-        }
-        if let Some(ix) = Token::expect(s, ix, b')') {
-            return Some((Plist::Node((x, y, t)), ix));
-        }
-        None
     }
 
     fn parse_rec(s: &str, ix: usize) -> Result<(Plist, usize), Error> {
@@ -255,15 +244,15 @@ impl Plist {
         match tok {
             Token::Atom(s) => Ok((Plist::parse_atom(s), ix)),
             Token::String(s) => Ok((Plist::String(s.into()), ix)),
-            Token::Binary(s) => Ok((Plist::Binary(s), ix)),
+            Token::Data(bytes) => Ok((Plist::Data(bytes), ix)),
             Token::OpenBrace => {
-                let mut dict = HashMap::new();
+                let mut dict = BTreeMap::new();
                 loop {
                     if let Some(ix) = Token::expect(s, ix, b'}') {
                         return Ok((Plist::Dictionary(dict), ix));
                     }
                     let (key, next) = Token::lex(s, ix)?;
-                    let key_str = Token::try_into_string(key)?;
+                    let key_str = Token::try_into_smolstr(key)?;
                     let next = Token::expect(s, next, b'=');
                     if next.is_none() {
                         return Err(Error::ExpectedEquals);
@@ -278,18 +267,11 @@ impl Plist {
                 }
             }
             Token::OpenParen => {
-                let capacity = Token::guess_list_capacity(s, ix);
-                // log::debug!("capacity: {}", capacity);
-                if let Some(ix) = Token::expect(s, ix, b')') {
-                    return Ok((Plist::Array(Vec::new()), ix));
-                }
-                if capacity == 3 {
-                    if let Some((node, ix)) = Plist::try_parse_node(s, ix) {
-                        return Ok((node, ix));
-                    }
-                }
-                let mut list = Vec::with_capacity(capacity);
+                let mut list = Vec::new();
                 loop {
+                    if let Some(ix) = Token::expect(s, ix, b')') {
+                        return Ok((Plist::Array(list), ix));
+                    }
                     let (val, next) = Self::parse_rec(s, ix)?;
                     list.push(val);
                     if let Some(ix) = Token::expect(s, next, b')') {
@@ -297,12 +279,15 @@ impl Plist {
                     }
                     if let Some(next) = Token::expect(s, next, b',') {
                         ix = next;
+                        if let Some(next) = Token::expect(s, next, b')') {
+                            return Ok((Plist::Array(list), next));
+                        }
                     } else {
                         return Err(Error::ExpectedComma);
                     }
                 }
             }
-            _ => Err(Error::SomethingWentWrong),
+            _ => Err(Error::UnexpectedToken { name: tok.name() }),
         }
     }
 
@@ -318,58 +303,42 @@ impl Plist {
         Plist::String(s.into())
     }
 
-    #[allow(clippy::inherent_to_string)]
+    #[allow(clippy::inherent_to_string, unused)]
     pub fn to_string(&self) -> String {
-        let mut s = String::new();
-        self.push_to_string(&mut s);
-        s
+        crate::ser::to_string(&self).unwrap()
     }
 
-    fn push_to_string(&self, s: &mut String) {
+    pub fn is_meaningful(&self) -> bool {
         match self {
-            Plist::Array(a) => {
-                s.push('(');
-                let mut delim = "\n";
-                for el in a {
-                    s.push_str(delim);
-                    el.push_to_string(s);
-                    delim = ",\n";
-                }
-                s.push_str("\n)");
-            }
-            Plist::Dictionary(a) => {
-                s.push_str("{\n");
-                let mut keys: Vec<_> = a.keys().collect();
-                keys.sort();
-                for k in keys {
-                    let el = &a[k];
-                    // TODO: quote if needed?
-                    escape_string(s, k);
-                    s.push_str(" = ");
-                    el.push_to_string(s);
-                    s.push_str(";\n");
-                }
-                s.push('}');
-            }
-            Plist::String(st) => escape_string(s, st),
-            Plist::Integer(i) => {
-                write!(s, "{}", i).unwrap();
-            }
-            Plist::Float(f) => {
-                write!(s, "{}", f).unwrap();
-            }
-            Plist::Node((x, y, t)) => {
-                write!(s, "({},{},{})", x, y, t).unwrap();
-            }
-            Plist::Binary(b) => {
-                s.push('<');
-                for byte in b {
-                    write!(s, "{:02x}", byte).unwrap();
-                }
-                s.push('>');
-            }
+            Plist::Array(a) => !a.is_empty(),
+            Plist::Dictionary(d) => !d.is_empty(),
+            Plist::String(s) => !s.is_empty(),
+            Plist::Integer(i) => *i != 0,
+            Plist::Float(f) => f.into_inner() != 0.0,
+            Plist::Data(d) => !d.is_empty(),
         }
     }
+}
+
+impl Default for Plist {
+    fn default() -> Self {
+        // kind of arbitrary but seems okay
+        Plist::Array(Vec::new())
+    }
+}
+
+fn byte_from_hex(hex: [u8; 2]) -> Result<u8, Error> {
+    fn hex_digit_to_byte(digit: u8) -> Result<u8, Error> {
+        match digit {
+            b'0'..=b'9' => Ok(digit - b'0'),
+            b'a'..=b'f' => Ok(digit - b'a' + 10),
+            b'A'..=b'F' => Ok(digit - b'A' + 10),
+            _ => Err(Error::BadData),
+        }
+    }
+    let maj = hex_digit_to_byte(hex[0])? << 4;
+    let min = hex_digit_to_byte(hex[1])?;
+    Ok(maj | min)
 }
 
 impl<'a> Token<'a> {
@@ -383,42 +352,20 @@ impl<'a> Token<'a> {
             b'{' => Ok((Token::OpenBrace, start + 1)),
             b'(' => Ok((Token::OpenParen, start + 1)),
             b'<' => {
-                let mut ix = start + 1;
-                let mut buf: Vec<u8> = Vec::new();
-                while ix < s.len() {
-                    let b = s.as_bytes()[ix];
-                    if b == b'>' {
-                        // End of binary
-                        return Ok((Token::Binary(buf), ix + 1));
-                    } else if b.is_ascii_digit() || (b'a'..=b'f').contains(&b) {
-                        ix += 1;
-                        if ix == s.len() {
-                            return Err(Error::UnclosedString);
-                        }
-                        let high = b;
-                        let low = s.as_bytes()[ix];
-                        if low.is_ascii_digit() || (b'a'..=b'f').contains(&low) {
-                            ix += 1;
-                            let mut byte = 0;
-                            if high.is_ascii_digit() {
-                                byte += 16 * (high - b'0');
-                            } else {
-                                byte += 16 * (10 + high - b'a');
-                            }
-                            if low.is_ascii_digit() {
-                                byte += low - b'0';
-                            } else {
-                                byte += 10 + (low - b'a');
-                            }
-                            buf.push(byte);
-                        } else {
-                            return Err(Error::UnknownEscape);
-                        }
-                    } else {
-                        return Err(Error::UnknownEscape);
-                    }
+                let data_start = start + 1;
+                let data_end = data_start
+                    + s.as_bytes()[data_start..]
+                        .iter()
+                        .position(|b| *b == b'>')
+                        .ok_or(Error::UnclosedData)?;
+                let chunks = s.as_bytes()[data_start..data_end].chunks_exact(2);
+                if !chunks.remainder().is_empty() {
+                    return Err(Error::BadData);
                 }
-                Err(Error::UnclosedString)
+                let data = chunks
+                    .map(|x| byte_from_hex(x.try_into().unwrap()))
+                    .collect::<Result<_, _>>()?;
+                Ok((Token::Data(data), data_end + 1))
             }
             b'"' => {
                 let mut ix = start + 1;
@@ -499,11 +446,13 @@ impl<'a> Token<'a> {
         }
     }
 
-    fn try_into_string(self) -> Result<String, Error> {
+    fn try_into_smolstr(self) -> Result<SmolStr, Error> {
         match self {
             Token::Atom(s) => Ok(s.into()),
             Token::String(s) => Ok(s.into()),
-            _ => Err(Error::NotAString),
+            _ => Err(Error::NotAString {
+                token_name: self.name(),
+            }),
         }
     }
 
@@ -518,31 +467,33 @@ impl<'a> Token<'a> {
         None
     }
 
-    fn guess_list_capacity(s: &str, ix: usize) -> usize {
-        let mut level = 1;
-        let mut ix = ix;
-        let mut commas = 0;
-        while ix < s.len() {
-            let b = s.as_bytes()[ix];
-            if b == b'(' || b == b'{' {
-                level += 1;
-            } else if b == b')' || b == b'}' {
-                level -= 1;
-                if level == 0 {
-                    break;
-                }
-            } else if b == b',' && level == 1 {
-                commas += 1;
-            }
-            ix += 1;
+    pub(crate) fn name(&self) -> &'static str {
+        match self {
+            Token::Atom(..) => "Atom",
+            Token::String(..) => "String",
+            Token::Eof => "Eof",
+            Token::OpenBrace => "OpenBrace",
+            Token::OpenParen => "OpenParen",
+            Token::Data(_) => "Data",
         }
-        commas + 1
+    }
+}
+
+impl From<bool> for Plist {
+    fn from(x: bool) -> Plist {
+        Plist::Integer(x as i64)
     }
 }
 
 impl From<String> for Plist {
     fn from(x: String) -> Plist {
         Plist::String(x)
+    }
+}
+
+impl From<SmolStr> for Plist {
+    fn from(x: SmolStr) -> Plist {
+        Plist::String(x.into())
     }
 }
 
@@ -554,109 +505,124 @@ impl From<i64> for Plist {
 
 impl From<f64> for Plist {
     fn from(x: f64) -> Plist {
-        Plist::Float(x)
+        Plist::Float(x.into())
     }
 }
 
-impl From<Vec<Plist>> for Plist {
-    fn from(x: Vec<Plist>) -> Plist {
-        Plist::Array(x)
+impl From<ordered_float::OrderedFloat<f64>> for Plist {
+    fn from(x: ordered_float::OrderedFloat<f64>) -> Plist {
+        Plist::Float(f64::from(x).into())
     }
 }
 
-impl From<HashMap<String, Plist>> for Plist {
-    fn from(x: HashMap<String, Plist>) -> Plist {
+impl From<Dictionary> for Plist {
+    fn from(x: Dictionary) -> Plist {
         Plist::Dictionary(x)
+    }
+}
+
+impl<T> From<Vec<T>> for Plist
+where
+    T: Into<Plist>,
+{
+    fn from(x: Vec<T>) -> Plist {
+        Plist::Array(x.into_iter().map(Into::into).collect())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{Plist, Token};
+    use std::collections::BTreeMap;
 
-    use otspec::hashmap;
-    use std::iter::FromIterator;
-
-    #[test]
-    fn test_capacity_guesser() {
-        assert_eq!(Token::guess_list_capacity("(1,2,3,4,5)", 1), 5);
-        assert_eq!(Token::guess_list_capacity("(1,2,{},4,5)", 1), 5);
-        assert_eq!(Token::guess_list_capacity("(1,2,{,},4,5)", 1), 5);
-        assert_eq!(Token::guess_list_capacity("(1,2,(3,5,6,),4,5)", 1), 5);
-    }
-    #[test]
-    fn test_numbers() {
-        let input = "123".to_string();
-        let res = Plist::parse(&input).unwrap();
-        assert_eq!(res, Plist::Integer(123));
-        let input = "-123.45".to_string();
-        let res = Plist::parse(&input).unwrap();
-        assert_eq!(res, Plist::Float(-123.45));
-    }
+    use super::*;
 
     #[test]
-    fn test_array() {
-        let input = "(123,456)".to_string();
-        let res = Plist::parse(&input).unwrap();
-        assert_eq!(
-            res,
-            Plist::Array(vec![Plist::Integer(123), Plist::Integer(456)])
-        );
-    }
-
-    #[test]
-    fn test_dict() {
-        let input = "{a = \"x123\";}".to_string();
-        let res = Plist::parse(&input).expect("Whatever");
-        assert_eq!(
-            res,
-            Plist::Dictionary(hashmap!("a".to_string() => Plist::String("x123".to_string())))
-        );
-
-        let t_e = vec![
-            (
-                "{a=1;}",
-                Plist::Dictionary(hashmap!("a".to_string() => Plist::Integer(1))),
-            ),
-            (
-                "{\"a\"=\"1\";}",
-                Plist::Dictionary(hashmap!("a".to_string() => Plist::String("1".to_string()))),
-            ),
-            // (
-            //     "{'a'='1';}",
-            //     Plist::Dictionary(hashmap!("a".to_string() => Plist::String("1".to_string()))),
-            // ),
-            (
-                "{\na = 1;\n}",
-                Plist::Dictionary(hashmap!("a".to_string() => Plist::Integer(1))),
-            ),
-            (
-                "{\na\n=\n1;\n}",
-                Plist::Dictionary(hashmap!("a".to_string() => Plist::Integer(1))),
-            ),
-            // (
-            //     "{a=1;b;}",
-            //     Plist::Dictionary(
-            //         hashmap!("a".to_string() => Plist::String("1".to_string()), "b".to_string() => Plist::String("b".to_string())),
-            //     ),
-            // ),
-        ];
-
-        for (t, e) in t_e.iter() {
-            let res = Plist::parse(t).expect("Whatever");
-            assert_eq!(res, *e);
+    fn parse_unquoted_strings() {
+        let contents = r#"
+        {
+            name = "UFO Filename";
+            value1 = ../../build/instance_ufos/Testing_Rg.ufo;
+            value2 = _;
+            value3 = $;
+            value4 = /;
+            value5 = :;
+            value6 = .;
+            value7 = -;
         }
+        "#;
+
+        let plist = Plist::parse(contents).unwrap();
+        let plist_expected = Plist::Dictionary(BTreeMap::from_iter([
+            ("name".into(), Plist::String("UFO Filename".into())),
+            (
+                "value1".into(),
+                Plist::String("../../build/instance_ufos/Testing_Rg.ufo".into()),
+            ),
+            ("value2".into(), Plist::String("_".into())),
+            ("value3".into(), Plist::String("$".into())),
+            ("value4".into(), Plist::String("/".into())),
+            ("value5".into(), Plist::String(":".into())),
+            ("value6".into(), Plist::String(".".into())),
+            ("value7".into(), Plist::String("-".into())),
+        ]));
+        assert_eq!(plist, plist_expected);
     }
 
     #[test]
-    fn test_binary() {
-        let input = "{de.kutilek.scrawl.data = <89504e>;}".to_string();
-        let res = Plist::parse(&input).expect("Whatever");
+    fn parse_binary_data() {
+        let contents = r#"
+        {
+            mydata = <deadbeef>;
+        }
+            "#;
+        let plist = Plist::parse(contents).unwrap();
+        let data = plist.get("mydata").unwrap().clone().expect_data().unwrap();
+        assert_eq!(data, [0xde, 0xad, 0xbe, 0xef])
+    }
+
+    #[test]
+    fn ascii_to_hex() {
+        assert_eq!(byte_from_hex([b'0', b'1']), Ok(0x01));
+        assert_eq!(byte_from_hex([b'0', b'0']), Ok(0x00));
+        assert_eq!(byte_from_hex([b'f', b'f']), Ok(0xff));
+        assert_eq!(byte_from_hex([b'f', b'0']), Ok(0xf0));
+        assert_eq!(byte_from_hex([b'0', b'f']), Ok(0x0f));
+    }
+
+    #[test]
+    fn parse_to_plist_type() {
+        let plist_str = r#"
+        {
+            name = "meta";
+            value = (
+                {
+                    data = latn;
+                    tag = dlng;
+                    num = 5;
+                },
+                {
+                    data = "latn,cyrl";
+                    tag = slng;
+                    num = -3.0;
+                }
+            );
+        }"#;
+
+        let plist = Plist::parse(plist_str).unwrap();
+        let root = plist.expect_dict().unwrap();
+        assert_eq!(root.get("name").unwrap().as_str(), Some("meta"));
+        let value = root.get("value").unwrap().as_array().unwrap();
+        assert_eq!(value.len(), 2);
+        let first = value[0].as_dict().unwrap();
+        assert_eq!(first.get("data").and_then(Plist::as_str), Some("latn"));
+        assert_eq!(first.get("tag").and_then(Plist::as_str), Some("dlng"));
+        assert_eq!(first.get("num").and_then(Plist::as_i64), Some(5));
+        let second = value[1].as_dict().unwrap();
         assert_eq!(
-            res,
-            Plist::Dictionary(
-                hashmap!("de.kutilek.scrawl.data".to_string() => Plist::Binary(vec![0x89, 0x50, 0x4e]))
-            )
+            second.get("data").and_then(Plist::as_str),
+            Some("latn,cyrl")
         );
+        assert_eq!(second.get("tag").and_then(Plist::as_str), Some("slng"));
+        assert_eq!(second.get("num").and_then(Plist::as_f64), Some(-3.0));
     }
 }
