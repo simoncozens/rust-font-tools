@@ -3,6 +3,7 @@ use std::fmt;
 
 use openstep_plist::{Dictionary, Plist};
 use serde::de::Visitor;
+use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize};
 
 fn version_two() -> i32 {
@@ -478,7 +479,14 @@ impl Serialize for Node {
     where
         S: serde::Serializer,
     {
-        todo!()
+        let mut seq = serializer.serialize_seq(Some(3))?;
+        seq.serialize_element(&self.x)?;
+        seq.serialize_element(&self.y)?;
+        seq.serialize_element(&self.node_type)?;
+        if let Some(user_data) = &self.user_data {
+            seq.serialize_element(user_data)?;
+        }
+        seq.end()
     }
 }
 
