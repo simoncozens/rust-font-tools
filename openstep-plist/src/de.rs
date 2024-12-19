@@ -104,7 +104,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             Plist::Float(f) => visitor.visit_f64(f.into_inner()),
             _ => Err(Error::UnexpectedDataType {
                 expected: "float",
-                found: "not a float",
+                found: self.element().name(),
             }),
         }
     }
@@ -117,7 +117,7 @@ impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de> {
             Plist::String(s) => visitor.visit_borrowed_str(s),
             _ => Err(Error::UnexpectedDataType {
                 expected: "string",
-                found: "not a string",
+                found: self.element().name(),
             }),
         }
     }
