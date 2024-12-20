@@ -231,6 +231,7 @@ pub struct Feature {
     #[serde(default)]
     pub disabled: bool,
     /// List of stylistic set labels
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     labels: Vec<StylisticSetLabel>,
     /// Notes
     #[serde(default)]
@@ -356,8 +357,8 @@ pub struct Glyph {
     pub layers: Vec<Layer>,
     #[serde(default)]
     pub production: Option<String>,
-    #[serde_as(as = "OneOrMany<_>")]
-    pub unicode: Vec<u32>,
+    #[serde_as(as = "Option<OneOrMany<_>>")]
+    pub unicode: Option<Vec<u32>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -737,6 +738,8 @@ pub enum SingularPropertyKey {
     WwsFamilyName,
     #[serde(rename = "versionString")]
     VersionString,
+    #[serde(rename = "vendorID")]
+    VendorID,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
