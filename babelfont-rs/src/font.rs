@@ -83,7 +83,7 @@ impl Font {
         self.masters
             .iter()
             .enumerate()
-            .find_map(|(ix, m)| (m.location == default_location).then(|| ix))
+            .find_map(|(ix, m)| (m.location == default_location).then_some(ix))
     }
 
     pub fn master(&self, master_name: &str) -> Option<&Master> {
@@ -154,10 +154,10 @@ impl Font {
             })
             .collect();
         let axes = axes?;
-        Ok(loc.convert(&axes.iter().map(|(k, v)| (k.clone(), v)).collect()))
+        Ok(loc.convert(&axes.iter().map(|(k, v)| (*k, v)).collect()))
     }
 
-    fn axis_order(&self) -> Vec<Tag> {
-        self.axes.iter().map(|ax| ax.tag.clone()).collect()
-    }
+    // fn axis_order(&self) -> Vec<Tag> {
+    //     self.axes.iter().map(|ax| ax.tag.clone()).collect()
+    // }
 }

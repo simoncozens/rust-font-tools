@@ -16,11 +16,15 @@ use write_fonts::types::Tag;
 
 fn to_point(s: String) -> Result<(f32, f32), BabelfontError> {
     let mut i = s.split(' ');
-    let x_str = i.next().expect("Couldn't read X coordinate");
+    let x_str = i.next().ok_or(BabelfontError::General {
+        msg: "Couldn't read X coordinate".to_string(),
+    })?;
     let x = x_str.parse::<f32>().map_err(|_| BabelfontError::General {
         msg: format!("Couldn't parse X coordinate {:}", x_str),
     })?;
-    let y_str = i.next().expect("Couldn't read Y coordinate");
+    let y_str = i.next().ok_or(BabelfontError::General {
+        msg: "Couldn't read Y coordinate".to_string(),
+    })?;
     let y = y_str.parse::<f32>().map_err(|_| BabelfontError::General {
         msg: format!("Couldn't parse Y coordinate {:}", y_str),
     })?;
@@ -46,6 +50,7 @@ impl From<FontlabComponent> for Shape {
 struct FontlabContour {
     nodes: Vec<String>,
 }
+#[allow(clippy::unwrap_used)]
 static NODE_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(-?[\d\.]+) (-?[\d\.]+)( s)?").unwrap());
 
@@ -62,6 +67,7 @@ fn nodestring_to_nodes(s: String) -> Vec<Node> {
                 } else {
                     NodeType::OffCurve
                 };
+                #[allow(clippy::unwrap_used)] // Matches regex -> parses
                 Some(Node {
                     x: mat[1].parse().unwrap(),
                     y: mat[2].parse().unwrap(),
@@ -266,9 +272,9 @@ impl From<FontlabAxis> for Axis {
             val.name,
             tag_from_string(&val.tag).unwrap_or(Tag::new(&[0, 0, 0, 0])),
         );
-        ax.min = val.minimum.map(|x| UserCoord::new(x));
-        ax.max = val.maximum.map(|x| UserCoord::new(x));
-        ax.default = val.default.map(|x| UserCoord::new(x));
+        ax.min = val.minimum.map(UserCoord::new);
+        ax.max = val.maximum.map(UserCoord::new);
+        ax.default = val.default.map(UserCoord::new);
         if let Some(map) = val.axisGraph {
             let mut axismap = vec![];
             for (left, right) in map.iter() {
@@ -276,7 +282,7 @@ impl From<FontlabAxis> for Axis {
                     axismap.push((UserCoord::new(*right), DesignCoord::new(l_f32)));
                 }
             }
-            axismap.sort_by(|l, r| l.0.partial_cmp(&r.0).unwrap());
+            axismap.sort();
             ax.map = Some(axismap);
         }
         ax
@@ -338,7 +344,7 @@ impl FontlabMaster {
                 .iter()
                 .flat_map(|(short_name, val)| {
                     axes.get(short_name)
-                        .map(|axis| (axis.clone(), DesignCoord::new(*val)))
+                        .map(|axis| (*axis, DesignCoord::new(*val)))
                 })
                 .collect::<Vec<_>>(),
         );
@@ -392,7 +398,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     for axis in fontlab.axes {
         let sn = axis.shortName.clone();
         let new_axis: Axis = axis.into();
-        axes_short_name_to_tag.insert(sn, new_axis.tag.clone());
+        axes_short_name_to_tag.insert(sn, new_axis.tag);
         font.axes.push(new_axis);
     }
     for master in fontlab.masters {

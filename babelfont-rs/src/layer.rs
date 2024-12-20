@@ -128,6 +128,7 @@ impl Layer {
                     Some(g) => g,
                     None => continue,
                 };
+                #[warn(clippy::unwrap_used)]
                 let new_outline = match referenced_glyph.get_layer(self.id.as_ref().unwrap()) {
                     Some(g) => g,
                     None => continue,
@@ -179,6 +180,6 @@ impl Layer {
     }
     pub fn rsb(&self) -> Result<f32, BabelfontError> {
         let bounds = self.bounds()?;
-        Ok(self.width as f32 - bounds.max_x() as f32)
+        Ok(self.width - bounds.max_x() as f32)
     }
 }

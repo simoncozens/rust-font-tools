@@ -24,8 +24,8 @@ impl Debug for I18NDictionary {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         fmt.write_str("<")?;
         let def = self.get_default();
-        if def.is_some() {
-            fmt.write_str(&def.unwrap())?;
+        if let Some(def) = def {
+            fmt.write_str(def)?;
         } else {
             fmt.write_str("no default")?;
         }

@@ -4,7 +4,6 @@ use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 use fontdrasil::coords::Location;
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::hash::Hash;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
@@ -13,17 +12,20 @@ pub(crate) fn stat(path: &std::path::Path) -> Option<DateTime<chrono::Local>> {
         .and_then(|x| x.created())
         .ok()
         .and_then(|x| {
-            NaiveDateTime::from_timestamp_opt(
-                x.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64,
+            DateTime::from_timestamp(
+                x.duration_since(SystemTime::UNIX_EPOCH)
+                    .unwrap_or(std::time::Duration::new(0, 0))
+                    .as_secs() as i64,
                 0,
             )
         })
-        .map(|x| chrono::Local.from_utc_datetime(&x))
+        .map(DateTime::<chrono::Local>::from)
 }
 
 pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     let mut font = Font::new();
     let created_time: Option<DateTime<Local>> = stat(&path);
+    #[warn(clippy::unwrap_used)]
     let ufo = norad::Font::load(&path).map_err(|e| BabelfontError::LoadingUFO {
         orig: Box::new(e),
         path: path.into_os_string().into_string().unwrap(),
@@ -190,10 +192,10 @@ pub(crate) fn load_kerning(master: &mut Master, kerning: &norad::Kerning) {
 }
 
 pub(crate) fn load_kern_groups(
-    groups: &norad::Groups,
+    _groups: &norad::Groups,
 ) -> (HashMap<String, Vec<String>>, HashMap<String, Vec<String>>) {
-    let mut first: HashMap<String, Vec<String>> = HashMap::new();
-    let mut second: HashMap<String, Vec<String>> = HashMap::new();
+    let first: HashMap<String, Vec<String>> = HashMap::new();
+    let second: HashMap<String, Vec<String>> = HashMap::new();
     // for (name, members) in groups.iter() {
     //     hm.insert(
     //         name.to_string(),

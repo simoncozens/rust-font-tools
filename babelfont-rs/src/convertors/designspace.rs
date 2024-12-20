@@ -1,9 +1,12 @@
+use crate::common::tag_from_string;
 use crate::convertors::ufo::stat;
 use crate::glyph::GlyphList;
 use crate::Layer;
-use designspace::Source;
-use rayon::prelude::*;
-use std::fs::File;
+use fontdrasil::coords::{DesignCoord, DesignLocation, UserCoord};
+use norad::designspace::Source;
+use std::collections::{BTreeMap, HashMap};
+use write_fonts::types::Tag;
+// use rayon::prelude::*;
 use std::path::PathBuf;
 
 use uuid::Uuid;
@@ -11,29 +14,28 @@ use uuid::Uuid;
 use crate::convertors::ufo::{
     load_font_info, load_glyphs, load_master_info, norad_glyph_to_babelfont_layer,
 };
-use crate::{Axis, BabelfontError, Font, Location, Master};
+use crate::{Axis, BabelfontError, Font, Master};
 
-use designspace::{Axis as DSAxis, Designspace, Instance as DSInstance};
+use norad::designspace::{Axis as DSAxis, DesignSpaceDocument, Instance as DSInstance};
 
 pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     let created_time = stat(&path);
-    let ds_file = File::open(path.clone()).map_err(|source| BabelfontError::IO {
-        path: path.clone(),
-        source,
-    })?;
-    let ds: Designspace =
-        designspace::from_reader(ds_file).map_err(|orig| BabelfontError::XMLParse {
+    // let ds_file = File::open(path.clone()).map_err(|source| BabelfontError::IO {
+    //     path: path.clone(),
+    //     source,
+    // })?;
+    let ds: DesignSpaceDocument = norad::designspace::DesignSpaceDocument::load(path.clone())
+        .map_err(|orig| BabelfontError::XMLParse {
             path: path.clone(),
             orig,
         })?;
     let relative = path.parent();
     let mut font = Font::new();
-    load_axes(&mut font, &ds.axes.axis);
-    if let Some(instances) = &ds.instances {
-        load_instances(&mut font, &instances.instance);
-    }
-    let default_master = ds
-        .default_master()
+    load_axes(&mut font, &ds.axes)?;
+    // if let Some(instances) = &ds.instances {
+    //     load_instances(&mut font, &instances.instance);
+    // }
+    let default_master = default_master(&ds, &font.axes)
         .ok_or_else(|| BabelfontError::NoDefaultMaster { path: path.clone() })?;
     let relative_path_to_default_master = if let Some(r) = relative {
         r.join(default_master.filename.clone())
@@ -49,8 +51,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     load_glyphs(&mut font, &default_ufo);
     let res: Vec<(Master, Vec<Vec<Layer>>)> = ds
         .sources
-        .source
-        .par_iter()
+        .iter()
         .filter_map(|source| load_master(&font.glyphs, &ds, source, relative).ok())
         .collect();
     for (master, mut layerset) in res {
@@ -65,17 +66,22 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     Ok(font)
 }
 
-fn load_axes(font: &mut Font, axes: &[DSAxis]) {
+fn load_axes(font: &mut Font, axes: &[DSAxis]) -> Result<(), BabelfontError> {
     for dsax in axes {
-        let mut ax = Axis::new(dsax.name.clone(), dsax.tag.clone());
-        ax.min = Some(dsax.minimum as f32);
-        ax.max = Some(dsax.maximum as f32);
-        ax.default = Some(dsax.default as f32);
+        let mut ax = Axis::new(dsax.name.clone(), tag_from_string(&dsax.tag)?);
+        ax.min = dsax.minimum.map(UserCoord::new);
+        ax.max = dsax.maximum.map(UserCoord::new);
+        ax.default = Some(UserCoord::new(dsax.default));
         if let Some(map) = &dsax.map {
-            ax.map = Some(map.iter().map(|x| (x.input, x.output)).collect());
+            ax.map = Some(
+                map.iter()
+                    .map(|x| (UserCoord::new(x.input), DesignCoord::new(x.output)))
+                    .collect(),
+            );
         }
         font.axes.push(ax);
     }
+    Ok(())
 }
 
 pub(crate) fn load_instances(_font: &mut Font, _instances: &[DSInstance]) {
@@ -84,17 +90,29 @@ pub(crate) fn load_instances(_font: &mut Font, _instances: &[DSInstance]) {
 
 fn load_master(
     glyphs: &GlyphList,
-    ds: &Designspace,
+    ds: &DesignSpaceDocument,
     source: &Source,
     relative: Option<&std::path::Path>,
 ) -> Result<(Master, Vec<Vec<Layer>>), BabelfontError> {
-    let location = Location(
-        ds.axes
-            .axis
+    #[warn(clippy::unwrap_used)] // XXX I am in a hurry
+    let axis_names_to_tags: HashMap<String, Tag> = ds
+        .axes
+        .iter()
+        .map(|x| (x.name.clone(), tag_from_string(&x.tag).unwrap()))
+        .collect();
+    let location = DesignLocation::from(
+        source
+            .location
             .iter()
-            .map(|x| x.tag.clone())
-            .zip(ds.location_to_tuple(&source.location))
-            .collect(),
+            .map(|dimension| {
+                (
+                    *axis_names_to_tags
+                        .get(dimension.name.as_str())
+                        .unwrap_or_else(|| panic!("Axis name not found: {}", dimension.name)),
+                    DesignCoord::new(dimension.uservalue.unwrap_or_default()),
+                )
+            })
+            .collect::<Vec<_>>(),
     );
     let required_layer = &source.layer;
     let uuid = Uuid::new_v4().to_string();
@@ -148,4 +166,32 @@ fn load_master(
         bf_layer_list.push(glyph_layer_list)
     }
     Ok((master, bf_layer_list))
+}
+
+fn default_master<'a>(ds: &'a DesignSpaceDocument, axes: &[Axis]) -> Option<&'a Source> {
+    #[warn(clippy::unwrap_used)] // XXX I am in a hurry
+    let defaults: BTreeMap<&String, DesignCoord> = axes
+        .iter()
+        .map(|ax| {
+            (
+                ax.name.get_default().unwrap(),
+                ax.default
+                    .map(|x| ax.userspace_to_designspace(x).unwrap())
+                    .unwrap_or_default(),
+            )
+        })
+        .collect();
+    for source in ds.sources.iter() {
+        let mut maybe = true;
+        for loc in source.location.iter() {
+            if defaults.get(&loc.name) != loc.xvalue.map(DesignCoord::new).as_ref() {
+                maybe = false;
+                break;
+            }
+        }
+        if maybe {
+            return Some(source);
+        }
+    }
+    None
 }
