@@ -354,6 +354,8 @@ pub struct Glyph {
     #[serde(rename = "lastChange")]
     pub last_change: Option<String>,
     pub layers: Vec<Layer>,
+    #[serde(default)]
+    pub production: Option<String>,
     #[serde_as(as = "OneOrMany<_>")]
     pub unicode: Vec<u32>,
 }
@@ -501,7 +503,7 @@ pub struct Path {
     // Because we are using an untagged enum, types need to match precisely
     #[serde(default, deserialize_with = "int_to_bool")]
     pub closed: bool,
-    nodes: Vec<Node>,
+    pub nodes: Vec<Node>,
 }
 
 fn int_to_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
