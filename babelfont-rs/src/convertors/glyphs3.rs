@@ -8,7 +8,7 @@ use crate::{
     Master, Node, NodeType, OTScalar, Path, Position, Shape,
 };
 use chrono::TimeZone;
-use fontdrasil::coords::{DesignCoord, DesignLocation, Location};
+use fontdrasil::coords::{DesignCoord, DesignLocation, Location, UserCoord};
 use std::collections::HashMap;
 use std::fs;
 use std::hash::Hash;
@@ -46,8 +46,8 @@ pub fn load_str(s: &str, path: PathBuf) -> Result<Font, BabelfontError> {
             ..Default::default()
         })
         .collect();
-    // Copy masters
 
+    // Copy masters
     font.masters = glyphs_font
         .masters
         .iter()
@@ -55,12 +55,14 @@ pub fn load_str(s: &str, path: PathBuf) -> Result<Font, BabelfontError> {
         .collect();
     // Copy glyphs
     font.glyphs = GlyphList(glyphs_font.glyphs.iter().map(Into::into).collect());
+
     // Copy instances
     // Copy metadata
     font.names.family_name = glyphs_font.family_name.clone().into();
     // Copy kerning
     // Interpret metrics
     // Interpret axes
+    interpret_axes(&mut font);
 
     Ok(font)
 }
@@ -118,20 +120,16 @@ impl Into<Guide> for &glyphslib::glyphs3::Guide {
 
 impl Into<Glyph> for &glyphslib::glyphs3::Glyph {
     fn into(self) -> Glyph {
-        let mut g = Glyph {
+        Glyph {
             name: self.name.clone(),
             production_name: self.production.clone(),
             category: GlyphCategory::Unknown,
-            codepoints: self.unicode.clone(),
-            layers: vec![],
+            codepoints: self.unicode.clone().unwrap_or_default(),
+            layers: self.layers.iter().map(Into::into).collect(),
             exported: true,
             direction: None,
             formatspecific: Default::default(),
-        };
-        for layer in self.layers.iter() {
-            g.layers.push(layer.into());
         }
-        g
     }
 }
 
@@ -212,6 +210,54 @@ impl Into<Node> for &glyphslib::glyphs3::Node {
                 glyphslib::glyphs3::NodeType::CurveSmooth => NodeType::Curve,
                 glyphslib::glyphs3::NodeType::QCurveSmooth => NodeType::QCurve,
             },
+        }
+    }
+}
+
+fn interpret_axes(font: &mut Font) {
+    // This is going to look very wrong, but after much trial and error I can confirm
+    // it works. First: load the axes assuming that userspace=designspace. Then
+    // work out the axis mappings. Then apply the mappings to the axis locations.
+    if let Some(origin) = font.masters.first() {
+        // XXX *or* custom parameter Variable Font Origin
+        for master in font.masters.iter() {
+            for axis in font.axes.iter_mut() {
+                let loc = master
+                    .location
+                    .get(axis.tag)
+                    .unwrap_or(DesignCoord::default());
+                axis.min = if axis.min.is_none() {
+                    Some(UserCoord::new(loc.to_f32()))
+                } else {
+                    axis.min.map(|v| v.min(UserCoord::new(loc.to_f32())))
+                };
+                axis.max = if axis.max.is_none() {
+                    Some(UserCoord::new(loc.to_f32()))
+                } else {
+                    axis.max.map(|v| v.max(UserCoord::new(loc.to_f32())))
+                };
+                if master.id == origin.id {
+                    axis.default = Some(UserCoord::new(loc.to_f32()));
+                }
+            }
+        }
+        // XXX find axis mappings here
+
+        for axis in font.axes.iter_mut() {
+            axis.default = Some(
+                axis.designspace_to_userspace(DesignCoord::new(
+                    axis.default.map(|v| v.to_f32()).unwrap_or(0.0),
+                ))
+                .unwrap_or(UserCoord::default()),
+            );
+            axis.min = axis.min.map(|v| {
+                axis.designspace_to_userspace(DesignCoord::new(v.to_f32()))
+                    .unwrap_or(UserCoord::default())
+            });
+            axis.max = axis.max.map(|v| {
+                axis.designspace_to_userspace(DesignCoord::new(v.to_f32()))
+                    .unwrap_or(UserCoord::default())
+            });
         }
     }
 }
