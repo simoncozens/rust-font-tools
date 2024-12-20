@@ -4,15 +4,13 @@ use crate::glyph::GlyphList;
 use crate::instance::Instance;
 use crate::master::Master;
 use crate::names::Names;
-use crate::{BabelfontError, Layer, Location};
+use crate::{BabelfontError, Layer};
 use chrono::Local;
-use fonttools::font::Font as FTFont;
-use fonttools::otvar::{Location as OTVarLocation, NormalizedLocation, VariationModel};
-use fonttools::tables::avar::{avar, SegmentMap};
-use fonttools::tables::fvar::{fvar, InstanceRecord, VariationAxisRecord};
-use fonttools::tables::name::NameRecord;
-use otmath::ot_cmp;
+use fontdrasil::coords::{
+    DesignCoord, DesignLocation, Location, NormalizedLocation, NormalizedSpace, UserCoord,
+};
 use std::collections::{BTreeMap, HashMap};
+use write_fonts::types::Tag;
 
 #[derive(Debug, Clone)]
 pub struct Font {
@@ -30,7 +28,8 @@ pub struct Font {
     // features: ????
     // The below is temporary
     pub features: Option<String>,
-    pub kern_groups: HashMap<String, Vec<String>>,
+    pub first_kern_groups: HashMap<String, Vec<String>>,
+    pub second_kern_groups: HashMap<String, Vec<String>>,
 }
 impl Default for Font {
     fn default() -> Self {
@@ -52,45 +51,45 @@ impl Font {
             names: Names::default(),
             custom_ot_values: vec![],
             variation_sequences: BTreeMap::new(),
-            kern_groups: HashMap::new(),
+            first_kern_groups: HashMap::new(),
+            second_kern_groups: HashMap::new(),
             features: None,
         }
     }
 
-    pub fn default_location(&self) -> Location {
-        Location(
-            self.axes
-                .iter()
-                .map(|axis| {
-                    (
-                        axis.tag.clone(),
-                        axis.userspace_to_designspace(axis.default.unwrap_or(0.0)),
-                    )
-                })
-                .collect(),
-        )
+    pub fn default_location(&self) -> Result<DesignLocation, BabelfontError> {
+        let iter: Result<Vec<(Tag, DesignCoord)>, _> = self
+            .axes
+            .iter()
+            .map(|axis| {
+                axis.userspace_to_designspace(axis.default.unwrap_or(UserCoord::new(0.0)))
+                    .map(|coord| (axis.tag, coord))
+            })
+            .collect();
+        Ok(DesignLocation::from_iter(iter?))
     }
     pub fn default_master(&self) -> Option<&Master> {
-        let default_location: Location = self.default_location();
+        let default_location: DesignLocation = self.default_location().ok()?;
+        if self.masters.len() == 1 {
+            return Some(&self.masters[0]);
+        }
         self.masters
             .iter()
             .find(|&m| m.location == default_location)
     }
 
     pub fn default_master_index(&self) -> Option<usize> {
-        let default_location: Location = self.default_location();
-        for (ix, m) in self.masters.iter().enumerate() {
-            if m.location == default_location {
-                return Some(ix);
-            }
-        }
-        None
+        let default_location: DesignLocation = self.default_location().ok()?;
+        self.masters
+            .iter()
+            .enumerate()
+            .find_map(|(ix, m)| (m.location == default_location).then(|| ix))
     }
 
     pub fn master(&self, master_name: &str) -> Option<&Master> {
         self.masters
             .iter()
-            .find(|m| m.name.get_default().as_ref().unwrap() == master_name)
+            .find(|m| m.name.get_default().map(|x| x.as_str()) == Some(master_name))
     }
 
     pub fn master_layer_for(&self, glyphname: &str, master: &Master) -> Option<&Layer> {
@@ -139,130 +138,26 @@ impl Font {
     }
 
     /// Normalizes a location between -1.0 and 1.0
-    pub fn normalize_location(
+    pub fn normalize_location<Space>(
         &self,
-        loc: &Location,
-    ) -> Result<NormalizedLocation, Box<BabelfontError>> {
-        let mut v: Vec<f32> = vec![];
-        for axis in self.axes.iter() {
-            let default = axis.default.ok_or_else(|| BabelfontError::IllDefinedAxis {
-                axis_name: axis.name.get_default(),
-            })?;
-            let val =
-                axis.normalize_designspace_value(*loc.0.get(&axis.tag).unwrap_or(&default))?;
-            v.push(val);
-        }
-        Ok(NormalizedLocation(v))
+        loc: Location<Space>,
+    ) -> Result<NormalizedLocation, Box<BabelfontError>>
+    where
+        Space: fontdrasil::coords::ConvertSpace<NormalizedSpace>,
+    {
+        let axes: Result<HashMap<Tag, fontdrasil::types::Axis>, _> = self
+            .axes
+            .iter()
+            .map(|ax| {
+                let fds_ax: Result<fontdrasil::types::Axis, _> = ax.clone().try_into();
+                fds_ax.map(|fds_ax| (ax.tag, fds_ax))
+            })
+            .collect();
+        let axes = axes?;
+        Ok(loc.convert(&axes.iter().map(|(k, v)| (k.clone(), v)).collect()))
     }
 
-    /// Constructs a fonttools variation model for this designspace
-    pub fn variation_model(&self) -> Result<VariationModel<String>, Box<BabelfontError>> {
-        let mut locations: Vec<OTVarLocation<String>> = vec![];
-        for master in self.masters.iter() {
-            let source_loc = self.normalize_location(&master.location)?;
-            let mut loc = OTVarLocation::new();
-            for (ax, iter_l) in self.axes.iter().zip(source_loc.0.iter()) {
-                loc.insert(ax.tag.clone(), *iter_l);
-            }
-            locations.push(loc);
-        }
-        Ok(VariationModel::new(locations, self.axis_order()))
-    }
-
-    fn axis_order(&self) -> Vec<String> {
+    fn axis_order(&self) -> Vec<Tag> {
         self.axes.iter().map(|ax| ax.tag.clone()).collect()
-    }
-
-    /// Add information to a fonttools Font object (fvar and avar tables)
-    /// expressed by this design space.
-    pub fn add_variation_tables(&self, font: &mut FTFont) -> Result<(), Box<BabelfontError>> {
-        let mut axes: Vec<VariationAxisRecord> = vec![];
-        let mut maps: Vec<SegmentMap> = vec![];
-
-        let mut ix = 256;
-        let mut name = font
-            .tables
-            .name()
-            .expect("No name table?")
-            .expect("Couldn't open name table");
-
-        for axis in self.axes.iter() {
-            axes.push(axis.to_variation_axis_record(ix)?);
-            name.records.push(NameRecord::windows_unicode(
-                ix,
-                axis.name.get_default().clone().expect("Bad axis name"),
-            ));
-            ix += 1;
-            if axis.map.is_some() {
-                let mut sm: Vec<(f32, f32)> = vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)];
-                sm.extend(
-                    axis.map
-                        .as_ref()
-                        .unwrap()
-                        .iter()
-                        .map(|x| {
-                            (
-                                axis.normalize_userspace_value(x.0).expect("Bad map"),
-                                axis.normalize_designspace_value(x.1).expect("Bad map"),
-                            )
-                        })
-                        .collect::<Vec<(f32, f32)>>(),
-                );
-                sm.sort_by(|a, b| ot_cmp(a.0, b.0));
-                sm.dedup();
-                maps.push(SegmentMap::new(sm));
-            } else {
-                maps.push(SegmentMap::new(vec![(-1.0, -1.0), (0.0, 0.0), (1.0, 1.0)]));
-            }
-        }
-        let mut instances: Vec<InstanceRecord> = vec![];
-        for instance in &self.instances {
-            name.records.push(NameRecord::windows_unicode(
-                ix,
-                instance
-                    .style_name
-                    .get_default()
-                    .expect("Bad instance name"),
-            ));
-            let ir = InstanceRecord {
-                subfamilyNameID: ix,
-                coordinates: self.location_to_tuple(&instance.location),
-                postscriptNameID: None,
-                flags: 0,
-            };
-            ix += 1;
-            // if let Some(psname) = &instance.postscriptfontname {
-            //     if let Table::Name(name) = font
-            //         .get_table(b"name")
-            //         .expect("No name table?")
-            //         .expect("Couldn't open name table")
-            //     {
-            //         name.records
-            //             .push(NameRecord::windows_unicode(ix, psname.clone()));
-            //     }
-            //     ir.postscriptNameID = Some(ix);
-            //     ix += 1;
-            // }
-            instances.push(ir)
-        }
-        font.tables.insert(fvar { axes, instances });
-
-        font.tables.insert(avar { maps });
-        font.tables.insert(name);
-
-        Ok(())
-    }
-
-    pub fn location_to_tuple(&self, loc: &Location) -> Vec<f32> {
-        let mut tuple = vec![];
-        for (axis, default) in self.axes.iter().zip(self.default_location().0.iter()) {
-            let dim = loc.0.iter().find(|d| d.0 == &axis.tag);
-            if let Some(dim) = dim {
-                tuple.push(*dim.1);
-            } else {
-                tuple.push(*default.1);
-            }
-        }
-        tuple
     }
 }

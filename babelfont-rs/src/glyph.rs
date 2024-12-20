@@ -1,8 +1,9 @@
-use crate::common::Direction;
+use std::ops::{Deref, DerefMut};
+
+use crate::common::{Direction, FormatSpecific};
 use crate::layer::Layer;
 
-#[derive(Debug, Shrinkwrap, Clone)]
-#[shrinkwrap(mutable)]
+#[derive(Debug, Clone)]
 pub struct GlyphList(pub Vec<Glyph>);
 impl GlyphList {
     pub fn get(&self, g: &str) -> Option<&Glyph> {
@@ -20,6 +21,18 @@ impl GlyphList {
     }
 }
 
+impl Deref for GlyphList {
+    type Target = Vec<Glyph>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl DerefMut for GlyphList {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum GlyphCategory {
     Base,
@@ -33,10 +46,11 @@ pub struct Glyph {
     pub name: String,
     pub production_name: Option<String>,
     pub category: GlyphCategory,
-    pub codepoints: Vec<usize>,
+    pub codepoints: Vec<u32>,
     pub layers: Vec<Layer>,
     pub exported: bool,
     pub direction: Option<Direction>,
+    pub formatspecific: FormatSpecific,
 }
 
 impl Glyph {

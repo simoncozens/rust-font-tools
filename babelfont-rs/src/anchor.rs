@@ -1,15 +1,16 @@
 #[derive(Debug, Clone)]
 pub struct Anchor {
-    pub x: i32,
-    pub y: i32,
+    pub x: f32,
+    pub y: f32,
     pub name: String,
 }
 
+#[cfg(feature = "ufo")]
 impl From<&norad::Anchor> for Anchor {
     fn from(a: &norad::Anchor) -> Self {
         Anchor {
-            x: a.x as i32,
-            y: a.y as i32,
+            x: a.x as f32,
+            y: a.y as f32,
             name: a
                 .name
                 .as_ref()

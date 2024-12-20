@@ -1,24 +1,25 @@
+use crate::common::FormatSpecific;
 use crate::i18ndictionary::I18NDictionary;
 use crate::BabelfontError;
-use fonttools::tables::fvar::VariationAxisRecord;
-use fonttools::types::Tag;
-use otmath::{normalize_value, piecewise_linear_map};
+use fontdrasil::coords::{CoordConverter, DesignCoord, NormalizedCoord, UserCoord};
 use uuid::Uuid;
+pub use write_fonts::types::Tag;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Axis {
     pub name: I18NDictionary,
-    pub tag: String,
+    pub tag: Tag,
     pub id: Uuid,
-    pub min: Option<f32>,
-    pub max: Option<f32>,
-    pub default: Option<f32>,
-    pub map: Option<Vec<(f32, f32)>>,
-    pub hidden: bool, // lib
+    pub min: Option<UserCoord>,
+    pub max: Option<UserCoord>,
+    pub default: Option<UserCoord>,
+    pub map: Option<Vec<(UserCoord, DesignCoord)>>,
+    pub hidden: bool,
+    pub formatspecific: FormatSpecific,
 }
 
 impl Axis {
-    pub fn new<T>(name: T, tag: String) -> Self
+    pub fn new<T>(name: T, tag: Tag) -> Self
     where
         T: Into<I18NDictionary>,
     {
@@ -26,15 +27,31 @@ impl Axis {
             name: name.into(),
             tag,
             id: Uuid::new_v4(),
-            min: None,
-            max: None,
-            default: None,
-            map: None,
-            hidden: false,
+            ..Default::default()
         }
     }
 
-    pub fn bounds(&self) -> Option<(f32, f32, f32)> {
+    fn _converter(&self) -> Result<CoordConverter, BabelfontError> {
+        if let Some(map) = self.map.as_ref() {
+            // Find default
+            let default_idx = map
+                .iter()
+                .position(|(coord, _)| Some(coord) == self.default.as_ref())
+                .ok_or_else(|| BabelfontError::IllDefinedAxis {
+                    axis_name: self.name(),
+                })?;
+            Ok(CoordConverter::new(map.to_vec(), default_idx))
+        } else {
+            let (min, default, max) =
+                self.bounds()
+                    .ok_or_else(|| BabelfontError::IllDefinedAxis {
+                        axis_name: self.name(),
+                    })?;
+            Ok(CoordConverter::unmapped(min, default, max))
+        }
+    }
+
+    pub fn bounds(&self) -> Option<(UserCoord, UserCoord, UserCoord)> {
         if self.min.is_none() || self.default.is_none() || self.max.is_none() {
             return None;
         }
@@ -42,77 +59,84 @@ impl Axis {
     }
 
     /// Converts a position on this axis from designspace coordinates to userspace coordinates
-    pub fn designspace_to_userspace(&self, l: f32) -> f32 {
-        if let Some(map) = &self.map {
-            let inverted_map: Vec<(f32, f32)> = map.iter().map(|(a, b)| (*b, *a)).collect();
-            piecewise_linear_map(&inverted_map, l)
-        } else {
-            l
-        }
+    pub fn designspace_to_userspace(&self, l: DesignCoord) -> Result<UserCoord, BabelfontError> {
+        self._converter().map(|c| l.convert(&c))
     }
 
     /// Converts a position on this axis in userspace coordinates to designspace coordinates
-    pub fn userspace_to_designspace(&self, l: f32) -> f32 {
-        if let Some(map) = &self.map {
-            piecewise_linear_map(map, l)
-        } else {
-            l
-        }
+    pub fn userspace_to_designspace(&self, l: UserCoord) -> Result<DesignCoord, BabelfontError> {
+        self._converter().map(|c| l.convert(&c))
     }
 
-    pub fn tag_as_tag(&self) -> Tag {
-        Tag::from_raw(self.tag.as_bytes()).unwrap()
-    }
-
-    pub fn normalize_userspace_value(&self, l: f32) -> Result<f32, BabelfontError> {
-        let min = self.min.ok_or_else(|| BabelfontError::IllDefinedAxis {
-            axis_name: self.name.get_default(),
-        })?;
-        let max = self.max.ok_or_else(|| BabelfontError::IllDefinedAxis {
-            axis_name: self.name.get_default(),
-        })?;
-        let default = self.default.ok_or_else(|| BabelfontError::IllDefinedAxis {
-            axis_name: self.name.get_default(),
-        })?;
-        Ok(normalize_value(l, min, max, default))
-    }
-    pub fn normalize_designspace_value(&self, l: f32) -> Result<f32, BabelfontError> {
-        if self.map.is_none() || self.map.as_ref().unwrap().is_empty() {
-            return self.normalize_userspace_value(l);
-        }
-        let min = self.min.ok_or_else(|| BabelfontError::IllDefinedAxis {
-            axis_name: self.name.get_default(),
-        })?;
-        let max = self.max.ok_or_else(|| BabelfontError::IllDefinedAxis {
-            axis_name: self.name.get_default(),
-        })?;
-        let default = self.default.ok_or_else(|| BabelfontError::IllDefinedAxis {
-            axis_name: self.name.get_default(),
-        })?;
-        Ok(normalize_value(
-            l,
-            self.userspace_to_designspace(min),
-            self.userspace_to_designspace(max),
-            self.userspace_to_designspace(default),
-        ))
-    }
-
-    pub fn to_variation_axis_record(
+    pub fn normalize_userspace_value(
         &self,
-        name_id: u16,
-    ) -> Result<VariationAxisRecord, BabelfontError> {
-        if self.tag.len() != 4 {
-            return Err(BabelfontError::General {
-                msg: format!("Badly formatted axis tag: {}", self.tag),
-            });
-        }
-        Ok(VariationAxisRecord {
-            axisTag: Tag::from_raw(self.tag.as_bytes()).unwrap(),
-            defaultValue: self.default.expect("Bad axis"),
-            maxValue: self.max.expect("Bad axis"),
-            minValue: self.min.expect("Bad axis"),
-            flags: u16::from(self.hidden),
-            axisNameID: name_id,
+        l: UserCoord,
+    ) -> Result<NormalizedCoord, BabelfontError> {
+        self._converter().map(|c| l.convert(&c))
+    }
+
+    pub fn normalize_designspace_value(
+        &self,
+        l: DesignCoord,
+    ) -> Result<NormalizedCoord, BabelfontError> {
+        self._converter().map(|c| l.convert(&c))
+    }
+
+    pub fn name(&self) -> String {
+        self.name
+            .get_default()
+            .unwrap_or(&"Unnamed axis".to_string())
+            .to_string()
+    }
+}
+
+impl TryInto<fontdrasil::types::Axis> for Axis {
+    type Error = BabelfontError;
+
+    fn try_into(self) -> Result<fontdrasil::types::Axis, Self::Error> {
+        let (min, default, max) = self
+            .bounds()
+            .ok_or_else(|| BabelfontError::IllDefinedAxis {
+                axis_name: self
+                    .name
+                    .get_default()
+                    .unwrap_or(&"Unnamed axis".to_string())
+                    .to_string(),
+            })?;
+        let converter = self._converter()?;
+        Ok(fontdrasil::types::Axis {
+            name: self.name(),
+            tag: self.tag,
+            min,
+            max,
+            default,
+            hidden: self.hidden,
+            converter,
+        })
+    }
+}
+
+impl TryInto<fontdrasil::types::Axis> for &Axis {
+    type Error = BabelfontError;
+    fn try_into(self) -> Result<fontdrasil::types::Axis, Self::Error> {
+        let (min, default, max) = self
+            .bounds()
+            .ok_or_else(|| BabelfontError::IllDefinedAxis {
+                axis_name: self
+                    .name
+                    .get_default()
+                    .unwrap_or(&"Unnamed axis".to_string())
+                    .to_string(),
+            })?;
+        let converter = self._converter()?;
+        Ok(fontdrasil::types::Axis {
+            name: self.name(),
+            tag: self.tag,
+            min,
+            max,
+            default,
+            hidden: self.hidden,
+            converter,
         })
     }
 }
@@ -120,66 +144,71 @@ impl Axis {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use otmath::ot_cmp;
-    use std::cmp::Ordering;
-    macro_rules! assert_ot_eq {
-        ($left:expr, $right:expr) => {{
-            match (&$left, &$right) {
-                (left_val, right_val) => {
-                    if ot_cmp(*left_val, *right_val) != Ordering::Equal {
-                        panic!(
-                            r#"assertion failed: `(left == right)`
-  left: `{:?}`,
- right: `{:?}`"#,
-                            left_val, right_val
-                        )
-                    }
-                }
-            }
-        }};
+    macro_rules! uc {
+        ($val:expr) => {
+            UserCoord::new($val)
+        };
+    }
+    macro_rules! dc {
+        ($val:expr) => {
+            DesignCoord::new($val)
+        };
     }
 
     #[test]
     fn test_linear_map() {
-        let mut weight = Axis::new("Weight".to_string(), "wght".to_string());
-        weight.min = Some(100.0);
-        weight.max = Some(900.0);
-        weight.default = Some(100.0);
-        weight.map = Some(vec![(100.0, 10.0), (900.0, 90.0)]);
+        let mut weight = Axis::new("Weight".to_string(), Tag::from_be_bytes(*b"wght"));
+        weight.min = Some(uc!(100.0));
+        weight.max = Some(uc!(900.0));
+        weight.default = Some(uc!(100.0));
+        weight.map = Some(vec![(uc!(100.0), dc!(10.0)), (uc!(900.0), dc!(90.0))]);
 
-        assert_eq!(weight.userspace_to_designspace(400.0), 40.0);
-        assert_eq!(weight.designspace_to_userspace(40.0), 400.0);
+        assert_eq!(weight.userspace_to_designspace(uc!(400.0)).unwrap(), 40.0);
+        assert_eq!(
+            weight.designspace_to_userspace(dc!(40.0)).unwrap(),
+            uc!(400.0)
+        );
     }
 
     #[test]
     fn test_nonlinear_map() {
-        let mut weight = Axis::new("Weight".to_string(), "wght".to_string());
-        weight.min = Some(200.0);
-        weight.max = Some(1000.0);
-        weight.default = Some(200.0);
+        let mut weight = Axis::new("Weight".to_string(), Tag::from_be_bytes(*b"wght"));
+        weight.min = Some(uc!(200.0));
+        weight.max = Some(uc!(1000.0));
+        weight.default = Some(uc!(200.0));
         weight.map = Some(vec![
-            (200.0, 42.0),
-            (300.0, 61.0),
-            (400.0, 81.0),
-            (600.0, 101.0),
-            (700.0, 125.0),
-            (800.0, 151.0),
-            (900.0, 178.0),
-            (1000.0, 208.0),
+            (uc!(200.0), dc!(42.0)),
+            (uc!(300.0), dc!(61.0)),
+            (uc!(400.0), dc!(81.0)),
+            (uc!(600.0), dc!(101.0)),
+            (uc!(700.0), dc!(125.0)),
+            (uc!(800.0), dc!(151.0)),
+            (uc!(900.0), dc!(178.0)),
+            (uc!(1000.0), dc!(208.0)),
         ]);
 
-        assert_ot_eq!(weight.userspace_to_designspace(250.0), 51.5);
-        assert_ot_eq!(weight.designspace_to_userspace(138.0), 750.0);
+        assert_eq!(
+            weight.userspace_to_designspace(uc!(250.0)).unwrap(),
+            dc!(51.5)
+        );
+        assert_eq!(
+            weight.designspace_to_userspace(dc!(138.0)).unwrap(),
+            uc!(750.0)
+        );
     }
 
     #[test]
     fn test_normalize_map() {
-        let mut opsz = Axis::new("Optical Size".to_string(), "opsz".to_string());
-        opsz.min = Some(17.0);
-        opsz.max = Some(18.0);
-        opsz.default = Some(18.0);
-        opsz.map = Some(vec![(17.0, 17.0), (17.99, 17.1), (18.0, 18.0)]);
-        assert_ot_eq!(opsz.normalize_userspace_value(17.99).unwrap(), -0.01);
-        assert_ot_eq!(opsz.normalize_designspace_value(17.1).unwrap(), -0.9);
+        let mut opsz = Axis::new("Optical Size".to_string(), Tag::from_be_bytes(*b"opsz"));
+        opsz.min = Some(uc!(17.0));
+        opsz.max = Some(uc!(18.0));
+        opsz.default = Some(uc!(18.0));
+        opsz.map = Some(vec![
+            (uc!(17.0), dc!(17.0)),
+            (uc!(17.99), dc!(17.1)),
+            (uc!(18.0), dc!(18.0)),
+        ]);
+        assert_eq!(opsz.normalize_userspace_value(uc!(17.99)).unwrap(), -0.01);
+        assert_eq!(opsz.normalize_designspace_value(dc!(17.1)).unwrap(), -0.9);
     }
 }

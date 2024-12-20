@@ -1,8 +1,7 @@
 use crate::glyph::GlyphCategory;
-use crate::{
-    BabelfontError, Component, Font, Glyph, Layer, Location, Master, Node, OTScalar, Path, Shape,
-};
+use crate::{BabelfontError, Component, Font, Glyph, Layer, Master, Node, OTScalar, Path, Shape};
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
+use fontdrasil::coords::Location;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
@@ -42,7 +41,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
     );
     load_master_info(&mut master, info);
     load_kerning(&mut master, &ufo.kerning);
-    font.kern_groups = load_kern_groups(&ufo.groups);
+    (font.first_kern_groups, font.second_kern_groups) = load_kern_groups(&ufo.groups);
 
     for layer in ufo.iter_layers() {
         for g in font.glyphs.iter_mut() {

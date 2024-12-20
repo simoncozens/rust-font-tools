@@ -1,4 +1,6 @@
-use crate::common::{Location, OTValue};
+use fontdrasil::coords::DesignLocation;
+
+use crate::common::OTValue;
 use crate::guide::Guide;
 use crate::i18ndictionary::I18NDictionary;
 use crate::OTScalar;
@@ -8,7 +10,7 @@ use std::collections::HashMap;
 pub struct Master {
     pub name: I18NDictionary,
     pub id: String,
-    pub location: Location,
+    pub location: DesignLocation,
     pub guides: Vec<Guide>,
     pub metrics: HashMap<String, i32>,
     pub kerning: HashMap<(String, String), i16>,
@@ -17,7 +19,7 @@ pub struct Master {
 }
 
 impl Master {
-    pub fn new<T, U>(name: T, id: U, location: Location) -> Self
+    pub fn new<T, U>(name: T, id: U, location: DesignLocation) -> Self
     where
         T: Into<I18NDictionary>,
         U: Into<String>,

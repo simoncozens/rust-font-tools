@@ -1,48 +1,60 @@
-use openstep_plist::Error;
-use snafu::Snafu;
+#[cfg(feature = "glyphs")]
+type GlyphsError = Box<dyn std::error::Error>;
 use std::io;
 use std::path::PathBuf;
+use thiserror::Error;
 
-#[derive(Debug, Snafu)]
+#[derive(Debug, Error)]
 pub enum BabelfontError {
-    #[snafu(display("Unknown file type for file {}", path.display()))]
+    #[error("Unknown file type for file {path}")]
     UnknownFileType { path: PathBuf },
 
-    #[snafu(display("Wrong convertor for file {}", path.display()))]
+    #[error("Wrong convertor for file {path}")]
     WrongConvertor { path: PathBuf },
 
-    #[snafu(display("Error parsing font: {}", msg))]
+    #[error("Error parsing font: {}", msg)]
     General { msg: String },
 
-    #[snafu(display("IO Error for file {}: {}", path.display(), source))]
-    IO { source: io::Error, path: PathBuf },
+    #[error("IO Error for file {path}: '{source}'")]
+    IO {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
 
-    #[snafu(display("Could not parse plist file {}: {:?}", path.display(), orig))]
-    PlistParse { orig: Error, path: PathBuf },
+    #[cfg(feature = "glyphs")]
+    #[error("Could not parse plist file {}: {:?}", path.display(), source)]
+    PlistParse {
+        #[source]
+        source: GlyphsError,
+        path: PathBuf,
+    },
 
-    #[snafu(display("Error loading UFO {}: {:?}", path, orig))]
+    #[cfg(feature = "ufo")]
+    #[error("Error loading UFO {}: {:?}", path, orig)]
     LoadingUFO {
         orig: Box<norad::error::FontLoadError>,
         path: String,
     },
 
-    #[snafu(display("Could not parse XML file {}: {:?}", path.display(), orig))]
-    XMLParse {
-        orig: serde_xml_rs::Error,
-        path: PathBuf,
-    },
-
-    #[snafu(display("Could not find default master in {}",path.display()))]
+    #[error("Could not find default master in {path}")]
     NoDefaultMaster { path: PathBuf },
 
-    #[snafu(display("Ill-defined axis!: {:?}", axis_name))]
-    IllDefinedAxis { axis_name: Option<String> },
+    #[error("Ill-defined axis!: {axis_name}")]
+    IllDefinedAxis { axis_name: String },
 
-    #[snafu(display("Ill-constructed path"))]
+    #[error("Ill-constructed path")]
     BadPath,
 
-    #[snafu(display(
-        "Called a method which requires a decomposed layer on a layer which had components"
-    ))]
+    #[error("Called a method which requires a decomposed layer on a layer which had components")]
     NeedsDecomposition,
 }
+
+// impl<T> From<T> for BabelfontError
+// where
+//     T: std::error::Error,
+// {
+//     fn from(e: T) -> Self {
+//         BabelfontError::General { msg: e.to_string() }
+//     }
+// }

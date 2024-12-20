@@ -1,13 +1,14 @@
 use crate::anchor::Anchor;
-use crate::common::{Color, Location};
+use crate::common::Color;
 use crate::guide::Guide;
 use crate::shape::Shape;
 use crate::{BabelfontError, Component, Font, Node, Path};
+use fontdrasil::coords::DesignLocation;
 use kurbo::Shape as KurboShape;
 
 #[derive(Debug, Clone)]
 pub struct Layer {
-    pub width: i32,
+    pub width: f32,
     pub name: Option<String>,
     pub id: Option<String>,
     pub guides: Vec<Guide>,
@@ -17,11 +18,11 @@ pub struct Layer {
     pub layer_index: Option<i32>,
     pub is_background: bool,
     pub background_layer_id: Option<String>,
-    pub location: Option<Location>,
+    pub location: Option<DesignLocation>,
 }
 
 impl Layer {
-    pub fn new(width: i32) -> Layer {
+    pub fn new(width: f32) -> Layer {
         Layer {
             width,
             name: None,

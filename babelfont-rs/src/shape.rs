@@ -1,12 +1,6 @@
 use crate::common::{Node, NodeType};
 use crate::BabelfontError;
 
-#[derive(Debug, Clone, Copy, Default)]
-pub enum PathDirection {
-    #[default]
-    Clockwise = 1,
-    Anticlockwise = 0,
-}
 #[derive(Debug, Clone)]
 pub struct Component {
     pub reference: String,
@@ -17,7 +11,6 @@ pub struct Component {
 pub struct Path {
     pub nodes: Vec<Node>,
     pub closed: bool,
-    pub direction: PathDirection,
 }
 
 impl Path {

@@ -14,6 +14,7 @@ impl Guide {
     }
 }
 
+#[cfg(feature = "ufo")]
 impl From<&norad::Guideline> for Guide {
     fn from(g: &norad::Guideline) -> Self {
         let mut out = Guide::new();
@@ -22,22 +23,22 @@ impl From<&norad::Guideline> for Guide {
         match g.line {
             norad::Line::Angle { x, y, degrees } => {
                 out.pos = Position {
-                    x: x as i32,
-                    y: y as i32,
+                    x: x as f32,
+                    y: y as f32,
                     angle: degrees as f32,
                 }
             }
             norad::Line::Horizontal(y) => {
                 out.pos = Position {
-                    x: 0,
-                    y: y as i32,
+                    x: 0.0,
+                    y: y as f32,
                     angle: 0.0,
                 }
             }
             norad::Line::Vertical(x) => {
                 out.pos = Position {
-                    y: 0,
-                    x: x as i32,
+                    y: 0.0,
+                    x: x as f32,
                     angle: 90.0,
                 }
             }

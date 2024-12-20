@@ -1,18 +1,19 @@
-use crate::Axis;
-use std::collections::HashMap;
+use serde_json::{Map, Value};
+
+pub type FormatSpecific = Map<String, Value>;
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Position {
-    pub x: i32,
-    pub y: i32,
+    pub x: f32,
+    pub y: f32,
     pub angle: f32,
 }
 
 impl Position {
     pub fn zero() -> Position {
         Position {
-            x: 0,
-            y: 0,
+            x: 0.0,
+            y: 0.0,
             angle: 0.0,
         }
     }
@@ -27,6 +28,7 @@ pub struct Color {
     a: i32,
 }
 
+#[cfg(feature = "ufo")]
 impl From<&norad::Color> for Color {
     fn from(c: &norad::Color) -> Self {
         let (red, green, blue, alpha) = c.channels();
@@ -36,33 +38,6 @@ impl From<&norad::Color> for Color {
             b: (blue * 255.0) as i32,
             a: (alpha * 255.0) as i32,
         }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone, Default)]
-pub struct Location(pub HashMap<String, f32>);
-impl Location {
-    pub fn new() -> Self {
-        Location(HashMap::new())
-    }
-
-    pub fn userspace_to_designspace(&self, axes: &[Axis]) -> Location {
-        let mut new_loc = self.0.clone();
-        for axis in axes {
-            if let Some(val) = new_loc.get_mut(&axis.tag) {
-                *val = axis.userspace_to_designspace(*val)
-            }
-        }
-        Location(new_loc)
-    }
-    pub fn designspace_to_userspace(&self, axes: &[Axis]) -> Location {
-        let mut new_loc = self.0.clone();
-        for axis in axes {
-            if let Some(val) = new_loc.get_mut(&axis.tag) {
-                *val = axis.designspace_to_userspace(*val)
-            }
-        }
-        Location(new_loc)
     }
 }
 
@@ -174,6 +149,7 @@ pub enum NodeType {
     QCurve,
 }
 
+#[cfg(feature = "ufo")]
 impl From<&norad::PointType> for NodeType {
     fn from(p: &norad::PointType) -> Self {
         match p {
@@ -200,6 +176,7 @@ impl Node {
     }
 }
 
+#[cfg(feature = "ufo")]
 impl From<&norad::ContourPoint> for Node {
     fn from(p: &norad::ContourPoint) -> Self {
         Node {
