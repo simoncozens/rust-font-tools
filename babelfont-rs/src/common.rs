@@ -1,7 +1,21 @@
 use serde_json::{Map, Value};
+use write_fonts::types::Tag;
+
+use crate::BabelfontError;
 
 pub type FormatSpecific = Map<String, Value>;
 
+pub(crate) fn tag_from_string(s: &str) -> Result<Tag, BabelfontError> {
+    let mut chars = s.bytes().collect::<Vec<u8>>();
+    while chars.len() < 4 {
+        chars.push(b' ');
+    }
+    Ok(Tag::new(&chars[0..4].try_into().map_err(|_| {
+        BabelfontError::General {
+            msg: format!("Bad tag: '{}'", s),
+        }
+    })?))
+}
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Position {
     pub x: f32,
