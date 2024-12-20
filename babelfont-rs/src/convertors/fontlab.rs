@@ -1,18 +1,20 @@
+use crate::common::tag_from_string;
 use crate::{
-    Anchor, Axis, BabelfontError, Component, Font, Glyph, GlyphCategory, Layer, Location, Master,
-    Node, NodeType, Path, PathDirection, Shape,
+    Anchor, Axis, BabelfontError, Component, Font, Glyph, GlyphCategory, Layer, Master, Node,
+    NodeType, Path, Shape,
 };
+use fontdrasil::coords::{DesignCoord, DesignLocation, Location, UserCoord};
 use kurbo::Affine;
-use lazy_static::lazy_static;
-use otmath::ot_round;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::LazyLock;
+use write_fonts::types::Tag;
 
-fn to_point(s: String) -> Result<(i32, i32), BabelfontError> {
+fn to_point(s: String) -> Result<(f32, f32), BabelfontError> {
     let mut i = s.split(' ');
     let x_str = i.next().expect("Couldn't read X coordinate");
     let x = x_str.parse::<f32>().map_err(|_| BabelfontError::General {
@@ -22,7 +24,7 @@ fn to_point(s: String) -> Result<(i32, i32), BabelfontError> {
     let y = y_str.parse::<f32>().map_err(|_| BabelfontError::General {
         msg: format!("Couldn't parse Y coordinate {:}", y_str),
     })?;
-    Ok((ot_round(x), ot_round(y)))
+    Ok((x, y))
 }
 
 #[allow(non_snake_case)]
@@ -44,16 +46,15 @@ impl From<FontlabComponent> for Shape {
 struct FontlabContour {
     nodes: Vec<String>,
 }
+static NODE_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(-?[\d\.]+) (-?[\d\.]+)( s)?").unwrap());
 
 fn nodestring_to_nodes(s: String) -> Vec<Node> {
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"(-?[\d\.]+) (-?[\d\.]+)( s)?").unwrap();
-    }
     let count = s.split("  ").count();
     s.split("  ")
         .enumerate()
         .flat_map(|(ix, n)| {
-            if let Some(mat) = RE.captures(n) {
+            if let Some(mat) = NODE_RE.captures(n) {
                 let nodetype = if count == 1 {
                     NodeType::Line
                 } else if (count == 3 && ix == 2) || (count == 2 && ix == 1) {
@@ -81,7 +82,6 @@ impl From<FontlabContour> for Shape {
                 .flat_map(nodestring_to_nodes)
                 .collect(),
             closed: true,
-            direction: PathDirection::Clockwise,
         })
     }
 }
@@ -183,7 +183,7 @@ impl FontlabLayer {
         let anchors: Result<Vec<Option<Anchor>>, BabelfontError> =
             self.anchors.into_iter().map(|x| x.try_into()).collect();
         Ok(Layer {
-            width: self.advanceWidth,
+            width: self.advanceWidth as f32,
             name: self.name.clone(),
             id: self.name,
             guides: vec![],
@@ -217,7 +217,7 @@ impl FontlabGlyph {
         let codepoints = if let Some(unicode) = self.unicode {
             unicode
                 .split(',')
-                .flat_map(|x| usize::from_str_radix(x, 16))
+                .flat_map(|x| u32::from_str_radix(x, 16))
                 .collect()
         } else {
             vec![]
@@ -236,6 +236,7 @@ impl FontlabGlyph {
             layers: layers?,
             exported: true,
             direction: None,
+            formatspecific: Default::default(),
         })
     }
 }
@@ -261,15 +262,18 @@ struct FontlabAxis {
 
 impl From<FontlabAxis> for Axis {
     fn from(val: FontlabAxis) -> Self {
-        let mut ax = Axis::new(val.name, val.tag);
-        ax.min = val.minimum;
-        ax.max = val.maximum;
-        ax.default = val.default;
+        let mut ax = Axis::new(
+            val.name,
+            tag_from_string(&val.tag).unwrap_or(Tag::new(&[0, 0, 0, 0])),
+        );
+        ax.min = val.minimum.map(|x| UserCoord::new(x));
+        ax.max = val.maximum.map(|x| UserCoord::new(x));
+        ax.default = val.default.map(|x| UserCoord::new(x));
         if let Some(map) = val.axisGraph {
             let mut axismap = vec![];
             for (left, right) in map.iter() {
-                if let Ok(l_f32) = left.parse() {
-                    axismap.push((*right, l_f32));
+                if let Ok(l_f32) = left.parse::<f32>() {
+                    axismap.push((UserCoord::new(*right), DesignCoord::new(l_f32)));
                 }
             }
             axismap.sort_by(|l, r| l.0.partial_cmp(&r.0).unwrap());
@@ -328,12 +332,15 @@ struct FontlabMaster {
 }
 
 impl FontlabMaster {
-    fn into(self, axes: &HashMap<String, String>) -> Master {
-        let location: Location = Location(
+    fn into(self, axes: &HashMap<String, Tag>) -> Master {
+        let location: DesignLocation = Location::from(
             self.location
                 .iter()
-                .flat_map(|(short_name, val)| axes.get(short_name).map(|axis| (axis.clone(), *val)))
-                .collect(),
+                .flat_map(|(short_name, val)| {
+                    axes.get(short_name)
+                        .map(|axis| (axis.clone(), DesignCoord::new(*val)))
+                })
+                .collect::<Vec<_>>(),
         );
         Master::new(self.name.clone(), self.name, location)
     }
@@ -369,7 +376,7 @@ struct FontlabFontWrapper {
 }
 
 pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
-    let mut axes_short_name_to_tag: HashMap<String, String> = HashMap::new();
+    let mut axes_short_name_to_tag: HashMap<String, _> = HashMap::new();
     log::debug!("Reading to string");
     let s = fs::read_to_string(&path).map_err(|source| BabelfontError::IO {
         path: path.clone(),
@@ -393,10 +400,10 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
             .push(master.fontMaster.into(&axes_short_name_to_tag));
     }
     if let Some(default_master) = fontlab.defaultMaster.and_then(|name| font.master(&name)) {
-        let new_loc = default_master.location.designspace_to_userspace(&font.axes);
+        let new_loc = default_master.location.to_user(&HashMap::new()); // XXX Mapping
         for axis in font.axes.iter_mut() {
-            if let Some(val) = new_loc.0.get(&axis.tag) {
-                axis.default = Some(*val);
+            if let Some(val) = new_loc.get(axis.tag) {
+                axis.default = Some(val);
             }
         }
         assert!(font.default_master_index().is_some())
