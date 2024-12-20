@@ -4,6 +4,7 @@ use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
 use fontdrasil::coords::Location;
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::hash::Hash;
 use std::path::PathBuf;
 use std::time::SystemTime;
 
@@ -57,7 +58,7 @@ pub fn load(path: PathBuf) -> Result<Font, BabelfontError> {
 }
 
 pub(crate) fn norad_glyph_to_babelfont_layer(glyph: &norad::Glyph, master_id: &str) -> Layer {
-    let mut l = Layer::new(glyph.width as i32);
+    let mut l = Layer::new(glyph.width as f32);
     l.id = Some(master_id.to_string());
     l.guides = glyph.guidelines.iter().map(|x| x.into()).collect();
     l.anchors = glyph.anchors.iter().map(|x| x.into()).collect();
@@ -90,7 +91,6 @@ pub(crate) fn load_path(c: &norad::Contour) -> Path {
             .points
             .first()
             .map_or(true, |v| v.typ != norad::PointType::Move),
-        direction: crate::shape::PathDirection::Clockwise,
     }
 }
 
@@ -189,15 +189,18 @@ pub(crate) fn load_kerning(master: &mut Master, kerning: &norad::Kerning) {
     }
 }
 
-pub(crate) fn load_kern_groups(groups: &norad::Groups) -> HashMap<String, Vec<String>> {
-    let mut hm: HashMap<String, Vec<String>> = HashMap::new();
-    for (name, members) in groups.iter() {
-        hm.insert(
-            name.to_string(),
-            members.iter().map(|x| x.to_string()).collect(),
-        );
-    }
-    hm
+pub(crate) fn load_kern_groups(
+    groups: &norad::Groups,
+) -> (HashMap<String, Vec<String>>, HashMap<String, Vec<String>>) {
+    let mut first: HashMap<String, Vec<String>> = HashMap::new();
+    let mut second: HashMap<String, Vec<String>> = HashMap::new();
+    // for (name, members) in groups.iter() {
+    //     hm.insert(
+    //         name.to_string(),
+    //         members.iter().map(|x| x.to_string()).collect(),
+    //     );
+    // }
+    (first, second)
 }
 
 pub(crate) fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
@@ -263,10 +266,11 @@ pub(crate) fn load_glyphs(font: &mut Font, ufo: &norad::Font) {
                 name: glyphname.to_string(),
                 category: cat,
                 production_name,
-                codepoints: glyph.codepoints.iter().map(|x| *x as usize).collect(),
+                codepoints: glyph.codepoints.iter().map(|x| x as u32).collect(),
                 layers: vec![],
                 exported: !skipped.contains(&glyphname),
                 direction: None,
+                formatspecific: Default::default(),
             })
         }
     }

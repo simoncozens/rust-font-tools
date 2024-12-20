@@ -22,6 +22,14 @@ pub enum BabelfontError {
         source: io::Error,
     },
 
+    #[cfg(feature = "ufo")]
+    #[error("Error parsing XML file {}: {:?}", path.display(), orig)]
+    XMLParse {
+        #[source]
+        orig: norad::error::DesignSpaceLoadError,
+        path: PathBuf,
+    },
+
     #[cfg(feature = "glyphs")]
     #[error("Could not parse plist file {}: {:?}", path.display(), source)]
     PlistParse {
