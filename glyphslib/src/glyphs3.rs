@@ -623,7 +623,7 @@ pub struct Component {
     #[serde(rename = "piece", default)]
     pub smart_component_location: BTreeMap<String, f32>,
     /// The position
-    #[serde(default)]
+    #[serde(default, rename = "pos")]
     pub position: (f32, f32),
     /// The name of the linked glyph
     #[serde(rename = "ref")]

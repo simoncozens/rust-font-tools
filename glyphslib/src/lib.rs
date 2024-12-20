@@ -30,10 +30,34 @@ impl Font {
 
 #[cfg(test)]
 mod tests {
+    use glyphs3::Shape;
+
     use super::*;
     #[test]
     fn test_load() {
         let file = "resources/Oswald-AE-comb.glyphs";
         let font = Font::load(path::Path::new(file));
+    }
+
+    #[test]
+    fn test_component() {
+        let file = "resources/RadioCanadaDisplay.glyphs";
+        let font = Font::load(path::Path::new(file)).unwrap();
+        let glyphs3 = font.as_glyphs3().unwrap();
+        if let Shape::Component(component) = glyphs3
+            .glyphs
+            .iter()
+            .find(|g| g.name == "eacute")
+            .unwrap()
+            .layers
+            .first()
+            .unwrap()
+            .shapes
+            .get(1)
+            .unwrap()
+        {
+            assert_eq!(component.component_glyph, "acutecomb");
+            assert_eq!(component.position, (152.0, 0.0));
+        }
     }
 }
