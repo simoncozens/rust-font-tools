@@ -340,8 +340,16 @@ impl glyphs2::Glyphs2 {
                     .iter()
                     .flat_map(|x| x.as_dict())
                     .map(|d| glyphs3::Axis {
-                        name: d.get("Name").map(|x| x.to_string()).unwrap_or_default(),
-                        tag: d.get("Tag").map(|x| x.to_string()).unwrap_or_default(),
+                        name: d
+                            .get("Name")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or_default()
+                            .to_string(),
+                        tag: d
+                            .get("Tag")
+                            .and_then(|x| x.as_str())
+                            .unwrap_or_default()
+                            .to_string(),
                         hidden: d.contains_key("Hidden"),
                     })
                     .collect::<Vec<_>>();

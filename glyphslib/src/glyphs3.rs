@@ -4,7 +4,7 @@ use std::fmt;
 use openstep_plist::{Dictionary, Plist};
 use serde::de::Visitor;
 use serde::ser::SerializeSeq;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_with::{serde_as, OneOrMany};
 
 use crate::common::{
@@ -19,7 +19,11 @@ pub(crate) fn version_two() -> i32 {
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Glyphs3 {
     /// The build number of the app
-    #[serde(rename = ".AppVersion", default)]
+    #[serde(
+        rename = ".appVersion",
+        default,
+        skip_serializing_if = "String::is_empty"
+    )]
     pub app_version: String,
     /// Set to 3 for version 3. If that key is missing assume version 2.
     #[serde(rename = ".formatVersion", default = "version_two")]
@@ -37,7 +41,7 @@ pub struct Glyphs3 {
     #[serde(default, rename = "customParameters")]
     pub custom_parameters: Vec<CustomParameter>,
     /// Font creation date. Format `2014-01-29 14:14:38 +0000`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub date: String,
     /// The family name of the font
     #[serde(rename = "familyName")]
@@ -60,7 +64,11 @@ pub struct Glyphs3 {
     /// Instances
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub instances: Vec<Instance>,
-    #[serde(rename = "keepAlternatesTogether", default)]
+    #[serde(
+        rename = "keepAlternatesTogether",
+        default,
+        skip_serializing_if = "is_default"
+    )]
     pub keep_alternates_together: bool,
     /// Three-level dict containing a float as value.
     #[serde(rename = "kerningLTR", default, skip_serializing_if = "is_default")]
@@ -106,10 +114,11 @@ pub struct Metric {
     pub filter: Option<String>,
     #[serde(default)]
     pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "type")]
     pub metric_type: Option<MetricType>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub enum MetricType {
     #[serde(rename = "ascender")]
     Ascender,
@@ -131,6 +140,33 @@ pub enum MetricType {
     Baseline,
     #[serde(rename = "italic angle")]
     ItalicAngle,
+}
+
+impl<'de> Deserialize<'de> for MetricType {
+    fn deserialize<D>(de: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let variant = String::deserialize(de)?;
+        Ok(match variant.as_str() {
+            "ascender" => MetricType::Ascender,
+            "cap height" => MetricType::CapHeight,
+            "slant height" => MetricType::SlantHeight,
+            "x-height" => MetricType::XHeight,
+            "midHeight" => MetricType::MidHeight,
+            "topHeight" => MetricType::TopHeight,
+            "bodyHeight" => MetricType::BodyHeight,
+            "descender" => MetricType::Descender,
+            "baseline" => MetricType::Baseline,
+            "italic angle" => MetricType::ItalicAngle,
+            _ => {
+                return Err(serde::de::Error::custom(format!(
+                    "unknown metric type: {}",
+                    variant
+                )))
+            }
+        })
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -160,7 +196,7 @@ pub struct Settings {
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Axis {
     /// If the axis should be visible in the UI.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub hidden: bool,
     /// The name of the axis (e.g. `Weight``)
     pub name: String,
@@ -231,16 +267,16 @@ pub struct Glyph {
     ///
     /// Possible values: "noCase", "upper", "lower", "smallCaps", "other".
     /// This could be used to specify 'height' of default numbers (lining vs old style)
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub case: String,
     /// Manually set category
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
     /// The color of the glyph in the interface
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<Color>,
     /// The writing direction when manually set
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub direction: Option<String>,
     /// Export
     #[serde(default = "bool_true", skip_serializing_if = "is_true")]
@@ -249,19 +285,19 @@ pub struct Glyph {
     #[serde(rename = "glyphname")]
     pub name: String,
     ///  Bottom kerning group
-    #[serde(rename = "kernBottom")]
+    #[serde(rename = "kernBottom", skip_serializing_if = "Option::is_none")]
     pub kern_bottom: Option<String>,
     /// Left kerning group
-    #[serde(rename = "kernLeft")]
+    #[serde(rename = "kernLeft", skip_serializing_if = "Option::is_none")]
     pub kern_left: Option<String>,
     /// Right kerning group
-    #[serde(rename = "kernRight")]
+    #[serde(rename = "kernRight", skip_serializing_if = "Option::is_none")]
     pub kern_right: Option<String>,
     /// Top kerning group
-    #[serde(rename = "kernTop")]
+    #[serde(rename = "kernTop", skip_serializing_if = "Option::is_none")]
     pub kern_top: Option<String>,
     /// Format 2014-01-29 14:14:38 +0000
-    #[serde(rename = "lastChange")]
+    #[serde(rename = "lastChange", skip_serializing_if = "Option::is_none")]
     pub last_change: Option<String>,
     pub layers: Vec<Layer>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -290,7 +326,7 @@ pub struct Glyph {
         rename = "partsSettings"
     )]
     pub smart_component_settings: Vec<SmartComponentSetting>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub production: Option<String>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub script: Option<String>,
@@ -299,6 +335,7 @@ pub struct Glyph {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tags: Vec<String>,
     #[serde_as(as = "Option<OneOrMany<_>>")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unicode: Option<Vec<u32>>,
 }
 
@@ -336,7 +373,7 @@ pub struct Layer {
         skip_serializing_if = "Option::is_none"
     )]
     pub background_image: Option<BackgroundImage>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<Color>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub guides: Vec<Guide>,
@@ -379,18 +416,22 @@ pub struct Layer {
     /// Shapes
     ///
     /// Can be paths or components
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub shapes: Vec<Shape>,
     /// User data
-    #[serde(rename = "userData", default)]
+    #[serde(rename = "userData", default, skip_serializing_if = "is_default")]
     pub user_data: Dictionary,
     /// Offset from default (ascender)
-    #[serde(rename = "vertOrigin", default)]
+    #[serde(
+        rename = "vertOrigin",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub vert_origin: Option<f32>,
     /// Vertical width
     ///
     /// Only stored if other than the default (ascender+descender)
-    #[serde(rename = "vertWidth", default)]
+    #[serde(rename = "vertWidth", default, skip_serializing_if = "Option::is_none")]
     pub vert_width: Option<f32>,
     /// The visibility setting in the layer panel (the eye symbol).
     #[serde(default = "bool_true", skip_serializing_if = "is_true")]

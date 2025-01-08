@@ -45,9 +45,9 @@ impl Font {
             _ => None,
         }
     }
-    pub fn as_glyphs2(&self) -> Option<&Glyphs3> {
+    pub fn as_glyphs2(&self) -> Option<&Glyphs2> {
         match self {
-            Font::Glyphs3(glyphs3) => Some(glyphs3),
+            Font::Glyphs2(glyphs2) => Some(glyphs2),
             _ => None,
         }
     }
