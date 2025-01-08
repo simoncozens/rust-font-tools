@@ -57,6 +57,15 @@ impl Font {
             Font::Glyphs3(_) => self.clone(),
         }
     }
+
+    pub fn save(&self, path: &path::Path) -> Result<(), Box<dyn std::error::Error>> {
+        let content = match self {
+            Font::Glyphs2(glyphs2) => openstep_plist::ser::to_string(glyphs2)?,
+            Font::Glyphs3(glyphs3) => openstep_plist::ser::to_string(glyphs3)?,
+        };
+        fs::write(path, content)?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -71,8 +80,13 @@ mod tests {
             let path = entry.unwrap();
             println!("Loading {:?}", path);
             let font = Font::load(&path).unwrap();
-            println!("Upgrading {:?}", path);
-            let _ = font.upgrade();
+            if font.as_glyphs2().is_some() {
+                let newfont = font.upgrade();
+                let outdir = path::Path::new("resources/upgraded/");
+                newfont
+                    .save(&outdir.join(path.file_name().unwrap()))
+                    .unwrap();
+            }
         }
     }
 
