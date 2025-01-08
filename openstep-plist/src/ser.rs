@@ -300,9 +300,9 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
     where
         T: ?Sized + Serialize,
     {
-        if !self.output.ends_with('{') {
-            self.output += ";";
-        }
+        // if !self.output.ends_with('{') {
+        //     self.output += ";";
+        // }
         self.output += "\n";
         key.serialize(&mut **self)
     }
@@ -312,11 +312,13 @@ impl<'a> ser::SerializeMap for &'a mut Serializer {
         T: ?Sized + Serialize,
     {
         self.output += " = ";
-        value.serialize(&mut **self)
+        value.serialize(&mut **self)?;
+        self.output += ";";
+        Ok(())
     }
 
     fn end(self) -> Result<()> {
-        self.output += ";\n}";
+        self.output += "\n}";
         Ok(())
     }
 }
@@ -329,17 +331,16 @@ impl<'a> ser::SerializeStruct for &'a mut Serializer {
     where
         T: ?Sized + Serialize,
     {
-        if !self.output.ends_with('{') {
-            self.output += "; ";
-        }
         self.output += "\n";
         key.serialize(&mut **self)?;
         self.output += " = ";
-        value.serialize(&mut **self)
+        value.serialize(&mut **self)?;
+        self.output += "; ";
+        Ok(())
     }
 
     fn end(self) -> Result<()> {
-        self.output += "\n}";
+        self.output = self.output.trim_end().to_string() + "\n}";
         Ok(())
     }
 }
@@ -430,9 +431,48 @@ mod tests {
 
     #[test]
     fn test_serialize_map() {
-        let plist_str = r#"{array = (1, 2); foo = bar; hello = world;};"#;
+        let plist_str = r#"{array = (1, 2);foo = bar;hello = world;};"#;
         let plist: Plist = Plist::parse(plist_str).unwrap();
-        let s = to_string(&plist).unwrap();
+        let s = to_string(&plist).unwrap().replace("\n", "");
         assert_eq!(s, plist_str);
+    }
+
+    #[test]
+    fn test_serialize_struct() {
+        let plist_str = r#"
+{
+axes = (
+{
+hidden = 1;
+name = Weight;
+tag = wght;
+}
+);
+};"#
+        .replace("\n", "");
+        let plist: Plist = Plist::parse(&plist_str).unwrap();
+        let s = to_string(&plist).unwrap().replace("\n", "");
+        assert_eq!(s, plist_str);
+    }
+
+    #[test]
+    fn test_vec_axis() {
+        #[derive(Serialize, Debug, Default, Clone)]
+        struct Axis {
+            /// If the axis should be visible in the UI.
+            #[serde(default)]
+            pub hidden: bool,
+            /// The name of the axis (e.g. `Weight``)
+            pub name: String,
+            /// The axis tag (e.g. `wght`)
+            pub tag: String,
+        }
+        let foo = vec![Axis {
+            hidden: true,
+            name: "Weight".to_string(),
+            tag: "wght".to_string(),
+        }];
+        let s = to_string(&foo).unwrap().replace("\n", "");
+        assert_eq!(s, r#"({hidden = 1; name = Weight; tag = wght;});"#);
     }
 }
