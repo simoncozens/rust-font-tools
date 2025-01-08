@@ -1,0 +1,32 @@
+{
+.appVersion = "3217";
+.formatVersion = 3;
+familyName = KernFloats;
+fontMaster = (
+{
+id = m01;
+name = Regular;
+}
+);
+glyphs = (
+{
+glyphname = space;
+layers = (
+{
+layerId = m01;
+width = 200;
+}
+);
+}
+);
+kerningLTR = {
+m01 = {
+space = {
+space = 4.2001;
+};
+};
+};
+unitsPerEm = 1000;
+versionMajor = 1;
+versionMinor = 1;
+}

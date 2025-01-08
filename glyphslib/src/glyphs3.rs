@@ -7,21 +7,16 @@ use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, OneOrMany};
 
-fn is_false(b: &bool) -> bool {
-    !b
-}
-fn version_two() -> i32 {
+use crate::common::{
+    bool_true, is_default, is_false, is_true, scale_unit, Color, CustomParameter, Feature,
+    FeatureClass, FeaturePrefix, GuideAlignment, Kerning, NodeType,
+};
+
+pub(crate) fn version_two() -> i32 {
     2
 }
-fn bool_true() -> bool {
-    true
-}
 
-fn scale_unit() -> (f32, f32) {
-    (1.0, 1.0)
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Glyphs3 {
     /// The build number of the app
     #[serde(rename = ".AppVersion", default)]
@@ -30,11 +25,7 @@ pub struct Glyphs3 {
     #[serde(rename = ".formatVersion", default = "version_two")]
     pub format_version: i32,
     /// List of strings used in the edit window
-    #[serde(
-        rename = "DisplayStrings",
-        skip_serializing_if = "Vec::is_empty",
-        default
-    )]
+    #[serde(rename = "DisplayStrings", skip_serializing_if = "is_default", default)]
     pub display_strings: Vec<String>,
     /// The interpolation axes
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -72,22 +63,14 @@ pub struct Glyphs3 {
     #[serde(rename = "keepAlternatesTogether", default)]
     pub keep_alternates_together: bool,
     /// Three-level dict containing a float as value.
-    #[serde(
-        rename = "kerningLTR",
-        default,
-        skip_serializing_if = "Kerning::is_empty"
-    )]
+    #[serde(rename = "kerningLTR", default, skip_serializing_if = "is_default")]
     pub kerning: Kerning,
-    #[serde(
-        rename = "kerningRTL",
-        default,
-        skip_serializing_if = "Kerning::is_empty"
-    )]
+    #[serde(rename = "kerningRTL", default, skip_serializing_if = "is_default")]
     pub kerning_rtl: Kerning,
     #[serde(
         rename = "kerningVertical",
         default,
-        skip_serializing_if = "Kerning::is_empty"
+        skip_serializing_if = "is_default"
     )]
     pub kerning_vertical: Kerning,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -104,31 +87,29 @@ pub struct Glyphs3 {
     pub stems: Vec<Stem>,
     #[serde(rename = "unitsPerEm")]
     pub units_per_em: i32,
-    #[serde(rename = "userData")]
+    #[serde(rename = "userData", default, skip_serializing_if = "is_default")]
     pub user_data: Dictionary,
-    #[serde(rename = "versionMajor")]
+    #[serde(default, rename = "versionMajor")]
     pub version_major: i32,
-    #[serde(rename = "versionMinor")]
+    #[serde(default, rename = "versionMinor")]
     pub version_minor: i32,
 }
 
-type Kerning = BTreeMap<String, BTreeMap<String, BTreeMap<String, f32>>>;
-
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Number {
     name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Metric {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filter: Option<String>,
     #[serde(default)]
     pub name: String,
-    metric_type: Option<MetricType>,
+    pub metric_type: Option<MetricType>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum MetricType {
     #[serde(rename = "ascender")]
     Ascender,
@@ -152,7 +133,7 @@ pub enum MetricType {
     ItalicAngle,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Settings {
     #[serde(rename = "disablesAutomaticAlignment", default)]
     pub disables_automatic_alignment: bool,
@@ -176,7 +157,7 @@ pub struct Settings {
     pub keyboard_increment_huge: Option<f32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Axis {
     /// If the axis should be visible in the UI.
     #[serde(default)]
@@ -187,76 +168,7 @@ pub struct Axis {
     pub tag: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct FeatureClass {
-    #[serde(default)]
-    pub automatic: bool,
-    /// The name of the class
-    name: String,
-    /// A string containing space separated glyph names.
-    code: String,
-    /// The class will not be exported
-    #[serde(default)]
-    pub disabled: bool,
-    /// Notes
-    #[serde(default)]
-    pub notes: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct FeaturePrefix {
-    #[serde(default)]
-    pub automatic: bool,
-    /// The name of the prefix
-    name: String,
-    /// A string containing feature code.
-    code: String,
-    /// The prefix will not be exported
-    #[serde(default)]
-    pub disabled: bool,
-    /// Notes
-    #[serde(default)]
-    pub notes: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct Feature {
-    #[serde(default)]
-    pub automatic: bool,
-    /// The feature tag
-    tag: String,
-    /// A string containing feature code.
-    code: String,
-    /// The prefix will not be exported
-    #[serde(default)]
-    pub disabled: bool,
-    /// List of stylistic set labels
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    labels: Vec<StylisticSetLabel>,
-    /// Notes
-    #[serde(default)]
-    pub notes: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct CustomParameter {
-    /// Property name of the custom parameter
-    name: String,
-    /// Value of the custom parameters
-    value: Plist,
-    #[serde(default)]
-    pub disabled: bool,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub struct StylisticSetLabel {
-    /// 'dflt' or three letter ISO language tag ("DEU")
-    language: String,
-    /// The name
-    value: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Master {
     /// A list of float values storing the axis coordinate for each axis
     ///
@@ -283,6 +195,7 @@ pub struct Master {
     )]
     pub metric_values: Vec<MetricValue>,
     /// The name of the master
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub name: String,
     /// A list of floats, number settings are stored in the font object.
     #[serde(
@@ -297,17 +210,13 @@ pub struct Master {
     /// The stem values
     #[serde(rename = "stemValues", default, skip_serializing_if = "Vec::is_empty")]
     pub stem_values: Vec<f32>,
-    #[serde(
-        rename = "userData",
-        default,
-        skip_serializing_if = "Dictionary::is_empty"
-    )]
+    #[serde(rename = "userData", default, skip_serializing_if = "is_default")]
     pub user_data: Dictionary,
-    #[serde(default = "bool_true")]
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
     pub visible: bool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct MetricValue {
     #[serde(default)]
     pub over: f32,
@@ -316,7 +225,7 @@ pub struct MetricValue {
 }
 
 #[serde_as]
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Glyph {
     /// The 'case' of the glyph when manually set.
     ///
@@ -334,7 +243,7 @@ pub struct Glyph {
     #[serde(default)]
     pub direction: Option<String>,
     /// Export
-    #[serde(default = "bool_true")]
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
     pub export: bool,
     /// The glyph name
     #[serde(rename = "glyphname")]
@@ -355,20 +264,54 @@ pub struct Glyph {
     #[serde(rename = "lastChange")]
     pub last_change: Option<String>,
     pub layers: Vec<Layer>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub locked: bool,
+    #[serde(default, skip_serializing_if = "is_default", rename = "metricBottom")]
+    pub metric_bottom: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default", rename = "metricLeft")]
+    pub metric_left: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default", rename = "metricRight")]
+    pub metric_right: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default", rename = "metricTop")]
+    pub metric_top: Option<String>,
+    #[serde(
+        default,
+        skip_serializing_if = "is_default",
+        rename = "metricVertWidth"
+    )]
+    pub metric_vert_width: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default", rename = "metricWidth")]
+    pub metric_width: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub note: String,
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        rename = "partsSettings"
+    )]
+    pub smart_component_settings: Vec<SmartComponentSetting>,
     #[serde(default)]
     pub production: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub script: Option<String>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub subcategory: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
     #[serde_as(as = "Option<OneOrMany<_>>")]
     pub unicode: Option<Vec<u32>>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(untagged)]
-pub enum Color {
-    ColorInt(u8),
-    ColorTuple(Vec<u8>),
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SmartComponentSetting {
+    #[serde(default, rename = "bottomValue")]
+    bottom_value: i32,
+    #[serde(default, rename = "topValue")]
+    top_value: i32,
+    name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Layer {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub anchors: Vec<Anchor>,
@@ -377,11 +320,21 @@ pub struct Layer {
     /// ID of the master the layer is linked to
     ///
     /// Not present if it equals layerID, i.e. if the layer is in use as master.
-    #[serde(rename = "associatedMasterId", default)]
+    #[serde(
+        rename = "associatedMasterId",
+        default,
+        skip_serializing_if = "is_default"
+    )]
     pub associated_master_id: Option<String>,
     #[serde(default)]
     pub attr: Dictionary,
-    #[serde(rename = "backgroundImage", default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background: Option<Box<Layer>>,
+    #[serde(
+        rename = "backgroundImage",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub background_image: Option<BackgroundImage>,
     #[serde(default)]
     pub color: Option<Color>,
@@ -390,33 +343,38 @@ pub struct Layer {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub hints: Vec<Dictionary>, // This thing's an absolute minefield
     /// The unique id of the layer
-    #[serde(rename = "layerId")]
+    #[serde(rename = "layerId", default, skip_serializing_if = "String::is_empty")]
+    // Not required for background layers
     pub layer_id: String,
     /// Bottom metric key
-    #[serde(rename = "metricBottom", default)]
+    #[serde(rename = "metricBottom", default, skip_serializing_if = "is_default")]
     pub metric_bottom: Option<String>,
     /// Left metric key
-    #[serde(rename = "metricLeft", default)]
+    #[serde(rename = "metricLeft", default, skip_serializing_if = "is_default")]
     pub metric_left: Option<String>,
     /// Right metric key
-    #[serde(rename = "metricRight", default)]
+    #[serde(rename = "metricRight", default, skip_serializing_if = "is_default")]
     pub metric_right: Option<String>,
     /// Top metric key
-    #[serde(rename = "metricTop", default)]
+    #[serde(rename = "metricTop", default, skip_serializing_if = "is_default")]
     pub metric_top: Option<String>,
     /// Vertical width metric key
-    #[serde(rename = "metricVertWidth", default)]
+    #[serde(
+        rename = "metricVertWidth",
+        default,
+        skip_serializing_if = "is_default"
+    )]
     pub metric_vert_width: Option<String>,
     /// Horizontal width metric key
-    #[serde(rename = "metricWidth", default)]
+    #[serde(rename = "metricWidth", default, skip_serializing_if = "is_default")]
     pub metric_width: Option<String>,
     /// The name of the layer.
     ///
     /// Only stored for non-master layers (this is changed in 2.3, before the master names where stored)
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub name: Option<String>,
     /// Smart component part selection
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub part_selection: BTreeMap<String, u8>,
     /// Shapes
     ///
@@ -435,21 +393,21 @@ pub struct Layer {
     #[serde(rename = "vertWidth", default)]
     pub vert_width: Option<f32>,
     /// The visibility setting in the layer panel (the eye symbol).
-    #[serde(default = "bool_true")]
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
     pub visible: bool,
     /// Layer width
     #[serde(default)]
     pub width: f32,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Anchor {
     pub name: String,
     #[serde(default)]
     pub pos: (f32, f32),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BackgroundImage {
     /// The angle
     #[serde(default)]
@@ -466,10 +424,10 @@ pub struct BackgroundImage {
     #[serde(default)]
     pub pos: (f32, f32),
 }
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Guide {
     #[serde(default)]
-    alignment: GuideAlignment,
+    pub alignment: GuideAlignment,
     #[serde(default)]
     pub angle: f32,
     #[serde(default)]
@@ -479,27 +437,16 @@ pub struct Guide {
     pub scale: (f32, f32),
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
-pub enum GuideAlignment {
-    #[default]
-    #[serde(rename = "left")]
-    Left,
-    #[serde(rename = "center")]
-    Center,
-    #[serde(rename = "right")]
-    Right,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Shape {
     Component(Component),
     Path(Path),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Path {
-    #[serde(default, skip_serializing_if = "Dictionary::is_empty")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub attr: Dictionary,
     // Because we are using an untagged enum, types need to match precisely
     #[serde(default, deserialize_with = "int_to_bool")]
@@ -515,7 +462,7 @@ where
     Ok(s == 1)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Node {
     pub x: f32,
     pub y: f32,
@@ -579,25 +526,7 @@ impl<'de> Deserialize<'de> for Node {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub enum NodeType {
-    #[serde(rename = "l")]
-    Line,
-    #[serde(rename = "c")]
-    Curve,
-    #[serde(rename = "q")]
-    QCurve,
-    #[serde(rename = "o")]
-    OffCurve,
-    #[serde(rename = "ls")]
-    LineSmooth,
-    #[serde(rename = "cs")]
-    CurveSmooth,
-    #[serde(rename = "qs")]
-    QCurveSmooth,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Component {
     #[serde(default)]
     /// Controls the automatic alignment of this component.
@@ -634,12 +563,12 @@ pub struct Component {
     pub user_data: Dictionary,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Instance {
     /// A list of float values storing the axis coordinate for each axis
     ///
     /// Axis settings are stored in the font object.
-    #[serde(default, rename = "axesValues", skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, rename = "axesValues", skip_serializing_if = "is_default")]
     pub axes_values: Vec<f32>,
     #[serde(
         default,
@@ -647,7 +576,7 @@ pub struct Instance {
         skip_serializing_if = "Vec::is_empty"
     )]
     pub custom_parameters: Vec<CustomParameter>,
-    #[serde(default = "bool_true")]
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
     pub exports: bool,
     /// Keys are master IDs, values are the factors for that master.
     #[serde(
@@ -657,10 +586,10 @@ pub struct Instance {
     )]
     pub instance_interpolations: BTreeMap<String, f32>,
     /// For style linking. Always set to 1, otherwise omit the key.
-    #[serde(default, rename = "isBold")]
+    #[serde(default, rename = "isBold", skip_serializing_if = "is_false")]
     pub is_bold: bool,
     /// For style linking. Always set to 1, otherwise omit the key.
-    #[serde(default, rename = "isItalic")]
+    #[serde(default, rename = "isItalic", skip_serializing_if = "is_false")]
     pub is_italic: bool,
     #[serde(default, rename = "isRegular")]
     pub link_style: Option<String>,
@@ -677,11 +606,7 @@ pub struct Instance {
     pub name: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub properties: Vec<Property>,
-    #[serde(
-        default,
-        rename = "userData",
-        skip_serializing_if = "Dictionary::is_empty"
-    )]
+    #[serde(default, rename = "userData", skip_serializing_if = "is_default")]
     pub user_data: Dictionary,
     #[serde(default, rename = "weightClass")]
     pub weight_class: Option<Plist>, // String or integer
@@ -689,7 +614,7 @@ pub struct Instance {
     pub width_class: Option<Plist>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum Property {
     SingularProperty {
@@ -702,7 +627,22 @@ pub enum Property {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+impl Property {
+    pub(crate) fn singular(key: SingularPropertyKey, value: String) -> Self {
+        Property::SingularProperty { key, value }
+    }
+    pub(crate) fn localized_with_default(key: LocalizedPropertyKey, value: String) -> Self {
+        Property::LocalizedProperty {
+            key,
+            values: vec![LocalizedValue {
+                language: "dflt".to_string(),
+                value,
+            }],
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum LocalizedPropertyKey {
     #[serde(rename = "familyNames")]
     FamilyNames,
@@ -720,9 +660,11 @@ pub enum LocalizedPropertyKey {
     Descriptions,
     #[serde(rename = "sampleTexts")]
     SampleTexts,
+    #[serde(rename = "compatibleFullNames")]
+    CompatibleFullNames,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SingularPropertyKey {
     #[serde(rename = "designerURL")]
     DesignerUrl,
@@ -740,15 +682,17 @@ pub enum SingularPropertyKey {
     VersionString,
     #[serde(rename = "vendorID")]
     VendorID,
+    #[serde(rename = "uniqueID")]
+    UniqueID,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct LocalizedValue {
     language: String,
     value: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Stem {
     name: String,
     #[serde(default)]
