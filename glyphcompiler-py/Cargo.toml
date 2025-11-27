@@ -10,7 +10,7 @@ exclude = ["dist/*"]
 
 [dependencies]
 fonttools = { path = "../fonttools-rs", features = ["rayon"], version = "0" }
-babelfont = { path = "../babelfont-rs",  version = "0" }
+babelfont = { git = "https://github.com/simoncozens/babelfont-rs" }
 kurbo = "0.8.2"
 rayon = "1.0.1"
 otmath = { path = "../otmath" }

@@ -3,7 +3,7 @@
 members = [ 
 "designspace",
 "dschecker",
-"fonticulus",
+#"fonticulus",
 "fonttools-cli",
 "fonttools-rs", "glyphslib",
 "openstep-plist",

@@ -9,7 +9,7 @@ repository = "https://github.com/simoncozens/fonttools-rs"
 
 [dependencies]
 fonttools = { path = "../fonttools-rs", features = ["rayon"], version = "0" }
-babelfont = { path = "../babelfont-rs",  version = "0" }
+babelfont = { git = "https://github.com/simoncozens/babelfont-rs" }
 otmath = { path = "../otmath" }
 designspace = { path = "../designspace", features = ["norad"], version="0" }
 otspec = { path = "../otspec", version="0" }
