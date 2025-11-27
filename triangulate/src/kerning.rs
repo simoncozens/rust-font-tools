@@ -40,6 +40,7 @@ pub fn interpolate_kerning(
     model: &VariationModel<String>,
     location: &Location<String>,
     will_merge: bool,
+    precision: u8,
 ) {
     // Gather all kern pairs
     let mut pairs: BTreeSet<(Name, Name)> = BTreeSet::new();
@@ -68,6 +69,11 @@ pub fn interpolate_kerning(
             .interpolate_from_deltas_and_scalars(&deltas, &support_scalars)
             .expect("Couldn't interpolate");
         let new_kern = default_kerning + interpolated_kern as f64;
+        let new_kern = {
+            let factor = 10f64.powi(precision as i32);
+            (new_kern * factor).round() / factor
+        };
+
         if new_kern != 0.0 {
             set_kerning(output, l, r, new_kern)
         } else if !will_merge || default_kerning != 0.0 {

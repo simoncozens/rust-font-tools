@@ -7,6 +7,7 @@ pub(crate) fn interpolate_glyph(
     others: &[Option<&Glyph>],
     vm: &VariationModel<String>,
     target_location: &Location<String>,
+    precision: u8,
 ) {
     interpolate_field(
         g,
@@ -15,6 +16,7 @@ pub(crate) fn interpolate_glyph(
         target_location,
         get_contour_numbers,
         set_contour_numbers,
+        precision,
     );
     interpolate_field(
         g,
@@ -23,6 +25,7 @@ pub(crate) fn interpolate_glyph(
         target_location,
         get_anchor_numbers,
         set_anchor_numbers,
+        precision,
     );
     interpolate_field(
         g,
@@ -31,8 +34,17 @@ pub(crate) fn interpolate_glyph(
         target_location,
         get_component_numbers,
         set_component_numbers,
+        precision,
     );
-    interpolate_field(g, others, vm, target_location, get_width, set_width);
+    interpolate_field(
+        g,
+        others,
+        vm,
+        target_location,
+        get_width,
+        set_width,
+        precision,
+    );
 }
 
 fn get_contour_numbers(g: &Glyph) -> ndarray::Array1<f64> {

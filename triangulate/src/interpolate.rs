@@ -40,6 +40,7 @@ pub(crate) fn interpolate_field<T: core::fmt::Debug>(
     location: &Location<String>,
     gatherer: fn(&T) -> ndarray::Array1<f64>,
     setter: fn(&mut T, &[f64]),
+    precision: u8,
 ) {
     let default_numbers: ndarray::Array1<f64> = gatherer(object);
     let deltas: Vec<Option<ndarray::Array1<f64>>> = masters
@@ -58,6 +59,10 @@ pub(crate) fn interpolate_field<T: core::fmt::Debug>(
         .collect();
     let deltas: ndarray::Array1<f64> = interpolate(&deltas, model, location).map(|&x| f64::from(x));
     let new_values = default_numbers + deltas;
+    let new_values = new_values.mapv(|x| {
+        let factor = 10f64.powi(precision as i32);
+        (x * factor).round() / factor
+    });
     // default_numbers + values
     setter(object, new_values.as_slice().expect("Couldn't get slice"))
 }
@@ -89,7 +94,6 @@ mod tests {
             vec!["wght".to_string(), "wdth".to_string()],
         );
         let location = btreemap!("wdth".to_string() => 0.0, "wght".to_string() => 0.0);
-        let default_numbers = ndarray::array![83.0];
         let deltas = vec![
             Some(ndarray::array![-59.0]),
             Some(ndarray::array![0.0]),

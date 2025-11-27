@@ -38,6 +38,11 @@ struct Args {
     #[clap(short, long, conflicts_with = "output")]
     instance: Option<String>,
 
+    /// Precision for interpolation
+    /// Number of decimal places to round to
+    #[clap(long, default_value = "2")]
+    precision: u8,
+
     /// Output directory for instance UFOs
     #[clap(long, default_value = "instance_ufo", conflicts_with = "output")]
     output_directory: String,
@@ -252,7 +257,7 @@ fn interpolate_ufo(
             .iter()
             .map(|u| u.default_layer().get_glyph(glyph_name))
             .collect();
-        interpolate_glyph(g, &others, &vm, target_location);
+        interpolate_glyph(g, &others, &vm, target_location, args.precision);
     }
 
     interpolate_kerning(
@@ -261,6 +266,7 @@ fn interpolate_ufo(
         &vm,
         target_location,
         args.will_merge,
+        args.precision,
     );
     let fontinfos: Vec<Option<&norad::FontInfo>> =
         source_ufos.iter().map(|x| Some(&x.font_info)).collect();
@@ -271,6 +277,7 @@ fn interpolate_ufo(
         &vm,
         target_location,
         instance,
+        args.precision,
     );
 }
 
